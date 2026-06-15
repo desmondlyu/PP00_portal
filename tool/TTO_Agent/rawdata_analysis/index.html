@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOR Flash Rawdata/TTO 分析平台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="min-h-screen">
+  <header class="gradient-header text-white py-10 px-6 text-center">
+    <div class="hero-title-wrap inline-flex items-center justify-center gap-3 md:gap-4">
+      <img src="assets/wafer_15092826.png" alt="Wafer icon" width="56" height="56" style="width:56px;height:56px;max-width:56px;max-height:56px;" class="hero-title-icon object-contain shrink-0">
+      <div class="text-left">
+        <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-3">TTO Analysis</h1>
+        <p class="text-blue-100 text-lg">NOR Flash CP Test 時間優化分析工具</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[96vw] mx-auto px-4 py-8 space-y-0">
+    <section id="entry-shell" class="card p-0 overflow-hidden">
+      <section class="entry-tabs-wrap">
+        <div class="entry-tabs-head">
+          <div class="entry-tabs" role="tablist" aria-label="入口功能切換">
+            <button id="entry-tab-analysis" type="button" class="entry-tab-btn is-active" data-entry-tab="analysis" aria-selected="true">匯入資料</button>
+            <button id="entry-tab-guide" type="button" class="entry-tab-btn" data-entry-tab="guide" aria-selected="false">操作說明</button>
+          </div>
+          <button id="theme-toggle-btn" type="button" class="secondary-btn px-3 py-2 rounded-lg text-sm font-semibold mr-3 mb-2" aria-pressed="false">亮色系</button>
+        </div>
+      </section>
+
+    <div id="analysis-page" class="entry-page">
+    <section class="p-6">
+      <section id="import-workspace-panel" class="card p-0 overflow-hidden">
+        <div class="import-workspace-head">
+          <div>
+            <div class="kpi-toolbar-title">匯入與解析設定</div>
+            <p class="hint-text text-sm mt-1">資料夾分析與匯入xlsx分析已整合為同一入口；先選匯入方式，再按開始分析。</p>
+          </div>
+          <button id="import-workspace-toggle-btn" type="button" class="secondary-btn px-3 py-2 rounded-lg text-sm font-semibold" aria-expanded="true">收合全部</button>
+        </div>
+        <div id="import-workspace-body" class="import-workspace-body">
+          <div class="import-hero-grid">
+            <div class="import-hero-left">
+              <p class="step-label mb-4">步驟一：選擇匯入來源</p>
+              <div id="source-mode-group" class="source-mode-group mb-3" role="radiogroup" aria-label="資料來源模式">
+                <label class="source-mode-option">
+                  <input type="radio" name="source-mode" value="folder" checked>
+                  <span>上傳資料夾</span>
+                </label>
+                <label class="source-mode-option">
+                  <input type="radio" name="source-mode" value="txt">
+                  <span>TXT文字檔</span>
+                </label>
+                <label class="source-mode-option">
+                  <input type="radio" name="source-mode" value="xlsx">
+                  <span>匯入XLSX</span>
+                </label>
+              </div>
+              <input
+                id="folder-input"
+                type="file"
+                class="hidden"
+                webkitdirectory
+                directory
+                multiple
+              >
+              <input id="txt-input" type="file" class="hidden" accept=".txt,.TXT">
+              <input id="xlsx-input" type="file" class="hidden" accept=".xlsx,.xls" multiple>
+              <button id="pick-btn" class="primary-btn w-full md:w-auto px-6 py-3 rounded-xl font-bold">
+                📂 選擇上傳檔案
+              </button>
+              <p id="source-rule-text" class="text-sm mt-3 hint-text">
+                規則：先選「上傳資料夾 / TXT文字檔 / 匯入XLSX」其中一種模式再匯入。
+              </p>
+              <div class="rounded-xl p-4 folder-summary mt-4">
+                <p class="text-xs mb-1 folder-summary-label">目前來源</p>
+                <p id="folder-name" class="font-semibold break-all folder-summary-value">尚未選擇</p>
+              </div>
+              <p class="step-label mt-5 mb-3">步驟二(Option)：勾選分析方式</p>
+              <label class="source-mode-option analysis-option">
+                <input id="anomaly-detail-toggle" type="checkbox">
+                <span>啟用解析單顆異常時間（解析時間較長）</span>
+              </label>
+              <p class="step-label keyword-step-label mt-4 mb-3">步驟三(Option)：關鍵字分析</p>
+              <label class="source-mode-option keyword-analysis-option">
+                <input id="raw-keyword-analysis-toggle" type="checkbox">
+                <span>篩選關鍵字析RAWDATA資料（解析時間較長）</span>
+              </label>
+            </div>
+            <div class="import-hero-right">
+              <img src="assets/example.png" alt="匯入與分析流程範例說明圖" class="import-example-image js-zoomable" data-zoomable="true">
+            </div>
+          </div>
+          <div class="import-integrated mt-4">
+            <div class="scope-select-head">
+              <div class="kpi-toolbar-title">解析範圍與測試資訊</div>
+              <button id="scope-toggle-btn" type="button" class="secondary-btn px-3 py-2 rounded-lg text-sm font-semibold" aria-expanded="true">收合全部</button>
+            </div>
+            <div id="scope-select-body" class="scope-select-panel-body">
+              <div id="folder-meta" class="hidden"></div>
+              <section id="scope-select-panel" class="mt-4 hidden overflow-hidden">
+                <p class="hint-text text-sm">可勾選要分析的產品與站點（不需搬移資料夾）</p>
+                <div class="scope-select-toolbar mt-2">
+                  <p id="scope-select-summary" class="hint-text text-sm"></p>
+                  <div class="scope-select-actions">
+                  <button id="scope-select-all" type="button" class="secondary-btn px-3 py-2 rounded-lg text-sm font-semibold">全選</button>
+                  <button id="scope-select-none" type="button" class="secondary-btn px-3 py-2 rounded-lg text-sm font-semibold">全不選</button>
+                  </div>
+                </div>
+                <div id="scope-select-list" class="scope-select-list mt-3"></div>
+              </section>
+              <p id="message" class="mt-4 text-sm msg-info"></p>
+              <p id="manual-entry-hint" class="mt-1 text-sm hint-text hidden">若未找到符合產品目錄，請先在下方手動輸入 PRODUCT、LOTNO、WAFER ID、站點，再開始分析（PRODUCT 必須以 FAG/EAG/MAG/AAG/KAG/RAG 開頭）。</p>
+              <div id="progress-wrap" class="mt-3 hidden">
+                <div class="progress-track">
+                  <div id="progress-bar" class="progress-fill"></div>
+                </div>
+              </div>
+              <div class="mt-5 flex flex-wrap gap-3">
+                <button id="analyze-btn" class="primary-btn px-8 py-3 rounded-xl font-bold" disabled>
+                  ▶ 開始分析
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section id="export-action-section" class="mx-6 mb-3">
+      <button id="export-btn" class="secondary-btn px-8 py-3 rounded-xl font-bold" disabled>
+        📤 匯出 XLSX
+      </button>
+    </section>
+
+    <section id="station-tabs-section" class="card p-0 hidden overflow-hidden mx-6 mb-6">
+      <div id="station-tabs" class="station-tabs" role="tablist" aria-label="站點切換"></div>
+      <div class="kpi-toolbar">
+        <div class="kpi-toolbar-title">測試資訊</div>
+        <button id="kpi-toggle-btn" type="button" class="secondary-btn px-3 py-2 rounded-lg text-sm font-semibold" aria-expanded="true">收合全部</button>
+      </div>
+      <section id="kpi-section" class="kpi-panel hidden"></section>
+    </section>
+
+    <section id="floating-station-tabs-panel" class="floating-station-tabs-panel hidden" aria-label="浮動站點切換">
+      <div class="floating-station-tabs-head">
+        <div class="floating-station-tabs-title">站點快速切換</div>
+        <button id="floating-station-tabs-toggle-btn" type="button" class="floating-station-tabs-toggle-btn" aria-expanded="true" aria-label="向下收合浮動站點面板">▼</button>
+      </div>
+      <div id="floating-station-tabs" class="station-tabs station-tabs--floating" role="tablist" aria-label="浮動站點切換"></div>
+      <div class="chart-control-group floating-chart-controls">
+        <label class="chart-sort-label">
+          依產品排序：
+          <select id="chart-sort-product" class="chart-sort-select"></select>
+        </label>
+        <div class="chart-multi-filter">
+          <span class="chart-sort-label">產品篩選：</span>
+          <button id="chart-filter-product-btn" type="button" class="chart-sort-select chart-multi-trigger" aria-expanded="false">全部產品</button>
+          <div id="chart-filter-product-menu" class="chart-multi-menu hidden"></div>
+        </div>
+        <div class="chart-multi-filter">
+          <span class="chart-sort-label">Process：</span>
+          <button id="chart-filter-process-btn" type="button" class="chart-sort-select chart-multi-trigger" aria-expanded="false">全部 Process</button>
+          <div id="chart-filter-process-menu" class="chart-multi-menu hidden"></div>
+        </div>
+        <div class="chart-multi-filter">
+          <span class="chart-sort-label">Density：</span>
+          <button id="chart-filter-density-btn" type="button" class="chart-sort-select chart-multi-trigger" aria-expanded="false">全部 Density</button>
+          <div id="chart-filter-density-menu" class="chart-multi-menu hidden"></div>
+        </div>
+        <div class="chart-multi-filter">
+          <span class="chart-sort-label">Voltage：</span>
+          <button id="chart-filter-voltage-btn" type="button" class="chart-sort-select chart-multi-trigger" aria-expanded="false">全部 Voltage</button>
+          <div id="chart-filter-voltage-menu" class="chart-multi-menu hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="keyword-analysis-section" class="card p-6 hidden mx-6 mb-6">
+      <div class="keyword-analysis-head mb-4">
+        <h2 class="text-xl font-bold">關鍵字分析</h2>
+        <p class="hint-text text-sm mt-1">輸入 RAWDATA 關鍵字，系統會依座標對應 UTL_DUT 與 BIN，並列出命中原始行。</p>
+      </div>
+      <div class="keyword-analysis-controls">
+        <label class="keyword-analysis-field">
+          <span>輸入RAWDATA關鍵字</span>
+          <input id="raw-keyword-input" type="text" class="input-field" placeholder="例如：Erase verify fail">
+        </label>
+        <label class="keyword-analysis-field keyword-analysis-field--bin">
+          <span>BIN（選填）</span>
+          <input id="raw-bin-input" type="text" class="input-field" placeholder="例如：1 或 BIN1">
+        </label>
+        <button id="raw-keyword-analyze-btn" class="primary-btn px-6 py-3 rounded-xl font-bold">開始分析</button>
+      </div>
+      <p id="raw-keyword-result-summary" class="hint-text text-sm mt-3">尚未執行關鍵字分析。</p>
+      <div class="keyword-analysis-results mt-3">
+        <div id="raw-keyword-result-box" class="keyword-analysis-result-box">尚無資料</div>
+      </div>
+      <div class="mt-3">
+        <button id="raw-keyword-export-btn" type="button" class="secondary-btn px-6 py-3 rounded-xl font-bold" disabled>📤 匯出搜尋結果 XLSX</button>
+      </div>
+    </section>
+
+    <section id="chart-section" class="card p-6 hidden mx-6 mb-6">
+      <div class="chart-toolbar mb-4">
+        <div class="chart-toolbar-head">
+          <div>
+          <h2 class="text-xl font-bold">統計圖表</h2>
+          <div class="station-tabs chart-tabs mt-2" role="tablist" aria-label="統計圖表切換">
+            <button id="chart-tab-item" type="button" class="station-tab-btn" data-chart-tab="item" aria-selected="true">測試項圖表</button>
+            <button id="chart-tab-group" type="button" class="station-tab-btn" data-chart-tab="group" aria-selected="false">群組化圖表</button>
+          </div>
+          </div>
+          <button id="chart-toggle-btn" type="button" class="secondary-btn px-3 py-2 rounded-lg text-sm font-semibold" aria-expanded="true">收合全部</button>
+        </div>
+      </div>
+      <div id="chart-content-item" class="chart-content-panel grid lg:grid-cols-2 gap-6">
+        <div class="chart-box">
+          <canvas id="count-chart" aria-label="Test Item 執行次數圖"></canvas>
+        </div>
+        <div class="chart-box">
+          <canvas id="mean-chart" aria-label="Test Item 平均秒數圖"></canvas>
+        </div>
+        <div class="chart-box">
+          <canvas id="range-chart" aria-label="Test Item 級距圖"></canvas>
+        </div>
+        <div class="chart-box">
+          <canvas id="tt-ratio-chart" aria-label="TT Ratio/站點 (%)"></canvas>
+        </div>
+        <div class="chart-box">
+          <canvas id="tt-reduction-chart" aria-label="整體測試時間降低百分比（新vs舊）"></canvas>
+        </div>
+        <div class="chart-box">
+          <canvas id="tt-ratio-by-group-chart" aria-label="TT Ratio/站點 (%) by Group"></canvas>
+        </div>
+      </div>
+      <div id="chart-content-group" class="chart-content-panel grid lg:grid-cols-2 gap-6 hidden">
+        <div class="chart-box">
+          <canvas id="group-count-chart" aria-label="Group 執行次數圖"></canvas>
+        </div>
+        <div class="chart-box">
+          <canvas id="group-mean-chart" aria-label="Group 平均秒數圖"></canvas>
+        </div>
+        <div class="chart-box">
+          <canvas id="group-range-chart" aria-label="Group 級距圖"></canvas>
+        </div>
+        <div class="chart-box">
+          <canvas id="group-tt-ratio-chart" aria-label="Group TT Ratio/站點 (%)"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section id="table-section" class="card p-0 overflow-hidden hidden mx-6 mb-6">
+      <div class="table-header p-6 border-b border-slate-700">
+        <div>
+          <h2 class="text-xl font-bold">統計報表</h2>
+        </div>
+        <div class="table-actions">
+          <button id="scenario-reset-btn" type="button" class="secondary-btn px-3 py-2 rounded-lg text-sm font-semibold">重置模擬</button>
+          <button id="table-toggle-btn" type="button" class="secondary-btn px-3 py-2 rounded-lg text-sm font-semibold" aria-expanded="false">展開全部</button>
+        </div>
+      </div>
+      <div id="table-content-item" class="table-content-panel hidden">
+        <div class="px-6 pb-2">
+          <div class="mt-3">
+            <p class="hint-text text-xs mb-2">By Product 切換（影響 Test Item 統計表）</p>
+            <div id="table-product-tabs" class="station-tabs" role="tablist" aria-label="Test Item 產品切換"></div>
+          </div>
+        </div>
+        <div class="table-scroll-wrap">
+          <table class="min-w-full stat-table">
+            <thead id="stats-thead">
+              <tr>
+                <th></th>
+                <th class="col-group">Group</th>
+                <th class="col-testitem"><button type="button" class="sort-btn" data-sort-key="testItem">Test Item</button></th>
+                <th><button type="button" class="sort-btn" data-sort-key="count">Count</button></th>
+                <th><button type="button" class="sort-btn" data-sort-key="mean">Mean (s)</button></th>
+                <th><button type="button" class="sort-btn" data-sort-key="median">Median (s)</button></th>
+                <th><button type="button" class="sort-btn" data-sort-key="range">Range (s)</button></th>
+                <th><button type="button" class="sort-btn" data-sort-key="ttRatio">TT Ratio/站點 (%)</button></th>
+                <th>模擬 Mean (s)</th>
+                <th>模擬 Range (s)</th>
+                <th>模擬 TT Ratio/站點 (%)</th>
+                <th><button type="button" class="sort-btn" data-sort-key="min">Min (s)</button></th>
+                <th>Min Source (SITE/TD)</th>
+                <th><button type="button" class="sort-btn" data-sort-key="max">Max (s)</button></th>
+                <th>Max Source (SITE/TD)</th>
+              </tr>
+            </thead>
+            <tbody id="stats-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="site-td-section" class="card p-6 hidden mx-6 mb-6">
+      <div class="table-header !p-0 !border-0 mb-4">
+        <h2 class="text-xl font-bold">Test Time by Site / Touch Down 分析</h2>
+        <button id="site-td-toggle-btn" type="button" class="secondary-btn px-3 py-2 rounded-lg text-sm font-semibold" aria-expanded="false">展開全部</button>
+      </div>
+      <div id="site-td-content-item" class="hidden">
+        <div class="mb-3">
+          <p class="hint-text text-xs mb-2">By Product 切換（影響 Test Time by Site / Touch Down）</p>
+          <div id="site-product-tabs" class="station-tabs" role="tablist" aria-label="Site TD 產品切換"></div>
+        </div>
+        <div id="site-td-heatmap" class="heatmap-wrap heatmap-wrap--half"></div>
+      </div>
+    </section>
+    </div>
+
+    <section id="guide-page" class="entry-page hidden p-6">
+      <h2 class="text-2xl font-bold mb-4">操作說明</h2>
+      <div id="guide-content" class="guide-content">
+        載入操作說明中...
+      </div>
+    </section>
+    </section>
+  </main>
+  <footer class="px-6 py-6 text-center text-sm text-slate-400">
+    <p>RawData Analysis Tool by PP32 YPLu (Desmond)</p>
+    <p>Contact: yplu@winbond.com ｜ Copyright © 2026 PP32 YPLu (Desmond) ｜ MIT License</p>
+  </footer>
+
+  <div id="image-lightbox" class="image-lightbox hidden" aria-hidden="true">
+    <button id="image-lightbox-close" type="button" class="image-lightbox-close" aria-label="關閉圖片放大">✕</button>
+    <img id="image-lightbox-img" src="" alt="放大圖片" class="image-lightbox-img">
+  </div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="js/siteTdHeatmapReact.js"></script>
+  <script src="js/kpiCompareReact.js"></script>
+  <script src="js/groupingRules.js"></script>
+  <script src="js/app.js?v=20260604a"></script>
+</body>
+</html>

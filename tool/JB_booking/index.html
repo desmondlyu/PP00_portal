@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PP00 竹北借機系統</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./static/css/style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- 手機版頂部導覽列 -->
+        <header class="mobile-header">
+            <button id="menuToggleBtn" class="btn-menu-toggle" aria-label="開啟選單">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M3 12h18M3 6h18M3 18h18"/>
+                </svg>
+            </button>
+            <span class="mobile-brand-title">PP00 Tester</span>
+        </header>
+        
+        <!-- 左側控制面板 Sidebar -->
+        <aside class="sidebar">
+            <!-- 手機版側邊欄關閉按鈕 -->
+            <div class="sidebar-mobile-close">
+                <button id="menuCloseBtn" class="btn-menu-close">&times;</button>
+            </div>
+            <div class="sidebar-brand">
+                <h1 class="app-title">PP00 Tester</h1>
+                <span class="version">PP32 YPLU</span>
+            </div>
+            
+            <!-- 檢視模式 -->
+            <div class="control-section">
+                <h2 class="section-title">檢視模式</h2>
+                <div class="button-group-vertical">
+                    <button id="floorViewBtn" class="btn btn-secondary btn-block">平面圖模式</button>
+                    <button id="cardViewBtn" class="btn btn-secondary btn-block">卡片模式</button>
+                </div>
+            </div>
+
+            <!-- 月份導航與精緻小行事曆 -->
+            <div class="control-section">
+                <div class="calendar-nav">
+                    <h2 class="section-title" id="currentMonth">Loading...</h2>
+                    <div class="calendar-nav-btns">
+                        <button class="btn btn-icon" onclick="previousMonth()">&lsaquo;</button>
+                        <button class="btn btn-today" onclick="goToToday()">Today</button>
+                        <button class="btn btn-icon" onclick="nextMonth()">&rsaquo;</button>
+                    </div>
+                </div>
+                <div class="calendar-container">
+                    <div class="calendar-header">
+                        <div class="weekday">日</div>
+                        <div class="weekday">一</div>
+                        <div class="weekday">二</div>
+                        <div class="weekday">三</div>
+                        <div class="weekday">四</div>
+                        <div class="weekday">五</div>
+                        <div class="weekday">六</div>
+                    </div>
+                    <div class="calendar-grid" id="calendarGrid"></div>
+                </div>
+            </div>
+
+            <!-- 報表管理 -->
+            <div class="control-section">
+                <h2 class="section-title">報表管理</h2>
+                <div class="button-group-vertical">
+                    <button class="btn btn-secondary btn-block" onclick="refreshData()">重新整理</button>
+                    <button class="btn btn-accent btn-block" onclick="exportReport()">匯出報告 (CSV)</button>
+                    <button class="btn btn-accent btn-block" onclick="showMonthlyReport()">當月統計報告</button>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- 右側主內容區 -->
+        <main class="main-content">
+            <div class="content-header">
+                <h2 class="current-date-title" id="selectedDateTitle">Loading...</h2>
+                <div id="testerGroupNav" class="tester-group-nav" style="display: none;"></div>
+            </div>
+            
+            <div class="schedule-container">
+                <!-- 卡片模式：改為分組容器 -->
+                <div class="tester-list-grouped" id="testerList"></div>
+                
+                <!-- 平面圖模式 -->
+                <div id="floorPlanView" class="floor-plan-view" style="display: none;">
+                    <div class="floor-plan-header">
+                        <div id="floorPlanTitle" class="floor-plan-title">竹北4F LAB</div>
+                        <div class="floor-plan-hint">點擊 T* 機台方塊可直接預約</div>
+                      </div>
+                      <div id="floorPlanCanvas" class="floor-plan-canvas"></div>
+                </div>
+            </div>
+            
+            <!-- 頁尾 -->
+            <footer class="app-footer">
+                <p class="footer-title">Tester Booking System by PP32 YPLu (Desmond)</p>
+                <p class="footer-info">Contact: <a href="mailto:yplu@winbond.com">yplu@winbond.com</a> ｜ Copyright &copy; 2026 PP32 YPLu (Desmond) ｜ MIT License</p>
+            </footer>
+        </main>
+    </div>
+
+    <!-- 彈窗與載入層 -->
+    <div id="appointmentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">預約資訊輸入</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>測試機台</label>
+                    <input type="text" id="modalTester" readonly>
+                </div>
+                <div class="form-group">
+                    <label>日期</label>
+                    <input type="text" id="modalDate" readonly>
+                </div>
+                <div class="form-group">
+                    <label>當日已預約時段</label>
+                    <div id="modalTodayAppointments" class="modal-today-appointments"></div>
+                </div>
+                <div class="form-group">
+                    <label>姓名 *</label>
+                    <input type="text" id="modalName" placeholder="請輸入你的名字">
+                </div>
+                <div class="form-group">
+                    <label>部門 *</label>
+                    <select id="modalUnit">
+                        <option value="">請選擇部門</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>開始時間 *</label>
+                    <select id="modalStartTime"></select>
+                </div>
+                <div class="form-group">
+                    <label>結束時間 *</label>
+                    <select id="modalEndTime"></select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveAppointment()">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="monthlyReportModal" class="modal" style="display: none;">
+        <div class="modal-content monthly-report-modal-content">
+            <div class="modal-header">
+                <h2 id="monthlyReportTitle">當月報告</h2>
+                <button class="close-btn" onclick="closeMonthlyReport()">&times;</button>
+            </div>
+            <div class="modal-body monthly-report-body">
+                <div id="monthlySummary" class="monthly-summary"></div>
+                <div id="monthlyDeptBars" class="monthly-dept-bars"></div>
+                <div class="monthly-table-wrap">
+                    <table id="monthlyReportTable" class="monthly-report-table">
+                        <thead>
+                            <tr>
+                                <th>部門</th>
+                                <th>預約次數</th>
+                                <th>使用時數</th>
+                                <th>占比</th>
+                                <th>使用機台</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthlyReportTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeMonthlyReport()">關閉</button>
+                <button class="btn btn-accent" onclick="exportMonthlyReportExcel()">匯出 CSV</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>處理中...</p>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+    <script src="./static/js/config.js"></script>
+    <script src="./static/js/app.js"></script>
+</body>
+</html>
