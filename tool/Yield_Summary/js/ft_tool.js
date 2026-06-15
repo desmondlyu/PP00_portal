@@ -1,5 +1,8 @@
 (function() {
-  const API_URL = "http://report/api/DataAPI/getReportData";
+  const INTERNAL_API = "http://report/api/DataAPI/getReportData";
+  const PROXY_API = "http://localhost:8780/api/DataAPI/getReportData";
+  const isSecure = window.location.protocol === 'https:';
+  const API_URL = isSecure ? PROXY_API : INTERNAL_API;
   const WIDGET_ID = "2057b9c974b6479b931afa92cd065412";
   const WEC_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTmFtZSI6IllQTFUiLCJwYXNzd29yZCI6bnVsbCwiZXhwaXJlVGltZSI6IjIwMjUtMDctMTUgMTY6MTE6MzYiLCJkb21haW4iOiIiLCJ1c2VyQ29udGV4dCI6eyJ1c2VyTmFtZSI6IllQTFUiLCJ1c2VyRGVwdCI6IlBQMzIiLCJ1c2VyQ2hpbmVzZU5hbWUiOiLlkYLlhYPoqZUiLCJ1c2VyUGhvbmVObyI6IjczODY4IiwidXNlckVtYWlsIjoiWVBMVUBXSU5CT05ELkNPTSIsImFwcE5hbWUiOiJSZXBvcnQiLCJsb2NhdGlvbiI6MCwic2VjdXJpdHlMZXZlbCI6MiwiaXBBZGRyZXNzIjoiMTAuMy4yMDguMTA1In19.e1ND3hm08CUagIMAML0DThkB6u0gY4GcL6a1JzoiLBc";
 
@@ -94,7 +97,9 @@
       }
     } catch (err) {
       setStatus(`FETCH FAILED: ${err.message}`, "#e31a22");
-      alert(`資料獲取失敗，請確認內網或 CORS。`);
+      alert(isSecure 
+        ? '資料獲取失敗。請確認已啟動 proxy.bat 且位於公司內網。' 
+        : '資料獲取失敗，請確認內網或 CORS。');
     } finally {
       updateUIState();
     }
