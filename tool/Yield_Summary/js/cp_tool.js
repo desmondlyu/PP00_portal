@@ -45,8 +45,9 @@
       container.appendChild(label);
     });
     
-    // 啟動自動測試連線
+    // 啟動自動測試連線，並每 5 秒自動偵測一次
     testConnection();
+    setInterval(testConnection, 5000);
   }
 
   function switchTabCP() {
@@ -89,12 +90,15 @@
   function setConnStatus(ok, text) {
     const dot = document.getElementById('conn-status-dot');
     const label = document.getElementById('conn-status-text');
+    const alertBox = document.getElementById('https-proxy-alert');
     if (ok) {
       dot.style.backgroundColor = '#10b981';
       label.style.color = '#10b981';
+      if (alertBox) alertBox.style.display = 'none';
     } else {
       dot.style.backgroundColor = '#e31a22';
       label.style.color = '#778da9';
+      if (alertBox && isSecure) alertBox.style.display = 'block';
     }
     label.innerText = text;
   }
