@@ -1,5 +1,8 @@
 (function() {
-  const API_URL = "http://report/api/DataAPI/getReportData";
+  const INTERNAL_API = "http://report/api/DataAPI/getReportData";
+  const PROXY_API = "http://localhost:8780/api/DataAPI/getReportData";
+  const isSecure = window.location.protocol === 'https:';
+  const API_URL = isSecure ? PROXY_API : INTERNAL_API;
   const WIDGET_ID = "2057b9c974b6479b931afa92cd065412";
   const WEC_TOKEN = "***REMOVED***";
 
@@ -94,7 +97,9 @@
       }
     } catch (err) {
       setStatus(`FETCH FAILED: ${err.message}`, "#e31a22");
-      alert(`資料獲取失敗，請確認內網或 CORS。`);
+      alert(isSecure 
+        ? '資料獲取失敗。請確認已啟動 proxy.bat 且位於公司內網。' 
+        : '資料獲取失敗，請確認內網或 CORS。');
     } finally {
       updateUIState();
     }
