@@ -325,7 +325,7 @@ export default function App() {
       id: 'writer',
       title: 'WRITER按鍵錄製精靈',
       badge: 'Active',
-      desc: 'WRITER 按鍵錄製與燒錄自動化精靈工具。功能待開發。',
+      desc: '專為TeraTerm終端機設計,錄製操控WRITER時的按鍵記憶巨集',
       icon: GitBranch,
       gradient: 'var(--grad-emerald-cyan)',
       gridClass: 'col-4',
