@@ -323,9 +323,9 @@ export default function App() {
     },
     {
       id: 'writer',
-      title: 'WRITER',
+      title: 'WRITER按鍵錄製精靈',
       badge: 'Active',
-      desc: '測試程式 Writer 燒錄參數與配置生成工具。功能待開發。',
+      desc: 'WRITER 按鍵錄製與燒錄自動化精靈工具。功能待開發。',
       icon: GitBranch,
       gradient: 'var(--grad-emerald-cyan)',
       gridClass: 'col-4',
@@ -341,7 +341,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
-    { version: 'v1.4.0', date: '2026-06-15', text: '新增 CP MSS 轉換工具、Dongle Auto Summary、WRITER 等待開發離線入口卡片。', isNew: true },
+    { version: 'v1.4.0', date: '2026-06-15', text: '新增 CP MSS 轉換工具、Dongle Auto Summary、WRITER按鍵錄製精靈 等待開發離線入口卡片。', isNew: true },
     { version: 'v1.3.0', date: '2026-06-15', text: '新增 CP Datalog-to-Excel 轉換器入口卡片。', isNew: false },
     { version: 'v1.2.0', date: '2026-06-09', text: '依據實際工具需求重構排版。整合 TTO 分析、JB Lab 借機系統、CZ 特性分析與待開發 DL 工具入口。', isNew: false },
     { version: 'v1.1.0', date: '2026-05-20', text: '完成 JB Lab 借機系統之平面圖大框架模式與機台校準優化。', isNew: false },
