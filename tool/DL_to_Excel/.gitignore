@@ -1,0 +1,12 @@
+# 排除舊的 Python 桌面版檔案 (GitHub Pages 部署不需要)
+DL_to_Excel.py
+DL_to_Excel.md
+
+# 排除本機開發與測試工具
+tests/
+.superpowers/
+
+# 系統與臨時檔案
+.DS_Store
+Thumbs.db
+*.log.xlsx

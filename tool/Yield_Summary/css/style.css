@@ -1,0 +1,271 @@
+/* Swiss Grid Typography & Reset with Glassmorphism */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+body {
+  /* 炫麗的深科技漸層背景，為玻璃擬態提供極佳的光影襯托 */
+  background: radial-gradient(circle at 10% 20%, rgba(90, 24, 154, 0.15) 0%, transparent 45%),
+              radial-gradient(circle at 90% 80%, rgba(0, 180, 216, 0.12) 0%, transparent 45%),
+              linear-gradient(135deg, #080f1e 0%, #0d1b2a 100%);
+  background-attachment: fixed;
+  color: #e0e1dd;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 24px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mono fonts for Data-Dense alignment */
+.font-mono {
+  font-family: SFMono-Regular, Consolas, Monaco, monospace !important;
+}
+
+/* Grid Layout */
+.app-container {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 24px;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Left Control Sidebar (Glassmorphism) */
+.control-panel {
+  background: rgba(27, 38, 59, 0.4);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+/* Right Main Panel (Glassmorphism) */
+.main-panel {
+  background: rgba(27, 38, 59, 0.4);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Tabs Navigation */
+.tabs-nav {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: rgba(13, 27, 42, 0.4);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  color: #778da9;
+  padding: 12px 24px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: #e0e1dd;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+  color: #e0e1dd;
+  background-color: rgba(27, 38, 59, 0.45);
+  border-bottom: 2px solid #e31a22; /* Swiss Red indicator */
+}
+
+/* Forms & Buttons */
+label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #778da9;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.input-field {
+  width: 100%;
+  background-color: rgba(13, 27, 42, 0.5); /* 半透明輸入框 */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #e0e1dd;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-bottom: 15px;
+  outline: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.input-field:focus {
+  border-color: rgba(227, 26, 34, 0.8); /* Focus with Swiss Red */
+  box-shadow: 0 0 0 3px rgba(227, 26, 34, 0.25);
+  background-color: rgba(13, 27, 42, 0.8);
+}
+
+.btn {
+  width: 100%;
+  background-color: #e31a22; /* Swiss Red CTA */
+  color: #ffffff;
+  border: none;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  margin-top: 10px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  background-color: #f43f5e;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(227, 26, 34, 0.4);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  background-color: rgba(65, 90, 119, 0.3);
+  color: #778da9;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Data-Dense Table styling */
+.table-container {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+
+th {
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  color: #778da9;
+  font-weight: 600;
+  padding: 8px 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 8px 12px;
+  color: #e0e1dd;
+  transition: background-color 0.2s ease;
+}
+
+tr:hover td {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Fail-safe Textarea styling */
+#json-paste-area {
+  background-color: rgba(13, 27, 42, 0.5) !important;
+  color: #10b981 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s ease;
+}
+
+#json-paste-area:focus {
+  border-color: rgba(16, 185, 129, 0.8) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+  background-color: rgba(13, 27, 42, 0.75) !important;
+}
+
+/* Status Bar */
+#status-bar {
+  background-color: rgba(13, 27, 42, 0.3) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Steps container checkbutton layout */
+#cp-steps-container {
+  background-color: rgba(13, 27, 42, 0.5) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 6px;
+}
+
+/* 
+   Calendar Auto-Trigger: 
+   Makes the entire date input box click-sensitive to launch the browser calendar picker
+*/
+.date-input-wrapper input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: auto;
+  color: transparent;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Footer styling */
+.app-footer {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: center;
+  font-size: 11px;
+  color: #778da9;
+  line-height: 1.6;
+}
+
+.app-footer-title {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  color: #e0e1dd;
+}
+
+.app-footer-detail a {
+  color: #8ecae6;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.app-footer-detail a:hover {
+  color: #e31a22; /* Swiss red on hover */
+}

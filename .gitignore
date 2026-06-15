@@ -1,0 +1,47 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Output directory (若是透過 Github Actions 自動建置，一般會忽略 dist；若手動部署亦建議保持主分支乾淨)
+dist/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.suo
+*.ntvsca*
+*.njsproj
+*.sln
+*.sw?
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS Metadata
+.DS_Store
+Thumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Root level duplicates (already exists in public/ directory)
+/logo.png
+
+# Development and Linter Cache
+.vite/
+.eslintcache

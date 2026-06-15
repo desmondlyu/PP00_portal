@@ -1,0 +1,2192 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOR Flash CP DL logo 分析工具</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.5;
+      font-weight: 400;
+      color-scheme: dark;
+      color: #f3f4f6;
+      background-color: #0b0f19;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      background-color: #0b0f19;
+      overflow: hidden;
+    }
+
+    /* Swiss Grid Layout */
+    .dashboard-container {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      height: 100vh;
+      width: 100vw;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background-color: #111827;
+      border-right: 1px solid #1f2937;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+
+    /* Data-Dense Grid (BI Dashboard 2x2) */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 12px;
+      padding: 12px;
+      height: 100vh;
+      box-sizing: border-box;
+      background-color: #0b0f19;
+      overflow: hidden;
+    }
+
+    .chart-card {
+      background-color: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .chart-header {
+      background-color: #1f2937;
+      padding: 6px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #374151;
+      height: 32px;
+      box-sizing: border-box;
+    }
+
+    .chart-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #9ca3af;
+    }
+
+    .chart-info {
+      font-size: 11px;
+      color: #6b7280;
+    }
+
+    .chart-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .chart-content {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #111827;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #374151;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4b5563;
+    }
+
+    /* Common UI Elements */
+    .btn {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 150ms ease-out;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn:hover {
+      background-color: #1d4ed8;
+    }
+
+    .btn-secondary {
+      background-color: #374151;
+      color: #d1d5db;
+    }
+
+    .btn-secondary:hover {
+      background-color: #4b5563;
+      color: white;
+    }
+
+    .btn-danger {
+      background-color: #dc2626;
+    }
+
+    .btn-danger:hover {
+      background-color: #b91c1c;
+    }
+
+    .btn-xs {
+      padding: 3px 6px;
+      font-size: 11px;
+    }
+
+    /* Form Styles */
+    .form-group {
+      margin-bottom: 10px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      color: #9ca3af;
+      margin-bottom: 3px;
+      letter-spacing: 0.05em;
+    }
+
+    .form-control {
+      width: 100%;
+      background-color: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 4px;
+      color: #f3f4f6;
+      padding: 6px 10px;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: #2563eb;
+    }
+
+    /* Tabs */
+    .tabs-header {
+      display: flex;
+      border-bottom: 1px solid #1f2937;
+      background-color: #0f172a;
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      padding: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6b7280;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab-btn.active {
+      color: #3b82f6;
+      border-bottom-color: #3b82f6;
+    }
+
+    .tab-content {
+      padding: 12px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    /* Welcome Card */
+    .welcome-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background-color: #0b0f19;
+      color: #f3f4f6;
+      padding: 40px;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+
+    .welcome-card {
+      max-width: 600px;
+      text-align: center;
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      padding: 32px;
+      background-color: #111827;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    }
+
+    .welcome-icons {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .welcome-icon {
+      width: 40px;
+      height: 40px;
+      stroke-width: 1.5;
+      stroke: #3b82f6;
+      fill: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="app" class="dashboard-container">
+    <!-- 左側 Sidebar 控制面板 -->
+    <aside class="sidebar">
+      <div style="padding: 12px; border-bottom: 1px solid #1f2937;">
+        <span class="form-label">📁 檔案上傳 (完全離線)</span>
+        <div id="drop-zone" style="border: 1px dashed #374151; border-radius: 4px; padding: 12px 8px; text-align: center; cursor: pointer; background-color: #1f2937; transition: all 150ms ease-out;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 4px; display: inline-block;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <p id="upload-status" style="margin: 0; font-size: 12px; color: #9ca3af;">點擊或拖曳測試資料至此</p>
+        </div>
+        <input type="file" id="file-input" style="display: none;" />
+      </div>
+
+      <div class="tabs-header">
+        <button class="tab-btn active" data-tab="wafer">Wafer</button>
+        <button class="tab-btn" data-tab="correlation">Corr</button>
+        <button class="tab-btn" data-tab="distribution">Dist</button>
+      </div>
+
+      <div class="tab-content" id="sidebar-controls-container">
+        <div style="font-size: 13px; color: #6b7280; font-style: italic; text-align: center; margin-top: 32px;">
+          請先載入測試資料以啟用篩選控制項
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer style="padding: 12px; border-top: 1px solid #1f2937; font-size: 11px; color: #6b7280; background-color: #0f172a; line-height: 1.5; box-sizing: border-box;">
+        <div style="font-weight: 600; color: #9ca3af; margin-bottom: 2px;">CP DL Analysis Tool by PP32 YPLu (Desmond)</div>
+        <div>Contact: <a href="mailto:yplu@winbond.com" style="color: #3b82f6; text-decoration: none;">yplu@winbond.com</a></div>
+        <div style="margin-top: 2px; font-size: 10px; color: #4b5563;">Copyright © 2026 PP32 YPLu (Desmond) ｜ MIT License</div>
+      </footer>
+    </aside>
+
+    <!-- 右側 4 宮格看板 / 歡迎畫面 -->
+    <main id="main-panel" style="width:100%; height:100%;">
+      <div class="welcome-container">
+        <div class="welcome-card">
+          <div class="welcome-icons">
+            <!-- Grid Icon -->
+            <svg class="welcome-icon" style="stroke: #00E5FF" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="7" height="9"></rect>
+              <rect x="14" y="3" width="7" height="5"></rect>
+              <rect x="14" y="12" width="7" height="9"></rect>
+              <rect x="3" y="16" width="7" height="5"></rect>
+            </svg>
+            <!-- Crosshair Icon -->
+            <svg class="welcome-icon" style="stroke: #3b82f6" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <line x1="12" y1="2" x2="12" y2="22"></line>
+            </svg>
+            <!-- Chart Icon -->
+            <svg class="welcome-icon" style="stroke: #10b981" viewBox="0 0 24 24">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+          </div>
+          <h1 style="font-size: 20px; font-weight: 600; letter-spacing: 0.05em; color: #f9fafb; margin: 0 0 10px 0; text-transform: uppercase;">
+            CP Wafer Map & DL Analysis
+          </h1>
+          <p style="font-size: 12px; color: #9ca3af; line-height: 1.6; margin-bottom: 24px;">
+            100% 離線執行。請在左側面板點選或拖放載入 Wafer 測試資料（格式為跳過前五行，以空白及斜線分隔的數據檔）。
+          </p>
+          <div style="border-top: 1px solid #1f2937; padding-top: 16px; text-align: left;">
+            <span class="form-label" style="margin-bottom: 6px; display: block;">離線版互動指引</span>
+            <ul style="margin: 0; padding-left: 16px; font-size: 11px; color: #9ca3af; display: flex; flex-direction: column; gap: 4px;">
+              <li><b>空間框選連動</b>：在 Wafer Map 上按住左鍵並拖曳拉框，可限制其餘圖表的分析資料範圍。</li>
+              <li><b>高亮框選聯動</b>：在相關性、直方圖、箱形圖上拉框，將會以紅色外框高亮對應的 Die 點位。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 原生 JavaScript 邏輯實作 -->
+  <script>
+    // =================================================================
+    // 1. 全域 State
+    // =================================================================
+    const state = {
+      rawData: null,          // 原始解析後的資料
+      availableParams: [],    // 可選參數清單
+      paramRanges: {},        // 各參數的真實 [min, max]
+      paramCategories: {},    // 分類參數的唯一值陣列 (CAT)
+      filename: "",           // 已載入檔案名稱
+
+      // 側邊欄與圖表設定
+      activeTab: "wafer",
+      selectedWaferParam: "",
+      selectedCorrX: "",
+      selectedCorrY: "",
+      showTrendline: false,
+      xScale: "linear",
+      yScale: "linear",
+      selectedDistParams: [],
+      distXScale: "linear",
+      distYScale: "linear",
+      distBoxYScale: "linear",
+
+      // 篩選與聯動狀態
+      filters: {},            // 參數值過濾設定 { param: {min, max, checkedCats: []} }
+      spatialFilterRange: null, // Wafer 空間選取框 [[gx0, gx1], [gy0, gy1]]
+      highlightIndices: new Set(), // 由其它圖表拉框框選高亮的點索引 Set
+
+      // 暫存資料
+      nonSpatialFilteredData: [],
+      filteredData: []
+    };
+
+    // 調色盤主色
+    const PALETTE_COLORS = ["#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4"];
+
+    // =================================================================
+    // 2. 檔案解析與數值統計
+    // =================================================================
+    function processFileContent(content) {
+      const lines = content.split(/\r?\n/);
+      if (lines.length < 6) {
+        throw new Error("檔案內容行數不足，無法解析。");
+      }
+
+      const headerLine = lines[5].trim();
+      const headerClean = headerLine.replace(/</g, "").replace(/>/g, "");
+      const cols = headerClean.replace(/\//g, " ").split(/\s+/).filter(Boolean);
+
+      const rawData = [];
+      const invalidMarkers = ["***", "N/A", "NULL", "nan", "NaN", "-", ""];
+      let skippedLines = 0;
+
+      for (let i = 6; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const lineClean = line.replace(/\//g, "");
+        const parts = lineClean.split(/\s+/).filter(Boolean);
+
+        if (parts.length !== cols.length) {
+          skippedLines++;
+          continue;
+        }
+
+        const record = {};
+        for (let j = 0; j < cols.length; j++) {
+          const col = cols[j];
+          const valStr = parts[j];
+
+          if (invalidMarkers.includes(valStr)) {
+            record[col] = NaN;
+          } else {
+            const num = Number(valStr);
+            if (!isNaN(num)) {
+              record[col] = num;
+            } else {
+              record[col] = valStr;
+            }
+          }
+        }
+        rawData.push(record);
+      }
+
+      if (rawData.length === 0) {
+        throw new Error("沒有解析出任何有效資料行。");
+      }
+
+      if (!("X" in rawData[0]) || !("Y" in rawData[0])) {
+        throw new Error("缺少 X 或 Y 欄位，無法作圖。");
+      }
+
+      const availableParams = cols.filter((col) => col !== "X" && col !== "Y");
+      const paramRanges = {};
+      const paramCategories = {};
+
+      availableParams.forEach((param) => {
+        const numericVals = rawData
+          .map((r) => r[param])
+          .filter((val) => typeof val === "number" && !isNaN(val));
+
+        if (numericVals.length > 0) {
+          const min = Math.min(...numericVals);
+          const max = Math.max(...numericVals);
+          paramRanges[param] = [min, max];
+        }
+
+        if (param === "CAT") {
+          const catVals = rawData
+            .map((r) => String(r[param]))
+            .filter((val) => val !== "undefined" && val !== "NaN" && val.trim() !== "");
+          const uniqueCats = Array.from(new Set(catVals)).sort();
+          if (uniqueCats.length > 0) {
+            paramCategories[param] = uniqueCats;
+          }
+        }
+      });
+
+      return { rawData, availableParams, paramRanges, paramCategories };
+    }
+
+    // 統計計算
+    function calculatePearsonR(x, y) {
+      const n = x.length;
+      if (n < 2) return NaN;
+      let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+      for (let i = 0; i < n; i++) {
+        sumX += x[i];
+        sumY += y[i];
+        sumXY += x[i] * y[i];
+        sumX2 += x[i] * x[i];
+        sumY2 += y[i] * y[i];
+      }
+      const num = n * sumXY - sumX * sumY;
+      const den = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+      return den === 0 ? 0 : num / den;
+    }
+
+    function calculateLinearRegression(x, y) {
+      const n = x.length;
+      if (n < 2) return null;
+      let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+      let minX = Infinity, maxX = -Infinity;
+      for (let i = 0; i < n; i++) {
+        sumX += x[i];
+        sumY += y[i];
+        sumXY += x[i] * y[i];
+        sumX2 += x[i] * x[i];
+        if (x[i] < minX) minX = x[i];
+        if (x[i] > maxX) maxX = x[i];
+      }
+      const denominator = n * sumX2 - sumX * sumX;
+      if (denominator === 0) return null;
+      const slope = (n * sumXY - sumX * sumY) / denominator;
+      const intercept = (sumY - slope * sumX) / n;
+      return { slope, intercept, xStart: minX, yStart: slope * minX + intercept, xEnd: maxX, yEnd: slope * maxX + intercept };
+    }
+
+    function calculateBoxPlotStats(values) {
+      if (values.length === 0) return null;
+      const sorted = [...values].sort((a, b) => a - b);
+      const n = sorted.length;
+      const getPercentile = (p) => {
+        if (n === 1) return sorted[0];
+        const pos = (n - 1) * p;
+        const base = Math.floor(pos);
+        const rest = pos - base;
+        return base + 1 < n ? sorted[base] + rest * (sorted[base + 1] - sorted[base]) : sorted[base];
+      };
+      return { min: sorted[0], q1: getPercentile(0.25), median: getPercentile(0.5), q3: getPercentile(0.75), max: sorted[n - 1] };
+    }
+
+    function estimateStep(values) {
+      if (values.length < 2) return 1.0;
+      const uniqueVals = Array.from(new Set(values)).sort((a, b) => a - b);
+      if (uniqueVals.length < 2) return 1.0;
+      const diffs = [];
+      for (let i = 0; i < uniqueVals.length - 1; i++) {
+        const d = uniqueVals[i + 1] - uniqueVals[i];
+        if (d > 0) diffs.push(d);
+      }
+      if (diffs.length === 0) return 1.0;
+      diffs.sort((a, b) => a - b);
+      const mid = Math.floor(diffs.length / 2);
+      return diffs.length % 2 !== 0 ? diffs[mid] : (diffs[mid - 1] + diffs[mid]) / 2;
+    }
+
+    function getQuantileAbsolute(values, q) {
+      const absVals = values.map(Math.abs).sort((a, b) => a - b);
+      if (absVals.length === 0) return 1.0;
+      const idx = Math.floor((absVals.length - 1) * q);
+      return absVals[idx] || 1.0;
+    }
+
+    // Jet/Turbo Colormap
+    function getTurboColor(value, min, max) {
+      if (isNaN(value) || value === null) return "rgba(42, 42, 42, 0.4)";
+      const range = max - min;
+      const t = range === 0 ? 0.5 : (value - min) / range;
+      const norm = Math.max(0, Math.min(1, t));
+      let r = 0, g = 0, b = 0;
+      if (norm < 0.25) {
+        const local = norm / 0.25;
+        b = 255;
+        g = Math.round(local * 255);
+      } else if (norm < 0.5) {
+        const local = (norm - 0.25) / 0.25;
+        g = 255;
+        b = Math.round((1 - local) * 255);
+      } else if (norm < 0.75) {
+        const local = (norm - 0.5) / 0.25;
+        g = 255;
+        r = Math.round(local * 255);
+      } else {
+        const local = (norm - 0.75) / 0.25;
+        r = 255;
+        g = Math.round((1 - local) * 255);
+      }
+      return `rgba(${r}, ${g}, ${b}, 0.85)`;
+    }
+
+    // =================================================================
+    // 3. UI 渲染中心
+    // =================================================================
+    
+    // 初始化或更換檔案時觸發
+    function handleDataLoaded(newData, filename) {
+      state.rawData = newData.rawData;
+      state.availableParams = newData.availableParams;
+      state.paramRanges = newData.paramRanges;
+      state.paramCategories = newData.paramCategories;
+      state.filename = filename;
+
+      // 重設所有圖表尺度到 linear
+      state.xScale = "linear";
+      state.yScale = "linear";
+      state.distXScale = "linear";
+      state.distYScale = "linear";
+      state.distBoxYScale = "linear";
+
+      // 預設參數選擇
+      if (state.availableParams.length > 0) {
+        state.selectedWaferParam = state.availableParams[0];
+        state.selectedCorrX = state.availableParams[0];
+        state.selectedCorrY = state.availableParams[1] || state.availableParams[0];
+        state.selectedDistParams = [state.availableParams[0]];
+      }
+
+      // 初始化各參數的篩選極值
+      state.filters = {};
+      state.availableParams.forEach((param) => {
+        if (param === "CAT" && state.paramCategories[param]) {
+          state.filters[param] = { min: NaN, max: NaN, checkedCats: [...state.paramCategories[param]] };
+        } else if (state.paramRanges[param]) {
+          const [min, max] = state.paramRanges[param];
+          state.filters[param] = { min, max };
+        }
+      });
+
+      state.spatialFilterRange = null;
+      state.highlightIndices = new Set();
+
+      document.getElementById("upload-status").innerText = `已載入: ${filename}`;
+      
+      // 替換右側為四宮格網格佈局
+      const mainPanel = document.getElementById("main-panel");
+      mainPanel.innerHTML = `
+        <div style="display: flex; flex-direction: column; height: 100vh; width: 100%; overflow: hidden; background-color: #0b0f19;">
+          <!-- Workspace 控制面板/工具列 -->
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background-color: #111827; border-bottom: 1px solid #1f2937; box-sizing: border-box; height: 45px;">
+            <span style="font-size: 11px; color: #9ca3af; font-weight: 600; letter-spacing: 0.05em;">
+              📊 ANALYSIS WORKSPACE
+            </span>
+            <div id="global-reset-container" style="display: flex; gap: 8px;">
+              <!-- 這裡會動態載入重置按鈕 -->
+            </div>
+          </div>
+          <div class="charts-grid" style="flex: 1; height: calc(100vh - 45px); padding: 12px; box-sizing: border-box;">
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title" id="wafer-title">Wafer Map</span>
+                <div class="chart-actions" id="wafer-actions"></div>
+              </div>
+              <div class="chart-content">
+                <canvas id="wafer-canvas"></canvas>
+                <div id="wafer-selection-box" style="position: absolute; border: 2px solid #FF3B30; background-color: rgba(255, 59, 48, 0.15); display: none; pointer-events: none;"></div>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title" id="corr-title">Correlation</span>
+                <span class="chart-info" id="corr-info"></span>
+                <div class="chart-actions" id="corr-actions"></div>
+              </div>
+              <div class="chart-content">
+                <canvas id="corr-canvas"></canvas>
+                <div id="corr-selection-box" style="position: absolute; border: 2px solid #FF3B30; background-color: rgba(255, 59, 48, 0.15); display: none; pointer-events: none;"></div>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title" id="box-title">Boxplot</span>
+                <div class="chart-actions" id="box-actions"></div>
+              </div>
+              <div class="chart-content">
+                <canvas id="box-canvas"></canvas>
+                <div id="box-selection-box" style="position: absolute; border: 2px solid #FF3B30; background-color: rgba(255, 59, 48, 0.15); display: none; pointer-events: none;"></div>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title" id="hist-title">Histogram</span>
+                <div class="chart-actions" id="hist-actions"></div>
+              </div>
+              <div class="chart-content">
+                <canvas id="hist-canvas"></canvas>
+                <div id="hist-selection-box" style="position: absolute; border: 2px solid #FF3B30; background-color: rgba(255, 59, 48, 0.15); display: none; pointer-events: none;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // 初始化 Canvas 事件
+      initWaferCanvasEvents();
+      initCorrCanvasEvents();
+      initBoxCanvasEvents();
+      initHistCanvasEvents();
+
+      // 監聽 Window Resize 隨時重繪
+      window.addEventListener("resize", triggerRedraw);
+
+      updateDataAndRender();
+    }
+
+    // 重新過濾數據並渲染所有區域
+    function updateDataAndRender() {
+      if (!state.rawData) return;
+
+      // 1. 僅套用參數值篩選 (用於 Wafer Map)
+      state.nonSpatialFilteredData = state.rawData.filter((row) => {
+        for (const [param, val] of Object.entries(state.filters)) {
+          if (param === "CAT" && state.paramCategories[param]) {
+            if (!(val.checkedCats || []).includes(String(row[param]))) return false;
+          } else {
+            const numVal = Number(row[param]);
+            if (!isNaN(numVal) && (numVal < val.min || numVal > val.max)) return false;
+          }
+        }
+        return true;
+      });
+
+      // 2. 空間篩選 (Wafer Map 框選，用於 Correlation 與統計分佈)
+      if (state.spatialFilterRange) {
+        const [xMin, xMax] = [...state.spatialFilterRange.x].sort((a, b) => a - b);
+        const [yMin, yMax] = [...state.spatialFilterRange.y].sort((a, b) => a - b);
+
+        state.filteredData = state.nonSpatialFilteredData.filter((row) => {
+          const x = Number(row.X);
+          const y = Number(row.Y);
+          return !isNaN(x) && !isNaN(y) && x >= xMin && x <= xMax && y >= yMin && y <= yMax;
+        });
+      } else {
+        state.filteredData = state.nonSpatialFilteredData;
+      }
+
+      // 3. 渲染控制面板與圖表
+      renderSidebarControls();
+      triggerRedraw();
+
+      // 4. 動態更新全域重置按鈕
+      const resetContainer = document.getElementById("global-reset-container");
+      if (resetContainer) {
+        if (state.spatialFilterRange !== null || state.highlightIndices.size > 0) {
+          resetContainer.innerHTML = `
+            <button class="btn btn-secondary btn-danger" id="global-reset-btn" style="padding: 4px 12px; font-size: 11px; font-weight: 600; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px;">
+              🔄 取消所有框選 / 重置高亮
+            </button>
+          `;
+          document.getElementById("global-reset-btn").addEventListener("click", () => {
+            state.spatialFilterRange = null;
+            state.highlightIndices.clear();
+            updateDataAndRender();
+          });
+        } else {
+          resetContainer.innerHTML = "";
+        }
+      }
+    }
+
+    function triggerRedraw() {
+      drawWaferMap();
+      drawCorrelation();
+      drawBoxPlot();
+      drawHistogram();
+    }
+
+    // =================================================================
+    // 4. Sidebar Controls 渲染 (原生 DOM 操作)
+    // =================================================================
+    function renderSidebarControls() {
+      const container = document.getElementById("sidebar-controls-container");
+      if (!state.rawData) return;
+
+      // 根據當前 Tab 動態決定要顯示哪些參數篩選
+      let activeParams = [];
+      if (state.activeTab === "wafer") {
+        activeParams = state.selectedWaferParam ? [state.selectedWaferParam] : [];
+      } else if (state.activeTab === "correlation") {
+        const list = [];
+        if (state.selectedCorrX) list.push(state.selectedCorrX);
+        if (state.selectedCorrY && state.selectedCorrY !== state.selectedCorrX) list.push(state.selectedCorrY);
+        activeParams = list;
+      } else {
+        activeParams = state.selectedDistParams;
+      }
+
+      // 渲染主選單與篩選
+      let html = "";
+
+      if (state.activeTab === "wafer") {
+        html += `
+          <div class="form-group">
+            <label class="form-label">參數選擇</label>
+            <input type="text" class="form-control" id="wafer-search" placeholder="輸入關鍵字篩選參數" value="${waferSearchKeyword}" style="margin-bottom: 6px;" />
+            <select class="form-control" id="wafer-param-select">
+              ${getFilteredParams(waferSearchKeyword).map(p => `<option value="${p}" ${p === state.selectedWaferParam ? "selected" : ""}>${p}</option>`).join("")}
+            </select>
+          </div>
+        `;
+      } else if (state.activeTab === "correlation") {
+        html += `
+          <div class="form-group">
+            <label class="form-label">X 軸參數</label>
+            <input type="text" class="form-control" id="corr-x-search" placeholder="篩選 X 軸參數" value="${corrXSearchKeyword}" style="margin-bottom: 6px;" />
+            <select class="form-control" id="corr-x-select">
+              ${getFilteredParams(corrXSearchKeyword).map(p => `<option value="${p}" ${p === state.selectedCorrX ? "selected" : ""}>${p}</option>`).join("")}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Y 軸參數</label>
+            <input type="text" class="form-control" id="corr-y-search" placeholder="篩選 Y 軸參數" value="${corrYSearchKeyword}" style="margin-bottom: 6px;" />
+            <select class="form-control" id="corr-y-select">
+              ${getFilteredParams(corrYSearchKeyword).map(p => `<option value="${p}" ${p === state.selectedCorrY ? "selected" : ""}>${p}</option>`).join("")}
+            </select>
+          </div>
+          <div class="form-group" style="display: flex; align-items: center; gap: 6px;">
+            <input type="checkbox" id="trendline-check" ${state.showTrendline ? "checked" : ""} />
+            <label htmlFor="trendline-check" style="font-size: 11px; cursor: pointer;">顯示趨勢線</label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">X 軸 Scale</label>
+            <select class="form-control" id="corr-x-scale">
+              <option value="linear" ${state.xScale === "linear" ? "selected" : ""}>linear</option>
+              <option value="log" ${state.xScale === "log" ? "selected" : ""}>log</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Y 軸 Scale</label>
+            <select class="form-control" id="corr-y-scale">
+              <option value="linear" ${state.yScale === "linear" ? "selected" : ""}>linear</option>
+              <option value="log" ${state.yScale === "log" ? "selected" : ""}>log</option>
+            </select>
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="form-group">
+            <label class="form-label">選擇參數 (可多選)</label>
+            <input type="text" class="form-control" id="dist-search" placeholder="輸入關鍵字篩選多選參數" value="${distSearchKeyword}" style="margin-bottom: 6px;" />
+            <div id="dist-checkboxes-list" style="max-height: 120px; overflow-y: auto; border: 1px solid #374151; border-radius: 4px; padding: 6px; background-color: #0b0f19; display: flex; flex-direction: column; gap: 4px;">
+              ${getFilteredParams(distSearchKeyword).map(param => {
+                const isChecked = state.selectedDistParams.includes(param);
+                return `
+                  <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+                    <input type="checkbox" class="dist-param-checkbox" data-param="${param}" ${isChecked ? "checked" : ""} />
+                    <span>${param}</span>
+                  </label>
+                `;
+              }).join("")}
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Histogram X 軸 Scale</label>
+            <select class="form-control" id="dist-x-scale">
+              <option value="linear" ${state.distXScale === "linear" ? "selected" : ""}>linear</option>
+              <option value="log" ${state.distXScale === "log" ? "selected" : ""}>log</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Histogram Y 軸 Scale</label>
+            <select class="form-control" id="dist-y-scale">
+              <option value="linear" ${state.distYScale === "linear" ? "selected" : ""}>linear</option>
+              <option value="log" ${state.distYScale === "log" ? "selected" : ""}>log</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Box Plot Y 軸 Scale</label>
+            <select class="form-control" id="dist-box-y-scale">
+              <option value="linear" ${state.distBoxYScale === "linear" ? "selected" : ""}>linear</option>
+              <option value="log" ${state.distBoxYScale === "log" ? "selected" : ""}>log</option>
+            </select>
+          </div>
+        `;
+      }
+
+      // 參數值過濾區
+      html += `
+        <div style="margin-top: 20px;">
+          <span class="form-label" style="border-bottom: 1px solid #374151; padding-bottom: 4px; display: block; margin-bottom: 12px;">⚙️ 參數值篩選</span>
+          ${renderDynamicFilterControls(activeParams)}
+        </div>
+      `;
+
+      container.innerHTML = html;
+      bindSidebarEvents();
+    }
+
+    function renderDynamicFilterControls(activeParams) {
+      if (activeParams.length === 0) {
+        return `<div style="font-size: 13px; color: #6b7280; font-style: italic;">請先選擇或勾選參數</div>`;
+      }
+
+      return activeParams.map((param) => {
+        const isCat = param === "CAT" && state.paramCategories[param];
+        const val = state.filters[param];
+
+        if (isCat) {
+          const categories = state.paramCategories[param];
+          const checkedCats = val?.checkedCats || categories;
+
+          return `
+            <div style="margin-bottom: 12px; border-bottom: 1px solid #1f2937; padding-bottom: 8px;">
+              <span class="form-label">${param} (分類篩選)</span>
+              <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                <button class="btn btn-secondary btn-xs" id="cat-all-btn" data-param="${param}">全選</button>
+                <button class="btn btn-secondary btn-xs btn-danger" id="cat-none-btn" data-param="${param}">取消全選</button>
+              </div>
+              <div style="max-height: 100px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding: 4px; background-color: #0b0f19; border: 1px solid #374151; border-radius: 3px;">
+                ${categories.map(cat => `
+                  <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+                    <input type="checkbox" class="cat-item-checkbox" data-param="${param}" data-cat="${cat}" ${checkedCats.includes(cat) ? "checked" : ""} />
+                    <span>${cat}</span>
+                  </label>
+                `).join("")}
+              </div>
+            </div>
+          `;
+        }
+
+        if (state.paramRanges[param]) {
+          const [minLimit, maxLimit] = state.paramRanges[param];
+          const currentMin = val ? val.min : minLimit;
+          const currentMax = val ? val.max : maxLimit;
+
+          return `
+            <div style="margin-bottom: 12px; border-bottom: 1px solid #1f2937; padding-bottom: 8px;">
+              <span class="form-label">${param} (值域篩選)</span>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div>
+                  <label style="font-size: 11px; color: #6b7280;">MIN (${minLimit.toFixed(3)})</label>
+                  <input type="number" class="form-control range-min-input" data-param="${param}" step="0.001" value="${isNaN(currentMin) ? "" : currentMin}" />
+                </div>
+                <div>
+                  <label style="font-size: 11px; color: #6b7280;">MAX (${maxLimit.toFixed(3)})</label>
+                  <input type="number" class="form-control range-max-input" data-param="${param}" step="0.001" value="${isNaN(currentMax) ? "" : currentMax}" />
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        return "";
+      }).join("");
+    }
+
+    // 關鍵字搜尋快取
+    let waferSearchKeyword = "";
+    let corrXSearchKeyword = "";
+    let corrYSearchKeyword = "";
+    let distSearchKeyword = "";
+
+    function getFilteredParams(keyword) {
+      if (!state.rawData) return [];
+      const lower = keyword.trim().toLowerCase();
+      if (!lower) return state.availableParams;
+      return state.availableParams.filter(p => p.toLowerCase().includes(lower));
+    }
+
+    // 綁定側邊欄事件
+    function bindSidebarEvents() {
+      // 輔助函式：綁定分佈參數多選框變更事件
+      function bindDistCheckboxEvents() {
+        const distCheckboxes = document.querySelectorAll(".dist-param-checkbox");
+        distCheckboxes.forEach(cb => {
+          cb.addEventListener("change", () => {
+            const params = [];
+            document.querySelectorAll(".dist-param-checkbox:checked").forEach(checkedCb => {
+              params.push(checkedCb.getAttribute("data-param"));
+            });
+            state.selectedDistParams = params;
+            updateDataAndRender();
+          });
+        });
+      }
+
+      // Wafer Param
+      const waferSelect = document.getElementById("wafer-param-select");
+      if (waferSelect) {
+        waferSelect.addEventListener("change", (e) => {
+          state.selectedWaferParam = e.target.value;
+          updateDataAndRender();
+        });
+      }
+      const waferSearch = document.getElementById("wafer-search");
+      if (waferSearch) {
+        waferSearch.addEventListener("input", (e) => {
+          waferSearchKeyword = e.target.value;
+          const select = document.getElementById("wafer-param-select");
+          if (select) {
+            select.innerHTML = getFilteredParams(waferSearchKeyword).map(p => `<option value="${p}" ${p === state.selectedWaferParam ? "selected" : ""}>${p}</option>`).join("");
+          }
+        });
+      }
+
+      // Correlation Params
+      const corrXSelect = document.getElementById("corr-x-select");
+      if (corrXSelect) {
+        corrXSelect.addEventListener("change", (e) => {
+          state.selectedCorrX = e.target.value;
+          updateDataAndRender();
+        });
+      }
+      const corrYSelect = document.getElementById("corr-y-select");
+      if (corrYSelect) {
+        corrYSelect.addEventListener("change", (e) => {
+          state.selectedCorrY = e.target.value;
+          updateDataAndRender();
+        });
+      }
+      const corrXSearch = document.getElementById("corr-x-search");
+      if (corrXSearch) {
+        corrXSearch.addEventListener("input", (e) => {
+          corrXSearchKeyword = e.target.value;
+          const select = document.getElementById("corr-x-select");
+          if (select) {
+            select.innerHTML = getFilteredParams(corrXSearchKeyword).map(p => `<option value="${p}" ${p === state.selectedCorrX ? "selected" : ""}>${p}</option>`).join("");
+          }
+        });
+      }
+      const corrYSearch = document.getElementById("corr-y-search");
+      if (corrYSearch) {
+        corrYSearch.addEventListener("input", (e) => {
+          corrYSearchKeyword = e.target.value;
+          const select = document.getElementById("corr-y-select");
+          if (select) {
+            select.innerHTML = getFilteredParams(corrYSearchKeyword).map(p => `<option value="${p}" ${p === state.selectedCorrY ? "selected" : ""}>${p}</option>`).join("");
+          }
+        });
+      }
+      const trendlineCheck = document.getElementById("trendline-check");
+      if (trendlineCheck) {
+        trendlineCheck.addEventListener("change", (e) => {
+          state.showTrendline = e.target.checked;
+          triggerRedraw();
+        });
+      }
+      const corrXScale = document.getElementById("corr-x-scale");
+      if (corrXScale) {
+        corrXScale.addEventListener("change", (e) => {
+          state.xScale = e.target.value;
+          triggerRedraw();
+        });
+      }
+      const corrYScale = document.getElementById("corr-y-scale");
+      if (corrYScale) {
+        corrYScale.addEventListener("change", (e) => {
+          state.yScale = e.target.value;
+          triggerRedraw();
+        });
+      }
+
+      // Distribution Params
+      const distSearch = document.getElementById("dist-search");
+      if (distSearch) {
+        distSearch.addEventListener("input", (e) => {
+          distSearchKeyword = e.target.value;
+          const listDiv = document.getElementById("dist-checkboxes-list");
+          if (listDiv) {
+            listDiv.innerHTML = getFilteredParams(distSearchKeyword).map(param => {
+              const isChecked = state.selectedDistParams.includes(param);
+              return `
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+                  <input type="checkbox" class="dist-param-checkbox" data-param="${param}" ${isChecked ? "checked" : ""} />
+                  <span>${param}</span>
+                </label>
+              `;
+            }).join("");
+            bindDistCheckboxEvents();
+          }
+        });
+      }
+      bindDistCheckboxEvents();
+      const distXScale = document.getElementById("dist-x-scale");
+      if (distXScale) {
+        distXScale.addEventListener("change", (e) => {
+          state.distXScale = e.target.value;
+          triggerRedraw();
+        });
+      }
+      const distYScale = document.getElementById("dist-y-scale");
+      if (distYScale) {
+        distYScale.addEventListener("change", (e) => {
+          state.distYScale = e.target.value;
+          triggerRedraw();
+        });
+      }
+      const distBoxYScale = document.getElementById("dist-box-y-scale");
+      if (distBoxYScale) {
+        distBoxYScale.addEventListener("change", (e) => {
+          state.distBoxYScale = e.target.value;
+          triggerRedraw();
+        });
+      }
+
+      // 分類篩選 - 全選 / 取消全選
+      document.querySelectorAll("#cat-all-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const param = e.target.getAttribute("data-param");
+          state.filters[param].checkedCats = [...(state.paramCategories[param] || [])];
+          updateDataAndRender();
+        });
+      });
+      document.querySelectorAll("#cat-none-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const param = e.target.getAttribute("data-param");
+          state.filters[param].checkedCats = [];
+          updateDataAndRender();
+        });
+      });
+
+      // 分類篩選 - 個別勾選
+      document.querySelectorAll(".cat-item-checkbox").forEach(cb => {
+        cb.addEventListener("change", (e) => {
+          const param = e.target.getAttribute("data-param");
+          const cat = e.target.getAttribute("data-cat");
+          const checkedCats = state.filters[param].checkedCats;
+          if (e.target.checked) {
+            if (!checkedCats.includes(cat)) checkedCats.push(cat);
+          } else {
+            const idx = checkedCats.indexOf(cat);
+            if (idx > -1) checkedCats.splice(idx, 1);
+          }
+          updateDataAndRender();
+        });
+      });
+
+      // 數值篩選
+      document.querySelectorAll(".range-min-input, .range-max-input").forEach(input => {
+        input.addEventListener("change", (e) => {
+          const param = e.target.getAttribute("data-param");
+          const val = e.target.value;
+          if (e.target.classList.contains("range-min-input")) {
+            state.filters[param].min = val === "" ? state.paramRanges[param][0] : parseFloat(val);
+          } else {
+            state.filters[param].max = val === "" ? state.paramRanges[param][1] : parseFloat(val);
+          }
+          updateDataAndRender();
+        });
+      });
+
+      // Tab 切換
+      document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+          e.target.classList.add("active");
+          state.activeTab = e.target.getAttribute("data-tab");
+          renderSidebarControls();
+        });
+      });
+    }
+
+    // =================================================================
+    // 5. Canvas 繪圖函式
+    // =================================================================
+
+    function drawWaferMap() {
+      const canvas = document.getElementById("wafer-canvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+
+      if (state.nonSpatialFilteredData.length === 0) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("沒有資料", canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      const param = state.selectedWaferParam;
+      const data = state.nonSpatialFilteredData;
+      const xvals = data.map(r => Number(r.X)).filter(x => !isNaN(x));
+      const yvals = data.map(r => Number(r.Y)).filter(y => !isNaN(y));
+      const paramVals = data.map(r => Number(r[param])).filter(v => !isNaN(v));
+
+      if (xvals.length === 0 || yvals.length === 0 || paramVals.length === 0) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("資料不足", canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      const xMin = Math.min(...xvals);
+      const xMax = Math.max(...xvals);
+      const yMin = Math.min(...yvals);
+      const yMax = Math.max(...yvals);
+      const paramMin = Math.min(...paramVals);
+      const paramMax = Math.max(...paramVals);
+
+      const margin = 40;
+      const plotW = canvas.width - 2 * margin;
+      const plotH = canvas.height - 2 * margin;
+
+      // 背景
+      ctx.fillStyle = "#0b0f19";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 繪製網格和軸
+      ctx.strokeStyle = "#374151";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(margin, margin, plotW, plotH);
+
+      // X 軸標籤
+      ctx.fillStyle = "#9ca3af";
+      ctx.font = "11px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(`${param} (Value)`, canvas.width / 2, canvas.height - 10);
+
+      // Y 軸標籤
+      ctx.save();
+      ctx.translate(10, canvas.height / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = "center";
+      ctx.fillText("Y", 0, 0);
+      ctx.restore();
+
+      // 繪製數據點
+      const pointRadius = 3;
+      data.forEach((row) => {
+        const x = Number(row.X);
+        const y = Number(row.Y);
+        const pval = Number(row[param]);
+
+        if (!isNaN(x) && !isNaN(y) && !isNaN(pval)) {
+          const px = margin + ((x - xMin) / (xMax - xMin)) * plotW;
+          const py = margin + plotH - ((y - yMin) / (yMax - yMin)) * plotH;
+
+          ctx.fillStyle = getTurboColor(pval, paramMin, paramMax);
+          ctx.beginPath();
+          ctx.arc(px, py, pointRadius, 0, 2 * Math.PI);
+          ctx.fill();
+
+          // 檢查是否在高亮集合中
+          if (state.highlightIndices.has(state.nonSpatialFilteredData.indexOf(row))) {
+            ctx.strokeStyle = "#ff0000";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(px, py, pointRadius + 2, 0, 2 * Math.PI);
+            ctx.stroke();
+          }
+        }
+      });
+
+      // 繪製選取框（如果有）
+      if (state.spatialFilterRange) {
+        const [xMin_sel, xMax_sel] = state.spatialFilterRange.x;
+        const [yMin_sel, yMax_sel] = state.spatialFilterRange.y;
+        const px1 = margin + ((xMin_sel - xMin) / (xMax - xMin)) * plotW;
+        const px2 = margin + ((xMax_sel - xMin) / (xMax - xMin)) * plotW;
+        const py1 = margin + plotH - ((yMax_sel - yMin) / (yMax - yMin)) * plotH;
+        const py2 = margin + plotH - ((yMin_sel - yMin) / (yMax - yMin)) * plotH;
+
+        ctx.strokeStyle = "#3b82f6";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px1, py1, px2 - px1, py2 - py1);
+      }
+    }
+
+    // 簡化的繪圖函式，避免代碼過長
+    function drawCorrelation() {
+      const canvas = document.getElementById("corr-canvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+
+      const xParam = state.selectedCorrX;
+      const yParam = state.selectedCorrY;
+      const data = state.filteredData;
+
+      if (!xParam || !yParam || data.length === 0) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("沒有資料", canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      const xvals = data.map(r => Number(r[xParam])).filter(v => !isNaN(v));
+      const yvals = data.map(r => Number(r[yParam])).filter(v => !isNaN(v));
+
+      if (xvals.length < 2 || yvals.length < 2) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("資料不足", canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      let xMin = Math.min(...xvals);
+      let xMax = Math.max(...xvals);
+      let yMin = Math.min(...yvals);
+      let yMax = Math.max(...yvals);
+
+      if (state.xScale === "log" && xMin > 0) {
+        xMin = Math.log10(xMin);
+        xMax = Math.log10(xMax);
+      }
+      if (state.yScale === "log" && yMin > 0) {
+        yMin = Math.log10(yMin);
+        yMax = Math.log10(yMax);
+      }
+
+      const margin = 40;
+      const plotW = canvas.width - 2 * margin;
+      const plotH = canvas.height - 2 * margin;
+
+      ctx.fillStyle = "#0b0f19";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "#374151";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(margin, margin, plotW, plotH);
+
+      // 繪製數據點
+      const r = calculatePearsonR(
+        data.map(r => Number(r[xParam])).filter(v => !isNaN(v)),
+        data.map(r => Number(r[yParam])).filter(v => !isNaN(v))
+      );
+      const infoElem = document.getElementById("corr-info");
+      if (infoElem) {
+        infoElem.innerText = `r=${r.toFixed(3)}`;
+      }
+
+      data.forEach((row, idx) => {
+        let x = Number(row[xParam]);
+        let y = Number(row[yParam]);
+
+        if (isNaN(x) || isNaN(y)) return;
+
+        if (state.xScale === "log" && x > 0) x = Math.log10(x);
+        if (state.yScale === "log" && y > 0) y = Math.log10(y);
+
+        const px = margin + ((x - xMin) / (xMax - xMin)) * plotW;
+        const py = margin + plotH - ((y - yMin) / (yMax - yMin)) * plotH;
+
+        ctx.fillStyle = "#3b82f6";
+        ctx.beginPath();
+        ctx.arc(px, py, 3, 0, 2 * Math.PI);
+        ctx.fill();
+
+        if (state.highlightIndices.has(state.filteredData.indexOf(row))) {
+          ctx.strokeStyle = "#ff0000";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(px, py, 5, 0, 2 * Math.PI);
+          ctx.stroke();
+        }
+      });
+
+      // 趨勢線
+      if (state.showTrendline) {
+        const xData = data.map(r => Number(r[xParam])).filter(v => !isNaN(v));
+        const yData = data.map(r => Number(r[yParam])).filter(v => !isNaN(v));
+        const reg = calculateLinearRegression(xData, yData);
+        if (reg) {
+          let x1 = reg.xStart;
+          let y1 = reg.yStart;
+          let x2 = reg.xEnd;
+          let y2 = reg.yEnd;
+
+          if (state.xScale === "log" && x1 > 0 && x2 > 0) {
+            x1 = Math.log10(x1);
+            x2 = Math.log10(x2);
+          }
+          if (state.yScale === "log" && y1 > 0 && y2 > 0) {
+            y1 = Math.log10(y1);
+            y2 = Math.log10(y2);
+          }
+
+          const px1 = margin + ((x1 - xMin) / (xMax - xMin)) * plotW;
+          const py1 = margin + plotH - ((y1 - yMin) / (yMax - yMin)) * plotH;
+          const px2 = margin + ((x2 - xMin) / (xMax - xMin)) * plotW;
+          const py2 = margin + plotH - ((y2 - yMin) / (yMax - yMin)) * plotH;
+
+          ctx.strokeStyle = "#ef4444";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(px1, py1);
+          ctx.lineTo(px2, py2);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function drawBoxPlot() {
+      const canvas = document.getElementById("box-canvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+
+      const params = state.selectedDistParams;
+      const data = state.filteredData;
+
+      if (params.length === 0 || data.length === 0) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("請選擇參數", canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      const margin = 40;
+      const plotW = canvas.width - 2 * margin;
+      const plotH = canvas.height - 2 * margin;
+
+      ctx.fillStyle = "#0b0f19";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const boxStats = params.map(param => ({
+        param,
+        stats: calculateBoxPlotStats(data.map(r => Number(r[param])).filter(v => !isNaN(v)))
+      })).filter(b => b.stats !== null);
+
+      if (boxStats.length === 0) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("無有效資料", canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      const allVals = boxStats.flatMap(b => [b.stats.min, b.stats.max]);
+      let yMin = Math.min(...allVals);
+      let yMax = Math.max(...allVals);
+
+      if (yMin === yMax) { yMin -= 0.5; yMax += 0.5; }
+
+      if (state.distBoxYScale === "log" && yMin > 0) {
+        yMin = Math.log10(yMin);
+        yMax = Math.log10(yMax);
+      }
+
+      const boxWidth = plotW / boxStats.length * 0.6;
+      const boxSpacing = plotW / boxStats.length;
+
+      boxStats.forEach((item, idx) => {
+        const x = margin + (idx + 0.5) * boxSpacing;
+        let min = item.stats.min;
+        let q1 = item.stats.q1;
+        let median = item.stats.median;
+        let q3 = item.stats.q3;
+        let max = item.stats.max;
+
+        if (state.distBoxYScale === "log") {
+          if (min > 0) min = Math.log10(min);
+          if (q1 > 0) q1 = Math.log10(q1);
+          if (median > 0) median = Math.log10(median);
+          if (q3 > 0) q3 = Math.log10(q3);
+          if (max > 0) max = Math.log10(max);
+        }
+
+        const py_min = margin + plotH - ((min - yMin) / (yMax - yMin)) * plotH;
+        const py_q1 = margin + plotH - ((q1 - yMin) / (yMax - yMin)) * plotH;
+        const py_median = margin + plotH - ((median - yMin) / (yMax - yMin)) * plotH;
+        const py_q3 = margin + plotH - ((q3 - yMin) / (yMax - yMin)) * plotH;
+        const py_max = margin + plotH - ((max - yMin) / (yMax - yMin)) * plotH;
+
+        ctx.strokeStyle = PALETTE_COLORS[idx % PALETTE_COLORS.length];
+        ctx.lineWidth = 2;
+
+        // 鬍子
+        ctx.beginPath();
+        ctx.moveTo(x, py_min);
+        ctx.lineTo(x, py_q1);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x, py_q3);
+        ctx.lineTo(x, py_max);
+        ctx.stroke();
+
+        // 箱子
+        ctx.fillStyle = PALETTE_COLORS[idx % PALETTE_COLORS.length];
+        ctx.globalAlpha = 0.3;
+        ctx.fillRect(x - boxWidth / 2, py_q3, boxWidth, py_q1 - py_q3);
+        ctx.globalAlpha = 1;
+
+        ctx.strokeStyle = PALETTE_COLORS[idx % PALETTE_COLORS.length];
+        ctx.strokeRect(x - boxWidth / 2, py_q3, boxWidth, py_q1 - py_q3);
+
+        // 中位數
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x - boxWidth / 2, py_median);
+        ctx.lineTo(x + boxWidth / 2, py_median);
+        ctx.stroke();
+      });
+
+      // 繪製高亮抖動點雲
+      if (state.highlightIndices.size > 0) {
+        boxStats.forEach((item, idx) => {
+          const x = margin + (idx + 0.5) * boxSpacing;
+
+          data.forEach((row, rowIdx) => {
+            if (state.highlightIndices.has(rowIdx)) {
+              let val = Number(row[item.param]);
+              if (isNaN(val)) return;
+
+              if (state.distBoxYScale === "log") {
+                if (val > 0) val = Math.log10(val);
+                else return;
+              }
+
+              const py = margin + plotH - ((val - yMin) / (yMax - yMin)) * plotH;
+              
+              // 水平隨機抖動
+              const jitter = (Math.random() - 0.5) * (boxWidth * 0.6);
+              const px = x + jitter;
+
+              ctx.strokeStyle = "#ef4444";
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              ctx.arc(px, py, 3, 0, 2 * Math.PI);
+              ctx.stroke();
+            }
+          });
+        });
+      }
+
+      // 軸
+      ctx.strokeStyle = "#374151";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(margin, margin, plotW, plotH);
+    }
+
+    function drawHistogram() {
+      const canvas = document.getElementById("hist-canvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+
+      const params = state.selectedDistParams;
+      const data = state.filteredData;
+
+      if (params.length === 0 || data.length === 0) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("請選擇參數", canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      const margin = 40;
+      const plotW = canvas.width - 2 * margin;
+      const plotH = canvas.height - 2 * margin;
+
+      ctx.fillStyle = "#0b0f19";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "#374151";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(margin, margin, plotW, plotH);
+
+      const histograms = params.map((param, idx) => {
+        const vals = data.map(r => Number(r[param])).filter(v => !isNaN(v));
+        if (vals.length === 0) return null;
+
+        let min = Math.min(...vals);
+        let max = Math.max(...vals);
+
+        if (state.distXScale === "log" && min > 0) {
+          vals.forEach((v, i) => { if (v > 0) vals[i] = Math.log10(v); });
+          min = Math.min(...vals.filter(v => !isNaN(v)));
+          max = Math.max(...vals.filter(v => !isNaN(v)));
+        }
+
+        if (min === max) { min -= 0.5; max += 0.5; }
+
+        const bins = 15;
+        const binSize = (max - min) / bins;
+        const histogram = new Array(bins).fill(0);
+
+        vals.forEach(v => {
+          if (!isNaN(v)) {
+            const binIdx = Math.floor((v - min) / binSize);
+            if (binIdx >= 0 && binIdx < bins) histogram[binIdx]++;
+          }
+        });
+
+        return { param, vals, min, max, histogram, idx };
+      }).filter(h => h !== null);
+
+      if (histograms.length === 0) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("無有效資料", canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      histograms.forEach(h => {
+        const maxCount = Math.max(...h.histogram);
+        let yMax = maxCount;
+
+        if (state.distYScale === "log" && maxCount > 0) {
+          yMax = Math.log10(maxCount);
+        }
+
+        const barW = plotW / (h.histogram.length * (histograms.length + 1));
+        const offset = h.idx * barW;
+
+        h.histogram.forEach((count, binIdx) => {
+          let barH = state.distYScale === "log" && count > 0 ? Math.log10(count) : count;
+          barH = (barH / yMax) * plotH;
+
+          const x = margin + binIdx * plotW / h.histogram.length + offset;
+          const y = margin + plotH - barH;
+
+          ctx.fillStyle = PALETTE_COLORS[h.idx % PALETTE_COLORS.length];
+          ctx.globalAlpha = 0.7;
+          ctx.fillRect(x, y, barW * 0.8, barH);
+          ctx.globalAlpha = 1;
+        });
+      });
+
+      // 繪製高亮點的直方柱 (紅色空心框)
+      if (state.highlightIndices.size > 0 && histograms.length > 0) {
+        histograms.forEach(h => {
+          const maxCount = Math.max(...h.histogram);
+          let yMax = maxCount;
+          if (state.distYScale === "log" && maxCount > 0) {
+            yMax = Math.log10(maxCount);
+          }
+
+          // 收集高亮點的值並計算高亮分箱
+          const highlightVals = [];
+          data.forEach((row, rowIdx) => {
+            if (state.highlightIndices.has(rowIdx)) {
+              let v = Number(row[h.param]);
+              if (!isNaN(v)) {
+                if (state.distXScale === "log" && v > 0) v = Math.log10(v);
+                highlightVals.push(v);
+              }
+            }
+          });
+
+          const bins = 15;
+          const binSize = (h.max - h.min) / bins;
+          const highlightHist = new Array(bins).fill(0);
+          highlightVals.forEach(v => {
+            const binIdx = Math.floor((v - h.min) / binSize);
+            if (binIdx >= 0 && binIdx < bins) highlightHist[binIdx]++;
+          });
+
+          const barW = plotW / (bins * (histograms.length + 1));
+          const offset = h.idx * barW;
+
+          highlightHist.forEach((count, binIdx) => {
+            if (count === 0) return;
+            let barH = state.distYScale === "log" && count > 0 ? Math.log10(count) : count;
+            barH = (barH / yMax) * plotH;
+
+            const x = margin + binIdx * plotW / bins + offset;
+            const y = margin + plotH - barH;
+
+            ctx.strokeStyle = "#ef4444";
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x, y, barW * 0.8, barH);
+          });
+        });
+      }
+    }
+
+    // =================================================================
+    // 6. Canvas 事件 (框選互動)
+    // =================================================================
+
+    function initWaferCanvasEvents() {
+      const canvas = document.getElementById("wafer-canvas");
+      const box = document.getElementById("wafer-selection-box");
+      if (!canvas || !box) return;
+
+      let isSelecting = false;
+      let startX, startY;
+
+      canvas.addEventListener("mousedown", (e) => {
+        if (!state.nonSpatialFilteredData || state.nonSpatialFilteredData.length === 0) return;
+        const rect = canvas.getBoundingClientRect();
+        startX = e.clientX - rect.left;
+        startY = e.clientY - rect.top;
+        isSelecting = true;
+
+        box.style.left = startX + "px";
+        box.style.top = startY + "px";
+        box.style.width = "0px";
+        box.style.height = "0px";
+        box.style.display = "block";
+      });
+
+      canvas.addEventListener("mousemove", (e) => {
+        if (!isSelecting) return;
+        const rect = canvas.getBoundingClientRect();
+        const curX = Math.max(0, Math.min(canvas.width, e.clientX - rect.left));
+        const curY = Math.max(0, Math.min(canvas.height, e.clientY - rect.top));
+
+        const left = Math.min(startX, curX);
+        const top = Math.min(startY, curY);
+        const width = Math.abs(startX - curX);
+        const height = Math.abs(startY - curY);
+
+        box.style.left = left + "px";
+        box.style.top = top + "px";
+        box.style.width = width + "px";
+        box.style.height = height + "px";
+      });
+
+      canvas.addEventListener("mouseup", (e) => {
+        if (!isSelecting) return;
+        isSelecting = false;
+        box.style.display = "none";
+
+        const rect = canvas.getBoundingClientRect();
+        const endX = e.clientX - rect.left;
+        const endY = e.clientY - rect.top;
+
+        const margin = 40;
+        const plotW = canvas.width - 2 * margin;
+        const plotH = canvas.height - 2 * margin;
+
+        if (startX < margin || startX > canvas.width - margin || startY < margin || startY > canvas.height - margin ||
+            endX < margin || endX > canvas.width - margin || endY < margin || endY > canvas.height - margin) {
+          return;
+        }
+
+        const data = state.nonSpatialFilteredData;
+        if (!data || data.length === 0) return;
+
+        const xvals = data.map(r => Number(r.X)).filter(x => !isNaN(x));
+        const yvals = data.map(r => Number(r.Y)).filter(y => !isNaN(y));
+
+        if (xvals.length === 0 || yvals.length === 0) return;
+
+        const xMin = Math.min(...xvals);
+        const xMax = Math.max(...xvals);
+        const yMin = Math.min(...yvals);
+        const yMax = Math.max(...yvals);
+
+        const xRangeDiff = xMax - xMin;
+        const yRangeDiff = yMax - yMin;
+
+        const x1_norm = (Math.min(startX, endX) - margin) / plotW * xRangeDiff + xMin;
+        const x2_norm = (Math.max(startX, endX) - margin) / plotW * xRangeDiff + xMin;
+        const y1_norm = yMax - (Math.max(startY, endY) - margin) / plotH * yRangeDiff;
+        const y2_norm = yMax - (Math.min(startY, endY) - margin) / plotH * yRangeDiff;
+
+        // Fail-safe: 檢查是否有任何點在框選範圍內
+        const hasPoints = data.some(row => {
+          const x = Number(row.X);
+          const y = Number(row.Y);
+          return !isNaN(x) && !isNaN(y) && x >= x1_norm && x <= x2_norm && y >= y1_norm && y <= y2_norm;
+        });
+
+        if (!hasPoints) return;
+
+        state.spatialFilterRange = { x: [x1_norm, x2_norm], y: [y1_norm, y2_norm] };
+        updateDataAndRender();
+      });
+    }
+
+    function initCorrCanvasEvents() {
+      const canvas = document.getElementById("corr-canvas");
+      const box = document.getElementById("corr-selection-box");
+      if (!canvas || !box) return;
+
+      let isSelecting = false;
+      let startX, startY;
+
+      canvas.addEventListener("mousedown", (e) => {
+        if (!state.filteredData || state.filteredData.length === 0) return;
+        const rect = canvas.getBoundingClientRect();
+        startX = e.clientX - rect.left;
+        startY = e.clientY - rect.top;
+        isSelecting = true;
+
+        box.style.left = startX + "px";
+        box.style.top = startY + "px";
+        box.style.width = "0px";
+        box.style.height = "0px";
+        box.style.display = "block";
+      });
+
+      canvas.addEventListener("mousemove", (e) => {
+        if (!isSelecting) return;
+        const rect = canvas.getBoundingClientRect();
+        const curX = Math.max(0, Math.min(canvas.width, e.clientX - rect.left));
+        const curY = Math.max(0, Math.min(canvas.height, e.clientY - rect.top));
+
+        const left = Math.min(startX, curX);
+        const top = Math.min(startY, curY);
+        const width = Math.abs(startX - curX);
+        const height = Math.abs(startY - curY);
+
+        box.style.left = left + "px";
+        box.style.top = top + "px";
+        box.style.width = width + "px";
+        box.style.height = height + "px";
+      });
+
+      canvas.addEventListener("mouseup", (e) => {
+        if (!isSelecting) return;
+        isSelecting = false;
+        box.style.display = "none";
+
+        const rect = canvas.getBoundingClientRect();
+        const endX = e.clientX - rect.left;
+        const endY = e.clientY - rect.top;
+
+        const margin = 40;
+        const plotW = canvas.width - 2 * margin;
+        const plotH = canvas.height - 2 * margin;
+
+        if (startX < margin || startX > canvas.width - margin || startY < margin || startY > canvas.height - margin ||
+            endX < margin || endX > canvas.width - margin || endY < margin || endY > canvas.height - margin) {
+          return;
+        }
+
+        const xParam = state.selectedCorrX;
+        const yParam = state.selectedCorrY;
+        const data = state.filteredData;
+        if (!data || data.length === 0) return;
+
+        let xvals = data.map(r => Number(r[xParam])).filter(v => !isNaN(v));
+        let yvals = data.map(r => Number(r[yParam])).filter(v => !isNaN(v));
+
+        if (xvals.length === 0 || yvals.length === 0) return;
+
+        let xMin = Math.min(...xvals);
+        let xMax = Math.max(...xvals);
+        let yMin = Math.min(...yvals);
+        let yMax = Math.max(...yvals);
+
+        if (xMin === xMax) { xMin -= 0.5; xMax += 0.5; }
+        if (yMin === yMax) { yMin -= 0.5; yMax += 0.5; }
+
+        if (state.xScale === "log" && xMin > 0) {
+          xMin = Math.log10(xMin);
+          xMax = Math.log10(xMax);
+        }
+        if (state.yScale === "log" && yMin > 0) {
+          yMin = Math.log10(yMin);
+          yMax = Math.log10(yMax);
+        }
+
+        const xRangeDiff = xMax - xMin;
+        const yRangeDiff = yMax - yMin;
+
+        const x1_norm = (Math.min(startX, endX) - margin) / plotW * xRangeDiff + xMin;
+        const x2_norm = (Math.max(startX, endX) - margin) / plotW * xRangeDiff + xMin;
+        const y1_norm = yMax - (Math.max(startY, endY) - margin) / plotH * yRangeDiff;
+        const y2_norm = yMax - (Math.min(startY, endY) - margin) / plotH * yRangeDiff;
+
+        // Fail-safe: 檢查是否有任何點在範圍內
+        const hasPoints = data.some(row => {
+          let x = Number(row[xParam]);
+          let y = Number(row[yParam]);
+          if (isNaN(x) || isNaN(y)) return false;
+          if (state.xScale === "log" && x > 0) x = Math.log10(x);
+          if (state.yScale === "log" && y > 0) y = Math.log10(y);
+          return x >= x1_norm && x <= x2_norm && y >= y1_norm && y <= y2_norm;
+        });
+
+        if (!hasPoints) {
+          state.highlightIndices.clear();
+          triggerRedraw();
+          return;
+        }
+
+        state.highlightIndices.clear();
+        data.forEach((row, idx) => {
+          let x = Number(row[xParam]);
+          let y = Number(row[yParam]);
+
+          if (state.xScale === "log" && x > 0) x = Math.log10(x);
+          if (state.yScale === "log" && y > 0) y = Math.log10(y);
+
+          if (x >= x1_norm && x <= x2_norm && y >= y1_norm && y <= y2_norm) {
+            state.highlightIndices.add(idx);
+          }
+        });
+
+        triggerRedraw();
+      });
+    }
+
+    function initBoxCanvasEvents() {
+      const canvas = document.getElementById("box-canvas");
+      const box = document.getElementById("box-selection-box");
+      if (!canvas || !box) return;
+
+      let isSelecting = false;
+      let startX, startY;
+
+      canvas.addEventListener("mousedown", (e) => {
+        if (!state.filteredData || state.filteredData.length === 0) return;
+        const rect = canvas.getBoundingClientRect();
+        startX = e.clientX - rect.left;
+        startY = e.clientY - rect.top;
+        isSelecting = true;
+
+        box.style.left = startX + "px";
+        box.style.top = startY + "px";
+        box.style.width = "0px";
+        box.style.height = "0px";
+        box.style.display = "block";
+      });
+
+      canvas.addEventListener("mousemove", (e) => {
+        if (!isSelecting) return;
+        const rect = canvas.getBoundingClientRect();
+        const curX = Math.max(0, Math.min(canvas.width, e.clientX - rect.left));
+        const curY = Math.max(0, Math.min(canvas.height, e.clientY - rect.top));
+
+        const left = Math.min(startX, curX);
+        const top = Math.min(startY, curY);
+        const width = Math.abs(startX - curX);
+        const height = Math.abs(startY - curY);
+
+        box.style.left = left + "px";
+        box.style.top = top + "px";
+        box.style.width = width + "px";
+        box.style.height = height + "px";
+      });
+
+      canvas.addEventListener("mouseup", (e) => {
+        if (!isSelecting) return;
+        isSelecting = false;
+        box.style.display = "none";
+
+        const rect = canvas.getBoundingClientRect();
+        const endX = e.clientX - rect.left;
+        const endY = e.clientY - rect.top;
+
+        const margin = 40;
+        const plotW = canvas.width - 2 * margin;
+        const plotH = canvas.height - 2 * margin;
+
+        if (startX < margin || startX > canvas.width - margin || startY < margin || startY > canvas.height - margin ||
+            endX < margin || endX > canvas.width - margin || endY < margin || endY > canvas.height - margin) {
+          return;
+        }
+
+        const params = state.selectedDistParams;
+        const data = state.filteredData;
+        if (params.length === 0 || data.length === 0) return;
+
+        const boxStats = params.map(param => ({
+          param,
+          stats: calculateBoxPlotStats(data.map(r => Number(r[param])).filter(v => !isNaN(v)))
+        })).filter(b => b.stats !== null);
+
+        if (boxStats.length === 0) return;
+
+        const allVals = boxStats.flatMap(b => [b.stats.min, b.stats.max]);
+        let yMin = Math.min(...allVals);
+        let yMax = Math.max(...allVals);
+        if (yMin === yMax) { yMin -= 0.5; yMax += 0.5; }
+
+        if (state.distBoxYScale === "log" && yMin > 0) {
+          yMin = Math.log10(yMin);
+          yMax = Math.log10(yMax);
+        }
+
+        const yRangeDiff = yMax - yMin;
+        const y1_norm = yMax - (Math.max(startY, endY) - margin) / plotH * yRangeDiff;
+        const y2_norm = yMax - (Math.min(startY, endY) - margin) / plotH * yRangeDiff;
+
+        // 判斷選中哪些參數箱位
+        const boxSpacing = plotW / boxStats.length;
+        const selectedParams = [];
+        boxStats.forEach((item, idx) => {
+          const x = margin + (idx + 0.5) * boxSpacing;
+          const leftBox = x - boxSpacing / 2;
+          const rightBox = x + boxSpacing / 2;
+          
+          const selMinX = Math.min(startX, endX);
+          const selMaxX = Math.max(startX, endX);
+
+          if (rightBox >= selMinX && leftBox <= selMaxX) {
+            selectedParams.push(item.param);
+          }
+        });
+
+        if (selectedParams.length === 0) {
+          state.highlightIndices.clear();
+          triggerRedraw();
+          return;
+        }
+
+        // Fail-safe: 判斷是否有任何點在框選範圍內
+        const hasPoints = data.some(row => {
+          for (const param of selectedParams) {
+            let val = Number(row[param]);
+            if (isNaN(val)) continue;
+            if (state.distBoxYScale === "log" && val > 0) val = Math.log10(val);
+            if (val >= y1_norm && val <= y2_norm) return true;
+          }
+          return false;
+        });
+
+        if (!hasPoints) {
+          state.highlightIndices.clear();
+          triggerRedraw();
+          return;
+        }
+
+        state.highlightIndices.clear();
+        data.forEach((row, idx) => {
+          for (const param of selectedParams) {
+            let val = Number(row[param]);
+            if (isNaN(val)) continue;
+            if (state.distBoxYScale === "log" && val > 0) val = Math.log10(val);
+            if (val >= y1_norm && val <= y2_norm) {
+              state.highlightIndices.add(idx);
+              break;
+            }
+          }
+        });
+
+        triggerRedraw();
+      });
+    }
+
+    function initHistCanvasEvents() {
+      const canvas = document.getElementById("hist-canvas");
+      const box = document.getElementById("hist-selection-box");
+      if (!canvas || !box) return;
+
+      let isSelecting = false;
+      let startX, startY;
+
+      canvas.addEventListener("mousedown", (e) => {
+        if (!state.filteredData || state.filteredData.length === 0) return;
+        const rect = canvas.getBoundingClientRect();
+        startX = e.clientX - rect.left;
+        startY = e.clientY - rect.top;
+        isSelecting = true;
+
+        box.style.left = startX + "px";
+        box.style.top = startY + "px";
+        box.style.width = "0px";
+        box.style.height = "0px";
+        box.style.display = "block";
+      });
+
+      canvas.addEventListener("mousemove", (e) => {
+        if (!isSelecting) return;
+        const rect = canvas.getBoundingClientRect();
+        const curX = Math.max(0, Math.min(canvas.width, e.clientX - rect.left));
+        const curY = Math.max(0, Math.min(canvas.height, e.clientY - rect.top));
+
+        const left = Math.min(startX, curX);
+        const top = Math.min(startY, curY);
+        const width = Math.abs(startX - curX);
+        const height = Math.abs(startY - curY);
+
+        box.style.left = left + "px";
+        box.style.top = top + "px";
+        box.style.width = width + "px";
+        box.style.height = height + "px";
+      });
+
+      canvas.addEventListener("mouseup", (e) => {
+        if (!isSelecting) return;
+        isSelecting = false;
+        box.style.display = "none";
+
+        const rect = canvas.getBoundingClientRect();
+        const endX = e.clientX - rect.left;
+        const endY = e.clientY - rect.top;
+
+        const margin = 40;
+        const plotW = canvas.width - 2 * margin;
+        const plotH = canvas.height - 2 * margin;
+
+        if (startX < margin || startX > canvas.width - margin || startY < margin || startY > canvas.height - margin ||
+            endX < margin || endX > canvas.width - margin || endY < margin || endY > canvas.height - margin) {
+          return;
+        }
+
+        const params = state.selectedDistParams;
+        const data = state.filteredData;
+        if (params.length === 0 || data.length === 0) return;
+
+        const activeHistograms = params.map(param => {
+          const vals = data.map(r => Number(r[param])).filter(v => !isNaN(v));
+          if (vals.length === 0) return null;
+          let min = Math.min(...vals);
+          let max = Math.max(...vals);
+          if (state.distXScale === "log" && min > 0) {
+            const logVals = vals.filter(v => v > 0).map(Math.log10);
+            min = Math.min(...logVals);
+            max = Math.max(...logVals);
+          }
+          return { min, max };
+        }).filter(h => h !== null);
+
+        if (activeHistograms.length === 0) return;
+
+        let globalMin = Math.min(...activeHistograms.map(h => h.min));
+        let globalMax = Math.max(...activeHistograms.map(h => h.max));
+        if (globalMin === globalMax) { globalMin -= 0.5; globalMax += 0.5; }
+
+        const xRangeDiff = globalMax - globalMin;
+        const x1_norm = (Math.min(startX, endX) - margin) / plotW * xRangeDiff + globalMin;
+        const x2_norm = (Math.max(startX, endX) - margin) / plotW * xRangeDiff + globalMin;
+
+        // Fail-safe: 判斷是否有任何點在範圍內
+        const hasPoints = data.some(row => {
+          for (const param of params) {
+            let val = Number(row[param]);
+            if (isNaN(val)) continue;
+            if (state.distXScale === "log" && val > 0) val = Math.log10(val);
+            if (val >= x1_norm && val <= x2_norm) return true;
+          }
+          return false;
+        });
+
+        if (!hasPoints) {
+          state.highlightIndices.clear();
+          triggerRedraw();
+          return;
+        }
+
+        state.highlightIndices.clear();
+        data.forEach((row, idx) => {
+          for (const param of params) {
+            let val = Number(row[param]);
+            if (isNaN(val)) continue;
+            if (state.distXScale === "log" && val > 0) val = Math.log10(val);
+            if (val >= x1_norm && val <= x2_norm) {
+              state.highlightIndices.add(idx);
+              break;
+            }
+          }
+        });
+
+        triggerRedraw();
+      });
+    }
+
+    // =================================================================
+    // 7. 檔案上傳與初始化
+    // =================================================================
+
+    const dropZone = document.getElementById("drop-zone");
+    const fileInput = document.getElementById("file-input");
+
+    if (dropZone) {
+      dropZone.addEventListener("click", () => fileInput?.click());
+
+      ["dragenter", "dragover", "dragleave", "drop"].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (eventName === "dragenter" || eventName === "dragover") {
+            dropZone.style.backgroundColor = "#2563eb";
+          } else {
+            dropZone.style.backgroundColor = "#1f2937";
+          }
+        });
+      });
+
+      dropZone.addEventListener("drop", (e) => {
+        dropZone.style.backgroundColor = "#1f2937";
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          handleFile(files[0]);
+        }
+      });
+    }
+
+    if (fileInput) {
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) {
+          handleFile(e.target.files[0]);
+        }
+      });
+    }
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const content = e.target.result;
+          const parsedData = processFileContent(content);
+          handleDataLoaded(parsedData, file.name);
+        } catch (err) {
+          alert("檔案解析失敗: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>

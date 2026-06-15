@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CP DL to Excel Converter</title>
+  
+  <!-- 引入 Google Fonts Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- 引入本地端依賴 -->
+  <script src="libs/xlsx.full.min.js"></script>
+  <script src="libs/jszip.min.js"></script>
+  <script src="libs/parser.js"></script>
+
+  <style>
+    :root {
+      --bg-color: #0b0f19;
+      --card-bg: rgba(17, 24, 39, 0.7);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --accent-gradient: linear-gradient(135deg, #4f46e5, #9333ea);
+      --accent-color: #6366f1;
+      --success-color: #10b981;
+      --error-color: #ef4444;
+      --font-sans: 'Outfit', 'Noto Sans TC', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(147, 51, 234, 0.15) 0px, transparent 50%);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow-x: hidden;
+    }
+
+    header {
+      padding: 2.5rem 2rem 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.05em;
+      background: linear-gradient(to right, #ffffff, #a5b4fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      font-weight: 300;
+    }
+
+    main {
+      flex: 1;
+      max-width: 800px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 1.5rem 3rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* 玻璃磨砂卡片 */
+    .glass-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 2rem;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* 拖曳區樣式 */
+    .drop-zone {
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(255, 255, 255, 0.01);
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent-color);
+      background: rgba(99, 102, 241, 0.05);
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+    }
+
+    .drop-zone-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: inline-block;
+    }
+
+    .drop-zone-text {
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+
+    .drop-zone-subtext {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    /* 檔案列表 */
+    .file-list-container {
+      margin-top: 1.5rem;
+      max-height: 200px;
+      overflow-y: auto;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 1rem;
+    }
+
+    .file-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.6rem 0.8rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+      border: 1px solid rgba(255, 255, 255, 0.02);
+    }
+
+    .file-item-name {
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 70%;
+    }
+
+    .file-item-size {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    /* 控制面板 */
+    .control-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .mode-selector {
+      display: flex;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 10px;
+      padding: 0.3rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .mode-tab {
+      flex: 1;
+      text-align: center;
+      padding: 0.8rem;
+      cursor: pointer;
+      border-radius: 8px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      user-select: none;
+      color: var(--text-secondary);
+    }
+
+    .mode-tab.active {
+      background: var(--accent-gradient);
+      color: var(--text-primary);
+      box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+    }
+
+    .btn {
+      background: var(--accent-gradient);
+      color: var(--text-primary);
+      border: none;
+      border-radius: 8px;
+      padding: 1rem 2rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    }
+
+    .btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
+    }
+
+    .btn:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .btn:disabled {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: none;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+    }
+
+    /* 狀態列 */
+    .status-bar {
+      border-radius: 8px;
+      padding: 0.8rem 1.2rem;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.3s ease;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .status-bar.info {
+      color: var(--text-secondary);
+    }
+
+    .status-bar.error {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.2);
+      color: var(--error-color);
+      font-weight: 500;
+    }
+
+    .status-bar.success {
+      background: rgba(16, 185, 129, 0.1);
+      border-color: rgba(16, 185, 129, 0.2);
+      color: var(--success-color);
+      font-weight: 500;
+    }
+
+    /* Modal 彈出視窗 */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal {
+      background: #111827;
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      transform: scale(0.95);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .modal-backdrop.active .modal {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      line-height: 1;
+      padding: 0.2rem;
+      transition: color 0.2s ease;
+    }
+
+    .modal-close:hover {
+      color: var(--text-primary);
+    }
+
+    .modal-body {
+      padding: 1.5rem;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .search-box {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .search-box:focus {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 10px rgba(99, 102, 241, 0.1);
+    }
+
+    .selector-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .selection-stats {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .selection-links {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .selection-link {
+      color: var(--accent-color);
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .selection-link:hover {
+      text-decoration: underline;
+    }
+
+    .columns-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 0.6rem;
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 0.5rem;
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .column-checkbox-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.02);
+      cursor: pointer;
+      transition: background 0.15s ease;
+      user-select: none;
+    }
+
+    .column-checkbox-wrapper:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .column-checkbox-wrapper.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: rgba(255, 255, 255, 0.01);
+    }
+
+    .column-checkbox-wrapper input[type="checkbox"] {
+      accent-color: var(--accent-color);
+      width: 1rem;
+      height: 1rem;
+      cursor: pointer;
+    }
+
+    .column-checkbox-wrapper.disabled input[type="checkbox"] {
+      cursor: not-allowed;
+    }
+
+    .column-name {
+      font-size: 0.85rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .modal-footer {
+      padding: 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+    }
+
+    /* 統計卡片 */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 1.2rem;
+      text-align: center;
+    }
+
+    .stat-val {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent-color);
+      margin-bottom: 0.2rem;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .stat-lbl {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    footer {
+      padding: 2rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    /* 捲軸美化 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>CP Datalog to Excel Converter</h1>
+    <p>100% 本機端離線安全轉換</p>
+  </header>
+
+  <main>
+    <!-- 第一步：上傳與快取 -->
+    <div id="step-upload" class="glass-card">
+      <div id="drop-zone" class="drop-zone">
+        <div class="drop-zone-icon">📥</div>
+        <div class="drop-zone-text">將 Datalog 檔案拖曳至此，或點擊選擇</div>
+        <div class="drop-zone-subtext">支援多個 CP DL 檔案 </div>
+        <input type="file" id="file-input" multiple>
+      </div>
+      
+      <!-- 檔案列表 -->
+      <div id="file-list-wrapper" style="display: none;">
+        <div class="file-list-container" id="file-list"></div>
+        <div style="display: flex; justify-content: flex-end; margin-top: 0.8rem;">
+          <button class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" id="clear-files-btn">清除檔案</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第二步：控制面板 -->
+    <div id="step-control" class="glass-card control-panel" style="display: none;">
+      <div>
+        <h3 style="margin-bottom: 0.8rem; font-size: 1.1rem; font-weight: 600;">匯出模式設定</h3>
+        <div class="mode-selector">
+          <div class="mode-tab active" id="tab-merge" onclick="setMode('merge')">合併儲存模式 (Merge)</div>
+          <div class="mode-tab" id="tab-split" onclick="setMode('split')">分開儲存打包 (Split)</div>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.6rem;" id="mode-desc">
+          將所有檔案的資料合併為單一 Excel 表單。第一欄將自動插入 Source 欄位，記錄原始檔名。
+        </p>
+      </div>
+
+      <!-- 狀態欄 -->
+      <div id="status-bar" class="status-bar info">
+        <span>⚪</span> <span id="status-text">請上傳 Datalog 檔案</span>
+      </div>
+
+      <button id="next-step-btn" class="btn" disabled>
+        ⚙️ 選擇欄位並匯出
+      </button>
+    </div>
+
+    <!-- 第三步：完成統計卡片 -->
+    <div id="step-result" class="glass-card" style="display: none; text-align: center;">
+      <div style="font-size: 3rem; margin-bottom: 0.5rem;">🎉</div>
+      <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">匯出完成</h2>
+      <p style="color: var(--text-secondary); font-size: 0.9rem;" id="result-desc"></p>
+      
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-val" id="stat-files">0</div>
+          <div class="stat-lbl">處理檔案數</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-rows">0</div>
+          <div class="stat-lbl">總解析資料列</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-time-parse">0ms</div>
+          <div class="stat-lbl">累計解析時間</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-time-export">0ms</div>
+          <div class="stat-lbl">Excel 寫入時間</div>
+        </div>
+      </div>
+
+      <button class="btn" onclick="resetApp()">再次轉換新檔案</button>
+    </div>
+  </main>
+
+  <!-- 欄位選擇 Modal -->
+  <div class="modal-backdrop" id="column-modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">選擇要導出的欄位</div>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" class="search-box" id="column-search" placeholder="搜尋欄位名稱...">
+        
+        <div class="selector-actions">
+          <div class="selection-stats">
+            已選擇 <span id="selected-count" style="color: var(--accent-color); font-weight: 700;">0</span> / <span id="total-count">0</span> 個欄位
+          </div>
+          <div class="selection-links">
+            <span class="selection-link" onclick="selectAllColumns(true)">全選</span>
+            <span class="selection-link" onclick="selectAllColumns(false)">取消全選</span>
+          </div>
+        </div>
+
+        <div class="columns-grid" id="columns-grid">
+          <!-- 動態渲染 Checkboxes -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+        <button class="btn" id="confirm-export-btn">🚀 執行匯出</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    &copy; CP Datalog Converter Tool by PP32 YPLu (Desmond)
+  </footer>
+
+  <script>
+    // 全域變數快取
+    let parsedFiles = [];
+    let parseTimeAccumulated = 0;
+    let exportMode = 'merge'; // 'merge' | 'split'
+    let allHeaders = []; // 基準檔案的 headers (第一個檔案)
+    let selectedColumns = new Set(); // 追蹤被勾選的欄位狀態
+
+    // DOM Elements
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileListWrapper = document.getElementById('file-list-wrapper');
+    const fileList = document.getElementById('file-list');
+    const clearFilesBtn = document.getElementById('clear-files-btn');
+    const stepControl = document.getElementById('step-control');
+    const nextStepBtn = document.getElementById('next-step-btn');
+    const statusBar = document.getElementById('status-bar');
+    const statusText = document.getElementById('status-text');
+    const modeDesc = document.getElementById('mode-desc');
+    const tabMerge = document.getElementById('tab-merge');
+    const tabSplit = document.getElementById('tab-split');
+
+    // Modal DOM Elements
+    const modalBackdrop = document.getElementById('column-modal-backdrop');
+    const columnsGrid = document.getElementById('columns-grid');
+    const columnSearch = document.getElementById('column-search');
+    const selectedCountSpan = document.getElementById('selected-count');
+    const totalCountSpan = document.getElementById('total-count');
+    const confirmExportBtn = document.getElementById('confirm-export-btn');
+
+    // Result DOM Elements
+    const stepUpload = document.getElementById('step-upload');
+    const stepResult = document.getElementById('step-result');
+    const resultDesc = document.getElementById('result-desc');
+    const statFiles = document.getElementById('stat-files');
+    const statRows = document.getElementById('stat-rows');
+    const statTimeParse = document.getElementById('stat-time-parse');
+    const statTimeExport = document.getElementById('stat-time-export');
+
+    // 拖曳事件監聽
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        handleFiles(e.dataTransfer.files);
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFiles(e.target.files);
+      }
+    });
+
+    clearFilesBtn.addEventListener('click', () => {
+      resetApp();
+    });
+
+    // 模式切換
+    function setMode(mode) {
+      exportMode = mode;
+      if (mode === 'merge') {
+        tabMerge.classList.add('active');
+        tabSplit.classList.remove('active');
+        modeDesc.textContent = "將所有檔案的資料合併為單一 Excel 表單。第一欄將自動插入 Source 欄位，記錄原始檔名。";
+      } else {
+        tabMerge.classList.remove('active');
+        tabSplit.classList.add('active');
+        modeDesc.textContent = "個別解析每個檔案，並產生各自的 Excel 表單。最後打包為單一 ZIP 壓縮檔下載。";
+      }
+      validateFilesStructure();
+    }
+
+    // 處理上傳檔案
+    async function handleFiles(files) {
+      updateStatus('loading', '正在讀取並解析檔案，請稍候...');
+      
+      const filePromises = [];
+      const startTime = performance.now();
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        filePromises.push(readFileAsync(file));
+      }
+
+      try {
+        const results = await Promise.all(filePromises);
+        const endTime = performance.now();
+        
+        parsedFiles = parsedFiles.concat(results);
+        parseTimeAccumulated += Math.round(endTime - startTime);
+
+        renderFileList();
+        validateFilesStructure();
+      } catch (err) {
+        console.error(err);
+        updateStatus('error', `解析失敗：${err.message}`);
+      }
+    }
+
+    // 異步讀取單檔
+    function readFileAsync(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const fileContent = e.target.result;
+            const parsed = parseSingleFile(fileContent, file.name);
+            parsed.sizeBytes = file.size;
+            resolve(parsed);
+          } catch (err) {
+            reject(new Error(`檔案 ${file.name} 解析錯誤: ${err.message}`));
+          }
+        };
+        reader.onerror = () => reject(new Error(`無法讀取檔案 ${file.name}`));
+        reader.readAsText(file);
+      });
+    }
+
+    // 渲染已上傳檔案清單
+    function renderFileList() {
+      fileList.innerHTML = '';
+      if (parsedFiles.length === 0) {
+        fileListWrapper.style.display = 'none';
+        stepControl.style.display = 'none';
+        return;
+      }
+
+      parsedFiles.forEach(file => {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'file-item-name';
+        nameSpan.textContent = `📄 ${file.fileName}`;
+        
+        const sizeSpan = document.createElement('span');
+        sizeSpan.className = 'file-item-size';
+        const sizeKB = (file.sizeBytes / 1024).toFixed(1);
+        sizeSpan.textContent = `${sizeKB} KB (${file.rows.length} 列)`;
+        
+        item.appendChild(nameSpan);
+        item.appendChild(sizeSpan);
+        fileList.appendChild(item);
+      });
+
+      fileListWrapper.style.display = 'block';
+      stepControl.style.display = 'flex';
+    }
+
+    // 驗證檔案結構並執行防呆
+    function validateFilesStructure() {
+      if (parsedFiles.length === 0) {
+        nextStepBtn.disabled = true;
+        updateStatus('info', '請上傳 Datalog 檔案');
+        return;
+      }
+
+      allHeaders = parsedFiles[0].headers;
+
+      // 初始化選取的欄位狀態 (預設全選)
+      if (selectedColumns.size === 0) {
+        allHeaders.forEach(h => selectedColumns.add(h));
+      }
+      if (exportMode === 'merge') {
+        selectedColumns.add('Source');
+      } else {
+        selectedColumns.delete('Source');
+      }
+
+      if (exportMode === 'merge') {
+        const check = checkColumnsMatch(parsedFiles);
+        if (!check.match) {
+          nextStepBtn.disabled = true;
+          updateStatus('error', `合併中斷：檔案欄位結構不一致！\n${check.details}`);
+          return;
+        }
+      }
+
+      nextStepBtn.disabled = false;
+      updateStatus('success', `✔ ${parsedFiles.length} 個檔案載入成功，準備就緒！`);
+    }
+
+    // 更新狀態列
+    function updateStatus(type, text) {
+      statusBar.className = `status-bar ${type}`;
+      let icon = '⚪';
+      if (type === 'error') {
+        icon = '❌';
+      } else if (type === 'success') {
+        icon = '💚';
+      } else if (type === 'loading') {
+        icon = '⏳';
+      }
+      statusBar.innerHTML = '';
+      
+      const iconSpan = document.createElement('span');
+      iconSpan.textContent = icon + ' ';
+      
+      const textSpan = document.createElement('span');
+      textSpan.id = 'status-text';
+      textSpan.style.whiteSpace = 'pre-line';
+      textSpan.textContent = text;
+      
+      statusBar.appendChild(iconSpan);
+      statusBar.appendChild(textSpan);
+    }
+
+    // 顯示與設定 Modal 欄位選擇
+    nextStepBtn.addEventListener('click', () => {
+      openModal();
+    });
+
+    function openModal() {
+      modalBackdrop.classList.add('active');
+      columnSearch.value = '';
+      renderColumnsGrid();
+      updateSelectedCount();
+    }
+
+    function closeModal() {
+      modalBackdrop.classList.remove('active');
+    }
+
+    // 渲染 Modal 的欄位
+    function renderColumnsGrid(filterText = '') {
+      columnsGrid.innerHTML = '';
+      
+      const searchLower = filterText.toLowerCase().trim();
+      
+      // 合併模式時加入 Source 欄位
+      if (exportMode === 'merge') {
+        if ('source'.includes(searchLower)) {
+          const wrapper = document.createElement('label');
+          wrapper.className = 'column-checkbox-wrapper disabled';
+          wrapper.title = '合併模式下必須包含 Source 來源檔名';
+          // 確保 "Source" 欄位在 merge 模式下永遠存在於 selectedColumns 中
+          selectedColumns.add('Source');
+          
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = true;
+          checkbox.disabled = true;
+          checkbox.id = 'col-source';
+          
+          const textSpan = document.createElement('span');
+          textSpan.className = 'column-name';
+          textSpan.style.fontWeight = '600';
+          textSpan.textContent = 'Source (來源檔名)';
+          
+          wrapper.appendChild(checkbox);
+          wrapper.appendChild(textSpan);
+          columnsGrid.appendChild(wrapper);
+        }
+      }
+
+      // 渲染基準 headers
+      allHeaders.forEach(header => {
+        if (searchLower && !header.toLowerCase().includes(searchLower)) {
+          return;
+        }
+        
+        const isChecked = selectedColumns.has(header);
+        const wrapper = document.createElement('label');
+        wrapper.className = 'column-checkbox-wrapper';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = isChecked;
+        checkbox.value = header;
+        checkbox.addEventListener('change', (e) => toggleColumn(e.target));
+        
+        const textSpan = document.createElement('span');
+        textSpan.className = 'column-name';
+        textSpan.title = header;
+        textSpan.textContent = header;
+        
+        wrapper.appendChild(checkbox);
+        wrapper.appendChild(textSpan);
+        columnsGrid.appendChild(wrapper);
+      });
+    }
+
+    // 搜尋欄位
+    columnSearch.addEventListener('input', (e) => {
+      renderColumnsGrid(e.target.value);
+    });
+
+    // 處理欄位 checkbox 點擊切換
+    function toggleColumn(checkbox) {
+      const val = checkbox.value;
+      if (checkbox.checked) {
+        selectedColumns.add(val);
+      } else {
+        selectedColumns.delete(val);
+      }
+      updateSelectedCount();
+    }
+
+    // 取得選取的欄位（保持原始 header 順序）
+    function getSelectedHeaders() {
+      const selected = [];
+      if (exportMode === 'merge' && selectedColumns.has('Source')) {
+        selected.push('Source');
+      }
+      allHeaders.forEach(header => {
+        if (selectedColumns.has(header)) {
+          selected.push(header);
+        }
+      });
+      return selected;
+    }
+
+    // 更新已選擇個數標籤
+    function updateSelectedCount() {
+      const totalCount = allHeaders.length + (exportMode === 'merge' ? 1 : 0);
+      selectedCountSpan.textContent = selectedColumns.size;
+      totalCountSpan.textContent = totalCount;
+    }
+
+    // 全選 / 取消全選
+    function selectAllColumns(select) {
+      const checkboxes = columnsGrid.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach(cb => {
+        if (!cb.disabled) {
+          cb.checked = select;
+          if (select) {
+            selectedColumns.add(cb.value);
+          } else {
+            selectedColumns.delete(cb.value);
+          }
+        }
+      });
+      updateSelectedCount();
+    }
+
+    // 觸發 Excel 導出或 ZIP 下載
+    confirmExportBtn.addEventListener('click', async () => {
+      const selectedHeaders = getSelectedHeaders();
+      
+      // 過濾出真正的 Datalog Headers (不含 Source)
+      const dataHeaders = selectedHeaders.filter(h => h !== 'Source');
+      
+      if (dataHeaders.length === 0) {
+        alert("請至少選擇一個資料欄位進行導出！");
+        return;
+      }
+
+      closeModal();
+      updateStatus('loading', '正在生成 Excel 資料檔，請稍候...');
+
+      const startTime = performance.now();
+      
+      try {
+        let totalRows = 0;
+        let outputName = '';
+        
+        if (exportMode === 'merge') {
+          // =================== 合併模式 ===================
+          const wsData = [selectedHeaders];
+          
+          parsedFiles.forEach(file => {
+            const fileNameNoExt = file.fileName.replace(/\.[^/.]+$/, "");
+            file.rows.forEach(row => {
+              const rowArr = [];
+              selectedHeaders.forEach(col => {
+                if (col === 'Source') {
+                  rowArr.push(fileNameNoExt);
+                } else {
+                  rowArr.push(row[col] !== undefined ? row[col] : "");
+                }
+              });
+              wsData.push(rowArr);
+            });
+          });
+
+          totalRows = wsData.length - 1;
+          
+          const wb = XLSX.utils.book_new();
+          const ws = XLSX.utils.aoa_to_sheet(wsData, { dense: true });
+          
+          XLSX.utils.book_append_sheet(wb, ws, "Merged Data");
+          XLSX.writeFile(wb, "datalog_merged.xlsx");
+          outputName = "datalog_merged.xlsx";
+
+        } else {
+          // =================== 分開儲存打包 ===================
+          const zip = new JSZip();
+          
+          parsedFiles.forEach(file => {
+            const wsData = [dataHeaders];
+            file.rows.forEach(row => {
+              const rowArr = [];
+              dataHeaders.forEach(h => {
+                rowArr.push(row[h] !== undefined ? row[h] : "");
+              });
+              wsData.push(rowArr);
+            });
+
+            totalRows += wsData.length - 1;
+            
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(wsData, { dense: true });
+            XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+            
+            // 轉成 binary 寫入 ZIP
+            const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const fileNameNoExt = file.fileName.replace(/\.[^/.]+$/, "");
+            zip.file(`${fileNameNoExt}.xlsx`, excelBuffer);
+          });
+
+          const zipBlob = await zip.generateAsync({ type: "blob" });
+          const url = URL.createObjectURL(zipBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = "datalog_individual_files.zip";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          outputName = "datalog_individual_files.zip";
+        }
+
+        const endTime = performance.now();
+        const exportTime = Math.round(endTime - startTime);
+
+        // 顯示統計結果
+        showResult(totalRows, exportTime, outputName);
+
+      } catch (err) {
+        console.error(err);
+        updateStatus('error', `導出失敗：${err.message}`);
+      }
+    });
+
+    // 顯示統計結果卡片
+    function showResult(totalRows, exportTime, outputName) {
+      stepUpload.style.display = 'none';
+      stepControl.style.display = 'none';
+      stepResult.style.display = 'block';
+
+      resultDesc.innerHTML = `成功將 <strong>${parsedFiles.length}</strong> 個 Datalog 檔案轉換完成！<br>已下載：<code style="background: rgba(255,255,255,0.1); padding: 0.2rem 0.4rem; border-radius: 4px;">${outputName}</code>`;
+      statFiles.textContent = parsedFiles.length;
+      statRows.textContent = totalRows;
+      statTimeParse.textContent = `${parseTimeAccumulated}ms`;
+      statTimeExport.textContent = `${exportTime}ms`;
+    }
+
+    // 重置應用程式
+    function resetApp() {
+      parsedFiles = [];
+      parseTimeAccumulated = 0;
+      fileInput.value = '';
+      selectedColumns = new Set(); // 重置選取狀態
+      
+      stepUpload.style.display = 'block';
+      fileListWrapper.style.display = 'none';
+      stepControl.style.display = 'none';
+      stepResult.style.display = 'none';
+      
+      updateStatus('info', '請上傳 Datalog 檔案');
+    }
+  </script>
+</body>
+</html>

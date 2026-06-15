@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CP/FT VSC Yield Summary</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="libs/xlsx.full.min.js"></script>
+</head>
+<body>
+  <!-- 頂部 Bento 標頭 -->
+  <header style="display:flex; justify-content:space-between; align-items:center; padding-bottom:16px; border-bottom:1px solid rgba(255, 255, 255, 0.08); margin-bottom:24px;">
+    <div>
+      <h1 style="font-size:20px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase;">CP/FT VSC Yield Summary</h1>
+    </div>
+    <!-- API 連線狀態燈 -->
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span id="conn-status-dot" style="width:10px; height:10px; background-color:#e31a22; display:inline-block; border-radius:50%;"></span>
+      <span id="conn-status-text" style="font-size:11px; font-weight:700; text-transform:uppercase; color:#a1a1aa;">Disconnected</span>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <!-- 左側控制面板 -->
+    <aside class="control-panel">
+      <div>
+        <label for="lot-input" id="lot-label">Lot No</label>
+        <input type="text" id="lot-input" class="input-field font-mono" placeholder="例: D65059630002" value="D65059630002">
+      </div>
+
+      <div>
+        <label>日期範圍 (不選則預設 30 天)</label>
+        <div style="display:flex; gap:10px;">
+          <div class="date-input-wrapper" style="position:relative; flex:1;">
+            <input type="date" id="start-date" class="input-field font-mono" style="margin-bottom:0; cursor:pointer;">
+          </div>
+          <div class="date-input-wrapper" style="position:relative; flex:1;">
+            <input type="date" id="end-date" class="input-field font-mono" style="margin-bottom:0; cursor:pointer;">
+          </div>
+        </div>
+      </div>
+
+      <!-- CP 站點多選 (僅在 CP 頁籤顯示) -->
+      <div id="cp-steps-section">
+        <label>站點選擇 (Step ID)</label>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; background:rgba(13, 27, 42, 0.5); padding:10px; border:1px solid rgba(255, 255, 255, 0.1); border-radius:6px; max-height:160px; overflow-y:auto;" id="cp-steps-container">
+          <!-- 由 JS 動態產生 Checkbox -->
+        </div>
+      </div>
+
+      <!-- FT MSS 上傳 (僅在 FT 頁籤顯示) -->
+      <div id="ft-mss-section" style="display:none;">
+        <label for="mss-file">上傳 MSS Excel (對應名稱與過濾)</label>
+        <input type="file" id="mss-file" accept=".xlsx, .xls" class="input-field" style="border:1px dashed rgba(255, 255, 255, 0.2); padding:12px; cursor:pointer;">
+        <p id="mss-info" style="font-size:11px; color:#71717a; margin-top:-10px; font-weight:600;"></p>
+      </div>
+
+      <button id="fetch-btn" class="btn">擷取資料</button>
+      <button id="export-btn" class="btn" style="background-color:#71717a;" disabled>匯出 Excel</button>
+    </aside>
+
+    <!-- 右側主工作區 -->
+    <main class="main-panel">
+      <nav class="tabs-nav">
+        <button class="tab-btn active" id="tab-cp">VSC CP Tool</button>
+        <button class="tab-btn" id="tab-ft">VSC FT Tool</button>
+      </nav>
+
+      <!-- 狀態進度提示 -->
+      <div id="status-bar" style="background:rgba(13, 27, 42, 0.3); border-bottom:1px solid rgba(255, 255, 255, 0.08); padding:10px 16px; font-size:11px; color:#a1a1aa; font-weight:600; display:flex; justify-content:space-between;">
+        <span id="status-msg">READY</span>
+        <span id="data-count-msg">0 RECORDS</span>
+      </div>
+
+      <!-- 頁籤內容 A: 數據表格與 Fail-safe -->
+      <section id="tab-content-data" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+        <div class="table-container" id="table-view" style="display:none;">
+          <table id="data-table">
+            <thead><tr id="table-headers"></tr></thead>
+            <tbody id="table-rows"></tbody>
+          </table>
+        </div>
+        
+        <!-- Fail-safe JSON 貼上區 -->
+        <div id="failsafe-view" style="flex:1; display:flex; flex-direction:column; padding:20px; gap:12px;">
+          <label style="margin-bottom:0;">手動貼上 API JSON 數據</label>
+          <textarea id="json-paste-area" class="font-mono" style="flex:1; background:rgba(13, 27, 42, 0.5); color:#10b981; border:1px solid rgba(255, 255, 255, 0.1); border-radius:8px; padding:12px; font-size:11px; outline:none; resize:none; transition: all 0.2s ease;" placeholder='[{"step_id": "DS00", "param_id": "Yield", ...}] 或 {"Value": [...]}'></textarea>
+          <button id="failsafe-process-btn" class="btn" style="background-color:#10b981;">解析並處理貼上數據</button>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- 頁尾資訊與授權 -->
+  <footer class="app-footer">
+    <p class="app-footer-title">CP/FT VSC Yield Summary by PP32 YPLu (Desmond)</p>
+    <p class="app-footer-detail">Contact: <a href="mailto:yplu@winbond.com">yplu@winbond.com</a> ｜ Copyright © 2026 PP32 YPLu (Desmond) ｜ MIT License</p>
+  </footer>
+
+  <!-- 載入核心 JS 腳本 -->
+  <script src="js/cp_tool.js"></script>
+  <script src="js/ft_tool.js"></script>
+  <script>
+    // 全域 Tab 切換與初始化
+    let currentTab = 'CP';
+
+    const tabCP = document.getElementById('tab-cp');
+    const tabFT = document.getElementById('tab-ft');
+    const cpStepsSec = document.getElementById('cp-steps-section');
+    const ftMssSec = document.getElementById('ft-mss-section');
+    const failsafeView = document.getElementById('failsafe-view');
+    const tableView = document.getElementById('table-view');
+    const dataView = document.getElementById('tab-content-data');
+    const lotInput = document.getElementById('lot-input');
+    const lotLabel = document.getElementById('lot-label');
+
+    tabCP.addEventListener('click', () => {
+      currentTab = 'CP';
+      tabCP.classList.add('active');
+      tabFT.classList.remove('active');
+      cpStepsSec.style.display = 'block';
+      ftMssSec.style.display = 'none';
+      dataView.style.display = 'flex';
+      lotLabel.innerText = "Lot No";
+      lotInput.value = "D65059630002";
+      if (window.switchTabCP) window.switchTabCP();
+    });
+
+    tabFT.addEventListener('click', () => {
+      currentTab = 'FT';
+      tabFT.classList.add('active');
+      tabCP.classList.remove('active');
+      cpStepsSec.style.display = 'none';
+      ftMssSec.style.display = 'block';
+      dataView.style.display = 'flex';
+      lotLabel.innerText = "Lot No";
+      lotInput.value = "6346D5000ZV";
+      if (window.switchTabFT) window.switchTabFT();
+    });
+
+    // 統一按鈕分發，消除 Race Condition 衝突
+    document.getElementById('fetch-btn').addEventListener('click', () => {
+      if (currentTab === 'CP') {
+        if (window.onFetchCP) window.onFetchCP();
+      } else if (currentTab === 'FT') {
+        if (window.onFetchFT) window.onFetchFT();
+      }
+    });
+
+    document.getElementById('export-btn').addEventListener('click', () => {
+      if (currentTab === 'CP') {
+        if (window.onExportCP) window.onExportCP();
+      } else if (currentTab === 'FT') {
+        if (window.onExportFT) window.onExportFT();
+      }
+    });
+
+    document.getElementById('failsafe-process-btn').addEventListener('click', () => {
+      if (currentTab === 'CP') {
+        if (window.onProcessFailsafeCP) window.onProcessFailsafeCP();
+      } else if (currentTab === 'FT') {
+        if (window.onProcessFailsafeFT) window.onProcessFailsafeFT();
+      }
+    });
+
+    // 初始化
+    if (window.initCP) window.initCP();
+    if (window.initFT) window.initFT();
+  </script>
+</body>
+</html>
