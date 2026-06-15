@@ -26,7 +26,7 @@
     偵測到目前處於 GitHub Pages (HTTPS) 環境下。請先下載以下兩個檔案放置於同一個資料夾，雙擊執行 <strong>proxy.bat</strong> 後，再執行資料擷取功能：
     <div style="margin-top:8px; display:flex; gap:16px;">
       <span id="dl-proxy-bat" style="color:#60a5fa; text-decoration:underline; font-weight:700; cursor:pointer;">1. 下載 proxy.bat</span>
-      <span id="dl-proxy-py" style="color:#60a5fa; text-decoration:underline; font-weight:700; cursor:pointer;">2. 下載 cors_proxy.py</span>
+      <span id="dl-proxy-py" style="color:#60a5fa; text-decoration:underline; font-weight:700; cursor:pointer;">2. 下載 proxy.py</span>
     </div>
   </div>
 
@@ -194,7 +194,7 @@
       const btnBat = document.getElementById('dl-proxy-bat');
       const btnPy = document.getElementById('dl-proxy-py');
       if (btnBat) btnBat.addEventListener('click', () => triggerDownload('proxy.bat'));
-      if (btnPy) btnPy.addEventListener('click', () => triggerDownload('cors_proxy.py'));
+      if (btnPy) btnPy.addEventListener('click', () => triggerDownload('proxy.py'));
     }
 
     // 初始化

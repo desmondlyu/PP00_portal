@@ -4,7 +4,7 @@ cd /d "%~dp0"
 echo ==================================================
 echo  Starting PP00 Local CORS Proxy (Port 8780)...
 echo ==================================================
-python cors_proxy.py
+python proxy.py
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Failed to start Python script. 
