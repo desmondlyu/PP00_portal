@@ -45,3 +45,6 @@ $RECYCLE.BIN/
 # Development and Linter Cache
 .vite/
 .eslintcache
+
+# MEMORY markdown
+MEMORY.md
