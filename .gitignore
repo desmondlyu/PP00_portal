@@ -40,7 +40,7 @@ Thumbs.db
 $RECYCLE.BIN/
 
 # Root level duplicates (already exists in public/ directory)
-/logo.png
+# /logo.png
 
 # Development and Linter Cache
 .vite/
