@@ -452,7 +452,7 @@ export default function App() {
                   {/* 功能特點列表 */}
                   <ul style={{ 
                     listStyle: 'none', 
-                    fontSize: '0.9rem', 
+                    fontSize: '0.95rem', 
                     color: 'var(--text-secondary)',
                     paddingLeft: '0',
                     display: 'flex',

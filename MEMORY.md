@@ -1,6 +1,6 @@
 <!-- ================================================================
   🤖 AI SESSION CONTEXT — 給下一個 AI Session 看的專案記憶
-  最後更新：2026-06-15，Session 1825ff0d
+  最後更新：2026-06-16，Session 1825ff0d
   ================================================================ -->
 
 ## 🤖 AI 快速喚醒區（給 Copilot / AI 看）
@@ -25,7 +25,8 @@
 | WRITER按鍵錄製精靈 | `#` (待開發) | `#` |
 
 ### 關鍵函式與邏輯
-- `src/App.jsx` 中的 `tools` 陣列：存儲工具卡片配置。所有工具卡片均採用 `col-4` 寬度以實現 3x3 的 Bento 佈局（9張卡片）；作者卡片則獨立使用 `col-12` 橫滿 Banner 佈局於最底部。
+- `src/App.jsx` 中的 `tools` 陣列：存儲工具卡片配置。特點列表的 `fontSize` 放大為 `0.95rem`。
+- `src/index.css` 核心樣式：將 `--text-secondary` 改為 `#ffffff` (白色)，`--text-muted` 改為 `#d1d5db` (淺灰)，並調大 `body` 基底字體 (18px) 及各區塊級距 (.hero-desc, .tool-desc, .changelog-text)。
 - `sha256()` 函數：管理員登入用 SHA-256 雜湊，含 `crypto.subtle`（Secure Context）與純 JS fallback（`file://` 環境）雙模式。
 - `closeAdminModal()`：統一關閉管理後台 modal 並重置所有登入狀態（`isLoggedIn`、帳密欄位、錯誤訊息）。
 - `getToolUrl()`：自適應 URL 解析器，依 `localhost` / `http` / `file://` 三環境自動選擇 `devUrl` / `ghPagesUrl` / `localPath`。
@@ -38,6 +39,7 @@
 | **Logo 404 修正** | 在 `.gitignore` 中註解 `/logo.png`，允許將根目錄打包出的 `logo.png` 推送上遠端 | 修正 GitHub Pages 部署時，根目錄下缺失 `logo.png` 導致左上角標誌無法正常顯示的問題。 |
 | **HTTPS 環境 CORS 解決** | 判斷網協是否為 HTTPS，自動切換至 `localhost:8780` 的本地代理 (需執行 `proxy.bat`) | 繞過瀏覽器在 `https://` 下對 `http://report` 內網 API 的混合內容與跨域安全封鎖。 |
 | **Iframe 全螢幕內嵌** | 在 `src/App.jsx` 底部動態渲染 `portal-iframe-overlay` | 點擊啟動時，網址維持在 `https://desmondlyu.github.io/PP00_portal/`，不跳轉且不改變瀏覽器 URL。 |
+| **文字調亮與放大** | 將 `--text-secondary` 改成白色 (`#ffffff`)，並調亮 `--text-muted`；調大 body、卡片描述與列表等字體級距 | 解決原先灰色文字過暗、傷眼的問題，顯著提升入口網站的可讀性與視覺體驗。 |
 
 ### 固定設定值
 - `z-index: 2000`：`.portal-iframe-overlay` 的層級，確保完全覆蓋 Bento 卡片。
