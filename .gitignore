@@ -46,5 +46,8 @@ $RECYCLE.BIN/
 .vite/
 .eslintcache
 
+# Local card configuration (do not push to repo)
+/CARDS.md
+
 # MEMORY markdown
 MEMORY.md
