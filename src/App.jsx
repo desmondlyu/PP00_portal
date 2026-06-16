@@ -355,7 +355,7 @@ export default function App() {
           <img src="./logo.png" alt="PP00 Tool Portal Logo" className="brand-logo" />
           <div className="brand-info">
             <h1>PP00 Tool Portal</h1>
-            <p>記憶體研發與量化科技・入口網站系統</p>
+            <p>PP00 NOR FLASH 應用程式入口網站系統</p>
           </div>
         </div>
         {(() => {
@@ -452,7 +452,7 @@ export default function App() {
                   {/* 功能特點列表 */}
                   <ul style={{ 
                     listStyle: 'none', 
-                    fontSize: '0.8rem', 
+                    fontSize: '0.9rem', 
                     color: 'var(--text-secondary)',
                     paddingLeft: '0',
                     display: 'flex',
