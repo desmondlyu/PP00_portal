@@ -203,7 +203,7 @@ export default function App() {
       id: 'jb-booking',
       title: 'PP00 竹北借機系統',
       badge: 'Active',
-      desc: '竹北 4F 實驗室預約平台。支援樓層平面圖、機台卡片模式。',
+      desc: '竹北 4F 實驗室預約平台。',
       icon: Calendar,
       gradient: 'var(--grad-purple-pink)',
       gridClass: 'col-4',
@@ -212,8 +212,7 @@ export default function App() {
       ghPagesUrl: './tool/JB_booking/index.html',
       status: 'active',
       details: [
-        '卡片模式 / 大框架平面圖模式雙視圖切換',
-        '現場 21 台機台 CRUD 預約管理',
+        '卡片模式/實驗室平面圖模式',
         '同機台同時間預約防重疊限制與本機身份識別'
       ]
     },
@@ -230,9 +229,8 @@ export default function App() {
       ghPagesUrl: './tool/DL_to_Excel/index.html',
       status: 'active',
       details: [
-        '支援 Datalog 解析',
-        '自動排版',
-        '一鍵導出 Excel'
+        '支援多個 Datalog 合併/單獨轉換成Excel',
+        '使用者可選擇要指定的匯出項目，加速匯出動作'
       ]
     },
     {
@@ -248,16 +246,16 @@ export default function App() {
       ghPagesUrl: './tool/CZ_dataset/index.html',
       status: 'active',
       details: [
-        '批次 Excel 上傳解析與 Out of Spec (Fail) / Pass Marginal 良率檢核',
-        '高密度表格即時編輯、Verdict/Ratio 聯動計算與修改高亮標記',
-        '自動分群頁籤、雙層巢狀水平降序圖表與無損公式 Excel 導出'
+        '除了判斷 Pass and Fail，支援 Pass Marginal 判斷',
+        '支援即時編輯 SPEC，會聯動計算結果',
+        '支援圖表功能，以及分群功能(READ, TIMING, DC, 4BYTE, NON 4BYTE等)'
       ]
     },
     {
       id: 'dl-analysis',
       title: 'NOR Flash CP DL log 分析工具',
       badge: 'Active',
-      desc: 'CP DL 分析工具，支援 wafer map/correlation/distribution/box plot圖表顯示，任意框選圖表即可顯示對應區塊數據。',
+      desc: 'NOR Flash CP DL 分析工具。',
       icon: LineChart,
       gradient: 'var(--grad-amber-pink)',
       gridClass: 'col-4',
@@ -266,8 +264,8 @@ export default function App() {
       ghPagesUrl: './tool/CP_DL_Analysis/index.html',
       status: 'active',
       details: [
-        '100% 本地端離線運作，確保晶圓數據安全無虞',
-        '雙向框選聯動：晶圓空間框選 (Spatial Filter) 與圖表高亮同步 (Highlight Sync)',
+        '支援 wafer map/correlation/distribution/box plot圖表顯示',
+        '雙向框選聯動：任意框選圖表即可顯示對應區塊數據，且 wafer map 同步highlight框選位置',
         '多維度統計圖表（相關性 Pearson R 與線性趨勢線、分佈箱形圖、直方圖）'
       ]
     },
@@ -275,7 +273,7 @@ export default function App() {
       id: 'yield-summary',
       title: 'VSC CP/FT Yield Auto Summary',
       badge: 'Active',
-      desc: 'CP/FT VSC 良率自動彙總報表工具，#注意：需下載 PROXY.bat/PROXY.py 透過自己主機當跳板，才可連線公司API',
+      desc: 'CP/FT VSC 良率自動彙總報表工具',
       icon: BarChart3,
       gradient: 'var(--grad-purple-pink)',
       gridClass: 'col-4',
@@ -284,8 +282,8 @@ export default function App() {
       ghPagesUrl: './tool/Yield_Summary/index.html',
       status: 'active',
       details: [
+        '#注意：需下載 PROXY.bat/PROXY.py 透過自己主機當跳板，才可連線公司API',
         '支援 CP/FT 數據',
-        '多維度良率彙總',
         '一鍵生成自動報表'
       ]
     },
@@ -302,7 +300,8 @@ export default function App() {
       ghPagesUrl: '#',
       status: 'active',
       details: [
-        '功能待開發'
+        '使用者可自訂DATASHEET SPEC條件後，同步匯入各站點測試項目',
+        '自動判斷MSS是否有迴圈'
       ]
     },
     {
@@ -334,7 +333,7 @@ export default function App() {
       ghPagesUrl: '#',
       status: 'active',
       details: [
-        '功能待開發'
+        '將使用者操作鍵盤的Key-in以及等待時間，錄製成巨集讓TeraTerm終端機自訂執行'
       ]
     }
   ];
