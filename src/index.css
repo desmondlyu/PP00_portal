@@ -3,8 +3,8 @@
   --panel-bg: rgba(17, 19, 28, 0.7);
   --panel-border: rgba(255, 255, 255, 0.08);
   --text-primary: #ffffff;
-  --text-secondary: #f3f4f6;
-  --text-muted: #9ca3af;
+  --text-secondary: #ffffff;
+  --text-muted: #d1d5db;
   
   /* Tech Neon Colors */
   --accent-blue: #3b82f6;
@@ -35,7 +35,7 @@ body {
   background-color: var(--bg-color);
   color: var(--text-primary);
   font-family: var(--font-body);
-  font-size: 17px;
+  font-size: 18px;
   overflow-x: hidden;
   min-height: 100vh;
   /* 微妙的科技背景網格與發光效果 */
@@ -111,7 +111,7 @@ body {
 }
 
 .brand-info p {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   color: var(--text-secondary);
   margin-top: 2px;
 }
@@ -250,7 +250,7 @@ body {
 }
 
 .hero-desc {
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   color: var(--text-secondary);
   line-height: 1.6;
 }
@@ -328,7 +328,7 @@ body {
 }
 
 .tool-desc {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   color: var(--text-secondary);
   line-height: 1.5;
 }
@@ -422,7 +422,7 @@ body {
 }
 
 .changelog-text {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
   line-height: 1.4;
 }
