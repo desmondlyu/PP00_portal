@@ -41,10 +41,9 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState('');
   
-  // 記錄哪些平台處於離線狀態
   const [offlineTools, setOfflineTools] = useState(() => {
     const defaultOffline = {
-      'cp-mss-converter': true,
+      'cp-mss-converter': false,
       'dongle-summary': true,
       'writer': true
     };
@@ -291,17 +290,17 @@ export default function App() {
       id: 'cp-mss-converter',
       title: 'NOR Flash CP MSS 轉換工具',
       badge: 'Active',
-      desc: '將原始Testing Team CP MSS轉換為Product Team格式。功能待開發。',
+      desc: '將原始 Testing Team CP MSS 轉換為 Product Team 格式。支援自動解合併儲存格、Comment 解析、迴圈偵測與格式防呆驗證。',
       icon: Layers,
       gradient: 'var(--grad-cyan-blue)',
       gridClass: 'col-4',
-      devUrl: '#',
-      localPath: '#',
-      ghPagesUrl: '#',
+      devUrl: 'http://localhost:5174',
+      localPath: './tool/CP_MSS/index.html',
+      ghPagesUrl: './tool/CP_MSS/index.html',
       status: 'active',
       details: [
-        '使用者可自訂DATASHEET SPEC條件後，同步匯入各站點測試項目',
-        '自動判斷MSS是否有迴圈'
+        '使用者可自訂 DATASHEET SPEC 條件後，同步匯入各站點測試項目',
+        '自動偵測並高亮顯示 Excel 檔案中是否有 For 迴圈項目'
       ]
     },
     {
