@@ -1,13 +1,13 @@
 <!-- ================================================================
   🤖 AI SESSION CONTEXT — 給下一個 AI Session 看的專案記憶
-  最後更新：2026-06-16，Session 1825ff0d
+  最後更新：2026-06-22，Session 44f35ff7
   ================================================================ -->
 
 ## 🤖 AI 快速喚醒區（給 Copilot / AI 看）
 > 下次回到此專案，請先讀本節，再閱讀其他說明文件，即可還原完整開發背景。
 
 ### 專案定位
-本專案（PP00 Tool Portal）是半導體記憶體研發與量化科技的工具入口網站，以優雅的 Bento 網格風格呈現，用以集中調用與展示九大核心工具（TTO 分析、JB Lab 借機系統、FT 特性分析、CP DL 分析、CP Datalog-to-Excel 轉換器、CP/FT Yield Auto Summary，以及待開發的 CP MSS 轉換工具、Dongle Auto Summary、WRITER按鍵錄製精靈）。
+本專案（PP00 Tool Portal）是半導體記憶體研發與量化科技的工具入口網站，以優雅的 Bento 網格風格呈現，用以集中調用與展示十大核心工具（TTO 分析、JB Lab 借機系統、FT 特性分析、CP DL 分析、CP Datalog-to-Excel 轉換器、CP/FT Yield Auto Summary、CP MSS 轉換工具、Dongle Auto Summary、WRITER按鍵錄製精靈，以及 PP00 Knownledge Agent 內部知識型 Agent）。
 
 **自包含目錄結構**：所有子工具已收納至 `PP00_Portal/tool/` 下，Portal 與子工具形成單一自包含目錄，方便整包複製、搬移或部署。`tool/` 下僅保留各子工具 `.gitignore` 白名單篩選後的部署用檔案（HTML、CSS、JS、assets），不含開發原始碼、Python 腳本、node_modules、.git 歷史等。
 
@@ -23,6 +23,7 @@
 | CP MSS 轉換 | `#` (待開發) | `#` |
 | Dongle Summary | `#` (待開發) | `#` |
 | WRITER按鍵錄製精靈 | `#` (待開發) | `#` |
+| PP00 Knownledge Agent | `https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2` | `https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2` |
 
 ### 關鍵函式與邏輯
 - `src/App.jsx` 中的 `tools` 陣列：存儲工具卡片配置。特點列表的 `fontSize` 放大為 `0.95rem`。
@@ -35,6 +36,7 @@
 ### 重要技術決策
 | 決策 | 實作內容 | 影響與目的 |
 | :--- | :--- | :--- |
+| **新增外部 URL 卡片** | 新增 `PP00 Knownledge Agent` 並使用外部 M365 網址作為 URL | 整合 Copilot Studio 建立的內部知識型 Agent，提供測試、產品與製程知識檢索。 |
 | **待開發卡片預設離線** | 新增 `cp-mss-converter`、`dongle-summary`、`writer`，並在 `offlineTools` state 初始化時將這三個 ID 預設設為 `true` | 保證未開發的卡片在管理員尚未在後台手動開啟前，預設皆為離線狀態 (Offline)，避免使用者誤觸點擊且不指向 any 連結，落實 Fail-safe 設計。 |
 | **Logo 404 修正** | 在 `.gitignore` 中註解 `/logo.png`，允許將根目錄打包出的 `logo.png` 推送上遠端 | 修正 GitHub Pages 部署時，根目錄下缺失 `logo.png` 導致左上角標誌無法正常顯示的問題。 |
 | **HTTPS 環境 CORS 解決** | 判斷網協是否為 HTTPS，自動切換至 `localhost:8780` 的本地代理 (需執行 `proxy.bat`) | 繞過瀏覽器在 `https://` 下對 `http://report` 內網 API 的混合內容與跨域安全封鎖。 |
@@ -44,7 +46,7 @@
 ### 固定設定值
 - `z-index: 2000`：`.portal-iframe-overlay` 的層級，確保完全覆蓋 Bento 卡片。
 - `allow="clipboard-write"`：`<iframe>` 標籤的權限設定，保證子工具複製功能正常。
-- 子工具 devUrl：TTO=`:3002`、JB=`:3003`、DL-to-Excel=`:3005`、CZ=`:3000`、CP_DL=`:5173`、Yield_Summary=`:3006`。
+- 子工具 devUrl：TTO=`:3002`、JB=`:3003`、DL-to-Excel=`:3005`、CZ=`:3000`  CP_DL=`:5173`、Yield_Summary=`:3006`。
 
 ### 已安裝的 Skills 清單
 - `brainstorming`

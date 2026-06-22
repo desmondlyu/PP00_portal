@@ -14,7 +14,8 @@ import {
   Settings,
   X,
   AlertCircle,
-  RotateCw
+  RotateCw,
+  MessageSquare
 } from 'lucide-react';
 // 自適應動態路徑解析器
 const getToolUrl = (tool) => {
@@ -334,12 +335,31 @@ export default function App() {
       details: [
         '將使用者操作鍵盤的Key-in以及等待時間，錄製成巨集讓TeraTerm終端機自訂執行'
       ]
+    },
+    {
+      id: 'pp00-knowledge-agent',
+      title: 'PP00 Knownledge Agent',
+      badge: 'Active',
+      desc: 'PP00 內部知識型 Agent',
+      icon: MessageSquare,
+      gradient: 'var(--grad-cyan-blue)',
+      gridClass: 'col-4',
+      devUrl: 'https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2',
+      localPath: 'https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2',
+      ghPagesUrl: 'https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2',
+      status: 'active',
+      details: [
+        '提供PP00內部知識搜尋，包含測試、產品以及製程相關知識檢索',
+        '提供新人訓練必須了解的課程，技能訓練',
+        '僅限PP00使用'
+      ]
     }
   ];
 
   // 更新日誌
   const changelog = [
-    { version: 'v1.4.0', date: '2026-06-15', text: '新增 CP MSS 轉換工具、Dongle Auto Summary、WRITER按鍵錄製精靈 等待開發離線入口卡片。', isNew: true },
+    { version: 'v1.5.0', date: '2026-06-22', text: '新增 PP00 Knownledge Agent 內部知識型 Agent。', isNew: true },
+    { version: 'v1.4.0', date: '2026-06-15', text: '新增 CP MSS 轉換工具、Dongle Auto Summary、WRITER按鍵錄製精靈 等待開發離線入口卡片。', isNew: false },
     { version: 'v1.3.0', date: '2026-06-15', text: '新增 CP Datalog-to-Excel 轉換器入口卡片。', isNew: false },
     { version: 'v1.2.0', date: '2026-06-09', text: '依據實際工具需求重構排版。整合 TTO 分析、JB Lab 借機系統、CZ 特性分析與待開發 DL 工具入口。', isNew: false },
     { version: 'v1.1.0', date: '2026-05-20', text: '完成 JB Lab 借機系統之平面圖大框架模式與機台校準優化。', isNew: false },
@@ -561,7 +581,7 @@ export default function App() {
             <span>Licence: MIT</span>
           </div>
           <span>|</span>
-          <span style={{ color: 'var(--text-muted)' }}>Version 1.4.0</span>
+          <span style={{ color: 'var(--text-muted)' }}>Version 1.5.0</span>
         </div>
       </footer>
 
