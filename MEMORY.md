@@ -36,7 +36,7 @@
 ### 重要技術決策
 | 決策 | 實作內容 | 影響與目的 |
 | :--- | :--- | :--- |
-| **新增外部 URL 卡片** | 新增 `PP00 Knownledge Agent` 並使用外部 M365 網址作為 URL | 整合 Copilot Studio 建立的內部知識型 Agent，提供測試、產品與製程知識檢索。 |
+| **新增外部 URL 卡片** | 新增 `PP00 Knownledge Agent`，設定 `openExternal: true` 以新分頁打開 | 解決 M365 網域之 X-Frame-Options 限制拒絕 iframe 內嵌問題，提供測試、產品與製程知識檢索。 |
 | **待開發卡片預設離線** | 新增 `cp-mss-converter`、`dongle-summary`、`writer`，並在 `offlineTools` state 初始化時將這三個 ID 預設設為 `true` | 保證未開發的卡片在管理員尚未在後台手動開啟前，預設皆為離線狀態 (Offline)，避免使用者誤觸點擊且不指向 any 連結，落實 Fail-safe 設計。 |
 | **Logo 404 修正** | 在 `.gitignore` 中註解 `/logo.png`，允許將根目錄打包出的 `logo.png` 推送上遠端 | 修正 GitHub Pages 部署時，根目錄下缺失 `logo.png` 導致左上角標誌無法正常顯示的問題。 |
 | **HTTPS 環境 CORS 解決** | 判斷網協是否為 HTTPS，自動切換至 `localhost:8780` 的本地代理 (需執行 `proxy.bat`) | 繞過瀏覽器在 `https://` 下對 `http://report` 內網 API 的混合內容與跨域安全封鎖。 |
@@ -46,7 +46,7 @@
 ### 固定設定值
 - `z-index: 2000`：`.portal-iframe-overlay` 的層級，確保完全覆蓋 Bento 卡片。
 - `allow="clipboard-write"`：`<iframe>` 標籤的權限設定，保證子工具複製功能正常。
-- 子工具 devUrl：TTO=`:3002`、JB=`:3003`、DL-to-Excel=`:3005`、CZ=`:3000`  CP_DL=`:5173`、Yield_Summary=`:3006`。
+- 子工具 devUrl：TTO=`:3002`、JB=`:3003`、DL-to-Excel=`:3005`、CZ=`:3000`、CP_DL=`:5173`、Yield_Summary=`:3006`。
 
 ### 已安裝的 Skills 清單
 - `brainstorming`

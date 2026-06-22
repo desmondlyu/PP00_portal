@@ -348,6 +348,7 @@ export default function App() {
       localPath: 'https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2',
       ghPagesUrl: 'https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2',
       status: 'active',
+      openExternal: true,
       details: [
         '提供PP00內部知識搜尋，包含測試、產品以及製程相關知識檢索',
         '提供新人訓練必須了解的課程，技能訓練',
@@ -358,7 +359,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
-    { version: 'v1.5.0', date: '2026-06-22', text: '新增 PP00 Knownledge Agent 內部知識型 Agent。', isNew: true },
+    { version: 'v1.5.0', date: '2026-06-22', text: '新增 PP00 Knownledge Agent 內部知識型 Agent（因安全性限制改為外部網址新分頁啟動）。', isNew: true },
     { version: 'v1.4.0', date: '2026-06-15', text: '新增 CP MSS 轉換工具、Dongle Auto Summary、WRITER按鍵錄製精靈 等待開發離線入口卡片。', isNew: false },
     { version: 'v1.3.0', date: '2026-06-15', text: '新增 CP Datalog-to-Excel 轉換器入口卡片。', isNew: false },
     { version: 'v1.2.0', date: '2026-06-09', text: '依據實際工具需求重構排版。整合 TTO 分析、JB Lab 借機系統、CZ 特性分析與待開發 DL 工具入口。', isNew: false },
@@ -506,13 +507,18 @@ export default function App() {
                 ) : (
                   <button 
                     onClick={() => {
-                      setActiveTool(tool);
-                      setIframeKey(prev => prev + 1);
+                      const url = getToolUrl(tool);
+                      if (tool.openExternal) {
+                        window.open(url, '_blank');
+                      } else {
+                        setActiveTool(tool);
+                        setIframeKey(prev => prev + 1);
+                      }
                     }}
                     className="tool-action-btn"
                     style={{ border: 'none', width: '100%', background: 'rgba(255, 255, 255, 0.03)', cursor: 'pointer' }}
                   >
-                    <span>啟動應用程式</span>
+                    <span>{tool.openExternal ? '在新分頁啟動' : '啟動應用程式'}</span>
                     <ExternalLink size={14} />
                   </button>
                 )}
