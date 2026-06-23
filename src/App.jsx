@@ -306,18 +306,20 @@ export default function App() {
     },
     {
       id: 'dongle-summary',
-      title: 'Dongle 自動化收集/報告彙整平台',
+      title: 'Dongle Auto loader 自動化平台',
       badge: 'Active',
-      desc: '透過Hub快速收集所有Dongle測試資料，並自動彙整測試報告。功能待開發。',
+      desc: '整合 Web Serial API 與 File System Access，即時監控本機各 COM Port 寫入日誌，並一鍵自動分析生成 Cycling 數據統計 Excel。',
       icon: LineChart,
       gradient: 'var(--grad-purple-pink)',
       gridClass: 'col-4',
-      devUrl: '#',
-      localPath: '#',
-      ghPagesUrl: '#',
+      devUrl: 'http://localhost:5173',
+      localPath: './tool/AutoDongle/index.html',
+      ghPagesUrl: './tool/AutoDongle/index.html',
       status: 'active',
       details: [
-        '功能待開發'
+        '整合 Web Serial API 建立多埠硬體即時監控',
+        '本機目錄直接存取，自動保存日誌免除手動拷貝',
+        '串接 Python FastAPI 自動彙整 Cycling Excel 報告'
       ]
     },
     {
@@ -722,7 +724,7 @@ export default function App() {
               src={getToolUrl(activeTool)} 
               className="portal-iframe" 
               title={activeTool.title}
-              allow="clipboard-write"
+              allow="clipboard-write; serial"
             />
           </div>
         </div>
