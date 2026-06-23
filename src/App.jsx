@@ -580,7 +580,7 @@ export default function App() {
             {/* 左側：個人資訊 */}
             <div className="profile-left-panel">
               <div className="profile-header">
-                <div className="profile-avatar">DL</div>
+                <div className="profile-avatar">YP</div>
                 <div className="profile-info">
                   <h3>Desmond Lyu</h3>
                   <p>PP32 YPLu</p>
