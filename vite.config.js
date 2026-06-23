@@ -5,6 +5,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 export default defineConfig({
   root: 'src',
   publicDir: '../public',
+  envDir: '../',
   plugins: [react(), viteSingleFile()],
   build: {
     outDir: '../',
