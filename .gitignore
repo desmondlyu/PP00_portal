@@ -46,6 +46,17 @@ $RECYCLE.BIN/
 .vite/
 .eslintcache
 
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Backup files
+*.bak
+
+# Vite hashed build artifacts under tool directories
+tool/AutoDongle/assets/
+
 # Local card configuration (do not push to repo)
 /CARDS.md
 
