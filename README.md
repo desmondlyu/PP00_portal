@@ -60,9 +60,11 @@
     *   **自訂 SPEC **：支援啟用 CP_Mapping 規格對照表自訂 SPEC 注入，並可切換「僅填補空白」或「覆蓋所有」模式。
 
 ### 8. [Dongle Auto Summary]
-*   **定位**：Dongle 自動化收集/報告彙整平台（待開發）。
+*   **定位**：Dongle Auto loader 自動化平台。
 *   **核心功能與特色**：
-    *   **資料收集**：透過 Hub 快速收集所有 Dongle 測試資料，功能規劃中。
+    *   **多裝置匯出與 Cycling 整理**：支援多個 USB Device 匯出資料，並依據 Cycling 類型一次性整理產生報表。
+    *   **本地日誌直接分析**：支援直接整理個人電腦上的 Dongle log 檔案，自動過濾符合 `COM*_log.txt` 命名的日誌檔案。
+    *   **即時硬體狀態監控與寫檔**：整合 Web Serial API 建立多埠硬體即時監控，並利用 File System Access API 將日誌即時儲存至本機指定目錄。
 
 ### 9. [WRITER 按鍵錄製精靈]
 *   **定位**：專為 TeraTerm 終端機設計，錄製操控 WRITER 時的按鍵記憶巨集工具（待開發）。
