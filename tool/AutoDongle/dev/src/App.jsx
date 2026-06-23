@@ -456,6 +456,16 @@ function App() {
                 </div>
             </main>
             
+            {/* Footer 作者與版權資訊 */}
+            <footer className="app-footer">
+                <div className="footer-content">
+                    <p className="footer-title">Auto Dongle Loader by PP32 YPLu (Desmond)</p>
+                    <p className="footer-details">
+                        Contact: <a href="mailto:yplu@winbond.com">yplu@winbond.com</a> ｜ Copyright © 2026 PP32 YPLu (Desmond) ｜ MIT License
+                    </p>
+                </div>
+            </footer>
+            
             {/* 全螢幕 Loading 遮罩 */}
             {(isSummarizing || isOfflineSummarizing) && (
                 <div className="loading-overlay">
