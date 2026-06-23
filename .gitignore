@@ -49,5 +49,5 @@ $RECYCLE.BIN/
 # Local card configuration (do not push to repo)
 /CARDS.md
 
-# MEMORY markdown
-MEMORY.md
+# MEMORY markdown (所有層級)
+**/MEMORY.md
