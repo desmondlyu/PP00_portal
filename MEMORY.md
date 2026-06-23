@@ -9,7 +9,7 @@
 ### 專案定位
 本專案（PP00 Tool Portal）是半導體記憶體研發與量化科技的工具入口網站，以優雅的 Bento 網格風格呈現，用以集中調用與展示十大核心工具（TTO 分析、JB Lab 借機系統、FT 特性分析、CP DL 分析、CP Datalog-to-Excel 轉換器、CP/FT Yield Auto Summary、CP MSS 轉換工具、Dongle Auto Summary、WRITER按鍵錄製精靈，以及 PP00 Knownledge Agent 內部知識型 Agent）。
 
-**自包含目錄結構**：所有子工具已收納至 `PP00_Portal/tool/` 下，Portal 與子工具形成單一自包含目錄，方便整包複製、搬移或部署。`tool/` 下僅保留各子工具 `.gitignore` 白名單篩選後的部署用檔案（HTML、CSS、JS、assets），不含開發原始碼、Python 腳本、node_modules、.git 歷史等。
+**自包含目錄結構**：所有子工具已收納至 `PP00_Portal/tool/` 下，Portal 與子工具形成單一自包含目錄，方便整包複製、搬移或部署。`tool/` 下主要保留部署用檔案（HTML、CSS、JS、assets），但 `tool/AutoDongle` 作為例外，已收納包含 Python 後端與 `dev` 前端原始碼在內的完整自包含開發架構，不含 `node_modules`、`.git` 歷史。
 
 **子工具路徑對應**：
 | 工具 | `localPath` / `ghPagesUrl` | `devUrl` |
@@ -20,8 +20,8 @@
 | FT 特性 | `./tool/CZ_dataset/index.html` | `http://localhost:3000` |
 | CP DL 分析 | `./tool/CP_DL_Analysis/index.html` | `http://localhost:5173` |
 | CP/FT Yield | `./tool/Yield_Summary/index.html` | `http://localhost:3006` |
-| CP MSS 轉換 | `#` (待開發) | `#` |
-| Dongle Summary | `#` (待開發) | `#` |
+| CP MSS 轉換 | `./tool/CP_MSS/index.html` | `http://localhost:5174` |
+| Dongle Auto Summary | `./tool/AutoDongle/index.html` | `http://localhost:5173` |
 | WRITER按鍵錄製精靈 | `#` (待開發) | `#` |
 | PP00 Knownledge Agent | `https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2` | `https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2` |
 
@@ -45,8 +45,8 @@
 
 ### 固定設定值
 - `z-index: 2000`：`.portal-iframe-overlay` 的層級，確保完全覆蓋 Bento 卡片。
-- `allow="clipboard-write"`：`<iframe>` 標籤的權限設定，保證子工具複製功能正常。
-- 子工具 devUrl：TTO=`:3002`、JB=`:3003`、DL-to-Excel=`:3005`、CZ=`:3000`、CP_DL=`:5173`、Yield_Summary=`:3006`。
+- `allow="clipboard-write; serial"`：`<iframe>` 標籤的權限設定，保證子工具複製功能與 Web Serial 存取正常。
+- 子工具 devUrl：TTO=`:3002`、JB=`:3003`、DL-to-Excel=`:3005`、CZ=`:3000`、CP_DL=`:5173`、Yield_Summary=`:3006`、CP_MSS=`:5174`、AutoDongle=`:5173`。
 
 ### 已安裝的 Skills 清單
 - `brainstorming`
