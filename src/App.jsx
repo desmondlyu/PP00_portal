@@ -43,54 +43,6 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState('');
   
-  // 輔助雜湊計算 (SHA-256，供 file:// 等無 Supabase 環境或 Fallback 時登入使用)
-  const sha256 = async (message) => {
-    if (typeof crypto !== 'undefined' && crypto.subtle) {
-      const msgBuffer = new TextEncoder().encode(message);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-    const utf8 = new TextEncoder().encode(message);
-    const K = [
-      0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
-      0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
-      0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
-      0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
-      0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
-      0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
-      0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
-      0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
-    ];
-    const rotr = (n, x) => (x >>> n) | (x << (32 - n));
-    const ch = (x, y, z) => (x & y) ^ (~x & z);
-    const maj = (x, y, z) => (x & y) ^ (x & z) ^ (y & z);
-    const sigma0 = x => rotr(2, x) ^ rotr(13, x) ^ rotr(22, x);
-    const sigma1 = x => rotr(6, x) ^ rotr(11, x) ^ rotr(25, x);
-    const gamma0 = x => rotr(7, x) ^ rotr(18, x) ^ (x >>> 3);
-    const gamma1 = x => rotr(17, x) ^ rotr(19, x) ^ (x >>> 10);
-    const bitLen = utf8.length * 8;
-    const padded = [];
-    for (let i = 0; i < utf8.length; i++) padded.push(utf8[i]);
-    padded.push(0x80);
-    while ((padded.length % 64) !== 56) padded.push(0);
-    for (let i = 7; i >= 0; i--) padded.push((bitLen / Math.pow(2, 8 * i)) & 0xff);
-    let [h0,h1,h2,h3,h4,h5,h6,h7] = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
-    for (let off = 0; off < padded.length; off += 64) {
-      const W = new Array(64);
-      for (let t = 0; t < 16; t++) W[t] = (padded[off+t*4]<<24)|(padded[off+t*4+1]<<16)|(padded[off+t*4+2]<<8)|padded[off+t*4+3];
-      for (let t = 16; t < 64; t++) W[t] = (gamma1(W[t-2]) + W[t-7] + gamma0(W[t-15]) + W[t-16]) | 0;
-      let [a,b,c,d,e,f,g,h] = [h0,h1,h2,h3,h4,h5,h6,h7];
-      for (let t = 0; t < 64; t++) {
-        const T1 = (h + sigma1(e) + ch(e,f,g) + K[t] + W[t]) | 0;
-        const T2 = (sigma0(a) + maj(a,b,c)) | 0;
-        h=g; g=f; f=e; e=(d+T1)|0; d=c; c=b; b=a; a=(T1+T2)|0;
-      }
-      h0=(h0+a)|0; h1=(h1+b)|0; h2=(h2+c)|0; h3=(h3+d)|0; h4=(h4+e)|0; h5=(h5+f)|0; h6=(h6+g)|0; h7=(h7+h)|0;
-    }
-    return [h0,h1,h2,h3,h4,h5,h6,h7].map(v => (v>>>0).toString(16).padStart(8,'0')).join('');
-  };
-
   // 1. 卡片離線狀態：優先抓 localStorage 作為預設與 Fallback 基礎
   const [offlineTools, setOfflineTools] = useState(() => {
     const defaultOffline = {
@@ -119,7 +71,7 @@ export default function App() {
   // 從 Supabase 載入最新狀態與監聽 Auth (若 supabase 啟用)
   useEffect(() => {
     if (!supabase) {
-      console.log('Supabase 未設定，使用本地 localStorage 與 SHA-256 驗證。');
+      console.log('Supabase 未設定，網站將以本地唯讀狀態運行，無法登入管理後台。');
       return;
     }
 
@@ -159,37 +111,26 @@ export default function App() {
     e.preventDefault();
     setAdminError('');
     
-    // 情境 A：有配置 Supabase -> 呼叫雲端資料庫 Auth 登入
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: adminUsername,
-          password: adminPassword,
-        });
+    // 如果沒有配置 Supabase，直接拒絕登入，不再保留任何本地雜湊後門
+    if (!supabase) {
+      setAdminError('未設定 Supabase 雲端資料庫，無法使用管理員登入功能！');
+      return;
+    }
 
-        if (error) {
-          setAdminError('管理員登入失敗：' + error.message);
-        } else {
-          setIsLoggedIn(true);
-          setAdminPassword('');
-        }
-      } catch (err) {
-        setAdminError('連線 Supabase 錯誤，請稍後再試。');
-      }
-    } 
-    // 情境 B：沒有配置 Supabase -> Fallback 到原先的本地雜湊比對驗證 (使用者帳號為 admin, 密碼為 admin123)
-    else {
-      const userHash = await sha256(adminUsername);
-      const passHash = await sha256(adminPassword);
-      const targetUserHash = '89dedc754b651d12483ba5e1341a9ece0699f674f817388c1c0e1717214bd2a9'; // admin
-      const targetPassHash = '844d53219189c49b8ad507c264979947a171006b7763a9ca201378cbfa41b5d1'; // admin123
-      
-      if (userHash === targetUserHash && passHash === targetPassHash) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: adminUsername,
+        password: adminPassword,
+      });
+
+      if (error) {
+        setAdminError('管理員登入失敗：' + error.message);
+      } else {
         setIsLoggedIn(true);
         setAdminPassword('');
-      } else {
-        setAdminError('本地管理員帳號或密碼錯誤！(無 Supabase 環境)');
       }
+    } catch (err) {
+      setAdminError('連線 Supabase 錯誤，請稍後再試。');
     }
   };
 
