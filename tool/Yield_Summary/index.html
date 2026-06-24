@@ -25,7 +25,12 @@
     <span style="font-weight:700; display:block; margin-bottom:4px; font-size:13px;">⚠️ HTTPS 環境 API 連線須知</span>
     偵測到目前處於 GitHub Pages (HTTPS) 環境下。請先完成以下步驟，下載檔案後放置於同一個資料夾，雙擊執行 <strong>proxy.bat</strong> 後，再執行資料擷取功能：
     <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px;">
-      <a href="file://wectinfo01/WINAP/SU_Install/software/python/python31313.exe" style="color:#34d399; text-decoration:underline; font-weight:700;">1. 在公司OA安裝Python，點我安裝</a>
+      <span style="color:#34d399; font-weight:700;">1. 在公司OA安裝Python：</span>
+      <span style="display:flex; align-items:center; gap:8px; margin-top:2px; margin-left:12px;">
+        <code id="python-path" style="background:rgba(0,0,0,0.3); padding:2px 8px; border-radius:4px; font-size:11px; color:#e5e7eb; user-select:all;">\\wectinfo01\WINAP\SU_Install\software\python\python31313.exe</code>
+        <button onclick="navigator.clipboard.writeText('\\\\wectinfo01\\WINAP\\SU_Install\\software\\python\\python31313.exe').then(()=>{this.textContent='✅ 已複製';setTimeout(()=>{this.textContent='📋 複製路徑'},2000)})" style="background:#34d399; color:#000; border:none; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer; font-weight:700;">📋 複製路徑</button>
+        <span style="font-size:11px; color:#9ca3af;">→ 貼入檔案總管網址列開啟</span>
+      </span>
       <span id="dl-proxy-bat" style="color:#60a5fa; text-decoration:underline; font-weight:700; cursor:pointer;">2. 下載 proxy.bat</span>
       <span id="dl-proxy-py" style="color:#60a5fa; text-decoration:underline; font-weight:700; cursor:pointer;">3. 下載 proxy.py</span>
     </div>
