@@ -55,7 +55,7 @@ __pycache__/
 *.bak
 
 # Vite hashed build artifacts under tool directories
-tool/AutoDongle/assets/
+# (AutoDongle 需部署靜態資產，不能忽略)
 
 # Local card configuration (do not push to repo)
 /CARDS.md
