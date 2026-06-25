@@ -21,7 +21,8 @@ import {
 // 自適應動態路徑解析器
 const getToolUrl = (tool) => {
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  if (isLocalhost) {
+  const isPortalDevServer = isLocalhost && window.location.port === '3100';
+  if (isPortalDevServer) {
     return tool.devUrl;
   }
   // 判斷是否為 Web 伺服器 (如 Github Pages)
@@ -776,4 +777,3 @@ export default function App() {
     </div>
   );
 }
-
