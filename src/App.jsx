@@ -397,9 +397,9 @@ export default function App() {
       devUrl: '#',
       localPath: '#',
       ghPagesUrl: '#',
-      status: 'pending',
+      status: 'active',
       details: [
-        '暫時留白'
+        '開發中'
       ]
     },
     {
