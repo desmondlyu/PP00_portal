@@ -56,6 +56,7 @@ export default function App() {
       'cp-mss-converter': false,
       'dongle-summary': true,
       'writer': true,
+      'eng_report': false,
       'pp00-knowledge-agent': false
     };
     try {
@@ -383,6 +384,22 @@ export default function App() {
         '使用 Web Serial API，免裝終端機，直接網頁化連線',
         '支援「測試流程錄製」與「回放」，可匯出/匯入 JSON 格式',
         '支援 Big5 編碼防亂碼、終端機輸出 Log 錄製功能'
+      ]
+    },
+    {
+      id: 'eng_report',
+      title: '工程實驗報告產生器',
+      badge: '',
+      desc: '自動將CP yield, CZ summary, datasheet,整理成工程實驗報告',
+      icon: Layers,
+      gradient: 'var(--grad-emerald-cyan)',
+      gridClass: 'col-4',
+      devUrl: '#',
+      localPath: '#',
+      ghPagesUrl: '#',
+      status: 'pending',
+      details: [
+        '暫時留白'
       ]
     },
     {
