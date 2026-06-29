@@ -425,8 +425,8 @@ export default function App() {
       const tool = tools.find(t => t.id === toolId);
       if (tool) {
         setActiveTool(tool);
-        // 清除 query 參數，將網址列重寫回乾淨的 Portal 主網域
-        const cleanUrl = window.location.origin + window.location.pathname;
+        // 清除 query 參數，將網址列重寫回乾淨的 Portal 主網域 (相容 file:// 與 http://)
+        const cleanUrl = window.location.pathname;
         window.history.replaceState(null, '', cleanUrl);
       }
     }
