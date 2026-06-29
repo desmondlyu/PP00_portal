@@ -390,7 +390,7 @@ export default function App() {
       id: 'eng_report',
       title: '工程實驗報告產生器',
       badge: '',
-      desc: '自動將CP yield, CZ summary, datasheet,整理成工程實驗報告',
+      desc: '自動將CP yield，CZ summary，datasheet，整理成工程實驗報告',
       icon: Layers,
       gradient: 'var(--grad-emerald-cyan)',
       gridClass: 'col-4',
