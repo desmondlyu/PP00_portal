@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WRITER Web Terminal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #07090e;
+      --panel-bg: rgba(22, 27, 34, 0.7);
+      --border-color: rgba(48, 54, 61, 0.8);
+      --text-color: #c9d1d9;
+      --accent-color: #00f2fe;
+      --term-green: #39ff14;
+      --btn-green: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+      --btn-danger: #ff5f56;
+      --btn-bg: rgba(255, 255, 255, 0.05);
+      --btn-hover-bg: rgba(255, 255, 255, 0.1);
+    }
+    body {
+      margin: 0;
+      padding: 30px 20px;
+      background: radial-gradient(circle at top right, #1a1635 0%, #07090e 70%);
+      color: var(--text-color);
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 90vh;
+    }
+    .container {
+      width: 97%;
+      max-width: 97%;
+      margin: 0 auto;
+    }
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    /* ── 品牌發光動畫 keyframes ── */
+    @keyframes brand-glow {
+      0%, 100% {
+        filter: drop-shadow(0 0 4px rgba(0, 242, 254, 0.3))
+                drop-shadow(0 0 10px rgba(79, 172, 254, 0.2));
+        opacity: 1;
+      }
+      50% {
+        filter: drop-shadow(0 0 12px rgba(0, 242, 254, 0.95))
+                drop-shadow(0 0 28px rgba(79, 172, 254, 0.7))
+                drop-shadow(0 0 48px rgba(0, 242, 254, 0.35));
+        opacity: 0.95;
+      }
+    }
+    @keyframes logo-glow {
+      0%, 100% {
+        filter: drop-shadow(0 0 3px rgba(0, 242, 254, 0.25))
+                brightness(1);
+      }
+      50% {
+        filter: drop-shadow(0 0 14px rgba(0, 242, 254, 0.9))
+                drop-shadow(0 0 30px rgba(79, 172, 254, 0.6))
+                brightness(1.15);
+      }
+    }
+    .brand {
+      font-weight: bold;
+      font-size: 1.2rem;
+      letter-spacing: 1px;
+      background: linear-gradient(120deg, #00f2fe, #4facfe);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-family: 'Outfit', sans-serif;
+      /* 文字發光：duration=2.5s，ease-in-out 呼吸節奏 */
+      animation: brand-glow 2.5s ease-in-out infinite;
+    }
+    .brand img {
+      /* Logo 發光：稍微錯開相位(0.6s delay)，避免與文字同步 */
+      animation: logo-glow 2.5s ease-in-out 0.6s infinite;
+      border-radius: 6px;
+      transition: transform 0.2s ease;
+    }
+    .brand img:hover {
+      transform: scale(1.08);
+    }
+    /* ── 無障礙：減少動態效果時停止動畫 ── */
+    @media (prefers-reduced-motion: reduce) {
+      .brand, .brand img {
+        animation: none;
+      }
+    }
+
+    .status-badge {
+      font-size: 0.8rem;
+      font-family: monospace;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      color: #8b949e;
+      transition: all 0.3s ease;
+    }
+    .status-badge.connected {
+      color: var(--term-green);
+      border-color: rgba(57, 255, 20, 0.4);
+      box-shadow: 0 0 12px rgba(57, 255, 20, 0.3);
+      background: rgba(57, 255, 20, 0.05);
+    }
+    .control-bar {
+      background: rgba(22, 27, 34, 0.6);
+      border-bottom: 1px solid var(--border-color);
+      padding: 8px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 0.9rem;
+    }
+    .config-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+    }
+    .config-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .config-item label {
+      font-size: 0.75rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background: var(--btn-bg);
+      color: var(--text-color);
+      font-weight: bold;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      font-family: 'Outfit', sans-serif;
+    }
+    .btn:hover {
+      background: var(--btn-hover-bg);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+    .btn:active {
+      transform: translateY(1px);
+    }
+    .btn-primary {
+      background: var(--btn-green);
+      color: #000;
+      border: none;
+    }
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+    .btn-danger {
+      border-color: var(--btn-danger);
+      color: var(--btn-danger);
+      background: transparent;
+    }
+    .btn-danger:hover {
+      background: rgba(255, 95, 86, 0.1);
+      border-color: var(--btn-danger);
+    }
+    select {
+      background: #07090e;
+      color: #ffffff;
+      border: 1px solid var(--border-color);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-family: monospace;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    select:focus {
+      border-color: var(--accent-color);
+    }
+    .checkbox-group {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      height: 40px;
+    }
+    .checkbox-label {
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+      color: #8b949e;
+      transition: color 0.2s;
+    }
+    .checkbox-label:hover {
+      color: var(--text-color);
+    }
+    .checkbox-label input[type="checkbox"] {
+      accent-color: var(--accent-color);
+      cursor: pointer;
+    }
+    .terminal-wrapper {
+      background: rgba(10, 13, 20, 0.85);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .scanlines {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                  linear-gradient(90deg, rgba(0, 242, 254, 0.03), rgba(0, 255, 0, 0.01), rgba(79, 172, 254, 0.03));
+      background-size: 100% 4px, 4px 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .terminal-screen {
+      height: 500px;
+      position: relative;
+      overflow-y: auto;
+      font-family: Consolas, Monaco, "Fira Code", monospace;
+      font-size: 1rem;
+      color: #ffffff;
+      font-weight: normal;
+      line-height: 1.5;
+      outline: none;
+      white-space: pre-wrap;
+      word-break: break-all;
+      text-shadow: none;
+      padding: 20px;
+    }
+    .cursor {
+      background: #ffffff;
+      color: #05070a;
+      animation: blink 1s infinite;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Navbar -->
+    <header class="navbar">
+      <div class="brand" style="display:flex; align-items:center; gap:10px;">
+        <img src="logo.png" alt="PP00 Logo" style="height:36px; width:auto; border-radius:6px; object-fit:contain;">
+        PP00 WEB TERMINAL
+      </div>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <button id="btnRecordFlow" style="padding:8px 14px; font-size:0.85rem; border:1px solid rgba(255,160,50,0.4); border-radius:8px; background:rgba(255,160,50,0.08); color:#ffa032; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:6px; transition:all 0.2s;">🎬 錄製測試流程</button>
+        <button id="btnPlayFlow" style="padding:8px 14px; font-size:0.85rem; border:1px solid rgba(100,220,100,0.4); border-radius:8px; background:rgba(100,220,100,0.08); color:#64dc64; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:6px; transition:all 0.2s;">▶ 回放測試流程</button>
+        <input type="file" id="filePlayback" accept=".json" style="display:none;">
+        <div id="statusBadge" class="status-badge">Status: DISCONNECTED</div>
+      </div>
+    </header>
+
+    <!-- Maximized Terminal -->
+    <main class="terminal-wrapper">
+      <!-- Integrated Control Bar -->
+      <div class="control-bar">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <button id="btnConnectCH340" class="btn btn-primary">🔌 連接 CH340</button>
+          <button id="btnBrowseAll" class="btn" style="padding:6px 12px; font-size:0.85rem;">所有 Port...</button>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label for="baudRateSelect" style="font-size:0.75rem; color:#8b949e; text-transform:uppercase; font-weight:bold;">Baud Rate</label>
+            <select id="baudRateSelect" style="padding:4px 8px; border-radius:4px; font-size:0.85rem; height:28px;">
+              <option value="115200">115200</option>
+              <option value="9600">9600</option>
+              <option value="57600">57600</option>
+              <option value="921600">921600</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:15px; font-size:0.85rem;">
+          <label class="checkbox-label"><input type="checkbox" id="chkLocalEcho"> Local Echo</label>
+          <label class="checkbox-label"><input type="checkbox" id="chkAutoScroll" checked> Auto Scroll</label>
+          <span style="color:rgba(255,255,255,0.15);">|</span>
+          <button id="btnLog" style="padding:4px 10px; font-size:0.85rem; border:1px solid rgba(255,80,80,0.4); border-radius:6px; background:rgba(255,80,80,0.08); color:#ff5f56; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:5px; transition:all 0.2s;">⏺ 錄製 LOG</button>
+          <button id="btnClear" class="btn btn-danger" style="padding:4px 8px; font-size:0.85rem; border:none; background:none; color:var(--btn-danger); font-weight:normal;">[清除螢幕]</button>
+        </div>
+      </div>
+
+      <!-- Terminal Screen View -->
+      <div style="position:relative; background:#04060a;">
+        <div class="scanlines"></div>
+        <div id="terminalScreen" class="terminal-screen" tabindex="0">--- Web Serial Terminal (v1.0) ---
+[提示] 請先點擊『連接 CH340』或『瀏覽全部裝置』開啟通訊。
+[提示] 連線後點擊此處，即可透過鍵盤輸入發送字元。
+&gt; <span id="terminalCursor" class="cursor">&nbsp;</span></div>
+      </div>
+    </main>
+  </div>
+  <script type="module">
+    let port = null;
+    let reader = null;
+    let keepReading = true;
+    let isLogging = false;
+    let logBuffer = [];  // 儲存原始文字片段
+    // ── 測試流程錄製 ──
+    let isRecordingFlow = false;
+    let flowSteps = [];        // { t: ms_delta, data: string }
+    let flowLastTime = 0;      // 上一個操作的時間戳 (ms)
+    // ── 測試流程回放 ──
+    let isPlaying = false;
+    let playAbortController = null;
+    let readLoopPromise = null;
+    let receiveBuffer = []; // 接收快取佇列
+    let renderingActive = false;
+    const decoder = new TextDecoder('big5');
+
+    const btnConnectCH340 = document.getElementById('btnConnectCH340');
+    const btnBrowseAll = document.getElementById('btnBrowseAll');
+    const statusBadge = document.getElementById('statusBadge');
+    const baudRateSelect = document.getElementById('baudRateSelect');
+    const terminalScreen = document.getElementById('terminalScreen');
+    const chkAutoScroll = document.getElementById('chkAutoScroll');
+    let terminalCursor = document.getElementById('terminalCursor');
+    const chkLocalEcho = document.getElementById('chkLocalEcho');
+    const btnClear = document.getElementById('btnClear');
+
+    function getTerminalCursor() {
+      terminalCursor = document.getElementById('terminalCursor') || terminalScreen.querySelector('.cursor');
+      return terminalCursor;
+    }
+
+    // 寫入資料到畫面（基礎輸出）
+    function writeToTerminal(text) {
+      const scrollElement = terminalScreen;
+      const isAtBottom = scrollElement.scrollHeight - scrollElement.clientHeight <= scrollElement.scrollTop + 100;
+
+      // 防禦性：若參照失效則重新取得
+      const cursor = getTerminalCursor();
+
+      // 將文字依控制字元切割，逐段處理
+      // 支援: \b (0x08 退格), \r (忽略), 其餘正常渲染
+      const segments = text.split(/([\x08\r])/);
+      for (const seg of segments) {
+        if (seg === '\x08' || seg === '\b') {
+          backspaceTerminal();
+        } else if (seg === '\r') {
+          // ignore carriage return
+        } else if (seg.length > 0) {
+          const escapedText = escapeHtml(seg);
+          if (cursor) {
+            cursor.insertAdjacentHTML('beforebegin', escapedText);
+          } else {
+            scrollElement.insertAdjacentHTML('beforeend', escapedText);
+          }
+        }
+      }
+
+      if (chkAutoScroll.checked && isAtBottom) {
+        scrollElement.scrollTop = scrollElement.scrollHeight;
+      }
+    }
+
+    // 跳脫 HTML 字元防注入
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // 檢查瀏覽器相容性
+    if (!('serial' in navigator)) {
+      btnConnectCH340.disabled = true;
+      btnBrowseAll.disabled = true;
+      writeToTerminal('\n[系統錯誤] 您的瀏覽器不支援 Web Serial API。請使用 Google Chrome、Microsoft Edge 或 Opera 瀏覽器！\n');
+    }
+
+    // 背景讀取迴圈
+    async function startReading() {
+      keepReading = true;
+      while (port && port.readable && keepReading) {
+        try {
+          reader = port.readable.getReader();
+          while (keepReading) {
+            const { value, done } = await reader.read();
+            if (done) {
+              break;
+            }
+            if (value) {
+              // 將接收到的 byte 陣列推入 Buffer
+              pushToBuffer(value);
+            }
+          }
+        } catch (err) {
+          console.error(err);
+          // 排除因關閉而產生的預期中斷錯誤訊息
+          if (keepReading) {
+            writeToTerminal(`\n[系統錯誤] 讀取時發生異常: ${err.message}\n`);
+          }
+          break;
+        } finally {
+          if (reader) {
+            reader.releaseLock();
+            reader = null;
+          }
+        }
+      }
+    }
+
+    // 資料放入快取
+    function pushToBuffer(data) {
+      receiveBuffer.push(data);
+      
+      // 觸發節流更新
+      if (!renderingActive) {
+        renderingActive = true;
+        requestAnimationFrame(renderBatch);
+      }
+    }
+
+    // 節流渲染批次 (每 16.6ms 執行一次)
+    function renderBatch() {
+      if (receiveBuffer.length === 0) {
+        renderingActive = false;
+        return;
+      }
+
+      // 拼接所有的 Uint8Array
+      const totalLength = receiveBuffer.reduce((acc, val) => acc + val.length, 0);
+      const batch = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of receiveBuffer) {
+        batch.set(chunk, offset);
+        offset += chunk.length;
+      }
+      receiveBuffer = []; // 清空緩衝區
+
+      const text = decoder.decode(batch, { stream: true });
+
+      // LOG 錄製：將原始文字推入 logBuffer
+      if (isLogging) {
+        logBuffer.push(text);
+      }
+
+      writeToTerminal(text);
+
+      requestAnimationFrame(renderBatch);
+    }
+
+    // 更新連線狀態 UI
+    function updateConnectionStatus(connected) {
+      if (connected) {
+        statusBadge.textContent = 'Status: CONNECTED';
+        statusBadge.classList.add('connected');
+        btnConnectCH340.textContent = '🔌 斷開連線';
+        btnConnectCH340.classList.remove('btn-primary');
+        btnConnectCH340.classList.add('btn-danger');
+        btnConnectCH340.disabled = false;
+        btnBrowseAll.disabled = true;
+      } else {
+        statusBadge.textContent = 'Status: DISCONNECTED';
+        statusBadge.classList.remove('connected');
+        btnConnectCH340.textContent = '🔌 連接 CH340';
+        btnConnectCH340.classList.add('btn-primary');
+        btnConnectCH340.classList.remove('btn-danger');
+        btnConnectCH340.disabled = false;
+        btnBrowseAll.disabled = false;
+      }
+    }
+
+    // 取得連接埠
+    async function connectPort(filterCH340 = false) {
+      if (port) {
+        // 斷開連線
+        keepReading = false;
+        if (reader) {
+          await reader.cancel();
+          if (readLoopPromise) {
+            try {
+              await readLoopPromise; // 等待 startReading 讀取迴圈退出並釋放 lock
+            } catch (e) {
+              console.error("Error waiting for read loop:", e);
+            }
+          }
+        }
+        try {
+          await port.close();
+        } catch (err) {
+          console.error("Error closing port:", err);
+        }
+        updateConnectionStatus(false);
+        port = null;
+        writeToTerminal('\n[系統] 串口連線已關閉。\n');
+        return;
+      }
+
+      // 立即停用按鈕，防止彈窗期間使用者再次點擊
+      btnConnectCH340.disabled = true;
+      btnBrowseAll.disabled = true;
+
+      const options = {};
+      if (filterCH340) {
+        // 沁恒 CH340 晶片的 VID 預設為 0x1a86
+        options.filters = [{ usbVendorId: 0x1a86 }];
+      }
+
+      try {
+        port = await navigator.serial.requestPort(options);
+        const baudRate = parseInt(baudRateSelect.value, 10);
+        await port.open({ baudRate });
+        updateConnectionStatus(true);
+        writeToTerminal(`\n[系統] 成功連接裝置！Baud Rate: ${baudRate}\n`);
+        
+        // 開始背景讀取
+        readLoopPromise = startReading();
+      } catch (err) {
+        console.error(err);
+        writeToTerminal(`\n[系統錯誤] 無法建立連線: ${err.message}\n`);
+        port = null;
+        // 失敗時，恢復按鈕狀態
+        btnConnectCH340.disabled = false;
+        btnBrowseAll.disabled = false;
+      }
+    }
+
+    btnConnectCH340.addEventListener('click', () => connectPort(true));
+    btnBrowseAll.addEventListener('click', () => connectPort(false));
+
+
+
+    // ══════════════════════════════════════════════
+    // 🎬 錄製測試流程
+    // ══════════════════════════════════════════════
+    const btnRecordFlow = document.getElementById('btnRecordFlow');
+    let recordBlinkTimer = null;
+
+    btnRecordFlow.addEventListener('click', () => {
+      if (!isRecordingFlow) {
+        // ── 開始錄製 ──
+        isRecordingFlow = true;
+        flowSteps = [];
+        flowLastTime = 0;
+        btnRecordFlow.textContent = '⏹ 停止錄製流程';
+        btnRecordFlow.style.borderColor = 'rgba(255,160,50,0.9)';
+        btnRecordFlow.style.background = 'rgba(255,160,50,0.2)';
+        let blink = true;
+        recordBlinkTimer = setInterval(() => {
+          btnRecordFlow.style.opacity = blink ? '0.45' : '1';
+          blink = !blink;
+        }, 600);
+        writeToTerminal('\n[FLOW] 🎬 開始錄製測試流程，所有按鍵操作與等待時間將被記錄...\n');
+      } else {
+        // ── 停止錄製並儲存 ──
+        isRecordingFlow = false;
+        clearInterval(recordBlinkTimer);
+        btnRecordFlow.style.opacity = '1';
+        btnRecordFlow.textContent = '🎬 錄製測試流程';
+        btnRecordFlow.style.borderColor = 'rgba(255,160,50,0.4)';
+        btnRecordFlow.style.background = 'rgba(255,160,50,0.08)';
+
+        if (flowSteps.length === 0) {
+          writeToTerminal('\n[FLOW] 錄製結束，無任何操作紀錄。\n');
+          return;
+        }
+
+        // 組成 JSON 格式
+        const now = new Date();
+        const payload = {
+          version: '1.0',
+          created: now.toISOString(),
+          description: 'RS232 Terminal 測試流程錄製',
+          totalSteps: flowSteps.length,
+          steps: flowSteps.map(s => ({
+            t: s.t,          // 距離上一步的等待 ms
+            data: s.data,    // 發送的字串 (可能是控制字元)
+            label: s.data === '\r' ? '[ENTER]'
+                 : s.data === '\x7f' ? '[BACKSPACE]'
+                 : s.data === '\t'   ? '[TAB]'
+                 : s.data
+          }))
+        };
+
+        const json = JSON.stringify(payload, null, 2);
+        const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `flow_${now.toISOString().replace(/[:.]/g, '-').substring(0, 19)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        writeToTerminal(`\n[FLOW] ✅ 錄製完成！共 ${flowSteps.length} 步，已儲存至 ${a.download}\n`);
+      }
+    });
+
+    // ══════════════════════════════════════════════
+    // ▶ 回放測試流程
+    // ══════════════════════════════════════════════
+    const btnPlayFlow = document.getElementById('btnPlayFlow');
+    const filePlayback = document.getElementById('filePlayback');
+
+    // 點按鈕 → 若正在回放則中止，否則開啟檔案選擇
+    btnPlayFlow.addEventListener('click', () => {
+      if (isPlaying) {
+        // 中止回放
+        if (playAbortController) playAbortController.abort();
+        return;
+      }
+      filePlayback.value = ''; // 清除上次選取
+      filePlayback.click();
+    });
+
+    // 選擇檔案後開始回放
+    filePlayback.addEventListener('change', async () => {
+      const file = filePlayback.files[0];
+      if (!file) return;
+
+      let payload;
+      try {
+        const text = await file.text();
+        payload = JSON.parse(text);
+      } catch (e) {
+        writeToTerminal(`\n[FLOW] ❌ 無法解析檔案：${e.message}\n`);
+        return;
+      }
+
+      if (!payload.steps || !Array.isArray(payload.steps)) {
+        writeToTerminal('\n[FLOW] ❌ 檔案格式錯誤，缺少 steps 欄位。\n');
+        return;
+      }
+
+      if (!port || !port.writable) {
+        writeToTerminal('\n[FLOW] ⚠️ 請先連接裝置再執行回放。\n');
+        return;
+      }
+
+      // 開始回放
+      isPlaying = true;
+      playAbortController = new AbortController();
+      const signal = playAbortController.signal;
+
+      btnPlayFlow.textContent = '⏹ 中止回放';
+      btnPlayFlow.style.borderColor = 'rgba(100,220,100,0.9)';
+      btnPlayFlow.style.background = 'rgba(100,220,100,0.2)';
+
+      writeToTerminal(`\n[FLOW] ▶ 開始回放「${file.name}」，共 ${payload.steps.length} 步。按「中止回放」可停止。\n`);
+
+      const sleep = (ms) => new Promise((resolve, reject) => {
+        if (signal.aborted) return reject(new DOMException('Aborted', 'AbortError'));
+        const timer = setTimeout(resolve, ms);
+        signal.addEventListener('abort', () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); }, { once: true });
+      });
+
+      try {
+        for (let i = 0; i < payload.steps.length; i++) {
+          if (signal.aborted) break;
+          const step = payload.steps[i];
+
+          // 等待此步的 delta 時間
+          if (step.t > 0) await sleep(step.t);
+          if (signal.aborted) break;
+
+          // 發送（不再二次 recordFlowStep，避免無限疊加）
+          const wasRecording = isRecordingFlow;
+          isRecordingFlow = false;
+          await sendSerialData(step.data);
+          isRecordingFlow = wasRecording;
+
+          writeToTerminal(`\n[FLOW] 步驟 ${i + 1}/${payload.steps.length}：發送 ${step.label ?? step.data} (等待 ${step.t}ms)\n`);
+        }
+        if (!signal.aborted) {
+          writeToTerminal('\n[FLOW] ✅ 回放完成！\n');
+          writeToTerminal('\n///*** 完成測試流程 ***///\n');
+        }
+      } catch (e) {
+        if (e.name === 'AbortError') {
+          writeToTerminal('\n[FLOW] ⏹ 回放已中止。\n');
+        }
+      } finally {
+        isPlaying = false;
+        playAbortController = null;
+        btnPlayFlow.textContent = '▶ 回放測試流程';
+        btnPlayFlow.style.borderColor = 'rgba(100,220,100,0.4)';
+        btnPlayFlow.style.background = 'rgba(100,220,100,0.08)';
+      }
+    });
+
+    // LOG 錄製按鈕
+    const btnLog = document.getElementById('btnLog');
+    let logBlinkTimer = null;
+
+    btnLog.addEventListener('click', () => {
+      if (!isLogging) {
+        // ── 開始錄製 ──
+        isLogging = true;
+        logBuffer = [];
+        btnLog.textContent = '⏹ 停止錄製';
+        btnLog.style.borderColor = 'rgba(255,80,80,0.9)';
+        btnLog.style.background = 'rgba(255,80,80,0.2)';
+        btnLog.style.color = '#ff5f56';
+        // 閃爍動畫
+        let blink = true;
+        logBlinkTimer = setInterval(() => {
+          btnLog.style.opacity = blink ? '0.5' : '1';
+          blink = !blink;
+        }, 600);
+      } else {
+        // ── 停止錄製並下載 ──
+        isLogging = false;
+        clearInterval(logBlinkTimer);
+        btnLog.style.opacity = '1';
+        btnLog.textContent = '⏺ 錄製 LOG';
+        btnLog.style.borderColor = 'rgba(255,80,80,0.4)';
+        btnLog.style.background = 'rgba(255,80,80,0.08)';
+
+        if (logBuffer.length === 0) {
+          writeToTerminal('\n[LOG] 錄製結束，無資料。\n');
+          return;
+        }
+
+        // 合併原始文字，移除多餘空行（連續 \n 只保留一個）
+        const rawLog = logBuffer.join('');
+        const cleanLog = rawLog
+          .replace(/\r\n/g, '\n')   // 統一換行
+          .replace(/\r/g, '\n')
+          .replace(/\n{2,}/g, '\n') // 連續空行壓縮成一行
+          .trim();
+
+        // 加入 LOG 標頭
+        const now = new Date();
+        const timestamp = now.toISOString().replace('T', ' ').substring(0, 19);
+        const header = `=== RS232 Terminal LOG ===\nTime: ${timestamp}\n==========================\n`;
+        const finalLog = header + cleanLog + '\n';
+
+        // 下載 .log 檔案
+        const blob = new Blob([finalLog], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `terminal_log_${now.toISOString().replace(/[:.]/g, '-').substring(0, 19)}.log`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        writeToTerminal(`\n[LOG] 錄製完成，已下載 ${a.download}\n`);
+      }
+    });
+
+    btnClear.addEventListener('click', () => {
+
+      const cursor = getTerminalCursor();
+      if (!cursor) return;
+      while (cursor.previousSibling) terminalScreen.removeChild(cursor.previousSibling);
+      while (cursor.nextSibling) terminalScreen.removeChild(cursor.nextSibling);
+      // 重設滾動條位置
+      terminalScreen.scrollTop = 0;
+      
+      // 於游標前插入清除完成的系統提示
+      cursor.insertAdjacentHTML('beforebegin', '--- Terminal Cleared ---\n&gt; ');
+    });
+
+    // 監聽終端機鍵盤事件
+    terminalScreen.addEventListener('keydown', async (event) => {
+      if (!port || !port.writable) return;
+
+      // 阻止瀏覽器預設按鍵行為
+      if (event.key === ' ' || event.key === 'Tab' || event.key === 'Escape') {
+        event.preventDefault();
+      }
+
+      let dataToSend = '';
+
+      // 處理特殊鍵
+      if (event.key === 'Enter') {
+        dataToSend = '\r'; // C code 通常預期 \r 或 \n
+      } else if (event.key === 'Backspace') {
+        dataToSend = '\x7f';
+      } else if (event.key === 'Tab') {
+        dataToSend = '\t';
+      } else if (event.key === 'Escape') {
+        dataToSend = '\x1b'; // ESC 字元 (ASCII 27)，發送給燒錄機
+      } else if (event.key.length === 1) {
+        dataToSend = event.key;
+      }
+
+      if (dataToSend) {
+        await sendSerialData(dataToSend);
+      }
+    });
+
+    // 發送資料到串口
+    // 測試流程錄製 hook
+    function recordFlowStep(text) {
+      if (!isRecordingFlow) return;
+      const now = Date.now();
+      const delta = flowLastTime === 0 ? 0 : now - flowLastTime;
+      flowLastTime = now;
+      flowSteps.push({ t: delta, data: text });
+    }
+
+    async function sendSerialData(text) {
+      recordFlowStep(text); // 錄製 hook
+      let writer = null;
+      try {
+        const encoder = new TextEncoder();
+        writer = port.writable.getWriter();
+        await writer.write(encoder.encode(text));
+
+        // 如果開啟 Local Echo，本地先更新畫面顯示
+        if (chkLocalEcho.checked) {
+          // 若為 Backspace，在畫面上實作倒退
+          if (text === '\x7f') {
+            backspaceTerminal();
+          } else {
+            writeToTerminal(text === '\r' ? '\n' : text);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        writeToTerminal(`\n[系統錯誤] 發送失敗: ${err.message}\n`);
+      } finally {
+        if (writer) {
+          writer.releaseLock();
+        }
+      }
+    }
+
+    // 處理退格字元：刪除游標前最後一個字元
+    function backspaceTerminal() {
+      const cursor = getTerminalCursor();
+      if (!cursor) return;
+      let node = cursor.previousSibling;
+      // 往前找第一個非空 Text Node
+      while (node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          if (node.textContent.length > 0) {
+            node.textContent = node.textContent.slice(0, -1);
+            if (node.textContent.length === 0) {
+              node.remove();
+            }
+            return;
+          }
+        } else if (node.nodeType === Node.ELEMENT_NODE && node.lastChild) {
+          // 進入元素節點的最後子節點
+          node = node.lastChild;
+          continue;
+        }
+        node = node.previousSibling;
+      }
+    }
+  </script>
+</body>
+</html>

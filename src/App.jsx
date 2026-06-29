@@ -371,16 +371,18 @@ export default function App() {
       id: 'writer',
       title: 'WRITER 按鍵錄製精靈',
       badge: 'Active',
-      desc: '專為TeraTerm終端機設計，錄製操控WRITER時的按鍵記憶巨集。功能待開發。',
+      desc: '專為 LP56 燒錄控制設計，支援 CH340 自動連線、按鍵操作錄製與回放功能。',
       icon: GitBranch,
       gradient: 'var(--grad-emerald-cyan)',
       gridClass: 'col-4',
-      devUrl: '#',
-      localPath: '#',
-      ghPagesUrl: '#',
+      devUrl: './tool/web_terminal/index.html',
+      localPath: './tool/web_terminal/index.html',
+      ghPagesUrl: './tool/web_terminal/index.html',
       status: 'active',
       details: [
-        '將使用者操作鍵盤的Key-in以及等待時間，錄製成巨集讓TeraTerm終端機自訂執行'
+        '使用 Web Serial API，免裝終端機，直接網頁化連線',
+        '支援「測試流程錄製」與「回放」，可匯出/匯入 JSON 格式',
+        '支援 Big5 編碼防亂碼、終端機輸出 Log 錄製功能'
       ]
     },
     {
@@ -769,7 +771,7 @@ export default function App() {
               src={getToolUrl(activeTool)} 
               className="portal-iframe" 
               title={activeTool.title}
-              allow="clipboard-write; serial"
+              allow="serial *; clipboard-write *"
             />
           </div>
         </div>
