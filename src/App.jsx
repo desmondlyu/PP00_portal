@@ -408,7 +408,8 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
-    { version: 'v1.5.0', date: '2026-06-22', text: '新增 PP00 Knownledge Agent 內部知識型 Agent（因安全性限制改為外部網址新分頁啟動）。', isNew: true },
+    { version: 'v1.6.0', date: '2026-06-29', text: '整合 WRITER 按鍵錄製精靈（Web Terminal），支援 LP56 燒錄控制、CH340 自動連線、時序錄製與回放功能。', isNew: true },
+    { version: 'v1.5.0', date: '2026-06-22', text: '新增 PP00 Knownledge Agent 內部知識型 Agent（因安全性限制改為外部網址新分頁啟動）。', isNew: false },
     { version: 'v1.4.0', date: '2026-06-15', text: '新增 CP MSS 轉換工具、Dongle Auto Summary、WRITER按鍵錄製精靈 等待開發離線入口卡片。', isNew: false },
     { version: 'v1.3.0', date: '2026-06-15', text: '新增 CP Datalog-to-Excel 轉換器入口卡片。', isNew: false },
     { version: 'v1.2.0', date: '2026-06-09', text: '依據實際工具需求重構排版。整合 TTO 分析、JB Lab 借機系統、CZ 特性分析與待開發 DL 工具入口。', isNew: false },
