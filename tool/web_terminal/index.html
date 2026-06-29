@@ -348,33 +348,60 @@
       return terminalCursor;
     }
 
+    let backspaceEraseState = 0; // 0: normal, 1: got \x08, 2: got \x08 + space
+
     // 寫入資料到畫面（基礎輸出）
     function writeToTerminal(text) {
       const scrollElement = terminalScreen;
       const isAtBottom = scrollElement.scrollHeight - scrollElement.clientHeight <= scrollElement.scrollTop + 100;
-
-      // 防禦性：若參照失效則重新取得
       const cursor = getTerminalCursor();
 
-      // 將文字依控制字元切割，逐段處理
-      // 支援: \b (0x08 退格), \r (忽略), 其餘正常渲染
-      // 將常見的「退格+空格+退格」抹除序列簡化為單一退格，避免渲染多餘空格導致無法刪除
-      text = text.replace(/\x08 \x08/g, '\x08');
-      const segments = text.split(/([\x08\r])/);
-      for (const seg of segments) {
-        if (seg === '\x08' || seg === '\b') {
-          backspaceTerminal();
-        } else if (seg === '\r') {
-          // ignore carriage return
-        } else if (seg.length > 0) {
-          const escapedText = escapeHtml(seg);
+      let pendingText = "";
+
+      const flushPending = () => {
+        if (pendingText.length > 0) {
+          const escapedText = escapeHtml(pendingText);
           if (cursor) {
             cursor.insertAdjacentHTML('beforebegin', escapedText);
           } else {
             scrollElement.insertAdjacentHTML('beforeend', escapedText);
           }
+          pendingText = "";
+        }
+      };
+
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+
+        if (ch === '\x08' || ch === '\b') {
+          flushPending();
+          if (backspaceEraseState === 0) {
+            backspaceEraseState = 1;
+            backspaceTerminal();
+          } else if (backspaceEraseState === 1) {
+            // 連續退格
+            backspaceTerminal();
+          } else if (backspaceEraseState === 2) {
+            // 擦除序列 (\b \b) 中的最後一個退格，重置狀態並忽略之
+            backspaceEraseState = 0;
+          }
+        } else if (ch === ' ') {
+          if (backspaceEraseState === 1) {
+            // 擦除序列 中的空格，忽略不渲染並轉移狀態
+            backspaceEraseState = 2;
+          } else {
+            backspaceEraseState = 0;
+            pendingText += ch;
+          }
+        } else if (ch === '\r') {
+          // ignore carriage return
+        } else {
+          backspaceEraseState = 0;
+          pendingText += ch;
         }
       }
+
+      flushPending();
 
       if (chkAutoScroll.checked && isAtBottom) {
         scrollElement.scrollTop = scrollElement.scrollHeight;
