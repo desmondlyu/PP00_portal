@@ -358,6 +358,8 @@
 
       // 將文字依控制字元切割，逐段處理
       // 支援: \b (0x08 退格), \r (忽略), 其餘正常渲染
+      // 將常見的「退格+空格+退格」抹除序列簡化為單一退格，避免渲染多餘空格導致無法刪除
+      text = text.replace(/\x08 \x08/g, '\x08');
       const segments = text.split(/([\x08\r])/);
       for (const seg of segments) {
         if (seg === '\x08' || seg === '\b') {
@@ -808,7 +810,7 @@
       if (event.key === 'Enter') {
         dataToSend = '\r'; // C code 通常預期 \r 或 \n
       } else if (event.key === 'Backspace') {
-        dataToSend = '\x7f';
+        dataToSend = '\x08';
       } else if (event.key === 'Tab') {
         dataToSend = '\t';
       } else if (event.key === 'Escape') {
@@ -843,7 +845,7 @@
         // 如果開啟 Local Echo，本地先更新畫面顯示
         if (chkLocalEcho.checked) {
           // 若為 Backspace，在畫面上實作倒退
-          if (text === '\x7f') {
+          if (text === '\x08') {
             backspaceTerminal();
           } else {
             writeToTerminal(text === '\r' ? '\n' : text);
@@ -863,6 +865,13 @@
     function backspaceTerminal() {
       const cursor = getTerminalCursor();
       if (!cursor) return;
+
+      // 合併相鄰與清除空 text nodes，確保 DOM 樹結構簡潔，免除複雜層次回溯
+      const screen = document.getElementById('terminalScreen');
+      if (screen) {
+        screen.normalize();
+      }
+
       let node = cursor.previousSibling;
       // 往前找第一個非空 Text Node
       while (node) {
@@ -874,10 +883,6 @@
             }
             return;
           }
-        } else if (node.nodeType === Node.ELEMENT_NODE && node.lastChild) {
-          // 進入元素節點的最後子節點
-          node = node.lastChild;
-          continue;
         }
         node = node.previousSibling;
       }
