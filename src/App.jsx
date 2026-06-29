@@ -56,7 +56,7 @@ export default function App() {
       'cp-mss-converter': false,
       'dongle-summary': true,
       'writer': true,
-      'eng_report': false,
+      'eng_report': true,
       'pp00-knowledge-agent': false
     };
     try {
