@@ -273,6 +273,7 @@
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
         <button id="btnRecordFlow" style="padding:8px 14px; font-size:0.85rem; border:1px solid rgba(255,160,50,0.4); border-radius:8px; background:rgba(255,160,50,0.08); color:#ffa032; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:6px; transition:all 0.2s;">🎬 錄製測試流程</button>
         <button id="btnPlayFlow" style="padding:8px 14px; font-size:0.85rem; border:1px solid rgba(100,220,100,0.4); border-radius:8px; background:rgba(100,220,100,0.08); color:#64dc64; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:6px; transition:all 0.2s;">▶ 回放測試流程</button>
+        <input type="number" id="txtPlayCount" min="1" placeholder="填入1, 代表只跑一次迴圈" style="padding:8px 12px; font-size:0.85rem; border:1px solid rgba(100,220,100,0.3); border-radius:8px; background:rgba(255,255,255,0.03); color:#ffffff; font-family:inherit; width:180px; outline:none; transition:all 0.2s;" onfocus="this.style.borderColor='rgba(100,220,100,0.8)';" onblur="this.style.borderColor='rgba(100,220,100,0.3)';">
         <input type="file" id="filePlayback" accept=".json" style="display:none;">
         <div id="statusBadge" class="status-badge">Status: DISCONNECTED</div>
       </div>
@@ -654,6 +655,13 @@
         return;
       }
 
+      // 讀取回放次數
+      const txtPlayCount = document.getElementById('txtPlayCount');
+      let playCount = parseInt(txtPlayCount.value, 10);
+      if (isNaN(playCount) || playCount < 1) {
+        playCount = 1;
+      }
+
       // 開始回放
       isPlaying = true;
       playAbortController = new AbortController();
@@ -663,7 +671,7 @@
       btnPlayFlow.style.borderColor = 'rgba(100,220,100,0.9)';
       btnPlayFlow.style.background = 'rgba(100,220,100,0.2)';
 
-      writeToTerminal(`\n[FLOW] ▶ 開始回放「${file.name}」，共 ${payload.steps.length} 步。按「中止回放」可停止。\n`);
+      writeToTerminal(`\n[FLOW] ▶ 開始回放「${file.name}」，預計重複執行 ${playCount} 次循環，每循環 ${payload.steps.length} 步。按「中止回放」可停止。\n`);
 
       const sleep = (ms) => new Promise((resolve, reject) => {
         if (signal.aborted) return reject(new DOMException('Aborted', 'AbortError'));
@@ -672,24 +680,31 @@
       });
 
       try {
-        for (let i = 0; i < payload.steps.length; i++) {
+        for (let loop = 1; loop <= playCount; loop++) {
           if (signal.aborted) break;
-          const step = payload.steps[i];
+          if (playCount > 1) {
+            writeToTerminal(`\n[FLOW] ── 正在執行第 ${loop}/${playCount} 次循環 ──\n`);
+          }
 
-          // 等待此步的 delta 時間
-          if (step.t > 0) await sleep(step.t);
-          if (signal.aborted) break;
+          for (let i = 0; i < payload.steps.length; i++) {
+            if (signal.aborted) break;
+            const step = payload.steps[i];
 
-          // 發送（不再二次 recordFlowStep，避免無限疊加）
-          const wasRecording = isRecordingFlow;
-          isRecordingFlow = false;
-          await sendSerialData(step.data);
-          isRecordingFlow = wasRecording;
+            // 等待此步的 delta 時間
+            if (step.t > 0) await sleep(step.t);
+            if (signal.aborted) break;
 
-          writeToTerminal(`\n[FLOW] 步驟 ${i + 1}/${payload.steps.length}：發送 ${step.label ?? step.data} (等待 ${step.t}ms)\n`);
+            // 發送（不再二次 recordFlowStep，避免無限疊加）
+            const wasRecording = isRecordingFlow;
+            isRecordingFlow = false;
+            await sendSerialData(step.data);
+            isRecordingFlow = wasRecording;
+
+            writeToTerminal(`\n[FLOW] 步驟 ${i + 1}/${payload.steps.length}：發送 ${step.label ?? step.data} (等待 ${step.t}ms)\n`);
+          }
         }
         if (!signal.aborted) {
-          writeToTerminal('\n[FLOW] ✅ 回放完成！\n');
+          writeToTerminal('\n[FLOW] ✅ 全部回放完成！\n');
           writeToTerminal('\n///*** 完成測試流程 ***///\n');
         }
       } catch (e) {
