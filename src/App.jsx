@@ -417,6 +417,21 @@ export default function App() {
     { version: 'v1.0.0', date: '2026-04-17', text: 'PP00 Tool Portal 基礎架構部署，套用 MIT 授權與版權聲明。', isNew: false }
   ];
 
+  // 偵測網址參數，支援特定工具直接全螢幕加載並抹除網址參數，維持網址乾淨
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const toolId = params.get('tool');
+    if (toolId) {
+      const tool = tools.find(t => t.id === toolId);
+      if (tool) {
+        setActiveTool(tool);
+        // 清除 query 參數，將網址列重寫回乾淨的 Portal 主網域
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState(null, '', cleanUrl);
+      }
+    }
+  }, [tools]);
+
   return (
     <div className="app-container">
       {/* 標頭 Header */}
@@ -750,7 +765,7 @@ export default function App() {
               </button>
               <a 
                 className="portal-iframe-btn" 
-                href={getToolUrl(activeTool)} 
+                href={`./?tool=${activeTool.id}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 title="在新視窗開啟"
