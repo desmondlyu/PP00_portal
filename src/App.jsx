@@ -233,7 +233,7 @@ export default function App() {
       title: 'NOR Flash Rawdata/TTO 分析平台',
       badge: 'Active',
       desc: '支援多個產品 CP Rawdata 分析、測試時間以及測試關鍵字分析，支援匯出報表可回倒系統，減省重新分析 Rawdata 動作。',
-      icon: TrendingUp,
+      icon: '🚀',
       gradient: 'var(--grad-cyan-blue)',
       gridClass: 'col-4',
       devUrl: 'http://localhost:3002',
@@ -251,7 +251,7 @@ export default function App() {
       title: 'PP00 竹北借機系統',
       badge: 'Active',
       desc: '竹北 4F 實驗室預約平台。',
-      icon: Calendar,
+      icon: '🖥️',
       gradient: 'var(--grad-purple-pink)',
       gridClass: 'col-4',
       devUrl: 'http://localhost:3003',
@@ -285,7 +285,7 @@ export default function App() {
       title: 'NOR Flash FT 特性系統分析工具',
       badge: 'Active',
       desc: '自動解析各測試項目 Pass/Fail 結果，支援線上修改項目的SPEC，並即時更新測試結果。平台提供產品分析總結報表（Pass, Fail 以及 <15% 邊界條件的危險項目）。',
-      icon: BarChart3,
+      icon: '📊',
       gradient: 'var(--grad-emerald-cyan)',
       gridClass: 'col-4',
       devUrl: 'http://localhost:3000',
@@ -303,7 +303,7 @@ export default function App() {
       title: 'NOR Flash CP DL log 分析工具',
       badge: 'Active',
       desc: 'NOR Flash CP DL 分析工具。',
-      icon: LineChart,
+      icon: '💻',
       gradient: 'var(--grad-amber-pink)',
       gridClass: 'col-4',
       devUrl: 'http://localhost:5173',
@@ -321,7 +321,7 @@ export default function App() {
       title: 'VSC CP/FT Yield Auto Summary',
       badge: 'Active',
       desc: 'CP/FT VSC 良率自動彙總報表工具',
-      icon: BarChart3,
+      icon: '📋',
       gradient: 'var(--grad-purple-pink)',
       gridClass: 'col-4',
       devUrl: 'http://localhost:3006',
@@ -339,7 +339,7 @@ export default function App() {
       title: 'NOR Flash CP MSS 轉換工具',
       badge: 'Active',
       desc: '將原始 Testing Team CP MSS 轉換為 Product Team 格式。支援自動解合併儲存格、Comment 解析、迴圈偵測與格式防呆驗證。',
-      icon: Layers,
+      icon: '📝',
       gradient: 'var(--grad-cyan-blue)',
       gridClass: 'col-4',
       devUrl: 'http://localhost:5174',
@@ -356,7 +356,7 @@ export default function App() {
       title: 'Dongle Auto loader 自動化平台',
       badge: 'Active',
       desc: '透過Hub快速收集所有Dongle測試資料，並自動彙整測試報告。',
-      icon: LineChart,
+      icon: '🔐',
       gradient: 'var(--grad-purple-pink)',
       gridClass: 'col-4',
       devUrl: 'http://localhost:5173',
@@ -373,7 +373,7 @@ export default function App() {
       title: 'WRITER 按鍵錄製精靈',
       badge: 'Active',
       desc: '專為 LP56 燒錄控制設計，支援 CH340 自動連線、按鍵操作錄製與回放功能。',
-      icon: GitBranch,
+      icon: '📟',
       gradient: 'var(--grad-emerald-cyan)',
       gridClass: 'col-4',
       devUrl: './tool/web_terminal/index.html',
@@ -407,7 +407,7 @@ export default function App() {
       title: 'PP00 Knownledge Agent',
       badge: 'Active',
       desc: 'PP00 內部知識型 Agent',
-      icon: MessageSquare,
+      icon: '🤖',
       gradient: 'var(--grad-cyan-blue)',
       gridClass: 'col-4',
       devUrl: 'https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2',
@@ -531,7 +531,7 @@ export default function App() {
           <div>
             <div className="changelog-header">
               <h3 className="changelog-title">
-                <GitBranch size={20} color="var(--accent-blue)" />
+                <span role="img" aria-label="pager">📟</span>
                 更新日誌
               </h3>
               <span className="tool-badge">Changelog</span>
@@ -553,6 +553,7 @@ export default function App() {
         {/* 動態渲染工具卡片 */}
         {tools.map((tool) => {
           const IconComp = tool.icon;
+          const isEmojiIcon = typeof IconComp === 'string';
           const isPending = tool.status === 'pending';
           const isOffline = offlineTools[tool.id];
           
@@ -561,7 +562,11 @@ export default function App() {
               <div className="card-glow"></div>
               <div>
                 <div className="tool-icon-wrapper" style={{ background: tool.gradient }}>
-                  <IconComp size={24} />
+                  {isEmojiIcon ? (
+                    <span role="img" aria-label="tool icon" style={{ fontSize: '24px', lineHeight: 1 }}>{IconComp}</span>
+                  ) : (
+                    <IconComp size={24} />
+                  )}
                 </div>
                 <div className="tool-info">
                   <h3 className="tool-title">
