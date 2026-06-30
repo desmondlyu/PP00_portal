@@ -434,20 +434,42 @@ export default function App() {
     { version: 'v1.0.0', date: '2026-04-17', text: 'PP00 Tool Portal 基礎架構部署，套用 MIT 授權與版權聲明。', isNew: false }
   ];
 
-  // 偵測網址參數，支援特定工具直接全螢幕加載並抹除網址參數，維持網址乾淨
+  // 偵測網址參數，支援特定工具直接全螢幕加載並抹除網址參數，維持網址乾淨（包含安全防護）
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const toolId = params.get('tool');
     if (toolId) {
       const tool = tools.find(t => t.id === toolId);
       if (tool) {
-        setActiveTool(tool);
+        const isOffline = offlineTools[tool.id];
+        const isPending = tool.status === 'pending';
+        
+        if (isOffline) {
+          alert('該平台已暫時關閉，無法載入！');
+        } else if (isPending) {
+          alert('該平台仍在開發中，尚未開放！');
+        } else {
+          setActiveTool(tool);
+        }
+        
         // 清除 query 參數，將網址列重寫回乾淨的 Portal 主網域 (相容 file:// 與 http://)
         const cleanUrl = window.location.pathname;
         window.history.replaceState(null, '', cleanUrl);
       }
     }
-  }, [tools]);
+  }, [tools, offlineTools]);
+
+  // 雙重防呆：當前開啟的工具一旦被設為 offline 或是 pending，立刻強制關閉
+  useEffect(() => {
+    if (activeTool) {
+      const isOffline = offlineTools[activeTool.id];
+      const isPending = activeTool.status === 'pending';
+      if (isOffline || isPending) {
+        setActiveTool(null);
+        alert('該平台已被管理員關閉或尚未開放！');
+      }
+    }
+  }, [offlineTools, activeTool]);
 
   return (
     <div className="app-container">
