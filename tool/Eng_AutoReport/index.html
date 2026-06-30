@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工程報告自動化系統 - 控制台</title>
+  <script>
+    window.APP_CONFIG = {
+      apiBase: ""
+    };
+  </script>
+  <!-- 載入 Google Fonts Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="glass-bg"></div>
+  <div class="app-container">
+    <header class="topbar">
+      <div class="logo-area">
+        <span class="icon">⚙️</span>
+        <div>
+          <h1>NOR FLASH 工程試驗報告自動化系統</h1>
+          <p class="subtitle">CP Summary x CZ Summary x 制式報告格式 all in on</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <!-- 左側輸入區 -->
+      <section class="panel input-panel">
+        <div class="panel-header">
+          <span class="panel-icon">📝</span>
+          <h2>報告配置輸入</h2>
+        </div>
+        
+        <div class="form-section">
+          <h3>基本資訊</h3>
+          <div class="grid fields-grid">
+            <label for="productNo">Product No.
+              <input id="productNo" type="text" placeholder="例如：FAG102B" required>
+            </label>
+            <label for="productFunc">標題名稱
+              <input id="productFunc" type="text" placeholder="例如：Serial Flash Memory">
+            </label>
+            <label for="manager">副理
+              <input id="manager" type="text" placeholder="主管姓名">
+            </label>
+            <label for="author">撰寫人
+              <input id="author" type="text" placeholder="填表人姓名">
+            </label>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>資料與範本檔案</h3>
+          <p class="template-path">範本連結： \\wectinfo02\PP00\yplu\Software\工程實驗報告範本</p>
+          <p class="template-note">（請透過 share folder 內的檔案，確認各個上傳檔案的範例跟格式）</p>
+          <div class="template-actions">
+            <button id="copyTemplatePathBtn" type="button" class="btn ghost btn-sm">複製範本路徑</button>
+          </div>
+          <div class="grid files-grid">
+            <label for="excelFile">CP Summary Excel (必要文件)
+              <div class="file-input-wrapper">
+                <input id="excelFile" type="file" accept=".xlsx,.xls">
+              </div>
+            </label>
+            <label for="czExcelFile">Corner CZ Summary Excel (必要文件)
+              <div class="file-input-wrapper">
+                <input id="czExcelFile" type="file" accept=".xlsx,.xls">
+              </div>
+            </label>
+            <label for="pdfFile">Datasheet PDF (必要文件)
+              <div class="file-input-wrapper">
+                <input id="pdfFile" type="file" accept=".pdf">
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="section-header">
+            <h3>Mask 版本設定</h3>
+            <button id="addMaskBtn" class="btn ghost btn-sm" type="button">+ 新增版本</button>
+          </div>
+          <div class="table-container">
+            <table id="maskTable">
+              <thead>
+                <tr>
+                  <th>版本</th>
+                  <th>描述</th>
+                  <th class="text-center">本次</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><input type="text" value="FAG102 D" placeholder="版本號"></td>
+                  <td><input type="text" value="Mask-D 初版 PR Release" placeholder="版本描述"></td>
+                  <td class="text-center"><input type="radio" name="maskCurrent" checked></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>批號記錄對齊</h3>
+          <div class="table-container">
+            <table id="lotTable">
+              <thead>
+                <tr>
+                  <th>FAB</th>
+                  <th>Lot No.</th>
+                  <th>Mask Ver.</th>
+                  <th>Process Route</th>
+                  <th>WAT</th>
+                  <th>CP1</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><input type="text" value="FAB6" placeholder="FAB"></td>
+                  <td><input type="text" value="6515FG200" placeholder="Lot No."></td>
+                  <td><input type="text" value="D" placeholder="Mask Ver."></td>
+                  <td><input type="text" value="F05853A" placeholder="Route"></td>
+                  <td><input type="text" value="20240605" placeholder="Y/N"></td>
+                  <td><input type="text" value="20240620" placeholder="Y/N"></td>
+                </tr>
+                <tr>
+                  <td><input type="text" value="FAB6" placeholder="FAB"></td>
+                  <td><input type="text" value="LOT002" placeholder="Lot No."></td>
+                  <td><input type="text" value="M001" placeholder="Mask Ver."></td>
+                  <td><input type="text" value="Route B" placeholder="Route"></td>
+                  <td><input type="text" value="Y" placeholder="Y/N"></td>
+                  <td><input type="text" value="Y" placeholder="Y/N"></td>
+                </tr>
+                <tr>
+                  <td><input type="text" value="FAB6" placeholder="FAB"></td>
+                  <td><input type="text" value="LOT003" placeholder="Lot No."></td>
+                  <td><input type="text" value="M001" placeholder="Mask Ver."></td>
+                  <td><input type="text" value="Route C" placeholder="Route"></td>
+                  <td><input type="text" value="Y" placeholder="Y/N"></td>
+                  <td><input type="text" value="Y" placeholder="Y/N"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="previewBtn" class="btn secondary" type="button">產生預覽資料</button>
+          <button id="exportBtn" class="btn primary" type="button">匯出 Word (Render 優先)</button>
+          <button id="zipBtn" class="btn secondary" type="button">下載 charts + report (zip)</button>
+        </div>
+      </section>
+
+      <!-- 右側預覽與日誌區 -->
+      <section class="panel preview-panel">
+        <div class="panel-header">
+          <span class="panel-icon">📊</span>
+          <h2>狀態預覽與控制台</h2>
+        </div>
+
+        <div class="card status-card">
+          <div class="card-header">
+            <h3>流程狀態</h3>
+            <span id="statusIndicator" class="indicator idle"></span>
+          </div>
+          <p id="statusText">尚未開始。</p>
+        </div>
+
+        <div class="card preview-card">
+          <h3>圖表與產物預覽</h3>
+          <div id="previewContainer" class="preview-container">
+            <div class="preview-placeholder">
+              <span class="placeholder-icon">📈</span>
+              <p>無預覽資料。請填寫左側表單並點擊「產生預覽資料」。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card console-card">
+          <h3>即時執行訊息 (Console Log)</h3>
+          <pre id="logBox" class="console-box"></pre>
+        </div>
+      </section>
+    </main>
+  </div>
+  <!-- 報告生成中 Modal -->
+  <div id="loadingModal" class="loading-modal" style="display:none">
+    <div class="loading-card">
+      <div class="loading-ring"><span>⚙️</span></div>
+      <div class="loading-title">報告生成中</div>
+      <div id="loadingStep" class="loading-step">初始化中…</div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

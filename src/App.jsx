@@ -394,12 +394,14 @@ export default function App() {
       icon: Layers,
       gradient: 'var(--grad-emerald-cyan)',
       gridClass: 'col-4',
-      devUrl: '#',
-      localPath: '#',
-      ghPagesUrl: '#',
+      devUrl: './tool/Eng_AutoReport/index.html',
+      localPath: './tool/Eng_AutoReport/index.html',
+      ghPagesUrl: './tool/Eng_AutoReport/index.html',
       status: 'active',
       details: [
-        '開發中'
+        '自動產生 process corner split vs yield/loss/CZ 圖片',
+        '自動將 datasheet 產品摘要轉換文字貼到工程報告',
+        '自動生成固定格式之工程實驗報告，保留總結跟細節說明讓使用者填寫'
       ]
     },
     {
