@@ -90,6 +90,10 @@ html, body {
   gap: 24px;
 }
 
+.layout > * {
+  min-width: 0;
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -452,6 +456,7 @@ table input[type="text"] {
   margin: 0;
   height: 200px;
   overflow-y: auto;
+  overflow-x: hidden;
   background: #0a0d14;
   color: #e2e8f0;
   border-radius: 6px;
@@ -460,6 +465,9 @@ table input[type="text"] {
   font-size: 14px;
   line-height: 1.6;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .footer-info {
