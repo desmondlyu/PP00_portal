@@ -31,6 +31,10 @@ body {
   background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
 }
 
+html, body {
+  background-color: var(--bg) !important;
+}
+
 /* 頂部裝飾條代替玻璃背景 */
 .glass-bg {
   position: fixed;
@@ -76,7 +80,7 @@ body {
 
 .topbar .subtitle {
   margin: 4px 0 0 0;
-  font-size: 14px;
+  font-size: 17px;
   color: var(--muted);
 }
 
@@ -126,14 +130,14 @@ body {
 .template-path {
   margin: 0 0 2px 0;
   color: #94a3b8;
-  font-size: 16px;
+  font-size: 19px;
   font-weight: 600;
 }
 
 .template-note {
   margin: 0 0 12px 0;
   color: #94a3b8;
-  font-size: 14px;
+  font-size: 17px;
 }
 
 .template-actions {
@@ -169,7 +173,7 @@ label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--muted);
 }
@@ -182,7 +186,7 @@ input[type="text"] {
   color: var(--text);
   padding: 0 12px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 17px;
   transition: all 0.2s ease;
 }
 
@@ -201,7 +205,7 @@ input[type="text"]:focus {
 
 input[type="file"] {
   width: 100%;
-  font-size: 13px;
+  font-size: 16px;
   color: var(--muted);
   background: rgba(255, 255, 255, 0.02);
   border: 1px dashed var(--border);
@@ -227,7 +231,7 @@ input[type="file"]:hover {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 16px;
 }
 
 th {
@@ -248,7 +252,7 @@ td {
 table input[type="text"] {
   height: 30px;
   width: 100%;
-  font-size: 13px;
+  font-size: 16px;
   padding: 0 8px;
 }
 
@@ -263,7 +267,7 @@ table input[type="text"] {
   justify-content: center;
   height: 40px;
   padding: 0 16px;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 500;
   border-radius: 6px;
   border: 1px solid var(--border);
@@ -313,7 +317,7 @@ table input[type="text"] {
 .btn-sm {
   height: 28px;
   padding: 0 10px;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .actions {
@@ -364,7 +368,7 @@ table input[type="text"] {
 
 #statusText {
   margin: 0;
-  font-size: 13px;
+  font-size: 16px;
   color: var(--muted);
 }
 
@@ -412,7 +416,7 @@ table input[type="text"] {
 
 .tab {
   padding: 6px 12px;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 500;
   background: transparent;
   border: 1px solid transparent;
@@ -453,7 +457,7 @@ table input[type="text"] {
   border-radius: 6px;
   padding: 12px;
   font-family: 'Consolas', 'Courier New', Courier, monospace;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.6;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -462,7 +466,7 @@ table input[type="text"] {
   margin-top: 16px;
   padding: 14px 12px 6px;
   text-align: center;
-  font-size: 13px;
+  font-size: 16px;
   color: var(--muted);
   line-height: 1.6;
 }
@@ -544,7 +548,7 @@ table input[type="text"] {
 }
 .loading-step {
   color: #94a3b8;
-  font-size: 13px;
+  font-size: 16px;
   min-width: 200px;
 }
 
