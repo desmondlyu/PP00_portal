@@ -241,7 +241,7 @@
       position: relative;
       overflow-y: auto;
       font-family: Consolas, Monaco, "Fira Code", monospace;
-      font-size: 1rem;
+      font-size: 1.2rem;
       color: #ffffff;
       font-weight: normal;
       line-height: 1.5;
@@ -259,6 +259,72 @@
     }
     @keyframes blink {
       50% { opacity: 0; }
+    }
+    /* 左右雙窗佈局 */
+    .terminal-container {
+      display: flex;
+      gap: 16px;
+      background: #04060a;
+      padding: 16px;
+    }
+    .terminal-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      background: #04060a;
+    }
+    /* 🔴 左側紅色框 */
+    .live-panel {
+      border: 2px solid rgba(255, 95, 86, 0.4);
+      box-shadow: 0 0 10px rgba(255, 95, 86, 0.1);
+    }
+    .live-panel:hover {
+      border-color: rgba(255, 95, 86, 0.8);
+      box-shadow: 0 0 15px rgba(255, 95, 86, 0.25);
+    }
+    /* 🟢 右側綠色框 */
+    .compare-panel {
+      border: 2px solid rgba(57, 255, 20, 0.4);
+      box-shadow: 0 0 10px rgba(57, 255, 20, 0.1);
+    }
+    .compare-panel:hover {
+      border-color: rgba(57, 255, 20, 0.8);
+      box-shadow: 0 0 15px rgba(57, 255, 20, 0.25);
+    }
+    /* Panel Header 樣式 */
+    .panel-header {
+      background: rgba(22, 27, 34, 0.9);
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #8b949e;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      letter-spacing: 0.5px;
+    }
+    .compare-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .panel-btn {
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-color);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .panel-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
     }
   </style>
 </head>
@@ -305,13 +371,35 @@
         </div>
       </div>
 
-      <!-- Terminal Screen View -->
-      <div style="position:relative; background:#04060a;">
-        <div class="scanlines"></div>
-        <div id="terminalScreen" class="terminal-screen" tabindex="0">--- Web Serial Terminal (v1.0) ---
+      <!-- Split Screen Terminal View -->
+      <div class="terminal-container">
+        <!-- Left Panel: Live Terminal (Red theme) -->
+        <div class="terminal-panel live-panel">
+          <div class="panel-header">🔴 即時終端機 (LIVE)</div>
+          <div style="position:relative; background:#04060a; flex-grow:1; display:flex; flex-direction:column;">
+            <div class="scanlines"></div>
+            <div id="terminalScreen" class="terminal-screen" tabindex="0">--- Web Serial Terminal (v1.0) ---
 [提示] 請先點擊『連接 CH340』或『瀏覽全部裝置』開啟通訊。
 [提示] 連線後點擊此處，即可透過鍵盤輸入發送字元。
 &gt; <span id="terminalCursor" class="cursor">&nbsp;</span></div>
+          </div>
+        </div>
+
+        <!-- Right Panel: Frozen Compare Screen (Green theme) -->
+        <div class="terminal-panel compare-panel">
+          <div class="panel-header">
+            <span>🟢 凍結比對區 (COMPARE)</span>
+            <div class="compare-actions">
+              <button id="btnFreeze" class="panel-btn">❄️ 凍結目前輸出</button>
+              <button id="btnCompareClear" class="panel-btn">🧹 清除</button>
+            </div>
+          </div>
+          <div style="position:relative; background:#04060a; flex-grow:1; display:flex; flex-direction:column;">
+            <div class="scanlines"></div>
+            <div id="compareScreen" class="terminal-screen" style="user-select: text;" tabindex="0">--- 凍結比對區 (靜態) ---
+[提示] 點擊「❄️ 凍結目前輸出」即可將左側即時畫面定格在此處進行比對。</div>
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -820,6 +908,31 @@
       
       // 於游標前插入清除完成的系統提示
       cursor.insertAdjacentHTML('beforebegin', '--- Terminal Cleared ---\n&gt; ');
+    });
+
+    // ══════════════════════════════════════════════
+    // ❄️ 凍結與比對控制
+    // ══════════════════════════════════════════════
+    const btnFreeze = document.getElementById('btnFreeze');
+    const btnCompareClear = document.getElementById('btnCompareClear');
+    const compareScreen = document.getElementById('compareScreen');
+
+    btnFreeze.addEventListener('click', () => {
+      // 複製左側內容
+      let content = terminalScreen.innerHTML;
+      // 移除游標以避免右側有閃爍
+      content = content.replace(/<span id="terminalCursor"[^>]*>.*?<\/span>/g, '');
+      content = content.replace(/<span class="cursor"[^>]*>.*?<\/span>/g, '');
+      // 寫入右側
+      compareScreen.innerHTML = content;
+      // 滾動到與左側相同的位置
+      compareScreen.scrollTop = terminalScreen.scrollTop;
+      
+      writeToTerminal('\n[系統] ✅ 已將當前畫面定格至右側比對區。\n');
+    });
+
+    btnCompareClear.addEventListener('click', () => {
+      compareScreen.innerHTML = '--- 凍結比對區 (已清除) ---\n';
     });
 
     // 監聽終端機鍵盤事件
