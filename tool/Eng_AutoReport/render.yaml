@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: eng-autoreport
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 1 --threads 4 --timeout 180
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: API_BASE_URL
+        sync: false
+      - key: RUNTIME_DIR
+        value: /tmp/eng_autoreport
