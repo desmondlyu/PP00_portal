@@ -730,6 +730,10 @@ def build_report():
     # 參、工程實驗過程說明
     # ─────────────────────────────────────────────────────────────────────────
     p_section(doc, '參、 工程實驗過程說明')
+    p_sub(doc, '一. 目的')
+    p_body(doc, '1. 【請填寫目的】：')
+    p_sub(doc, '二. 實驗方法')
+    p_body(doc, '1. 【請填寫實驗方式】：')
 
     p_sub(doc, '1. Device Skew 實驗分組（NH/PH / NL/PL）')
     sk = make_styled_table(doc, ['Split', '條件類型', '說明'],
@@ -831,8 +835,7 @@ def build_report():
     sta_top_gccd = ', '.join(f'{s}:{_top1(s,"GCCD")}' for s in STATIONS)
 
     conclusions = [
-        ('✅', 'POR sample wafer CP yield 最佳，建議量產維持 POR 製程條件。',
-         '（請依 4.1 摘要表確認各站良率排名）'),
+        ('【請填寫結論】：', '', ''),
         ('【請填寫】', 'Device Skew 分析：',
          f'各站 NHPH Top-1 Fail 參考：{sta_top_nhph}'),
         ('【請填寫】', 'GC CD / AA CD Skew 分析：',
@@ -862,22 +865,6 @@ def build_report():
     # 柒、附件
     # ─────────────────────────────────────────────────────────────────────────
     p_section(doc, '柒、 附件')
-    n_charts = sum(len(v) for v in CHARTS_MAP.values()) * len(next(iter(CHARTS_MAP.values()), {}))
-    for a in [
-        f'[x]  charts/summary_NHPH.png  —  NH/PH Split 全站摘要表',
-        f'[x]  charts/summary_NLPL.png  —  NL/PL Split 全站摘要表',
-        f'[x]  charts/summary_GCCD.png  —  GC CD Split 全站摘要表',
-        f'[x]  charts/summary_AACD.png  —  AA CD Split 全站摘要表',
-        f'[x]  charts/{{station}}_{{group}}.png  —  {len(STATIONS)*4} 張 Grouped Bar Chart',
-        f'[x]  {WORKBOOK}  —  CP 數據來源',
-        f'[x]  {DATASHEET_PDF}  —  產品 Datasheet',
-        f'[x]  cp_summary_report.py  —  圖表產生腳本',
-        f'[x]  gen_eng_report.py  —  Word 報告產生腳本',
-        f'[x]  run_report.py  —  一鍵執行入口',
-        f'[ ]  FT Yield 彙整表（待補）',
-        f'[ ]  CZ 電性量測原始數據（待補）',
-    ]:
-        p_bullet_item(doc, a)
 
     doc.save(os.path.join(BASE_DIR, OUTPUT_DOCX))
     print(f'Done -> {OUTPUT_DOCX}')

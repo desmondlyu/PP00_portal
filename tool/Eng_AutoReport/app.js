@@ -197,9 +197,16 @@ function startPolling(runId) {
         log(`錯誤: ${data.error}`);
       }
     } catch (err) {
-      log(`輪詢錯誤: ${err.message}`);
-      // 網路瞬斷或暫時性錯誤時，維持輪詢
-      shouldContinue = true;
+      const msg = err && err.message ? err.message : String(err);
+      log(`輪詢錯誤: ${msg}`);
+      if (msg.includes("HTTP 錯誤 404")) {
+        hideLoadingModal();
+        setStatus("任務狀態遺失（服務重啟/重新部署）。請重新按『匯出Word』。", "failed");
+        shouldContinue = false;
+      } else {
+        // 網路瞬斷或暫時性錯誤時，維持輪詢
+        shouldContinue = true;
+      }
     } finally {
       if (shouldContinue && currentRunId === runId) {
         pollingTimeoutId = setTimeout(poll, 1000);
