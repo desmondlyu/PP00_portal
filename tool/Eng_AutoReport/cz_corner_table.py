@@ -24,6 +24,7 @@ cz_corner_table.py  —  CZ Corner Summary 統計表格產生器  v2.0
 import os
 import re
 import math
+import time
 import openpyxl
 import matplotlib
 import matplotlib.pyplot as plt
@@ -62,6 +63,9 @@ COLORS = {
     'border':      '#AAAAAA',
     'spec_bg':     '#FFFF99',   # Spec 欄淡黃
 }
+
+# 全域字體設定（避免每張圖反覆設定 rcParams）
+rcParams['font.family'] = 'sans-serif'
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -320,9 +324,9 @@ def _draw_cell(ax, x, y, w, h,
                text='', bg='#FFFFFF', fg='#000000',
                fontsize=7, bold=False, halign='center', border_color='#AAAAAA'):
     """在 axes 座標系繪製單一儲存格（矩形 + 文字）"""
-    rect = mpatches.FancyBboxPatch(
+    # ponytail: Rectangle 比 FancyBboxPatch 輕量，批量畫表格更快
+    rect = mpatches.Rectangle(
         (x, y), w, h,
-        boxstyle='square,pad=0',
         linewidth=0.4, edgecolor=border_color,
         facecolor=bg, clip_on=True,
     )
@@ -374,7 +378,6 @@ def render_stats_png(data: dict, file_label: str, sheet: str, out_path: str):
     total_h = (n_hdr_rows * ROW_H_HDR + n_items * ROW_H_DATA)
     fig_h   = total_h + 0.05   # 邊距
 
-    rcParams['font.family'] = 'sans-serif'
     fig, ax = plt.subplots(figsize=(total_w, fig_h))
     ax.set_xlim(0, total_w)
     ax.set_ylim(0, fig_h)
@@ -473,8 +476,7 @@ def render_stats_png(data: dict, file_label: str, sheet: str, out_path: str):
                            fontsize=FONT_DATA)
 
     # ── 儲存 ────────────────────────────────────────────────────────────
-    plt.savefig(out_path, dpi=DPI, bbox_inches='tight',
-                facecolor='white', edgecolor='none')
+    plt.savefig(out_path, dpi=DPI, facecolor='white', edgecolor='none')
     plt.close(fig)
     print(f'  OK {os.path.basename(out_path)}')
 
@@ -496,6 +498,8 @@ def process_worksheet(ws, file_label: str, sheet_name: str, out_dir: str,
     print(f'    Splits: {len(split_blocks)},  Temp blocks: {len(temp_blocks)}')
 
     count = 0
+    t0 = time.perf_counter()
+    render_sec = 0.0
     for sb in split_blocks:
         sname = detect_split_name(ws, sb, temp_blocks)
         for tb in temp_blocks:
@@ -508,7 +512,9 @@ def process_worksheet(ws, file_label: str, sheet_name: str, out_dir: str,
             fname   = f'{file_label}_{sheet_name}_{split_s}_{temp_s}.png'
             out_path = os.path.join(out_dir, fname)
 
+            t_render = time.perf_counter()
             render_stats_png(data, file_label, sheet_name, out_path)
+            render_sec += time.perf_counter() - t_render
 
             # 記錄 metadata（product = sheet_name；temp / split 來自資料，不 hard code）
             meta_list.append({
@@ -520,7 +526,9 @@ def process_worksheet(ws, file_label: str, sheet_name: str, out_dir: str,
             })
             count += 1
 
+    total_sec = time.perf_counter() - t0
     print(f'    -> {count} images written')
+    print(f'    -> timing: total={total_sec:.2f}s, render={render_sec:.2f}s, other={max(total_sec-render_sec, 0):.2f}s')
 
 
 def process_file(xlsx_path: str, out_dir: str, meta_list: list):
