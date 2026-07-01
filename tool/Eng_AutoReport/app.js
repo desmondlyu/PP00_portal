@@ -3,7 +3,6 @@ const $ = (id) => document.getElementById(id);
 let pollingTimeoutId = null;
 let currentRunId = null;
 let lastDocxUrl = null;
-let autoDownloadOnComplete = false;
 
 // 取得 API 基礎網址
 function getApiBase() {
@@ -101,7 +100,7 @@ function log(msg) {
 }
 
 // 觸發後端生成任務
-async function triggerGenerate(autoDownload = false) {
+async function triggerGenerate() {
   if (!$("excelFile").files[0]) {
     alert("請選擇 CP Summary Excel (必填)！");
     return;
@@ -113,10 +112,6 @@ async function triggerGenerate(autoDownload = false) {
 
   // 每次重新啟動生成時，將狀態重置
   lastDocxUrl = null;
-  const exportBtn = $("exportBtn");
-  if (exportBtn) exportBtn.textContent = "匯出 Word (Render 優先)";
-  
-  autoDownloadOnComplete = autoDownload;
   setStatus("正在建立產生報告任務...", "running");
   log("發送產生報告請求至後端...");
   
@@ -191,21 +186,10 @@ function startPolling(runId) {
         shouldContinue = false;
         hideLoadingModal();
         setStatus("報告產生成功！", "completed");
-        log("任務執行成功，正在載入預覽圖表...");
+        log("任務執行成功，開始下載 Word 報告...");
         
         lastDocxUrl = data.docxUrl;
-        
-        // 更新下載按鈕文字
-        const exportBtn = $("exportBtn");
-        if (exportBtn) exportBtn.textContent = "下載 Word 報告";
-        
-        // 渲染 CP Summary 分頁圖表
-        renderPreviewTabs(data.charts);
-        
-        // 自動下載 (若是透過點擊匯出按鈕發起的)
-        if (autoDownloadOnComplete) {
-          downloadDocx();
-        }
+        downloadDocx();
       } else if (data.status === "failed") {
         shouldContinue = false;
         hideLoadingModal();
@@ -325,25 +309,8 @@ async function copyTemplatePath() {
 // 註冊事件監聽
 $("addMaskBtn").addEventListener("click", addMaskRow);
 
-$("previewBtn").addEventListener("click", () => {
-  triggerGenerate(false);
-});
-
 $("exportBtn").addEventListener("click", () => {
-  if (lastDocxUrl) {
-    downloadDocx();
-  } else {
-    triggerGenerate(true);
-  }
-});
-
-$("zipBtn").addEventListener("click", () => {
-  if (lastDocxUrl) {
-    log("提示：前端 ZIP 打包引擎已停用，已自動為您下載 Word 報告。");
-    downloadDocx();
-  } else {
-    alert("請先點選「產生預覽資料」來生成報告。");
-  }
+  triggerGenerate();
 });
 
 $("copyTemplatePathBtn")?.addEventListener("click", copyTemplatePath);
