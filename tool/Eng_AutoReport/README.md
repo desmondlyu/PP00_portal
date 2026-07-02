@@ -64,10 +64,10 @@ graph TD
 * **Corner CZ Summary Excel (選填)**：若有 Corner 實驗數據，可在此上傳。
 * **封面範本 DOCX (選填)**：若未上傳，系統將預設使用根目錄下的 [封面.docx](file:///C:/D_BACKUP/AI_Project/Eng_AutoReport/封面.docx)。
 
-#### **第三步：Mask 版本設定**
+#### **第三步：光罩版本差異說明**
 * 點擊「**+ 新增版本**」可新增 Mask Ver. 的對應描述，並使用單選鈕（Radio Button）指定哪一個是「**本次**」實驗的主力版本。
 
-#### **第四步：批號記錄對齊**
+#### **第四步：工程實驗批號記錄**
 * 在表格中填入 FAB（晶圓廠）、Lot No.（批號）、Mask Ver.（光罩版本）、Process Route（製程路徑）、WAT（Y/N）與 CP1（Y/N）。
 * 確保此處填寫的批號與 CP Summary 內之批號命名一致，以利 Pipeline 進行關聯對齊。
 
