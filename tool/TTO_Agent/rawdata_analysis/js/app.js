@@ -2357,7 +2357,24 @@ function onScenarioInputChange(event) {
   const stat = station?.stats.find((s) => s.testItem === testItem);
   if (!product || !station || !stat || (field !== "mean" && field !== "range")) return;
   const next = Number.parseFloat(input.value);
-  applyScenarioOverride(productName, stationName, testItem, field, next, stat[field]);
+
+  if (field === "range") {
+    // Range 改動 → 自動換算並更新模擬 Mean
+    const baseRange = Number(stat.range);
+    const rangeFactor = Number.isFinite(baseRange) && baseRange > 0 ? next / baseRange : 1;
+    const currentScenarioMean = getScenarioMean(stat, productName, stationName);
+    const newMean = currentScenarioMean * (Number.isFinite(rangeFactor) && rangeFactor > 0 ? rangeFactor : 1);
+    // 更新同列的 Mean input 顯示值
+    const row = input.closest("tr");
+    const meanInput = row?.querySelector(`[data-scenario-field="mean"][data-scenario-item="${CSS.escape(testItem)}"]`);
+    if (meanInput instanceof HTMLInputElement) meanInput.value = fmt(newMean);
+    // 儲存 range + 新 mean 的 override
+    applyScenarioOverride(productName, stationName, testItem, "range", next, stat.range);
+    applyScenarioOverride(productName, stationName, testItem, "mean", newMean, stat.mean);
+  } else {
+    applyScenarioOverride(productName, stationName, testItem, field, next, stat[field]);
+  }
+
   syncScenarioCells();
   renderCharts();
 }
@@ -2573,11 +2590,7 @@ function getScenarioRange(stat, productName, stationName) {
 
 function getScenarioEffectiveMean(stat, productName, stationName) {
   const scenarioMean = getScenarioMean(stat, productName, stationName);
-  const scenarioRange = getScenarioRange(stat, productName, stationName);
-  const baseRange = Number(stat.range);
-  const rangeFactor = Number.isFinite(baseRange) && baseRange > 0 ? scenarioRange / baseRange : 1;
-  const effective = scenarioMean * (Number.isFinite(rangeFactor) && rangeFactor > 0 ? rangeFactor : 1);
-  return Number.isFinite(effective) && effective >= 0 ? effective : 0;
+  return Number.isFinite(scenarioMean) && scenarioMean >= 0 ? scenarioMean : 0;
 }
 
 function getScenarioStationTotalTime(productName, stationName) {
