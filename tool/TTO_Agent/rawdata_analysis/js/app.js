@@ -2597,9 +2597,11 @@ function getScenarioStationTotalTime(productName, stationName) {
   const product = getProductByName(productName);
   const station = product?.stations.get(stationName);
   if (!station) return 0;
-  const delta = station.stats.reduce((acc, stat) => acc + (getScenarioEffectiveMean(stat, productName, stationName) - stat.mean) * stat.count, 0);
+  const fileCount = station.rawTxtFiles?.length || 1;
+  const delta = station.stats.reduce((acc, stat) => acc + (getScenarioEffectiveMean(stat, productName, stationName) - stat.mean) * (stat.count / fileCount), 0);
   return Math.max(0, station.stationTotalTime + delta);
 }
+
 
 function getItemRatioBaseTotal(productName, stationName) {
   const product = getProductByName(productName);
