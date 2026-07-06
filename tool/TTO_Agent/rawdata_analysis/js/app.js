@@ -2355,7 +2355,8 @@ function onScenarioInputChange(event) {
   const product = getProductByName(productName);
   const station = product?.stations.get(stationName);
   const stat = station?.stats.find((s) => s.testItem === testItem);
-  if (!product || !station || !stat || (field !== "mean" && field !== "range")) return;
+  const fileCount = station?.rawTxtFiles?.length || 1;
+  if (!product || !station || !stat || (field !== "mean" && field !== "range" && field !== "count")) return;
   const next = Number.parseFloat(input.value);
 
   if (field === "range") {
@@ -2371,6 +2372,8 @@ function onScenarioInputChange(event) {
     // 儲存 range + 新 mean 的 override
     applyScenarioOverride(productName, stationName, testItem, "range", next, stat.range);
     applyScenarioOverride(productName, stationName, testItem, "mean", newMean, stat.mean);
+  } else if (field === "count") {
+    applyScenarioOverride(productName, stationName, testItem, "count", next, stat.count / fileCount);
   } else {
     applyScenarioOverride(productName, stationName, testItem, field, next, stat[field]);
   }
@@ -2574,8 +2577,17 @@ function applyScenarioOverride(productName, stationName, testItem, field, nextVa
   const current = APP.scenarioOverrides.get(key) || {};
   if (Number.isFinite(nextValue) && nextValue >= 0 && Math.abs(nextValue - baseValue) > 1e-9) current[field] = nextValue;
   else delete current[field];
-  if (!Number.isFinite(current.mean) && !Number.isFinite(current.range)) APP.scenarioOverrides.delete(key);
+  if (!Number.isFinite(current.mean) && !Number.isFinite(current.range) && !Number.isFinite(current.count)) APP.scenarioOverrides.delete(key);
   else APP.scenarioOverrides.set(key, current);
+}
+
+function getScenarioCount(stat, productName, stationName) {
+  const override = getScenarioOverride(productName, stationName, stat.testItem);
+  if (override && Number.isFinite(override.count)) return override.count;
+  const product = getProductByName(productName);
+  const station = product?.stations.get(stationName);
+  const fileCount = station?.rawTxtFiles?.length || 1;
+  return stat.count / fileCount;
 }
 
 function getScenarioMean(stat, productName, stationName) {
@@ -2598,7 +2610,11 @@ function getScenarioStationTotalTime(productName, stationName) {
   const station = product?.stations.get(stationName);
   if (!station) return 0;
   const fileCount = station.rawTxtFiles?.length || 1;
-  const delta = station.stats.reduce((acc, stat) => acc + (getScenarioEffectiveMean(stat, productName, stationName) - stat.mean) * (stat.count / fileCount), 0);
+  const delta = station.stats.reduce((acc, stat) => {
+    const baseTotal = (stat.count / fileCount) * stat.mean;
+    const scenarioTotal = getScenarioCount(stat, productName, stationName) * getScenarioEffectiveMean(stat, productName, stationName);
+    return acc + (scenarioTotal - baseTotal);
+  }, 0);
   return Math.max(0, station.stationTotalTime + delta);
 }
 
@@ -2632,28 +2648,25 @@ function getItemRatioScenarioTotal(productName, stationName) {
   const product = getProductByName(productName);
   const station = product?.stations.get(stationName);
   if (!station) return 0;
-  const fileCount = station.rawTxtFiles?.length || 1;
   return station.stats.reduce((acc, stat) => {
-    const count = Number(stat.count);
-    if (!Number.isFinite(count) || count <= 0) return acc;
-    return acc + (count / fileCount * getScenarioEffectiveMean(stat, productName, stationName));
+    const count = getScenarioCount(stat, productName, stationName);
+    const mean = getScenarioEffectiveMean(stat, productName, stationName);
+    return acc + (count * mean);
   }, 0);
 }
 
 
-function getScenarioTtRatio(stat, productName, stationName, ratioBaseTotal = null) {
-  const stationTotal = Number.isFinite(ratioBaseTotal) ? ratioBaseTotal : getItemRatioBaseTotal(productName, stationName);
+function getScenarioTtRatio(stat, productName, stationName, ratioScenarioTotal = null) {
+  const stationTotal = Number.isFinite(ratioScenarioTotal) ? ratioScenarioTotal : getItemRatioScenarioTotal(productName, stationName);
   if (!Number.isFinite(stationTotal) || stationTotal <= 0) return 0;
-  const product = getProductByName(productName);
-  const station = product?.stations.get(stationName);
-  const fileCount = station?.rawTxtFiles?.length || 1;
   const scenarioMean = getScenarioEffectiveMean(stat, productName, stationName);
-  return (stat.count / fileCount * scenarioMean / stationTotal) * 100;
+  const scenarioCount = getScenarioCount(stat, productName, stationName);
+  return (scenarioCount * scenarioMean / stationTotal) * 100;
 }
 
 function metricValueWithScenario(stat, metric, productName, stationName, ratioBaseTotal = null) {
   if (!stat) return 0;
-  if (metric === "count") return stat.count;
+  if (metric === "count") return getScenarioCount(stat, productName, stationName);
   if (metric === "mean") return Number(getScenarioMean(stat, productName, stationName).toFixed(6));
   if (metric === "range") return Number(getScenarioRange(stat, productName, stationName).toFixed(6));
   return Number(getScenarioTtRatio(stat, productName, stationName, ratioBaseTotal).toFixed(6));
@@ -2738,17 +2751,21 @@ function buildGroupStats(productName, stationName) {
     .sort((a, b) => (b.mean !== a.mean ? b.mean - a.mean : a.group.localeCompare(b.group)));
 }
 
-function buildGroupedItemRows(stats, productName, stationName, ratioBaseTotal) {
+function buildGroupedItemRows(stats, productName, stationName, ratioBaseTotal, ratioScenarioTotal = null) {
   const product = getProductByName(productName);
   const station = product?.stations.get(stationName);
   const fileCount = station?.rawTxtFiles?.length || 1;
   const groupMap = new Map();
+  const scTotal = Number.isFinite(ratioScenarioTotal) ? ratioScenarioTotal : getItemRatioScenarioTotal(productName, stationName);
+  
   for (const stat of stats) {
     const groupName = String(stat.group || "").trim() || resolveGroupName(stationName, stat.testItem);
     const row = groupMap.get(groupName) || {
       group: groupName,
       items: [],
       count: 0,
+      perSiteCount: 0,
+      scenarioCount: 0,
       baseTotal: 0,
       scenarioTotal: 0,
       min: Number.POSITIVE_INFINITY,
@@ -2758,10 +2775,15 @@ function buildGroupedItemRows(stats, productName, stationName, ratioBaseTotal) {
       maxSite: "Unknown",
       maxTd: "Unknown",
     };
+    const scCount = getScenarioCount(stat, productName, stationName);
+    const scMean = getScenarioEffectiveMean(stat, productName, stationName);
+
     row.items.push(stat);
     row.count += stat.count;
+    row.perSiteCount += stat.count / fileCount;
+    row.scenarioCount += scCount;
     row.baseTotal += stat.perSiteTotal ?? 0;
-    row.scenarioTotal += stat.count / fileCount * getScenarioEffectiveMean(stat, productName, stationName);
+    row.scenarioTotal += scCount * scMean;
     if (stat.min < row.min) {
       row.min = stat.min;
       row.minSite = stat.minSite;
@@ -2778,7 +2800,7 @@ function buildGroupedItemRows(stats, productName, stationName, ratioBaseTotal) {
     .map((row) => ({
       ...row,
       ttRatio: ratioBaseTotal > 0 ? (row.baseTotal / ratioBaseTotal) * 100 : 0,
-      scenarioTtRatio: ratioBaseTotal > 0 ? (row.scenarioTotal / ratioBaseTotal) * 100 : 0,
+      scenarioTtRatio: scTotal > 0 ? (row.scenarioTotal / scTotal) * 100 : 0,
       min: Number.isFinite(row.min) ? row.min : 0,
       max: Number.isFinite(row.max) ? row.max : 0,
     }))
@@ -2923,14 +2945,15 @@ function renderItemTable() {
     syncTableCollapsedUI();
     return;
   }
+  const fileCount = station.rawTxtFiles?.length || 1;
   const baseRatioTotal = getItemRatioBaseTotal(product.name, station.name);
+  const ratioScenarioTotal = getItemRatioScenarioTotal(product.name, station.name);
   const statsWithComputedRatio = station.stats.map((s) => ({
     ...s,
     ttRatio: getItemBaseTtRatio(s, product.name, station.name, baseRatioTotal),
   }));
   const sorted = sortStats(statsWithComputedRatio, APP.tableSort.key, APP.tableSort.dir);
-  const ratioBaseTotal = baseRatioTotal;
-  const groupedRows = buildGroupedItemRows(sorted, product.name, station.name, ratioBaseTotal);
+  const groupedRows = buildGroupedItemRows(sorted, product.name, station.name, baseRatioTotal, ratioScenarioTotal);
   dom.statsTbody.innerHTML = groupedRows
     .map((group) => {
       const groupKey = makeGroupExpandKey(station.name, group.group);
@@ -2940,14 +2963,16 @@ function renderItemTable() {
         <td class="expand-cell"><button type="button" class="expand-btn" data-expand-key="${escapeHtml(groupKey)}" aria-expanded="${groupExpanded ? "true" : "false"}">${groupExpanded ? "−" : "+"}</button></td>
         <td class="col-group" title="${escapeHtml(group.group)}"><strong>${escapeHtml(group.group)}</strong></td>
         <td class="col-testitem">-</td>
-        <td>${group.count}</td>
-        <td>${fmt(group.baseTotal)}</td>
+        <td>${fmt(group.perSiteCount)}</td>
+        <td>-</td>
         <td>-</td>
         <td>-</td>
         <td>${fmt(group.ttRatio)}</td>
+        <td>${fmt(group.baseTotal)}</td>
+        <td><span data-group-scenario-count="${escapeHtml(group.group)}">${fmt(group.scenarioCount)}</span></td>
         <td>-</td>
         <td>-</td>
-        <td>${fmt(group.scenarioTotal)}</td>
+        <td><span data-group-scenario-total="${escapeHtml(group.group)}">${fmt(group.scenarioTotal)}</span></td>
         <td data-group-scenario-tt-ratio="true">${fmt(group.scenarioTtRatio)}</td>
         <td>${fmt(group.min)}</td>
         <td>${escapeHtml(formatSiteTdSource(group.minSite, group.minTd))}</td>
@@ -2959,22 +2984,25 @@ function renderItemTable() {
         const rowKey = makeTableExpandKey(station.name, s.testItem);
         const canExpand = Boolean(s.maxDetailLine);
         const expanded = APP.tableExpanded.has(rowKey);
+        const scenarioCount = getScenarioCount(s, product.name, station.name);
         const scenarioMean = getScenarioMean(s, product.name, station.name);
         const scenarioRange = getScenarioRange(s, product.name, station.name);
-        const scenarioRatio = getScenarioTtRatio(s, product.name, station.name, ratioBaseTotal);
+        const scenarioRatio = getScenarioTtRatio(s, product.name, station.name, ratioScenarioTotal);
         const baseRow = `
         <tr class="group-child-row" data-scenario-row="true" data-scenario-item="${escapeHtml(s.testItem)}">
           <td class="expand-cell">${APP.enableAnomalyDetail && canExpand ? `<button type="button" class="expand-btn" data-expand-key="${escapeHtml(rowKey)}" aria-expanded="${expanded ? "true" : "false"}">${expanded ? "−" : "+"}</button>` : ""}</td>
           <td class="col-group"></td>
           <td class="col-testitem" title="${escapeHtml(s.testItem)}"><span class="group-child-label">${escapeHtml(s.testItem)}</span></td>
-          <td>${s.count}</td>
+          <td>${fmt(s.count / fileCount)}</td>
           <td>${fmt(s.mean)}</td>
           <td>${fmt(s.median)}</td>
           <td>${fmt(s.range)}</td>
           <td>${fmt(s.ttRatio)}</td>
+          <td>${fmt(s.perSiteTotal ?? 0)}</td>
+          <td><input type="number" min="0" step="1" class="scenario-input" data-scenario-field="count" data-scenario-product="${escapeHtml(product.name)}" data-scenario-station="${escapeHtml(station.name)}" data-scenario-item="${escapeHtml(s.testItem)}" value="${escapeHtml(fmt(scenarioCount))}"></td>
           <td><input type="number" min="0" step="0.000001" class="scenario-input" data-scenario-field="mean" data-scenario-product="${escapeHtml(product.name)}" data-scenario-station="${escapeHtml(station.name)}" data-scenario-item="${escapeHtml(s.testItem)}" value="${escapeHtml(fmt(scenarioMean))}"></td>
           <td><input type="number" min="0" step="0.000001" class="scenario-input" data-scenario-field="range" data-scenario-product="${escapeHtml(product.name)}" data-scenario-station="${escapeHtml(station.name)}" data-scenario-item="${escapeHtml(s.testItem)}" value="${escapeHtml(fmt(scenarioRange))}"></td>
-          <td>${fmt(s.perSiteTotal ?? 0)}</td>
+          <td data-scenario-total="true">${fmt(scenarioCount * scenarioMean)}</td>
           <td data-scenario-tt-ratio="true">${fmt(scenarioRatio)}</td>
           <td>${fmt(s.min)}</td>
           <td>${escapeHtml(formatSiteTdSource(s.minSite, s.minTd))}</td>
@@ -2985,7 +3013,7 @@ function renderItemTable() {
         return `${baseRow}
         <tr class="detail-row">
           <td></td>
-          <td colspan="15" class="detail-cell"><code>${escapeHtml(s.maxDetailLine)}</code></td>
+          <td colspan="17" class="detail-cell"><code>${escapeHtml(s.maxDetailLine)}</code></td>
         </tr>`;
       }).join("");
       return `${groupRow}${children}`;
@@ -3046,22 +3074,37 @@ function syncScenarioCells() {
   if (!product || !station || !dom.statsTbody) return;
   const statMap = new Map(station.stats.map((s) => [s.testItem, s]));
   const ratioBaseTotal = getItemRatioBaseTotal(product.name, station.name);
+  const ratioScenarioTotal = getItemRatioScenarioTotal(product.name, station.name);
+
   const rows = dom.statsTbody.querySelectorAll("tr[data-scenario-row='true']");
   for (const row of rows) {
     const item = row.getAttribute("data-scenario-item");
     if (!item) continue;
     const stat = statMap.get(item);
     if (!stat) continue;
+    
+    const scCount = getScenarioCount(stat, product.name, station.name);
+    const scMean = getScenarioEffectiveMean(stat, product.name, station.name);
+    const totalCell = row.querySelector("[data-scenario-total='true']");
+    if (totalCell) totalCell.textContent = fmt(scCount * scMean);
+
     const ratioCell = row.querySelector("[data-scenario-tt-ratio='true']");
-    if (ratioCell) ratioCell.textContent = fmt(getScenarioTtRatio(stat, product.name, station.name, ratioBaseTotal));
+    if (ratioCell) ratioCell.textContent = fmt(getScenarioTtRatio(stat, product.name, station.name, ratioScenarioTotal));
   }
-  const groupedRows = buildGroupedItemRows(station.stats, product.name, station.name, ratioBaseTotal);
+  const groupedRows = buildGroupedItemRows(station.stats, product.name, station.name, ratioBaseTotal, ratioScenarioTotal);
   const groupedMap = new Map(groupedRows.map((row) => [row.group, row]));
   const groupRows = dom.statsTbody.querySelectorAll("tr[data-group-row='true']");
   for (const row of groupRows) {
     const groupName = row.getAttribute("data-group-name");
     if (!groupName) continue;
     const group = groupedMap.get(groupName);
+    
+    const countCell = row.querySelector(`[data-group-scenario-count="${CSS.escape(groupName)}"]`);
+    if (countCell) countCell.textContent = fmt(group?.scenarioCount || 0);
+
+    const totalCell = row.querySelector(`[data-group-scenario-total="${CSS.escape(groupName)}"]`);
+    if (totalCell) totalCell.textContent = fmt(group?.scenarioTotal || 0);
+
     const ratioCell = row.querySelector("[data-group-scenario-tt-ratio='true']");
     if (ratioCell) ratioCell.textContent = fmt(group?.scenarioTtRatio || 0);
   }
