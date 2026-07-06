@@ -2430,7 +2430,8 @@ function buildStats(itemMap, stationTotalTime, fileCount = 1) {
     const min = values[0];
     const max = values[count - 1];
     const range = max - min;
-    const ttRatio = stationTotalTime > 0 ? (mean / stationTotalTime) * 100 : 0;
+    const ttRatio = stationTotalTime > 0 ? ((count / fileCount * mean) / stationTotalTime) * 100 : 0;
+    const perSiteTotal = count / fileCount * mean;
     let minRecord = null;
     let maxRecord = null;
     for (const entry of valueRecords) {
@@ -2447,6 +2448,7 @@ function buildStats(itemMap, stationTotalTime, fileCount = 1) {
       min,
       max,
       ttRatio,
+      perSiteTotal,
       unit: payload.unit,
       minSite: minRecord?.site || "Unknown",
       minTd: minRecord?.td || "Unknown",
@@ -2590,37 +2592,48 @@ function getItemRatioBaseTotal(productName, stationName) {
   const product = getProductByName(productName);
   const station = product?.stations.get(stationName);
   if (!station) return 0;
+  const fileCount = station.rawTxtFiles?.length || 1;
   return station.stats.reduce((acc, stat) => {
     const mean = Number(stat.mean);
-    if (!Number.isFinite(mean)) return acc;
-    return acc + mean;
+    const count = Number(stat.count);
+    if (!Number.isFinite(mean) || !Number.isFinite(count) || count <= 0) return acc;
+    return acc + (count / fileCount * mean);
   }, 0);
 }
 
 function getItemBaseTtRatio(stat, productName, stationName, baseTotal = null) {
   const total = Number.isFinite(baseTotal) ? baseTotal : getItemRatioBaseTotal(productName, stationName);
   if (!Number.isFinite(total) || total <= 0) return 0;
+  const product = getProductByName(productName);
+  const station = product?.stations.get(stationName);
+  const fileCount = station?.rawTxtFiles?.length || 1;
   const mean = Number(stat.mean);
-  if (!Number.isFinite(mean)) return 0;
-  return (mean / total) * 100;
+  const count = Number(stat.count);
+  if (!Number.isFinite(mean) || !Number.isFinite(count) || count <= 0) return 0;
+  return (count / fileCount * mean / total) * 100;
 }
 
 function getItemRatioScenarioTotal(productName, stationName) {
   const product = getProductByName(productName);
   const station = product?.stations.get(stationName);
   if (!station) return 0;
+  const fileCount = station.rawTxtFiles?.length || 1;
   return station.stats.reduce((acc, stat) => {
-    const scenarioMean = getScenarioEffectiveMean(stat, productName, stationName);
-    if (!Number.isFinite(scenarioMean)) return acc;
-    return acc + scenarioMean;
+    const count = Number(stat.count);
+    if (!Number.isFinite(count) || count <= 0) return acc;
+    return acc + (count / fileCount * getScenarioEffectiveMean(stat, productName, stationName));
   }, 0);
 }
+
 
 function getScenarioTtRatio(stat, productName, stationName, ratioBaseTotal = null) {
   const stationTotal = Number.isFinite(ratioBaseTotal) ? ratioBaseTotal : getItemRatioBaseTotal(productName, stationName);
   if (!Number.isFinite(stationTotal) || stationTotal <= 0) return 0;
+  const product = getProductByName(productName);
+  const station = product?.stations.get(stationName);
+  const fileCount = station?.rawTxtFiles?.length || 1;
   const scenarioMean = getScenarioEffectiveMean(stat, productName, stationName);
-  return (scenarioMean / stationTotal) * 100;
+  return (stat.count / fileCount * scenarioMean / stationTotal) * 100;
 }
 
 function metricValueWithScenario(stat, metric, productName, stationName, ratioBaseTotal = null) {
@@ -2711,6 +2724,9 @@ function buildGroupStats(productName, stationName) {
 }
 
 function buildGroupedItemRows(stats, productName, stationName, ratioBaseTotal) {
+  const product = getProductByName(productName);
+  const station = product?.stations.get(stationName);
+  const fileCount = station?.rawTxtFiles?.length || 1;
   const groupMap = new Map();
   for (const stat of stats) {
     const groupName = String(stat.group || "").trim() || resolveGroupName(stationName, stat.testItem);
@@ -2729,8 +2745,8 @@ function buildGroupedItemRows(stats, productName, stationName, ratioBaseTotal) {
     };
     row.items.push(stat);
     row.count += stat.count;
-    row.baseTotal += stat.mean * stat.count;
-    row.scenarioTotal += getScenarioEffectiveMean(stat, productName, stationName) * stat.count;
+    row.baseTotal += stat.perSiteTotal ?? 0;
+    row.scenarioTotal += stat.count / fileCount * getScenarioEffectiveMean(stat, productName, stationName);
     if (stat.min < row.min) {
       row.min = stat.min;
       row.minSite = stat.minSite;
@@ -2916,6 +2932,7 @@ function renderItemTable() {
         <td>${fmt(group.ttRatio)}</td>
         <td>-</td>
         <td>-</td>
+        <td>${fmt(group.scenarioTotal)}</td>
         <td data-group-scenario-tt-ratio="true">${fmt(group.scenarioTtRatio)}</td>
         <td>${fmt(group.min)}</td>
         <td>${escapeHtml(formatSiteTdSource(group.minSite, group.minTd))}</td>
@@ -2942,6 +2959,7 @@ function renderItemTable() {
           <td>${fmt(s.ttRatio)}</td>
           <td><input type="number" min="0" step="0.000001" class="scenario-input" data-scenario-field="mean" data-scenario-product="${escapeHtml(product.name)}" data-scenario-station="${escapeHtml(station.name)}" data-scenario-item="${escapeHtml(s.testItem)}" value="${escapeHtml(fmt(scenarioMean))}"></td>
           <td><input type="number" min="0" step="0.000001" class="scenario-input" data-scenario-field="range" data-scenario-product="${escapeHtml(product.name)}" data-scenario-station="${escapeHtml(station.name)}" data-scenario-item="${escapeHtml(s.testItem)}" value="${escapeHtml(fmt(scenarioRange))}"></td>
+          <td>${fmt(s.perSiteTotal ?? 0)}</td>
           <td data-scenario-tt-ratio="true">${fmt(scenarioRatio)}</td>
           <td>${fmt(s.min)}</td>
           <td>${escapeHtml(formatSiteTdSource(s.minSite, s.minTd))}</td>
@@ -2952,7 +2970,7 @@ function renderItemTable() {
         return `${baseRow}
         <tr class="detail-row">
           <td></td>
-          <td colspan="14" class="detail-cell"><code>${escapeHtml(s.maxDetailLine)}</code></td>
+          <td colspan="15" class="detail-cell"><code>${escapeHtml(s.maxDetailLine)}</code></td>
         </tr>`;
       }).join("");
       return `${groupRow}${children}`;
