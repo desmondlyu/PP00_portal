@@ -2373,7 +2373,8 @@ function onScenarioInputChange(event) {
     applyScenarioOverride(productName, stationName, testItem, "range", next, stat.range);
     applyScenarioOverride(productName, stationName, testItem, "mean", newMean, stat.mean);
   } else if (field === "count") {
-    applyScenarioOverride(productName, stationName, testItem, "count", next, stat.count / fileCount);
+    const roundedCount = Math.round(next);
+    applyScenarioOverride(productName, stationName, testItem, "count", roundedCount, Math.round(stat.count / fileCount));
   } else {
     applyScenarioOverride(productName, stationName, testItem, field, next, stat[field]);
   }
@@ -2963,13 +2964,13 @@ function renderItemTable() {
         <td class="expand-cell"><button type="button" class="expand-btn" data-expand-key="${escapeHtml(groupKey)}" aria-expanded="${groupExpanded ? "true" : "false"}">${groupExpanded ? "−" : "+"}</button></td>
         <td class="col-group" title="${escapeHtml(group.group)}"><strong>${escapeHtml(group.group)}</strong></td>
         <td class="col-testitem">-</td>
-        <td>${fmt(group.perSiteCount)}</td>
+        <td>${fmtInt(group.perSiteCount)}</td>
         <td>-</td>
         <td>-</td>
         <td>-</td>
         <td>${fmt(group.ttRatio)}</td>
         <td>${fmt(group.baseTotal)}</td>
-        <td><span data-group-scenario-count="${escapeHtml(group.group)}">${fmt(group.scenarioCount)}</span></td>
+        <td><span data-group-scenario-count="${escapeHtml(group.group)}">${fmtInt(group.scenarioCount)}</span></td>
         <td>-</td>
         <td>-</td>
         <td><span data-group-scenario-total="${escapeHtml(group.group)}">${fmt(group.scenarioTotal)}</span></td>
@@ -2993,13 +2994,13 @@ function renderItemTable() {
           <td class="expand-cell">${APP.enableAnomalyDetail && canExpand ? `<button type="button" class="expand-btn" data-expand-key="${escapeHtml(rowKey)}" aria-expanded="${expanded ? "true" : "false"}">${expanded ? "−" : "+"}</button>` : ""}</td>
           <td class="col-group"></td>
           <td class="col-testitem" title="${escapeHtml(s.testItem)}"><span class="group-child-label">${escapeHtml(s.testItem)}</span></td>
-          <td>${fmt(s.count / fileCount)}</td>
+          <td>${fmtInt(s.count / fileCount)}</td>
           <td>${fmt(s.mean)}</td>
           <td>${fmt(s.median)}</td>
           <td>${fmt(s.range)}</td>
           <td>${fmt(s.ttRatio)}</td>
           <td>${fmt(s.perSiteTotal ?? 0)}</td>
-          <td><input type="number" min="0" step="1" class="scenario-input" data-scenario-field="count" data-scenario-product="${escapeHtml(product.name)}" data-scenario-station="${escapeHtml(station.name)}" data-scenario-item="${escapeHtml(s.testItem)}" value="${escapeHtml(fmt(scenarioCount))}"></td>
+          <td><input type="number" min="0" step="1" class="scenario-input" data-scenario-field="count" data-scenario-product="${escapeHtml(product.name)}" data-scenario-station="${escapeHtml(station.name)}" data-scenario-item="${escapeHtml(s.testItem)}" value="${escapeHtml(fmtInt(scenarioCount))}"></td>
           <td><input type="number" min="0" step="0.000001" class="scenario-input" data-scenario-field="mean" data-scenario-product="${escapeHtml(product.name)}" data-scenario-station="${escapeHtml(station.name)}" data-scenario-item="${escapeHtml(s.testItem)}" value="${escapeHtml(fmt(scenarioMean))}"></td>
           <td><input type="number" min="0" step="0.000001" class="scenario-input" data-scenario-field="range" data-scenario-product="${escapeHtml(product.name)}" data-scenario-station="${escapeHtml(station.name)}" data-scenario-item="${escapeHtml(s.testItem)}" value="${escapeHtml(fmt(scenarioRange))}"></td>
           <td data-scenario-total="true">${fmt(scenarioCount * scenarioMean)}</td>
@@ -3100,7 +3101,7 @@ function syncScenarioCells() {
     const group = groupedMap.get(groupName);
     
     const countCell = row.querySelector(`[data-group-scenario-count="${CSS.escape(groupName)}"]`);
-    if (countCell) countCell.textContent = fmt(group?.scenarioCount || 0);
+    if (countCell) countCell.textContent = fmtInt(group?.scenarioCount || 0);
 
     const totalCell = row.querySelector(`[data-group-scenario-total="${CSS.escape(groupName)}"]`);
     if (totalCell) totalCell.textContent = fmt(group?.scenarioTotal || 0);
@@ -3779,6 +3780,10 @@ function setProgress(percent) {
 
 function fmt(n) {
   return Number.isFinite(n) ? n.toFixed(2) : "-";
+}
+
+function fmtInt(n) {
+  return Number.isFinite(n) ? Math.round(n).toString() : "-";
 }
 
 function formatDuration(totalSeconds) {
