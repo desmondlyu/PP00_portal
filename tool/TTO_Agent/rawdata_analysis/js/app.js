@@ -947,7 +947,7 @@ function parseImportPath(relativePath) {
     (part, idx) =>
       part.toLowerCase() === "home" &&
       Boolean(parts[idx + 1]) &&
-      (parts[idx + 2] || "").toLowerCase() === "rawdata",
+      Boolean(parts[idx + 2]),
   );
   if (homeIndex < 1) return null;
 
@@ -1416,7 +1416,7 @@ async function startAnalysis() {
     station.touchDownCount = tdMaxMap.size;
     station.stationTotalTime = Array.from(tdMaxMap.values()).reduce((acc, n) => acc + n, 0);
     station.siteTdMap = siteTdMap;
-    station.stats = buildStats(itemMap, station.stationTotalTime);
+    station.stats = buildStats(itemMap, station.stationTotalTime, station.rawTxtFiles?.length || 1);
   }
 
   const stationsWithStats = getStationNames().filter((stationName) => getProductsInStation(stationName).length > 0);
@@ -2418,7 +2418,7 @@ function renderSortHeaderState() {
   }
 }
 
-function buildStats(itemMap, stationTotalTime) {
+function buildStats(itemMap, stationTotalTime, fileCount = 1) {
   const results = [];
   for (const payload of itemMap.values()) {
     const valueRecords = payload.values.filter((entry) => Number.isFinite(entry?.value));
@@ -2430,7 +2430,7 @@ function buildStats(itemMap, stationTotalTime) {
     const min = values[0];
     const max = values[count - 1];
     const range = max - min;
-    const ttRatio = stationTotalTime > 0 ? (sum / stationTotalTime) * 100 : 0;
+    const ttRatio = stationTotalTime > 0 ? (sum / (stationTotalTime * fileCount)) * 100 : 0;
     let minRecord = null;
     let maxRecord = null;
     for (const entry of valueRecords) {
@@ -2687,11 +2687,12 @@ function buildGroupStats(productName, stationName) {
     groupMap.set(groupName, row);
   }
   const stationTotal = station.stationTotalTime > 0 ? station.stationTotalTime : 0;
+  const fileCount = station.rawTxtFiles?.length || 1;
   return Array.from(groupMap.values())
     .map((row) => {
       const mean = row.count > 0 ? row.meanWeightedSum / row.count : 0;
       const median = row.count > 0 ? row.medianWeightedSum / row.count : 0;
-      const ttRatio = stationTotal > 0 ? (row.meanWeightedSum / stationTotal) * 100 : 0;
+      const ttRatio = stationTotal > 0 ? (row.meanWeightedSum / (stationTotal * fileCount)) * 100 : 0;
       return {
         group: row.group,
         count: row.count,

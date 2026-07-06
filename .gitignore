@@ -62,3 +62,4 @@ __pycache__/
 
 # MEMORY markdown (所有層級)
 **/MEMORY.md
+/MEMORY.md
