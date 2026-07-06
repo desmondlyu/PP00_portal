@@ -2430,7 +2430,7 @@ function buildStats(itemMap, stationTotalTime, fileCount = 1) {
     const min = values[0];
     const max = values[count - 1];
     const range = max - min;
-    const ttRatio = stationTotalTime > 0 ? (sum / (stationTotalTime * fileCount)) * 100 : 0;
+    const ttRatio = stationTotalTime > 0 ? (mean / stationTotalTime) * 100 : 0;
     let minRecord = null;
     let maxRecord = null;
     for (const entry of valueRecords) {
@@ -2592,9 +2592,8 @@ function getItemRatioBaseTotal(productName, stationName) {
   if (!station) return 0;
   return station.stats.reduce((acc, stat) => {
     const mean = Number(stat.mean);
-    const count = Number(stat.count);
-    if (!Number.isFinite(mean) || !Number.isFinite(count) || count <= 0) return acc;
-    return acc + (mean * count);
+    if (!Number.isFinite(mean)) return acc;
+    return acc + mean;
   }, 0);
 }
 
@@ -2602,9 +2601,8 @@ function getItemBaseTtRatio(stat, productName, stationName, baseTotal = null) {
   const total = Number.isFinite(baseTotal) ? baseTotal : getItemRatioBaseTotal(productName, stationName);
   if (!Number.isFinite(total) || total <= 0) return 0;
   const mean = Number(stat.mean);
-  const count = Number(stat.count);
-  if (!Number.isFinite(mean) || !Number.isFinite(count) || count <= 0) return 0;
-  return (mean * count / total) * 100;
+  if (!Number.isFinite(mean)) return 0;
+  return (mean / total) * 100;
 }
 
 function getItemRatioScenarioTotal(productName, stationName) {
@@ -2612,16 +2610,17 @@ function getItemRatioScenarioTotal(productName, stationName) {
   const station = product?.stations.get(stationName);
   if (!station) return 0;
   return station.stats.reduce((acc, stat) => {
-    const count = Number(stat.count);
-    if (!Number.isFinite(count) || count <= 0) return acc;
-    return acc + (getScenarioEffectiveMean(stat, productName, stationName) * count);
+    const scenarioMean = getScenarioEffectiveMean(stat, productName, stationName);
+    if (!Number.isFinite(scenarioMean)) return acc;
+    return acc + scenarioMean;
   }, 0);
 }
 
 function getScenarioTtRatio(stat, productName, stationName, ratioBaseTotal = null) {
   const stationTotal = Number.isFinite(ratioBaseTotal) ? ratioBaseTotal : getItemRatioBaseTotal(productName, stationName);
   if (!Number.isFinite(stationTotal) || stationTotal <= 0) return 0;
-  return (getScenarioEffectiveMean(stat, productName, stationName) * stat.count / stationTotal) * 100;
+  const scenarioMean = getScenarioEffectiveMean(stat, productName, stationName);
+  return (scenarioMean / stationTotal) * 100;
 }
 
 function metricValueWithScenario(stat, metric, productName, stationName, ratioBaseTotal = null) {
@@ -2692,7 +2691,7 @@ function buildGroupStats(productName, stationName) {
     .map((row) => {
       const mean = row.count > 0 ? row.meanWeightedSum / row.count : 0;
       const median = row.count > 0 ? row.medianWeightedSum / row.count : 0;
-      const ttRatio = stationTotal > 0 ? (row.meanWeightedSum / (stationTotal * fileCount)) * 100 : 0;
+      const ttRatio = stationTotal > 0 ? (mean / stationTotal) * 100 : 0;
       return {
         group: row.group,
         count: row.count,
