@@ -38,7 +38,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 if val:
                     req.add_header('wecToken', val)
 
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=60) as resp:
                 body = resp.read()
                 self.send_response(resp.status)
                 self._set_cors_headers()
