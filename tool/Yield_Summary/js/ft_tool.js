@@ -25,6 +25,10 @@
     }
   }
 
+  function showEncryptedFileModal() {
+    document.getElementById('encrypted-file-dialog').showModal();
+  }
+
   function switchTabFT() {
     updateUIState();
   }
@@ -174,7 +178,11 @@
           renderTable();
         }
       } catch (err) {
-        alert(`MSS 上傳解析錯誤: ${err.message}`);
+        if (/ECMA-376|Encrypted/i.test(err.message)) {
+          showEncryptedFileModal();
+        } else {
+          alert(`MSS 上傳解析錯誤: ${err.message}`);
+        }
         setStatus(`MSS ERROR`, "#e31a22");
       }
     };
