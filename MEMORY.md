@@ -1,6 +1,6 @@
 <!-- ================================================================
   🤖 AI SESSION CONTEXT — 給下一個 AI Session 看的專案記憶
-  最後更新：2026-07-06，Session 6b433e0e
+  最後更新：2026-07-07，Session a18f57b9
   ================================================================ -->
 
 ## 🤖 AI 快速喚醒區（給 Copilot / AI 看）
@@ -11,6 +11,16 @@
 
 **自包含目錄結構**：所有子工具已收納至 `PP00_Portal/tool/` 下，Portal 與子工具形成單一自包含目錄，方便整包複製、搬移或部署。`tool/` 下主要保留部署用檔案（HTML、CSS、JS、assets）。
 - 本次 Session 順利將原先獨立的 `web_terminal` 網頁端專案，打包整合進 `PP00_Portal/tool/web_terminal/` 目錄，作為 `WRITER 按鍵錄製精靈` 卡片的連結目標。
+
+### ⚠️ 重要 Build 工作流程（含 React 編譯包工具）
+
+**`PP00_Portal` 是最終佈局目錄（GitHub Pages）**，`tool/` 下的檔案為部署用。
+有以下兩個工具含 React 原始碼，**修改後需重新 build 再部署**，直接改 `tool/` 底下的 compiled HTML 下次 rebuild 會被覆蓋：
+
+| 工具 | React 原始碼位置 | build 指令 | deploy 目標 |
+| :--- | :--- | :--- | :--- |
+| **CP MSS 轉換** | `C:\D_BACKUP\AI_Project\CP_MSS` | `npm run build`（輸出 `docs/index.html`） | → 複製到 `PP00_Portal/tool/CP_MSS/index.html` |
+| **FT 特性 (CZ_dataset)** | `C:\D_BACKUP\AI_Project\web_app\CZ_dataset\web` | `npm run build`（輸出 `dist/index.html`） | → 複製到 `PP00_Portal/tool/CZ_dataset/index.html` 及 `web_app\CZ_dataset\index.html` |
 
 **子工具路徑對應**：
 | 工具 | `localPath` / `ghPagesUrl` | `devUrl` |
@@ -60,6 +70,8 @@
 - `systematic-debugging`
 
 ### 常見錯誤與解法
+- **問題**：上傳 Excel 出現 `ECMA-376 Encrypted file missing /EncryptionInfo`（SheetJS 工具）或 `Corrupted zip or bug: unexpected signature`（ExcelJS/CP_MSS）。
+  * **解法**：已在所有工具加入加密偵測 modal，提示使用者解除 IRM 保護後重新上傳。修改需注意：Yield_Summary/TTO_Agent 直接改 JS；CZ_dataset/CP_MSS 需改 React source 再 rebuild（見上方 Build 工作流程）。
 - **問題**：使用者打字時終端機上出現重複的雙重字元（例如打 1 出現 11）。
   * **解法**：關閉 Local Echo（`chkLocalEcho` 設為 unchecked）。
 - **問題**：退格鍵（Backspace）或刪除輸入無效。
