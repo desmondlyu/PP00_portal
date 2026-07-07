@@ -38,7 +38,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 if val:
                     req.add_header('wecToken', val)
 
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 body = resp.read()
                 self.send_response(resp.status)
                 self._set_cors_headers()
@@ -46,16 +46,23 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(body)
         except urllib.error.HTTPError as e:
-            self.send_response(e.code)
-            self._set_cors_headers()
-            self.end_headers()
-            self.wfile.write(e.read())
+            try:
+                self.send_response(e.code)
+                self._set_cors_headers()
+                self.end_headers()
+                self.wfile.write(e.read())
+            except (ConnectionAbortedError, BrokenPipeError):
+                pass  # ponytail: client already disconnected, nothing to do
         except Exception as e:
-            self.send_response(502)
-            self._set_cors_headers()
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode())
+            print(f"  [PROXY] ERROR: {e}")
+            try:
+                self.send_response(502)
+                self._set_cors_headers()
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
+            except (ConnectionAbortedError, BrokenPipeError):
+                pass  # ponytail: client already disconnected, nothing to do
 
     def _set_cors_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
