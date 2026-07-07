@@ -341,5 +341,14 @@
   <script src="js/kpiCompareReact.js"></script>
   <script src="js/groupingRules.js"></script>
   <script src="js/app.js?v=20260604a"></script>
+
+  <!-- 加密 Excel 警告 dialog -->
+  <dialog id="encrypted-file-dialog" style="border:none;border-radius:12px;padding:28px;max-width:380px;width:90%;background:#1e2030;color:#e5e7eb;box-shadow:0 24px 60px rgba(0,0,0,0.6);">
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.7;">⚠️ 系統無法分析受保護的 Excel 檔案，請解除加密設定後重新上傳。參考圖片</p>
+    <img src="../../../unlock_irm.jpg" alt="解除保護說明" style="max-width:100%;border-radius:8px;display:block;">
+    <div style="text-align:right;margin-top:16px;">
+      <button onclick="document.getElementById('encrypted-file-dialog').close()" style="padding:6px 18px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">關閉</button>
+    </div>
+  </dialog>
 </body>
 </html>

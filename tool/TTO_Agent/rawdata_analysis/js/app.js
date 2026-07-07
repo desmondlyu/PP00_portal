@@ -1445,6 +1445,10 @@ async function startAnalysis() {
   updateAnalyzeState();
 }
 
+function showEncryptedFileModal() {
+  document.getElementById('encrypted-file-dialog').showModal();
+}
+
 async function startAnalysisFromXlsx() {
   if (!APP.files.length) {
     showMessage("請先選擇 XLSX 檔案。", "error");
@@ -1471,7 +1475,18 @@ async function startAnalysisFromXlsx() {
   let processed = 0;
   for (const file of APP.files) {
     const buf = await file.arrayBuffer();
-    const workbook = XLSX.read(buf, { type: "array" });
+    let workbook;
+    try {
+      workbook = XLSX.read(buf, { type: "array" });
+    } catch (err) {
+      if (/ECMA-376|Encrypted/i.test(err.message)) {
+        showEncryptedFileModal();
+        dom.analyzeBtn.disabled = false;
+        updateAnalyzeState();
+        return;
+      }
+      throw err;
+    }
     importWorkbookData(workbook);
     processed += 1;
     setProgress(Math.round((processed / APP.files.length) * 100));
@@ -1826,7 +1841,16 @@ async function collectXlsxSummaryCards(files) {
   const byProduct = new Map();
   for (const file of files) {
     const buf = await file.arrayBuffer();
-    const workbook = XLSX.read(buf, { type: "array" });
+    let workbook;
+    try {
+      workbook = XLSX.read(buf, { type: "array" });
+    } catch (err) {
+      if (/ECMA-376|Encrypted/i.test(err.message)) {
+        showEncryptedFileModal();
+        return [];
+      }
+      throw err;
+    }
     const entries = parseSummaryEntries(workbook);
     for (const entry of entries) {
       const keyParsed = parseSummaryEntryKey(entry.key);
