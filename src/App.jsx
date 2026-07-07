@@ -427,7 +427,8 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
-    { version: 'v1.6.0', date: '2026-06-29', text: '整合 WRITER 按鍵錄製精靈（Web Terminal），支援 LP56 燒錄控制、CH340 自動連線、時序錄製與回放功能。', isNew: true },
+    { version: 'v1.7.0', date: '2026-07-07', text: '🔒 上傳受 IRM 保護的 Excel 時，各工具現在會彈出說明視窗附圖教你解鎖，不再只顯示一串看不懂的錯誤碼！', isNew: true },
+    { version: 'v1.6.0', date: '2026-06-29', text: '整合 WRITER 按鍵錄製精靈（Web Terminal），支援 LP56 燒錄控制、CH340 自動連線、時序錄製與回放功能。', isNew: false },
     { version: 'v1.5.0', date: '2026-06-22', text: '新增 PP00 Knownledge Agent 內部知識型 Agent（因安全性限制改為外部網址新分頁啟動）。', isNew: false },
     { version: 'v1.4.0', date: '2026-06-15', text: '新增 CP MSS 轉換工具、Dongle Auto Summary、WRITER按鍵錄製精靈 等待開發離線入口卡片。', isNew: false },
     { version: 'v1.3.0', date: '2026-06-15', text: '新增 CP Datalog-to-Excel 轉換器入口卡片。', isNew: false },
