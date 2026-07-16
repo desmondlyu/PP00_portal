@@ -56,7 +56,7 @@ export default function App() {
       'cp-mss-converter': false,
       'dongle-summary': true,
       'writer': true,
-      'eng_report': true,
+      'eng_report': false,  // 預設 active，由 Supabase tool_statuses 資料列覆蓋
       'pp00-knowledge-agent': false
     };
     try {
@@ -159,10 +159,10 @@ export default function App() {
     // 2. 如果有 Supabase，同步寫入雲端資料表
     if (supabase) {
       try {
+        // 使用 upsert 取代 update：若 tool_statuses 尚無此 id 資料列，自動 insert
         const { error } = await supabase
           .from('tool_statuses')
-          .update({ is_offline: nextStatus })
-          .eq('id', toolId);
+          .upsert({ id: toolId, is_offline: nextStatus }, { onConflict: 'id' });
         
         if (error) {
           alert('同步至 Supabase 失敗（可能是權限不足）：' + error.message);
