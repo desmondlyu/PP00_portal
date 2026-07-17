@@ -20,6 +20,11 @@ import sys
 PROXY_PORT = 8780
 TARGET_BASE = "http://report"
 
+
+class ProxyServer(http.server.ThreadingHTTPServer):
+    daemon_threads = True
+
+
 class ProxyHandler(http.server.BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         """處理 CORS preflight"""
@@ -53,6 +58,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(e.read())
             except (ConnectionAbortedError, BrokenPipeError):
                 pass  # ponytail: client already disconnected, nothing to do
+        except (ConnectionAbortedError, BrokenPipeError, ConnectionResetError):
+            pass  # ponytail: client already disconnected, nothing to do
         except Exception as e:
             print(f"  [PROXY] ERROR: {e}")
             try:
@@ -85,7 +92,7 @@ if __name__ == '__main__':
     print("  ✓ 關閉此視窗即停止代理")
     print("=" * 56)
 
-    server = http.server.HTTPServer(('127.0.0.1', PROXY_PORT), ProxyHandler)
+    server = ProxyServer(('127.0.0.1', PROXY_PORT), ProxyHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
