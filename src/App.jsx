@@ -429,9 +429,9 @@ export default function App() {
       icon: '🤖',
       gradient: 'var(--grad-cyan-blue)',
       gridClass: 'col-4',
-      devUrl: 'https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2',
-      localPath: 'https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2',
-      ghPagesUrl: 'https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2',
+      devUrl: 'https://m365.cloud.microsoft/chat/?titleId=T_a49b0530-b9c3-2b20-ec6b-58c35253d255',
+      localPath: 'https://m365.cloud.microsoft/chat/?titleId=T_a49b0530-b9c3-2b20-ec6b-58c35253d255',
+      ghPagesUrl: 'https://m365.cloud.microsoft/chat/?titleId=T_a49b0530-b9c3-2b20-ec6b-58c35253d255',
       status: 'active',
       openExternal: true,
       details: [
