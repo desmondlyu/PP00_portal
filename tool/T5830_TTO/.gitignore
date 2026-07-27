@@ -1,0 +1,12 @@
+# Only the static web app sources and build configuration are versioned.
+*
+!.gitignore
+!package.json
+!package-lock.json
+!index.html
+!tsconfig.json
+!vite.config.ts
+!src/
+!src/**
+!public/
+!public/**
