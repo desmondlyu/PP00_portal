@@ -409,7 +409,7 @@ export default function App() {
       title: 'T5830 測試程式優化分析',
       badge: 'Active',
       desc: 'T5830 測試時間/次數，多產品分析平台工具',
-      icon: '💻',
+      icon: '🚀',
       gradient: 'var(--grad-emerald-cyan)',
       gridClass: 'col-4',
       devUrl: 'http://localhost:5173/',
