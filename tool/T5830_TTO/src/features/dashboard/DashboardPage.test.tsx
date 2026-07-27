@@ -46,6 +46,14 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('tablist')).toBeVisible();
   });
 
+  it('shows complete analysis export on its own row', () => {
+    render(<DashboardPage summaries={summaries} />);
+
+    expect(screen.getByRole('region', { name: 'Master Summary 下載' })).toBeVisible();
+    expect(screen.getByRole('region', { name: '完整分析結構匯出' })).toBeVisible();
+    expect(screen.getByRole('button', { name: '📦 匯出所有分析結構' })).toBeVisible();
+  });
+
   it('filters the real summary rows by Process', async () => {
     const user = userEvent.setup();
     render(<DashboardPage summaries={summaries} />);
