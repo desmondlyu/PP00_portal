@@ -10,3 +10,5 @@
 !src/**
 !public/
 !public/**
+!dist/
+!dist/**
