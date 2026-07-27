@@ -149,7 +149,7 @@
 - **Gradient**: `var(--grad-emerald-cyan)`
 - **Description**: `T5830 測試時間/次數，多產品分析平台工具`
 - **Details**:
-  - `針對T5830 TE分析平台，解析T5830 RAWDATA (上傳 .TAR 壓縮格式)`
+  - `針對T5830 TE分析平台，解析T5830 RAWDATA (上傳 .TGZ 壓縮格式)`
   - `提供TE工程單位自動解析Pre SITE/1TD中，測試次數、時間分析`
 - **Dev URL**: `http://localhost:5173/`
 - **Local Path**: `./tool/T5830_TTO/dist/index.html`
@@ -168,5 +168,4 @@
 - **Dev URL**: `https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2`
 - **Local Path**: `https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2`
 - **GitHub Pages URL**: `https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2`
-
 

@@ -5,7 +5,8 @@ import type { WorkerResponse } from '../../workers/protocol';
 
 type JobStatus = 'idle' | 'processing' | 'cancelled' | 'completed' | 'failed';
 
-type ProgressInfo = { phase: string; completed: number; total: number; fileName?: string };
+type ProgressPhase = Extract<WorkerResponse, { type: 'progress' }>['phase'];
+type ProgressInfo = { phase: ProgressPhase; completed: number; total: number; fileName?: string };
 
 type PipelinePageProps = {
   workerFactory?: () => Worker;
@@ -14,6 +15,11 @@ type PipelinePageProps = {
 };
 
 const knownProducts = Object.keys(PRODUCT_METADATA);
+const progressSteps = [
+  { phase: 'extracting', active: '.tgz 解壓中', done: '.tgz 解壓成功' },
+  { phase: 'parsing', active: '.tar 內容解析中', done: '.tar 內容解析成功' },
+  { phase: 'analyzing', active: '開始分析', done: '分析完成' }
+] as const;
 
 /** 從單一檔案的 webkitRelativePath 偵測產品名（取 .tar 的直屬父資料夾） */
 function detectProductForFile(file: File): string {
@@ -34,7 +40,7 @@ function detectProductForFile(file: File): string {
 /** 從 TAR 檔名解析站點 (RW_*_LOTNO_WAFERID_STATION_DATETIME.tar → STATION) */
 function detectStationForFile(file: File): string {
   // 檔名格式: RW_P_D6505985AF08_20_S1P1_20260523093451.tar
-  const base = file.name.replace(/\.tar$/i, '');
+  const base = file.name.replace(/\.(tgz|tar\.gz|tar)$/i, '');
   const parts = base.split('_');
   // Station 通常是倒數第二段（最後一段是日期時間）
   if (parts.length >= 3) {
@@ -70,11 +76,11 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onProce
 
   function selectFolder(event: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files ?? []);
-    const tarFiles = selected.filter((f) => f.name.toLowerCase().endsWith('.tar'));
+    const tarFiles = selected.filter((f) => /\.(tar|tgz|tar\.gz)$/i.test(f.name));
     if (tarFiles.length === 0) {
       setFiles([]);
       setDetectedProducts([]);
-      setError('找不到 .tar 檔案。只支援未壓縮的 .tar rawdata 封包。');
+      setError('找不到 .tgz / .tar 檔案。請上傳包含 rawdata 壓縮檔的產品資料夾。');
       return;
     }
     setError('');
@@ -87,13 +93,30 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onProce
     setDetectedProducts(unique);
   }
 
-  function start() {
+  async function start() {
     const worker = workerFactory();
     const jobId = crypto.randomUUID();
     workerRef.current = worker;
     setStatus('processing');
     onProcessing?.(true);
-    setProgress({ phase: 'scanning', completed: 0, total: files.length });
+    setProgress({ phase: 'extracting', completed: 0, total: files.length });
+
+    worker.addEventListener('error', (event) => {
+      worker.terminate();
+      workerRef.current = undefined;
+      setError(event instanceof ErrorEvent && event.message ? event.message : '分析 Worker 載入失敗，請重新整理頁面後再試');
+      setStatus('failed');
+      setProgress(null);
+      onProcessing?.(false);
+    });
+    worker.addEventListener('messageerror', () => {
+      worker.terminate();
+      workerRef.current = undefined;
+      setError('分析資料傳送失敗，請重新整理頁面後再試');
+      setStatus('failed');
+      setProgress(null);
+      onProcessing?.(false);
+    });
     worker.addEventListener('message', ({ data }: MessageEvent<WorkerResponse>) => {
       if (data.type === 'progress') {
         setProgress({ phase: data.phase, completed: data.completed, total: data.total, fileName: data.fileName });
@@ -156,7 +179,14 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onProce
   }
 
   const pct = progress && progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
-  const phaseLabel = progress?.phase === 'scanning' ? '解析中' : progress?.phase === 'aggregating' ? '彙整中' : '處理中';
+  const phaseLabel = progress?.phase === 'extracting'
+    ? '解壓中'
+    : progress?.phase === 'parsing'
+      ? '解析中'
+      : progress?.phase === 'analyzing'
+        ? '分析中'
+        : '處理中';
+  const activeStep = progress ? progressSteps.findIndex((step) => step.phase === progress.phase) : -1;
 
   return (
     <section className="pipeline-page" aria-labelledby="pipeline-title">
@@ -164,7 +194,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onProce
         <p className="eyebrow">ON-DEVICE TEST TIME INTELLIGENCE</p>
         <p className="privacy-notice">本機模式 · 資料不會上傳至雲端</p>
         <h1 id="pipeline-title">測試程式優化<br />分析入口網站</h1>
-        <p className="hero-description">解析T5830 RAWDATA (.TAR 壓縮格式)，提供TE工程單位自動解析Pre SITE/1TD中，測試次數、時間分析</p>
+        <p className="hero-description">解析T5830 RAWDATA (.TGZ 壓縮格式)，提供TE工程單位自動解析Pre SITE/1TD中，測試次數、時間分析</p>
       </div>
       <div className="upload-card">
         <span className="upload-step">01 / INGEST</span>
@@ -175,13 +205,25 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onProce
 
         <p className="file-hint">
           {files.length
-            ? `已選擇 ${files.length} 個 .tar 檔案`
-            : '上傳請選擇根目錄，根目錄資料夾包含你要分析的所有產品資料夾。\n範例: 選擇根目錄 ABC；ABC 底下包含 產品1, 產品2，各產品資料夾下包含一份 .TAR 壓縮檔'}
+            ? `已選擇 ${files.length} 個壓縮檔`
+            : '上傳請選擇根目錄，根目錄資料夾包含你要分析的所有產品資料夾。\n範例: 選擇根目錄 ABC；ABC 底下包含 產品1, 產品2，各產品資料夾下包含一份 .TGZ 壓縮檔'}
           {detectedProducts.length > 0 && ` — 偵測到: ${detectedProducts.join(', ')}`}
         </p>
         {error && <p role="alert">{error}</p>}
         {status === 'processing' && progress && (
           <div className="progress-area" aria-live="polite">
+            <div className="progress-steps">
+              {progressSteps.map((step, index) => {
+                const state = index < activeStep ? 'done' : index === activeStep ? 'active' : '';
+                const label = index < activeStep ? step.done : index === activeStep ? step.active : step.done;
+                return (
+                  <div className={`progress-step ${state}`} key={step.phase}>
+                    <span className="progress-step-icon">{index < activeStep ? '✓' : index === activeStep ? '●' : '○'}</span>
+                    <span>{label}</span>
+                  </div>
+                );
+              })}
+            </div>
             <div className="progress-bar-track">
               <div className="progress-bar-fill" style={{ width: `${pct}%` }} />
             </div>

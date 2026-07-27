@@ -65,6 +65,7 @@ const rows: MasterSummaryRow[] = [
 describe('PivotTable', () => {
   it('renders sorted products, metadata rows, and test items sorted by total descending', () => {
     render(<PivotTable rows={rows} valueField="Grand_Total_Time" />);
+    fireEvent.click(screen.getByRole('button', { name: '展開' }));
 
     expect(screen.getByRole('columnheader', { name: 'ALPHA' })).toBeVisible();
     expect(screen.getByRole('columnheader', { name: 'BETA' })).toBeVisible();
@@ -102,6 +103,7 @@ describe('PivotTable', () => {
 describe('RatioTable', () => {
   it('renders percentages, metadata dashes, and average column', () => {
     render(<RatioTable rows={rows} />);
+    fireEvent.click(screen.getByRole('button', { name: '展開' }));
 
     expect(screen.getByRole('columnheader', { name: '🌟 平均佔比 (Avg)' })).toBeVisible();
     expect(screen.getByText('📌 [產品總測試時間]')).toBeVisible();

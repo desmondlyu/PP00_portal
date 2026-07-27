@@ -62,13 +62,84 @@ function readAsText(blob: Blob) {
   });
 }
 
+async function readStreamMembers(stream: ReadableStream<Uint8Array>) {
+  const reader = stream.getReader();
+  let pending: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
+  const members: TarTextMember[] = [];
+
+  async function readBytes(length: number) {
+    const chunks: Uint8Array[] = [];
+    let remaining = length;
+    while (remaining > 0) {
+      if (pending.length === 0) {
+        const next = await reader.read();
+        if (next.done || !next.value) throw new Error('TAR stream ended unexpectedly');
+        pending = next.value;
+      }
+      const count = Math.min(remaining, pending.length);
+      chunks.push(pending.subarray(0, count));
+      pending = pending.subarray(count);
+      remaining -= count;
+    }
+    if (chunks.length === 1) return chunks[0];
+    const result = new Uint8Array(length);
+    let offset = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return result;
+  }
+
+  async function skipBytes(length: number) {
+    let remaining = length;
+    while (remaining > 0) {
+      if (pending.length === 0) {
+        const next = await reader.read();
+        if (next.done || !next.value) throw new Error('TAR stream ended unexpectedly');
+        pending = next.value;
+      }
+      const count = Math.min(remaining, pending.length);
+      pending = pending.subarray(count);
+      remaining -= count;
+    }
+  }
+
+  while (true) {
+    const header = await readBytes(blockSize);
+    if (isEmptyBlock(header)) break;
+
+    const name = readString(header, 0, 100);
+    const size = readSize(header);
+    if (isSafeRawdataTextMember(name)) {
+      const payload = await readBytes(size);
+      members.push({ name, text: new TextDecoder().decode(payload) });
+    } else {
+      await skipBytes(size);
+    }
+    const padding = (blockSize - (size % blockSize)) % blockSize;
+    if (padding) await skipBytes(padding);
+  }
+
+  return members;
+}
+
 export async function readRawdataTextMembers(
   file: File,
   onProgress?: (progress: TarProgress) => void,
   signal?: AbortSignal
 ): Promise<TarTextMember[]> {
-  if (!file.name.toLowerCase().endsWith('.tar')) {
-    throw new Error('只支援 .tar 壓縮檔；.tgz 與 .tar.gz 無法處理。');
+  // ponytail: .tgz 已在主線程解壓，Worker 端直接解析 tar
+  const lowerName = file.name.toLowerCase();
+  if (!lowerName.endsWith('.tar') && !lowerName.endsWith('.tgz') && !lowerName.endsWith('.tar.gz')) {
+    throw new Error('只支援 .tar 或 .tgz (.tar.gz) 格式的壓縮檔。');
+  }
+
+  if (lowerName.endsWith('.tgz') || lowerName.endsWith('.tar.gz')) {
+    if (typeof DecompressionStream === 'undefined' || !file.stream) {
+      throw new Error('目前瀏覽器不支援大型 .tgz 串流解析，請改用最新版 Chrome 或 Edge。');
+    }
+    return readStreamMembers(file.stream().pipeThrough(new DecompressionStream('gzip')));
   }
 
   const members: TarTextMember[] = [];
