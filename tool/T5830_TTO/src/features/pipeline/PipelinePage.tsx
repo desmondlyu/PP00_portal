@@ -176,7 +176,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onProce
         <p className="file-hint">
           {files.length
             ? `已選擇 ${files.length} 個 .tar 檔案`
-            : '請選擇包含 .tar rawdata 的產品資料夾'}
+            : '上傳請選擇根目錄，根目錄資料夾包含你要分析的所有產品資料夾。\n範例: 選擇根目錄 ABC；ABC 底下包含 產品1, 產品2，各產品資料夾下包含一份 .TAR 壓縮檔'}
           {detectedProducts.length > 0 && ` — 偵測到: ${detectedProducts.join(', ')}`}
         </p>
         {error && <p role="alert">{error}</p>}
