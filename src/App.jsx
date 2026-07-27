@@ -405,6 +405,23 @@ export default function App() {
       ]
     },
     {
+      id: 'te_tto',
+      title: 'T5830 測試程式優化分析',
+      badge: 'Active',
+      desc: 'T5830 測試時間/次數，多產品分析平台工具',
+      icon: '💻',
+      gradient: 'var(--grad-emerald-cyan)',
+      gridClass: 'col-4',
+      devUrl: 'http://localhost:5173/',
+      localPath: './tool/T5830_TTO/dist/index.html',
+      ghPagesUrl: './tool/T5830_TTO/dist/index.html',
+      status: 'active',
+      details: [
+        '針對T5830 TE分析平台，解析T5830 RAWDATA (上傳 .TAR 壓縮格式)',
+        '提供TE工程單位自動解析Pre SITE/1TD中，測試次數、時間分析'
+      ]
+    },
+    {
       id: 'pp00-knowledge-agent',
       title: 'PP00 Knownledge Agent',
       badge: 'Active',
@@ -800,7 +817,9 @@ export default function App() {
         <div className="portal-iframe-overlay">
           <div className="portal-iframe-header">
             <div className="portal-iframe-title">
-              {React.createElement(activeTool.icon, { size: 18, style: { color: 'var(--accent-cyan)' } })}
+              {typeof activeTool.icon === 'string'
+                ? <span style={{ fontSize: 18 }}>{activeTool.icon}</span>
+                : React.createElement(activeTool.icon, { size: 18, style: { color: 'var(--accent-cyan)' } })}
               <span>{activeTool.title}</span>
             </div>
             <div className="portal-iframe-actions">

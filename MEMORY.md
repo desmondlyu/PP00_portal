@@ -1,13 +1,13 @@
 <!-- ================================================================
   🤖 AI SESSION CONTEXT — 給下一個 AI Session 看的專案記憶
-  最後更新：2026-07-07，Session a18f57b9
+  最後更新：2026-07-27，Session 0a84d186
   ================================================================ -->
 
 ## 🤖 AI 快速喚醒區（給 Copilot / AI 看）
 > 下次回到此專案，請先讀本節，再閱讀其他說明文件，即可還原完整開發背景。
 
 ### 專案定位
-本專案（PP00 Tool Portal）是半導體記憶體研發與量化科技的工具入口網站，以優雅的 Bento 網格風格呈現，用以集中調用與展示十一大核心工具。另外包含 `antigravity-cli-statusline` 狀態列外掛，用於為命令列介面（agy CLI）底部提供即時指標監控。
+本專案（PP00 Tool Portal）是半導體記憶體研發與量化科技的工具入口網站，以優雅的 Bento 網格風格呈現，用以集中調用與展示十二大核心工具。另外包含 `antigravity-cli-statusline` 狀態列外掛，用於為命令列介面（agy CLI）底部提供即時指標監控。
 
 **自包含目錄結構**：所有子工具已收納至 `PP00_Portal/tool/` 下，Portal 與子工具形成單一自包含目錄，方便整包複製、搬移或部署。`tool/` 下主要保留部署用檔案（HTML、CSS、JS、assets）。
 - 本次 Session 順利將原先獨立的 `web_terminal` 網頁端專案，打包整合進 `PP00_Portal/tool/web_terminal/` 目錄，作為 `WRITER 按鍵錄製精靈` 卡片的連結目標。
@@ -21,6 +21,7 @@
 | :--- | :--- | :--- | :--- |
 | **CP MSS 轉換** | `C:\D_BACKUP\AI_Project\CP_MSS` | `npm run build`（輸出 `docs/index.html`） | → 複製到 `PP00_Portal/tool/CP_MSS/index.html` |
 | **FT 特性 (CZ_dataset)** | `C:\D_BACKUP\AI_Project\web_app\CZ_dataset\web` | `npm run build`（輸出 `dist/index.html`） | → 複製到 `PP00_Portal/tool/CZ_dataset/index.html` 及 `web_app\CZ_dataset\index.html` |
+| **T5830 TTO** | `C:\D_BACKUP\AI_Project\web_app\PP00_Portal\tool\T5830_TTO` | `npm run build`（輸出 `dist/`） | 原地 build，Portal iframe 載入 `./tool/T5830_TTO/dist/index.html` |
 
 **子工具路徑對應**：
 | 工具 | `localPath` / `ghPagesUrl` | `devUrl` |
@@ -34,8 +35,9 @@
 | CP MSS 轉換 | `./tool/CP_MSS/index.html` | `http://localhost:5174` |
 | Dongle Auto Summary | `./tool/AutoDongle/index.html` | `http://localhost:5173` |
 | WRITER按鍵錄製精靈 | `./tool/web_terminal/index.html` | `./tool/web_terminal/index.html` |
-| 工程實驗報告產生器 | `#` | `#` |
+| 工程實驗報告產生器 | `./tool/Eng_AutoReport/index.html` | `./tool/Eng_AutoReport/index.html` |
 | PP00 Knownledge Agent | `https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2` | `https://m365.cloud.microsoft/chat/?titleId=T_6f1ea993-be1e-5380-6352-a5300c2839e6&source=copilot-studio&redirfrom=CsrToSSR&auth=2` |
+| T5830 TTO 分析 | `./tool/T5830_TTO/dist/index.html` | `http://localhost:5173/` |
 
 ### 關鍵函式與邏輯
 - `statusline-quota.mjs` 中的 `isInGitRepository()`：高速同步預檢目錄鏈是否包含 `.git`。
@@ -47,6 +49,7 @@
 - `tool/TTO_Agent/rawdata_analysis/js/app.js` 中的 `getScenarioStationTotalTime()`：將 `delta` 計算中變動的測試次數除以 `fileCount` 進行縮放，解決多 Site 檔案匯入時因 Count 放大而將模擬總時間扣減為 0 的 bug。
 - `tool/TTO_Agent/rawdata_analysis/js/app.js` 中的 `buildGroupedItemRows()`：對 Group 的 `perSiteCount` 與 `scenarioCount` 進行累加，連動更新 Group 的實測與模擬次數。
 - `tool/TTO_Agent/rawdata_analysis/js/app.js` 中的 `onScenarioInputChange()`：當 field="range" 時，自動按比例換算新 Mean 並更新 UI 輸入框；當 field="count" 時，將數值經由 `Math.round()` 取整後存入覆寫配置。
+- `tool/T5830_TTO/`：Vite + React + TypeScript 獨立子專案（原 `pp21_py`），解析 T5830 RAWDATA `.tar` 檔，產生 Master Summary 與 Dashboard。`vite.config.ts` base 設為 `'./'`，Portal 以 iframe 載入 `dist/index.html`。修改原始碼後需 `cd tool/T5830_TTO && npm run build` 重建 dist。
 
 ### 重要技術決策
 | 決策 | 實作內容 | 影響與目的 |
@@ -57,6 +60,9 @@
 | **模擬總時間 delta 比例修正** | 在 `getScenarioStationTotalTime` 中，將 `delta` 計算中的 `stat.count` 除以 `fileCount`。 | 避免在多 Site 匯入時，負數的 delta 因次數累加而被放大，導致模擬總時間被扣至 0 使圖表 bar 消失。 |
 | **模擬 Range 聯動換算** | 改 Range 時自動按比例縮放並更新對應的模擬 Mean 輸入值，移除 getScenarioEffectiveMean 中的隱含因子。 | 簡化模擬邏輯，使模擬結果完全所見即所得，沒有隱藏的二重縮放。 |
 | **資料夾通用匹配放寬** | 在 `parseImportPath` 中，改為只要 `home` 後方接有任意兩層子路徑即匹配成功。 | 解決使用者因路徑拼寫誤差而無法讀取資料的問題。 |
+| **eng_report Supabase 狀態修正** | `defaultOffline` 中 `eng_report` 改為 `false`；`toggleToolStatus` 由 `.update().eq()` 改為 `.upsert({ id, is_offline }, { onConflict: 'id' })`。 | 移除寫死 offline，改由 Supabase `tool_statuses` 資料列決定；upsert 確保 DB 無該列時自動 insert，不再靜默失敗。 |
+| **整合 T5830 TTO（pp21_py）** | 從 `pp21_py` 複製至 `tool/T5830_TTO/`，`vite.config.ts` base 改 `'./'`（相對路徑），重新 build dist。App.jsx 新增 `te_tto` 卡片（icon `💻`、status `active`），supabase `tool_statuses` 以 `id: 'te_tto'` upsert 控制。 | T5830 測試時間分析工具正式納入 Portal，iframe 載入 `./tool/T5830_TTO/dist/index.html`。 |
+| **iframe header emoji icon 修正** | `React.createElement(activeTool.icon, ...)` 改為先判斷 `typeof === 'string'` 再以 `<span>` 渲染 emoji，避免 crash。 | 所有使用 emoji 字串 icon 的卡片（📟、🤖、💻）點擊後不再因 createElement 傳入字串而報錯。 |
 
 ### 固定設定值
 - `z-index: 2000`：`.portal-iframe-overlay` 的層級，確保完全覆蓋 Bento卡片。
@@ -80,7 +86,8 @@
   * **解法**：捕獲並轉換發送 `\x1b` 控制字元。
 
 ### 尚未完成的功能
-- [ ] 實作「工程實驗報告產生器」後端處理與前端彙整頁面（自動將 CP yield，CZ summary，datasheet 整理成報告）。
+- [x] 實作「工程實驗報告產生器」後端處理與前端彙整頁面（Flask + Python pipeline，部署於 Render.com `https://eng-report.onrender.com`）。
+- [x] Portal 中 `eng_report` 的 offline/active 狀態改由 Supabase `tool_statuses` 資料列決定，不再寫死於 build。
 - [ ] 串接子工具與 Portal 的 `postMessage` 雙向通訊機制（若未來需要共享登入狀態）。
 - [ ] 管理員驗證改為 server-side（目前為前端 hash比對，可被 localStorage 直接繞過，僅為 soft toggle）。
 - [ ] `logo.png` 壓縮（目前 5.5MB，建議壓至 100KB 以下）。
