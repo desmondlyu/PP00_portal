@@ -8,7 +8,7 @@ describe('PipelinePage', () => {
     render(<PipelinePage />);
 
     fireEvent.change(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), {
-      target: { files: [new File(['x'], 'raw.tar.gz')] }
+      target: { files: [new File(['x'], 'raw.zip')] }
     });
 
     expect(screen.getByRole('alert')).toBeVisible();
@@ -33,12 +33,12 @@ describe('PipelinePage', () => {
 
   it('returns the completed report to its parent', async () => {
     const user = userEvent.setup();
-    let receiveMessage: ((event: MessageEvent) => void) | undefined;
+    const listeners: Record<string, (event: Event) => void> = {};
     const onComplete = vi.fn();
     const worker = {
       postMessage: vi.fn(),
       terminate: vi.fn(),
-      addEventListener: vi.fn((_type, listener) => { receiveMessage = listener; }),
+      addEventListener: vi.fn((type, listener) => { listeners[type] = listener; }),
       removeEventListener: vi.fn()
     } as unknown as Worker;
 
@@ -46,7 +46,7 @@ describe('PipelinePage', () => {
     await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
     await user.click(screen.getByRole('button', { name: '開始分析' }));
     act(() => {
-      receiveMessage?.({
+      listeners.message?.({
         data: {
           type: 'completed',
           jobId: 'job-1',
@@ -56,5 +56,46 @@ describe('PipelinePage', () => {
     });
 
     expect(onComplete).toHaveBeenCalledWith({ detail: [], merge: [], masterSummary: [] });
+  });
+
+  it('shows an error when the worker cannot be loaded', async () => {
+    const user = userEvent.setup();
+    const listeners: Record<string, (event: Event) => void> = {};
+    const worker = {
+      postMessage: vi.fn(),
+      terminate: vi.fn(),
+      addEventListener: vi.fn((type, listener) => { listeners[type] = listener; }),
+      removeEventListener: vi.fn()
+    } as unknown as Worker;
+
+    render(<PipelinePage workerFactory={() => worker} />);
+    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await user.click(screen.getByRole('button', { name: '開始分析' }));
+    act(() => listeners.error?.(new ErrorEvent('error', { message: 'Failed to fetch' })));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Failed to fetch');
+    expect(screen.getByRole('button', { name: '開始分析' })).toBeEnabled();
+  });
+
+  it('shows the active analysis step', async () => {
+    const user = userEvent.setup();
+    const listeners: Record<string, (event: Event) => void> = {};
+    const worker = {
+      postMessage: vi.fn(),
+      terminate: vi.fn(),
+      addEventListener: vi.fn((type, listener) => { listeners[type] = listener; }),
+      removeEventListener: vi.fn()
+    } as unknown as Worker;
+
+    render(<PipelinePage workerFactory={() => worker} />);
+    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await user.click(screen.getByRole('button', { name: '開始分析' }));
+    act(() => listeners.message?.({
+      data: { type: 'progress', jobId: 'job-1', phase: 'parsing', completed: 0, total: 1, fileName: 'raw.tar' }
+    } as MessageEvent));
+
+    expect(screen.getByText('.tgz 解壓成功')).toBeVisible();
+    expect(screen.getByText('.tar 內容解析中')).toBeVisible();
+    expect(screen.getByText('開始分析')).toBeVisible();
   });
 });

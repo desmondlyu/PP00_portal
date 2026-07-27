@@ -8,7 +8,7 @@ export type WorkerResponse =
   | {
       type: 'progress';
       jobId: string;
-      phase: 'scanning' | 'parsing' | 'aggregating';
+      phase: 'extracting' | 'parsing' | 'analyzing';
       completed: number;
       total: number;
       fileName?: string;

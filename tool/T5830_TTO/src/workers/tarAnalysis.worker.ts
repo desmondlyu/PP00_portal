@@ -25,7 +25,16 @@ export async function processWorkerRequest(
     post({
       type: 'progress',
       jobId: request.jobId,
-      phase: 'scanning',
+      phase: 'extracting',
+      completed: index,
+      total: request.files.length,
+      fileName: file.name
+    });
+
+    post({
+      type: 'progress',
+      jobId: request.jobId,
+      phase: 'parsing',
       completed: index,
       total: request.files.length,
       fileName: file.name
@@ -64,7 +73,7 @@ export async function processWorkerRequest(
   post({
     type: 'progress',
     jobId: request.jobId,
-    phase: 'aggregating',
+    phase: 'analyzing',
     completed: request.files.length,
     total: request.files.length
   });

@@ -417,7 +417,7 @@ export default function App() {
       ghPagesUrl: './tool/T5830_TTO/dist/index.html',
       status: 'active',
       details: [
-        '針對T5830 TE分析平台，解析T5830 RAWDATA (上傳 .TAR 壓縮格式)',
+        '針對T5830 TE分析平台，解析T5830 RAWDATA (上傳 .TGZ 壓縮格式)',
         '提供TE工程單位自動解析Pre SITE/1TD中，測試次數、時間分析'
       ]
     },
@@ -444,7 +444,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
-    { version: 'v1.9.0', date: '2026-07-27', text: '🆕 新增「T5830 測試程式優化分析」工具，支援解析 T5830 RAWDATA (.TAR)，自動產生測試時間/次數跨產品 Dashboard。', isNew: true },
+    { version: 'v1.9.0', date: '2026-07-27', text: '🆕 新增「T5830 測試程式優化分析」工具，支援解析 T5830 RAWDATA (.TGZ)，自動產生測試時間/次數跨產品 Dashboard。', isNew: true },
     { version: 'v1.8.0', date: '2026-07-17', text: '🐛 Yield Summary：更新 proxy.bat 與 proxy.py，提升資料連線穩定性。', isNew: false },
     { version: 'v1.7.0', date: '2026-07-07', text: '🔒 上傳受 IRM 保護的 Excel 時，各工具現在會彈出說明視窗附圖教你解鎖，不再只顯示一串看不懂的錯誤碼！', isNew: false },
     { version: 'v1.6.0', date: '2026-06-29', text: '整合 WRITER 按鍵錄製精靈（Web Terminal），支援 LP56 燒錄控制、CH340 自動連線、時序錄製與回放功能。', isNew: false },
