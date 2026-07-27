@@ -4,6 +4,7 @@ import { getProductMeta } from './productMetadata';
 import type { MasterSummaryRow } from '../types/analysis';
 
 const requiredColumns = ['Test_Item_Merged', 'Grand_Total_Time', 'Total_Merged_Count'];
+const analysisColumns = ['Product', 'Test_Item_Merged', 'Grand_Total_Time', 'Total_Merged_Count'];
 const mappingColumns = ['Original_Item_Name', 'Mode', 'Operation'];
 
 export type MappingRow = {
@@ -149,6 +150,98 @@ export function writeMasterSummaryWorkbook(rows: MasterSummaryRow[]): ArrayBuffe
   }
 
   return XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+}
+
+function analysisRowToRecord(row: MasterSummaryRow): Record<string, unknown> {
+  return {
+    Product: row.Product,
+    Process: row.Process,
+    Size: row.Size,
+    Voltage: row.Voltage,
+    Original_Item_Name: row.Original_Item_Name,
+    Test_Item_Merged: row.Test_Item_Merged,
+    Grand_Total_Time: row.Grand_Total_Time,
+    Grand_Total_Ratio: row.Grand_Total_Ratio,
+    Total_Merged_Count: row.Total_Merged_Count,
+    Station: row.Station,
+    Station_Time: row.Station_Time,
+    Station_Count: row.Station_Count,
+    ...row.touchdownTimes
+  };
+}
+
+function uniqueSheetName(name: string, used: Set<string>) {
+  const base = name.slice(0, 31) || 'Details';
+  let candidate = base;
+  let suffix = 2;
+  while (used.has(candidate)) {
+    const suffixText = `_${suffix}`;
+    candidate = `${base.slice(0, 31 - suffixText.length)}${suffixText}`;
+    suffix += 1;
+  }
+  used.add(candidate);
+  return candidate;
+}
+
+export function writeAnalysisWorkbook(rows: MasterSummaryRow[]): ArrayBuffer {
+  const workbook = XLSX.utils.book_new();
+  const usedSheets = new Set<string>();
+  const masterRows = rows.map(analysisRowToRecord);
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.json_to_sheet(masterRows),
+    uniqueSheetName('Master_Summary', usedSheets)
+  );
+
+  const groups = new Map<string, MasterSummaryRow[]>();
+  for (const row of rows) {
+    const key = `${row.Product}_${row.Station}`;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  for (const [key, groupRows] of groups) {
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(groupRows.map(analysisRowToRecord)),
+      uniqueSheetName(key, usedSheets)
+    );
+  }
+
+  return XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+}
+
+export async function readAnalysisWorkbook(file: File): Promise<MasterSummaryRow[]> {
+  const workbook = XLSX.read(await readAsArrayBuffer(file), { type: 'array' });
+  const worksheet = workbook.Sheets.Master_Summary;
+  if (!worksheet) throw new Error('找不到 Master_Summary 工作表');
+
+  const sourceRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: '' });
+  const columns = new Set(Object.keys(sourceRows[0] ?? {}));
+  const missing = analysisColumns.filter((column) => !columns.has(column));
+  if (missing.length > 0) throw new Error(`分析結構缺少必要欄位：${missing.join(', ')}`);
+
+  return sourceRows.map((row) => {
+    const product = String(row.Product);
+    const meta = getProductMeta(product);
+    const touchdownTimes: Record<string, number> = {};
+    for (const [key, value] of Object.entries(row)) {
+      if (/^TD_\d+$/.test(key)) touchdownTimes[key] = asNumber(value);
+    }
+    return {
+      Product: product,
+      Process: String(row.Process || '') || meta.Process,
+      Size: String(row.Size || '') || meta.Size,
+      Voltage: String(row.Voltage || '') || meta.Voltage,
+      Original_Item_Name: String(row.Original_Item_Name || row.Test_Item_Merged),
+      Test_Item_Merged: String(row.Test_Item_Merged),
+      Grand_Total_Time: asNumber(row.Grand_Total_Time),
+      Grand_Total_Ratio: asNumber(row.Grand_Total_Ratio),
+      Total_Merged_Count: asNumber(row.Total_Merged_Count),
+      Station: String(row.Station || 'Unknown'),
+      Station_Time: asNumber(row.Station_Time ?? row.Grand_Total_Time),
+      Station_Count: asNumber(row.Station_Count ?? row.Total_Merged_Count),
+      touchdownTimes: Object.keys(touchdownTimes).length > 0 ? touchdownTimes : undefined
+    };
+  });
 }
 
 export async function readMasterSummaryWorkbook(file: File): Promise<MasterSummaryRow[]> {

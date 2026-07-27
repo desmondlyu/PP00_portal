@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { readMappingWorkbook, writeMasterSummaryWorkbook, type MappingRow } from '../../lib/workbook';
+import { readMappingWorkbook, writeAnalysisWorkbook, writeMasterSummaryWorkbook, type MappingRow } from '../../lib/workbook';
 import { DEFAULT_MAPPING } from '../../lib/defaultMapping';
 import type { MasterSummaryRow } from '../../types/analysis';
 import { CountTab } from './CountTab';
@@ -59,6 +59,15 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
     URL.revokeObjectURL(url);
   }
 
+  function downloadAllAnalysisStructure() {
+    const buf = writeAnalysisWorkbook(summaries);
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'T5830_Analysis_Structure.xlsx'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const products = [...new Set(summaries.map((r) => r.Product))].sort();
   const panelId = `dashboard-panel-${tabs.indexOf(activeTab)}`;
   return (
@@ -75,6 +84,14 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
               {p}.xlsx
             </button>
           ))}
+        </section>
+      )}
+      {products.length > 0 && (
+        <section aria-label="完整分析結構匯出" style={{ marginTop: 12 }}>
+          <button type="button" onClick={downloadAllAnalysisStructure}
+            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid rgba(88,202,255,.4)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer' }}>
+            📦 匯出所有分析結構
+          </button>
         </section>
       )}
       <section aria-label="Mapping 檔案">

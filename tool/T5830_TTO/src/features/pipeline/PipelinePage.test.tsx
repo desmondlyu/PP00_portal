@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import * as XLSX from 'xlsx';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { PipelinePage } from './PipelinePage';
@@ -75,6 +76,37 @@ describe('PipelinePage', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('Failed to fetch');
     expect(screen.getByRole('button', { name: '開始分析' })).toBeEnabled();
+  });
+
+  it('loads an analyzed workbook and returns summaries', async () => {
+    const onAnalysisLoaded = vi.fn();
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{
+      Product: 'EAG119',
+      Process: 'F58',
+      Size: '512M',
+      Voltage: '1.8',
+      Original_Item_Name: 'READ_ARRAY_(M)',
+      Test_Item_Merged: 'READ_ARRAY',
+      Grand_Total_Time: 1.25,
+      Grand_Total_Ratio: 100,
+      Total_Merged_Count: 1,
+      Station: 'S1P1',
+      Station_Time: 1.25,
+      Station_Count: 1
+    }]), 'Master_Summary');
+    const file = new File([
+      XLSX.write(workbook, { type: 'array', bookType: 'xlsx' })
+    ], 'T5830_Analysis_Structure.xlsx');
+
+    render(<PipelinePage onAnalysisLoaded={onAnalysisLoaded} />);
+    fireEvent.change(screen.getByLabelText('上傳已分析的資料'), { target: { files: [file] } });
+
+    await vi.waitFor(() => expect(onAnalysisLoaded).toHaveBeenCalledTimes(1));
+    expect(onAnalysisLoaded.mock.calls[0][0][0]).toMatchObject({
+      Product: 'EAG119',
+      Test_Item_Merged: 'READ_ARRAY'
+    });
   });
 
   it('shows the active analysis step', async () => {

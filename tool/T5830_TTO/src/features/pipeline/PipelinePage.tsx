@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import type { AnalysisReport } from '../../lib/analysis';
 import { PRODUCT_METADATA, exportProductMetadata, mergeProductMetadata, type ProductMeta } from '../../lib/productMetadata';
+import { readAnalysisWorkbook } from '../../lib/workbook';
+import type { MasterSummaryRow } from '../../types/analysis';
 import type { WorkerResponse } from '../../workers/protocol';
 
 type JobStatus = 'idle' | 'processing' | 'cancelled' | 'completed' | 'failed';
@@ -11,6 +13,7 @@ type ProgressInfo = { phase: ProgressPhase; completed: number; total: number; fi
 type PipelinePageProps = {
   workerFactory?: () => Worker;
   onComplete?: (report: AnalysisReport) => void;
+  onAnalysisLoaded?: (rows: MasterSummaryRow[]) => void;
   onProcessing?: (active: boolean) => void;
 };
 
@@ -65,7 +68,7 @@ function createWorker() {
   return new Worker(new URL('../../workers/tarAnalysis.worker.ts', import.meta.url), { type: 'module' });
 }
 
-export function PipelinePage({ workerFactory = createWorker, onComplete, onProcessing }: PipelinePageProps) {
+export function PipelinePage({ workerFactory = createWorker, onComplete, onAnalysisLoaded, onProcessing }: PipelinePageProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<JobStatus>('idle');
   const [error, setError] = useState('');
@@ -73,6 +76,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onProce
   const [detectedProducts, setDetectedProducts] = useState<string[]>([]);
   const workerRef = useRef<Worker>();
   const metaInputRef = useRef<HTMLInputElement>(null);
+  const analysisInputRef = useRef<HTMLInputElement>(null);
 
   function selectFolder(event: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files ?? []);
@@ -144,6 +148,19 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onProce
     setStatus('cancelled');
     setProgress(null);
     onProcessing?.(false);
+  }
+
+  async function handleAnalysisImport(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const rows = await readAnalysisWorkbook(file);
+      if (rows.length === 0) throw new Error('分析結構檔案沒有資料');
+      onAnalysisLoaded?.(rows);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '無法讀取分析結構 Excel');
+    }
   }
 
   const [metaStatus, setMetaStatus] = useState('');
@@ -236,6 +253,10 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onProce
         {status === 'processing' && <button className="secondary-action" type="button" onClick={cancel}>取消分析</button>}
         {status === 'cancelled' && <p className="status-text">已取消</p>}
         {status === 'completed' && <p className="status-text">分析完成</p>}
+        <button className="secondary-action" type="button" onClick={() => analysisInputRef.current?.click()}>
+          📥 上傳已分析的資料 (.xlsx)
+        </button>
+        <input ref={analysisInputRef} aria-label="上傳已分析的資料" type="file" accept=".xlsx" style={{ display: 'none' }} onChange={handleAnalysisImport} />
 
         {/* 產品屬性資料庫 */}
         <hr style={{ border: 'none', borderTop: '1px solid rgba(88,202,255,.2)', margin: '20px 0' }} />

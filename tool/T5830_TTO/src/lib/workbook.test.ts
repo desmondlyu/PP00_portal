@@ -1,6 +1,12 @@
 import * as XLSX from 'xlsx';
 import { describe, expect, it } from 'vitest';
-import { readMappingWorkbook, readMasterSummaryWorkbook, writeMasterSummaryWorkbook } from './workbook';
+import {
+  readAnalysisWorkbook,
+  readMappingWorkbook,
+  readMasterSummaryWorkbook,
+  writeAnalysisWorkbook,
+  writeMasterSummaryWorkbook
+} from './workbook';
 import type { MasterSummaryRow } from '../types/analysis';
 
 const rows: MasterSummaryRow[] = [{
@@ -17,6 +23,19 @@ const rows: MasterSummaryRow[] = [{
   Station_Time: 1.25,
   Station_Count: 1
 }];
+
+const multiProductRows: MasterSummaryRow[] = [
+  ...rows,
+  {
+    ...rows[0],
+    Product: 'EAG120',
+    Test_Item_Merged: 'PROGRAM',
+    Original_Item_Name: 'PROGRAM_(M)',
+    Grand_Total_Time: 2.5,
+    Grand_Total_Ratio: 100,
+    Station_Time: 2.5
+  }
+];
 
 describe('Master Summary workbook', () => {
   it('writes and reads the dashboard required fields', async () => {
@@ -54,5 +73,34 @@ describe('Master Summary workbook', () => {
       Mode: 'User Mode',
       Operation: 'Read'
     }]);
+  });
+
+  it('round-trips all products through one analysis workbook', async () => {
+    const workbook = writeAnalysisWorkbook(multiProductRows);
+    const parsed = XLSX.read(workbook, { type: 'array' });
+
+    expect(parsed.SheetNames).toContain('Master_Summary');
+    expect(parsed.SheetNames).toContain('EAG119_S1P1');
+    expect(parsed.SheetNames).toContain('EAG120_S1P1');
+
+    const loaded = await readAnalysisWorkbook(new File([workbook], 'T5830_Analysis_Structure.xlsx'));
+    expect(loaded).toHaveLength(2);
+    expect(loaded.map((row) => row.Product)).toEqual(['EAG119', 'EAG120']);
+    expect(loaded[1]).toMatchObject({
+      Test_Item_Merged: 'PROGRAM',
+      Grand_Total_Time: 2.5,
+      Total_Merged_Count: 1
+    });
+  });
+
+  it('rejects an analysis workbook with missing required columns', async () => {
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{
+      Product: 'EAG119',
+      Test_Item_Merged: 'READ_ARRAY'
+    }]), 'Master_Summary');
+    const file = new File([XLSX.write(workbook, { type: 'array', bookType: 'xlsx' })], 'invalid.xlsx');
+
+    await expect(readAnalysisWorkbook(file)).rejects.toThrow('分析結構缺少必要欄位');
   });
 });

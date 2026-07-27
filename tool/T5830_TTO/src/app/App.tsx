@@ -27,6 +27,11 @@ export function App() {
       {view === 'pipeline'
         ? <PipelinePage
             onProcessing={setProcessing}
+            onAnalysisLoaded={(rows) => {
+              setProcessing(false);
+              setSummaries(rows);
+              setView('dashboard');
+            }}
             onComplete={(report) => {
               setProcessing(false);
               setSummaries(report.masterSummary);
