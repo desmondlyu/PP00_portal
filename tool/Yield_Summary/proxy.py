@@ -86,9 +86,9 @@ if __name__ == '__main__':
     print("=" * 56)
     print(f"  Proxy:  http://localhost:{PROXY_PORT}")
     print(f"  Target: {TARGET_BASE}")
-    print(f"  狀態:   就緒，等待 GitHub Pages 連線...")
+    print(f"  狀態:   就緒，等待 CP/FT VSC Yield Summary 連線...")
     print("-" * 56)
-    print("  ✓ 開啟 GitHub Pages 的 Yield Summary 即可使用")
+    print("  ✓ 開啟 CP/FT VSC Yield Summary 網頁即可使用")
     print("  ✓ 關閉此視窗即停止代理")
     print("=" * 56)
 
