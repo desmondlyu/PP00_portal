@@ -66,3 +66,6 @@ __pycache__/
 
 # Superpowers planning artifacts (local only)
 /docs/superpowers/
+
+# Local git worktrees
+/.worktrees/
