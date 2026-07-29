@@ -31,11 +31,10 @@ if not %errorlevel%==0 (
 )
 
 echo [PYTHON] Installing via winget...
-winget install --id Python.Python.3.14 --exact --accept-package-agreements --accept-source-agreements
+winget install --id Python.Python.3.14 --exact --source winget --accept-package-agreements --accept-source-agreements
 if not %errorlevel%==0 (
-    echo ERROR: Python installation failed.
-    pause
-    exit /b 1
+    echo [PYTHON] winget installation failed. Fallback to python.org installer...
+    goto :download_python
 )
 
 goto :recheck_python
@@ -44,17 +43,17 @@ goto :recheck_python
 set "python_arch=%PROCESSOR_ARCHITEW6432%"
 if not defined python_arch set "python_arch=%PROCESSOR_ARCHITECTURE%"
 if /i "%python_arch%"=="ARM64" (
-    set "python_url=https://www.python.org/ftp/python/3.13.14/python-3.13.14-arm64.exe"
+    set "python_url=https://www.python.org/ftp/python/3.14.6/python-3.14.6-arm64.exe"
 )
 if /i "%python_arch%"=="AMD64" (
-    set "python_url=https://www.python.org/ftp/python/3.13.14/python-3.13.14-amd64.exe"
+    set "python_url=https://www.python.org/ftp/python/3.14.6/python-3.14.6-amd64.exe"
 )
 if not defined python_url (
     echo ERROR: Unsupported Windows architecture: %python_arch%.
     pause
     exit /b 1
 )
-set "python_installer=%TEMP%\python-3.13.14-installer.exe"
+set "python_installer=%TEMP%\python-3.14.6-installer.exe"
 set "PROXY_PYTHON_URL=%python_url%"
 set "PROXY_PYTHON_INSTALLER=%python_installer%"
 
@@ -67,7 +66,7 @@ if not %errorlevel%==0 (
 )
 
 echo Installing Python...
-start "" /wait "%python_installer%" /quiet InstallAllUsers=0 PrependPath=1 Include_launcher=1
+start "" /wait "%python_installer%" /quiet InstallAllUsers=0 InstallLauncherAllUsers=0 PrependPath=1 Include_launcher=1
 if not %errorlevel%==0 (
     echo ERROR: Python installation failed.
     pause
