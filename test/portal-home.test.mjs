@@ -17,6 +17,6 @@ test('prioritizes the latest release and provides an animated wafer hero', () =>
   assert.match(css, /\.wafer-visual,\s*\.wafer-defect\s*\{\s*animation: none;/);
   assert.match(css, /\.col-5\s*\{\s*grid-column: span 5;\s*\}/);
   assert.match(css, /\.col-7\s*\{\s*grid-column: span 7;\s*\}/);
-  assert.match(css, /\.changelog-list\s*\{[^}]*overflow-y: auto;[^}]*max-height: 140px;/s);
+  assert.match(css, /\.changelog-list\s*\{[^}]*overflow-y: auto;[^}]*max-height: 220px;/s);
   assert.match(css, /\.hero-title\s*\{[^}]*font-size: 1\.76rem;/s);
 });
