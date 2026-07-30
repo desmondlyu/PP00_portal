@@ -36,7 +36,6 @@ const getToolUrl = (tool) => {
 export default function App() {
   const [activeTool, setActiveTool] = useState(null);
   const [iframeKey, setIframeKey] = useState(0);
-  const [showChangelogHistory, setShowChangelogHistory] = useState(false);
 
   // 後台管理狀態與驗證邏輯
   const [showAdminModal, setShowAdminModal] = useState(false);
@@ -457,8 +456,6 @@ export default function App() {
     { version: 'v1.1.0', date: '2026-05-20', text: '完成 JB Lab 借機系統之平面圖大框架模式與機台校準優化。', isNew: false },
     { version: 'v1.0.0', date: '2026-04-17', text: 'PP00 Tool Portal 基礎架構部署，套用 MIT 授權與版權聲明。', isNew: false }
   ];
-  const [latestChangelog, ...changelogHistory] = changelog;
-
   // 偵測網址參數，支援特定工具直接全螢幕加載並抹除網址參數，維持網址乾淨（包含安全防護）
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -554,8 +551,15 @@ export default function App() {
               <rect className="wafer-die-grid" x="22" y="22" width="156" height="156" clipPath="url(#wafer-clip)" />
               <g clipPath="url(#wafer-clip)">
                 <rect className="wafer-defect wafer-defect-a" x="58" y="58" width="12" height="12" />
-                <rect className="wafer-defect wafer-defect-b" x="128" y="86" width="12" height="12" />
-                <rect className="wafer-defect wafer-defect-c" x="100" y="128" width="12" height="12" />
+                <rect className="wafer-defect wafer-defect-b" x="72" y="58" width="12" height="12" />
+                <rect className="wafer-defect wafer-defect-c" x="100" y="58" width="12" height="12" />
+                <rect className="wafer-defect wafer-defect-a" x="128" y="72" width="12" height="12" />
+                <rect className="wafer-defect wafer-defect-b" x="142" y="86" width="12" height="12" />
+                <rect className="wafer-defect wafer-defect-c" x="86" y="100" width="12" height="12" />
+                <rect className="wafer-defect wafer-defect-a" x="114" y="114" width="12" height="12" />
+                <rect className="wafer-defect wafer-defect-b" x="100" y="128" width="12" height="12" />
+                <rect className="wafer-defect wafer-defect-c" x="72" y="128" width="12" height="12" />
+                <rect className="wafer-defect wafer-defect-a" x="128" y="142" width="12" height="12" />
               </g>
               <path className="wafer-notch" d="M92 21h16l-8 8z" />
             </svg>
@@ -574,23 +578,8 @@ export default function App() {
               <span className="tool-badge">Changelog</span>
             </div>
             <div className="changelog-list">
-              <div className="changelog-item new changelog-latest">
-                <div className="changelog-meta">
-                  <span className="changelog-version">{latestChangelog.version}</span>
-                  <span className="changelog-date">{latestChangelog.date}</span>
-                </div>
-                <p className="changelog-text">{latestChangelog.text}</p>
-              </div>
-              <button
-                className="changelog-toggle"
-                type="button"
-                aria-expanded={showChangelogHistory}
-                onClick={() => setShowChangelogHistory((visible) => !visible)}
-              >
-                {showChangelogHistory ? '收合歷史更新' : '查看歷史更新'}
-              </button>
-              {showChangelogHistory && changelogHistory.map((item) => (
-                <div key={item.version} className="changelog-item">
+              {changelog.map((item, idx) => (
+                <div key={item.version} className={`changelog-item ${idx === 0 ? 'new changelog-latest' : ''}`}>
                   <div className="changelog-meta">
                     <span className="changelog-version">{item.version}</span>
                     <span className="changelog-date">{item.date}</span>

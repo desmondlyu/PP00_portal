@@ -208,3 +208,8 @@ Expected: 僅包含 5/7 首列、最新更新展開互動、晶圓 SVG 與對應
 Run: `git status --short --branch`
 
 Expected: `## feat/release-radar-wafer` 且沒有未提交變更。
+
+## 已核准調整
+
+- 以固定高度 scrollbar 顯示所有版本，取代歷史更新展開按鈕；最新版本仍保留主卡樣式。
+- 晶圓缺陷增為十顆交錯脈衝的 die，Hero 標題字級縮小 20%。
