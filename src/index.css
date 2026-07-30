@@ -252,7 +252,7 @@ body {
 }
 
 .hero-desc {
-  font-size: 1.15rem;
+  font-size: 0.805rem;
   color: var(--text-secondary);
   line-height: 1.6;
 }
