@@ -708,11 +708,6 @@ export default function App() {
                     <span>github.com/desmondlyu</span>
                   </a>
                 </div>
-                <div className="profile-badges" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  <span className="profile-badge" style={{ fontSize: '0.7rem', padding: '4px 8px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-secondary)' }}>Semiconductor PM</span>
-                  <span className="profile-badge" style={{ fontSize: '0.7rem', padding: '4px 8px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-secondary)' }}>CP Data Architect</span>
-                  <span className="profile-badge" style={{ fontSize: '0.7rem', padding: '4px 8px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-secondary)' }}>Vibe Coder</span>
-                </div>
               </div>
               <div className="profile-admin-action" style={{ display: 'flex', alignItems: 'center' }}>
                 <button className="admin-trigger-btn" onClick={() => setShowAdminModal(true)} style={{ margin: '0' }}>
