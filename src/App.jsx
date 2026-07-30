@@ -527,7 +527,7 @@ export default function App() {
       <main className="bento-grid">
         
         {/* 英雄展示區 */}
-        <section className="bento-card col-5 hero-card">
+        <section className="bento-card col-4 hero-card">
           <div className="card-glow"></div>
           <div className="hero-content">
             <span className="hero-tag">Tech & SaaS Portal</span>
@@ -567,7 +567,7 @@ export default function App() {
         </section>
 
         {/* 更新日誌 */}
-        <section className="bento-card col-7 changelog-card">
+        <section className="bento-card col-8 changelog-card">
           <div className="card-glow"></div>
           <div>
             <div className="changelog-header">
