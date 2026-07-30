@@ -718,6 +718,10 @@
       filename = filename.replace(/[<>:"/\\|?*\u0000-\u001F\u007F]/g, '');
       filename = filename.replace(/\.+$/g, '');
       if (!filename) return 'datalog_merged.xlsx';
+      const basename = filename.replace(/\.xlsx$/i, '');
+      if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(basename)) {
+        return 'datalog_merged.xlsx';
+      }
       if (!/\.xlsx$/i.test(filename)) filename += '.xlsx';
       return filename;
     }
