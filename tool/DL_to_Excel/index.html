@@ -717,8 +717,9 @@
       let filename = (mergeFilenameInput.value || '').trim();
       filename = filename.replace(/[<>:"/\\|?*\u0000-\u001F\u007F]/g, '');
       const basename = filename.replace(/\.xlsx$/i, '').replace(/[\s.]+$/g, '');
-      if (!basename) return 'datalog_merged.xlsx';
-      if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(basename)) {
+      const stem = basename.split('.')[0];
+      if (!stem) return 'datalog_merged.xlsx';
+      if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(stem)) {
         return 'datalog_merged.xlsx';
       }
       return `${basename}.xlsx`;
