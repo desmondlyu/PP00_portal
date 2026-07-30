@@ -562,10 +562,6 @@
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.6rem;" id="mode-desc">
           將所有檔案的資料合併為單一 Excel 表單。第一欄將自動插入 Source 欄位，記錄原始檔名。
         </p>
-        <div id="merge-filename-wrapper" style="margin-top: 0.75rem;">
-          <label for="merge-filename" style="display: block; margin-bottom: 0.35rem; font-size: 0.85rem; font-weight: 500;">合併檔名</label>
-          <input id="merge-filename" type="text" value="datalog_merged.xlsx" style="width: 100%; max-width: 320px; padding: 0.55rem 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.06); color: var(--text-primary);">
-        </div>
       </div>
 
       <!-- 狀態欄 -->
@@ -661,8 +657,6 @@
     const statusBar = document.getElementById('status-bar');
     const statusText = document.getElementById('status-text');
     const modeDesc = document.getElementById('mode-desc');
-    const mergeFilenameWrapper = document.getElementById('merge-filename-wrapper');
-    const mergeFilenameInput = document.getElementById('merge-filename');
     const tabMerge = document.getElementById('tab-merge');
     const tabSplit = document.getElementById('tab-split');
 
@@ -713,18 +707,6 @@
       resetApp();
     });
 
-    function getMergeFilename() {
-      let filename = (mergeFilenameInput.value || '').trim();
-      filename = filename.replace(/[<>:"/\\|?*\u0000-\u001F\u007F]/g, '');
-      const basename = filename.replace(/\.xlsx$/i, '').replace(/[\s.]+$/g, '');
-      const stem = basename.split('.')[0];
-      if (!stem) return 'datalog_merged.xlsx';
-      if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(stem)) {
-        return 'datalog_merged.xlsx';
-      }
-      return `${basename}.xlsx`;
-    }
-
     // 模式切換
     function setMode(mode) {
       exportMode = mode;
@@ -732,12 +714,10 @@
         tabMerge.classList.add('active');
         tabSplit.classList.remove('active');
         modeDesc.textContent = "將所有檔案的資料合併為單一 Excel 表單。第一欄將自動插入 Source 欄位，記錄原始檔名。";
-        mergeFilenameWrapper.style.display = 'block';
       } else {
         tabMerge.classList.remove('active');
         tabSplit.classList.add('active');
         modeDesc.textContent = "個別解析每個檔案，並產生各自的 Excel 表單。最後打包為單一 ZIP 壓縮檔下載。";
-        mergeFilenameWrapper.style.display = 'none';
       }
       validateFilesStructure();
     }
@@ -1051,7 +1031,11 @@
           const ws = XLSX.utils.aoa_to_sheet(wsData, { dense: true });
           
           XLSX.utils.book_append_sheet(wb, ws, "Merged Data");
-          outputName = getMergeFilename();
+          if (parsedFiles.length === 1) {
+            outputName = `${parsedFiles[0].fileName.replace(/\.[^/.]+$/, "")}.xlsx`;
+          } else {
+            outputName = "datalog_merged.xlsx";
+          }
           XLSX.writeFile(wb, outputName);
 
         } else {
