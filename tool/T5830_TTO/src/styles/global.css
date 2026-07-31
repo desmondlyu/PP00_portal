@@ -67,6 +67,9 @@ input[type="file"], select { width: 100%; color: var(--muted); background: var(-
 .pipeline-stages span { flex: 1; padding-top: 12px; border-top: 1px solid var(--border); }
 .pipeline-stages b { color: var(--primary); margin-right: 8px; }
 .encrypted-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
   border: 0;
   border-radius: 12px;
   max-width: 380px;
