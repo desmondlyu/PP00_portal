@@ -416,6 +416,7 @@
       background: rgba(0, 0, 0, 0.15);
       border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, 0.04);
+      position: relative;
     }
 
     .column-checkbox-wrapper {
@@ -433,6 +434,20 @@
 
     .column-checkbox-wrapper:hover {
       background: rgba(255, 255, 255, 0.05);
+    }
+
+    .column-checkbox-wrapper.lasso-hit {
+      border-color: rgba(129, 140, 248, 0.6);
+      background: rgba(99, 102, 241, 0.12);
+    }
+
+    .lasso-box {
+      position: absolute;
+      border: 1px solid #818cf8;
+      background: rgba(129, 140, 248, 0.18);
+      pointer-events: none;
+      z-index: 6;
+      display: none;
     }
 
     .column-checkbox-wrapper.disabled {
@@ -655,6 +670,11 @@
     let allHeaders = []; // 基準檔案的 headers (第一個檔案)
     let selectedColumns = new Set(); // 追蹤被勾選的欄位狀態
     let selectedFileNames = new Set();
+    let isLassoSelecting = false;
+    let lassoMode = 'add';
+    let lassoStart = null;
+    let lassoTouchedHeaders = new Set();
+    let lassoBox = null;
 
     // DOM Elements
     const dropZone = document.getElementById('drop-zone');
@@ -927,10 +947,111 @@
       columnSearch.value = '';
       renderColumnsGrid();
       updateSelectedCount();
+      ensureLassoBox();
     }
 
     function closeModal() {
+      endLassoSelection();
       modalBackdrop.classList.remove('active');
+    }
+
+    function ensureLassoBox() {
+      if (!lassoBox) {
+        lassoBox = document.createElement('div');
+        lassoBox.className = 'lasso-box';
+      }
+      if (!columnsGrid.contains(lassoBox)) {
+        columnsGrid.appendChild(lassoBox);
+      }
+    }
+
+    function beginLassoSelection(e) {
+      if (e.button !== 0) return;
+      if (!columnsGrid.contains(e.target)) return;
+      if (e.target.closest('input[type="checkbox"]')) return;
+      e.preventDefault();
+
+      isLassoSelecting = true;
+      lassoMode = 'add';
+      if (e.altKey) lassoMode = 'remove';
+      lassoTouchedHeaders.clear();
+      document.body.style.userSelect = 'none';
+      ensureLassoBox();
+
+      const gridRect = columnsGrid.getBoundingClientRect();
+      const x = Math.max(0, Math.min(e.clientX - gridRect.left, gridRect.width));
+      const y = Math.max(0, Math.min(e.clientY - gridRect.top, gridRect.height));
+      lassoStart = { x, y };
+      updateLassoSelection(e);
+    }
+
+    function updateLassoSelection(e) {
+      if (!isLassoSelecting || !lassoStart || !lassoBox) return;
+      const gridRect = columnsGrid.getBoundingClientRect();
+      const x = Math.max(0, Math.min(e.clientX - gridRect.left, gridRect.width));
+      const y = Math.max(0, Math.min(e.clientY - gridRect.top, gridRect.height));
+
+      const left = Math.min(lassoStart.x, x);
+      const top = Math.min(lassoStart.y, y);
+      const width = Math.abs(x - lassoStart.x);
+      const height = Math.abs(y - lassoStart.y);
+
+      lassoBox.style.display = 'block';
+      lassoBox.style.left = `${left}px`;
+      lassoBox.style.top = `${top}px`;
+      lassoBox.style.width = `${width}px`;
+      lassoBox.style.height = `${height}px`;
+
+      lassoTouchedHeaders.clear();
+      columnsGrid.querySelectorAll('.column-checkbox-wrapper').forEach(wrapper => {
+        wrapper.classList.remove('lasso-hit');
+      });
+
+      const hitRect = {
+        left: gridRect.left + left,
+        top: gridRect.top + top,
+        right: gridRect.left + left + width,
+        bottom: gridRect.top + top + height,
+      };
+
+      columnsGrid.querySelectorAll('.column-checkbox-wrapper:not(.disabled)').forEach(wrapper => {
+        const rect = wrapper.getBoundingClientRect();
+        const intersects = !(rect.right < hitRect.left || rect.left > hitRect.right || rect.bottom < hitRect.top || rect.top > hitRect.bottom);
+        if (!intersects) return;
+        wrapper.classList.add('lasso-hit');
+        const checkbox = wrapper.querySelector('input[type="checkbox"]');
+        if (checkbox && checkbox.value) {
+          lassoTouchedHeaders.add(checkbox.value);
+        }
+      });
+    }
+
+    function endLassoSelection() {
+      if (!isLassoSelecting) return;
+      isLassoSelecting = false;
+      document.body.style.userSelect = '';
+
+      if (lassoTouchedHeaders.size > 0) {
+        lassoTouchedHeaders.forEach(header => {
+          if (header === 'Source' && exportMode === 'merge') return;
+          if (lassoMode === 'remove') {
+            selectedColumns.delete(header);
+          } else {
+            selectedColumns.add(header);
+          }
+        });
+      }
+
+      columnsGrid.querySelectorAll('.column-checkbox-wrapper').forEach(wrapper => {
+        wrapper.classList.remove('lasso-hit');
+      });
+      if (lassoBox) {
+        lassoBox.style.display = 'none';
+      }
+      lassoTouchedHeaders.clear();
+      lassoStart = null;
+      renderColumnsGrid(columnSearch.value);
+      updateSelectedCount();
     }
 
     // 渲染 Modal 的欄位
@@ -996,6 +1117,11 @@
     columnSearch.addEventListener('input', (e) => {
       renderColumnsGrid(e.target.value);
     });
+
+    columnsGrid.addEventListener('pointerdown', beginLassoSelection);
+    window.addEventListener('pointermove', updateLassoSelection);
+    window.addEventListener('pointerup', endLassoSelection);
+    window.addEventListener('pointercancel', endLassoSelection);
 
     // 處理欄位 checkbox 點擊切換
     function toggleColumn(checkbox) {
