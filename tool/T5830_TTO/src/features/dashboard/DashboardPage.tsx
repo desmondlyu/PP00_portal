@@ -117,7 +117,7 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
       </div>
       <dialog className="encrypted-dialog" open={showEncryptedDialog} aria-labelledby="encrypted-dialog-title">
         <p id="encrypted-dialog-title">⚠️ 系統無法分析受保護的 Excel 檔案，請解除加密設定後重新上傳。</p>
-        <img src="/unlock_irm.jpg" alt="解除保護說明" />
+        <img src="unlock_irm.jpg" alt="解除保護說明" />
         <div className="encrypted-dialog-actions">
           <button className="primary-action" type="button" onClick={() => setShowEncryptedDialog(false)}>關閉</button>
         </div>
