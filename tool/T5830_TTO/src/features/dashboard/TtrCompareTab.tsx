@@ -73,16 +73,22 @@ function DonutChart({ data, title, size = 280 }: { data: Map<string, number>; ti
   );
 }
 
-function downloadCsv(data: Map<string, number>, filename: string) {
+function buildDatasetCsvRows(dataset: string, data: Map<string, number>) {
   const total = [...data.values()].reduce((s, v) => s + v, 0) || 1;
-  const lines = ['Test_Item,Time(s),Ratio(%)'];
-  for (const [item, time] of [...data.entries()].sort((a, b) => b[1] - a[1])) {
-    lines.push(`${item},${time.toFixed(2)},${((time / total) * 100).toFixed(2)}%`);
-  }
+  return [...data.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([item, time]) => `${dataset},${item},${time.toFixed(2)},${((time / total) * 100).toFixed(2)}%`);
+}
+
+function downloadCombinedCsv(before: Map<string, number>, after: Map<string, number>, savings: Map<string, number>) {
+  const lines = ['Dataset,Test_Item,Time(s),Ratio(%)'];
+  lines.push(...buildDatasetCsvRows('Baseline', before));
+  lines.push(...buildDatasetCsvRows('Optimized', after));
+  lines.push(...buildDatasetCsvRows('Savings', savings));
   const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
+  a.href = url; a.download = 'ttr_combined_ratio.csv'; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -188,13 +194,8 @@ export function TtrCompareTab({ baseline, optimized, onLoad, error, onError }: P
       <div style={{ display: 'flex', gap: 12, marginBottom: 32 }}>
         <button className="secondary-action" type="button"
           style={{ fontSize: '0.8em', padding: '8px 16px', fontWeight: 'normal' }}
-          onClick={() => downloadCsv(before, 'baseline_ratio.csv')}>
-          📥 下載優化前佔比 (CSV)
-        </button>
-        <button className="secondary-action" type="button"
-          style={{ fontSize: '0.8em', padding: '8px 16px', fontWeight: 'normal' }}
-          onClick={() => downloadCsv(after, 'optimized_ratio.csv')}>
-          📥 下載優化後佔比 (CSV)
+          onClick={() => downloadCombinedCsv(before, after, savingsMap)}>
+          📥 下載整合佔比 (CSV)
         </button>
       </div>
 
