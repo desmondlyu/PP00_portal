@@ -544,6 +544,15 @@
       
       <!-- 檔案列表 -->
       <div id="file-list-wrapper" style="display: none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem; font-size:0.85rem; color:var(--text-secondary);">
+          <div>
+            已勾選檔案 <span id="selected-file-count" style="color:var(--accent-color); font-weight:700;">0</span> / <span id="total-file-count">0</span>
+          </div>
+          <div style="display:flex; gap:1rem;">
+            <span class="selection-link" onclick="selectAllFiles(true)">全選檔案</span>
+            <span class="selection-link" onclick="selectAllFiles(false)">取消全選</span>
+          </div>
+        </div>
         <div class="file-list-container" id="file-list"></div>
         <div style="display: flex; justify-content: flex-end; margin-top: 0.8rem;">
           <button class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" id="clear-files-btn">清除檔案</button>
@@ -645,6 +654,7 @@
     let exportMode = 'merge'; // 'merge' | 'split'
     let allHeaders = []; // 基準檔案的 headers (第一個檔案)
     let selectedColumns = new Set(); // 追蹤被勾選的欄位狀態
+    let selectedFileNames = new Set();
 
     // DOM Elements
     const dropZone = document.getElementById('drop-zone');
@@ -652,6 +662,8 @@
     const fileListWrapper = document.getElementById('file-list-wrapper');
     const fileList = document.getElementById('file-list');
     const clearFilesBtn = document.getElementById('clear-files-btn');
+    const selectedFileCount = document.getElementById('selected-file-count');
+    const totalFileCount = document.getElementById('total-file-count');
     const stepControl = document.getElementById('step-control');
     const nextStepBtn = document.getElementById('next-step-btn');
     const statusBar = document.getElementById('status-bar');
@@ -717,7 +729,7 @@
       } else {
         tabMerge.classList.remove('active');
         tabSplit.classList.add('active');
-        modeDesc.textContent = "個別解析每個檔案，並產生各自的 Excel 表單。最後打包為單一 ZIP 壓縮檔下載。";
+        modeDesc.textContent = "個別解析每個檔案，並產生各自的 Excel 表單（逐檔下載）。";
       }
       validateFilesStructure();
     }
@@ -739,6 +751,7 @@
         const endTime = performance.now();
         
         parsedFiles = parsedFiles.concat(results);
+        initializeFileSelections(results);
         parseTimeAccumulated += Math.round(endTime - startTime);
 
         renderFileList();
@@ -780,6 +793,20 @@
       parsedFiles.forEach(file => {
         const item = document.createElement('div');
         item.className = 'file-item';
+
+        const leftWrap = document.createElement('div');
+        leftWrap.style.display = 'flex';
+        leftWrap.style.alignItems = 'center';
+        leftWrap.style.gap = '8px';
+        leftWrap.style.maxWidth = '70%';
+
+        const fileCheck = document.createElement('input');
+        fileCheck.type = 'checkbox';
+        fileCheck.checked = selectedFileNames.has(file.fileName);
+        fileCheck.style.accentColor = 'var(--accent-color)';
+        fileCheck.addEventListener('change', (e) => {
+          toggleFileSelection(file.fileName, e.target.checked);
+        });
         
         const nameSpan = document.createElement('span');
         nameSpan.className = 'file-item-name';
@@ -790,13 +817,46 @@
         const sizeKB = (file.sizeBytes / 1024).toFixed(1);
         sizeSpan.textContent = `${sizeKB} KB (${file.rows.length} 列)`;
         
-        item.appendChild(nameSpan);
+        leftWrap.appendChild(fileCheck);
+        leftWrap.appendChild(nameSpan);
+        item.appendChild(leftWrap);
         item.appendChild(sizeSpan);
         fileList.appendChild(item);
       });
 
       fileListWrapper.style.display = 'block';
       stepControl.style.display = 'flex';
+      selectedFileCount.textContent = selectedFileNames.size;
+      totalFileCount.textContent = parsedFiles.length;
+    }
+
+    function initializeFileSelections(files) {
+      files.forEach(file => selectedFileNames.add(file.fileName));
+      selectedFileCount.textContent = selectedFileNames.size;
+      totalFileCount.textContent = parsedFiles.length;
+    }
+
+    function toggleFileSelection(fileName, checked) {
+      if (checked) {
+        selectedFileNames.add(fileName);
+      } else {
+        selectedFileNames.delete(fileName);
+      }
+      selectedFileCount.textContent = selectedFileNames.size;
+      totalFileCount.textContent = parsedFiles.length;
+    }
+
+    function selectAllFiles(select) {
+      if (select) {
+        parsedFiles.forEach(file => selectedFileNames.add(file.fileName));
+      } else {
+        selectedFileNames.clear();
+      }
+      renderFileList();
+    }
+
+    function getSelectedFiles() {
+      return parsedFiles.filter(file => selectedFileNames.has(file.fileName));
     }
 
     // 驗證檔案結構並執行防呆
@@ -1002,9 +1062,9 @@
       return `${cleaned}.xlsx`;
     }
 
-    async function fallbackSplitExportAsFiles(dataHeaders) {
+    async function exportSplitAsIndividualFiles(selectedFiles, dataHeaders) {
       let totalRows = 0;
-      parsedFiles.forEach(file => {
+      selectedFiles.forEach(file => {
         const wsData = [dataHeaders];
         file.rows.forEach(row => {
           const rowArr = [];
@@ -1027,10 +1087,16 @@
     // 觸發 Excel 導出或 ZIP 下載
     confirmExportBtn.addEventListener('click', async () => {
       const selectedHeaders = getSelectedHeaders();
+      const selectedFiles = getSelectedFiles();
       
       // 過濾出真正的 Datalog Headers (不含 Source)
       const dataHeaders = selectedHeaders.filter(h => h !== 'Source');
       
+      if (selectedFiles.length === 0) {
+        updateStatus('error', '請至少勾選一個檔案再匯出。');
+        return;
+      }
+
       if (dataHeaders.length === 0) {
         alert("請至少選擇一個資料欄位進行導出！");
         return;
@@ -1049,7 +1115,7 @@
           // =================== 合併模式 ===================
           const wsData = [selectedHeaders];
           
-          parsedFiles.forEach(file => {
+          selectedFiles.forEach(file => {
             const fileNameNoExt = file.fileName.replace(/\.[^/.]+$/, "");
             file.rows.forEach(row => {
               const rowArr = [];
@@ -1074,42 +1140,9 @@
           XLSX.writeFile(wb, outputName);
 
         } else {
-          // =================== 分開儲存打包 ===================
-          const zip = new JSZip();
-          
-          parsedFiles.forEach(file => {
-            const wsData = [dataHeaders];
-            file.rows.forEach(row => {
-              const rowArr = [];
-              dataHeaders.forEach(h => {
-                rowArr.push(row[h] !== undefined ? row[h] : "");
-              });
-              wsData.push(rowArr);
-            });
-
-            totalRows += wsData.length - 1;
-            
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet(wsData, { dense: true });
-            XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-            
-            // 轉成 binary 寫入 ZIP
-            const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-            const fileNameNoExt = file.fileName.replace(/\.[^/.]+$/, "");
-            zip.file(`${fileNameNoExt}.xlsx`, excelBuffer);
-          });
-
-          const zipBlob = await zip.generateAsync({ type: "blob" });
-          const url = URL.createObjectURL(zipBlob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = "datalog_individual_files.zip";
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          
-          outputName = "datalog_individual_files.zip";
+          // =================== 分開儲存模式（逐檔下載） ===================
+          totalRows = await exportSplitAsIndividualFiles(selectedFiles, dataHeaders);
+          outputName = `individual_xlsx_${selectedFiles.length}_files`;
         }
 
         const endTime = performance.now();
@@ -1122,23 +1155,7 @@
         console.error(err);
         const message = String(err && err.message ? err.message : err);
         if (message.includes('Invalid string length') || message.includes('Invalid array length')) {
-          if (exportMode === 'split') {
-            try {
-              updateStatus('loading', '偵測到記憶體限制，改用逐檔下載模式重試...');
-              const fallbackStart = performance.now();
-              const totalRows = await fallbackSplitExportAsFiles(dataHeaders);
-              const fallbackEnd = performance.now();
-              const exportTime = Math.round(fallbackEnd - fallbackStart);
-              showResult(totalRows, exportTime, `individual_xlsx_${parsedFiles.length}_files`);
-              updateStatus('success', '✔ 已改用逐檔下載模式完成匯出。');
-              return;
-            } catch (fallbackErr) {
-              const fallbackMessage = String(fallbackErr && fallbackErr.message ? fallbackErr.message : fallbackErr);
-              updateStatus('error', `導出失敗：${fallbackMessage}`);
-              return;
-            }
-          }
-          updateStatus('error', '導出失敗：資料量過大或欄位內容異常（Invalid string/array length）。請先減少勾選欄位，或改用「分開儲存打包 (Split)」重試。');
+          updateStatus('error', '導出失敗：資料量過大（Invalid string/array length）。請減少勾選檔案數或欄位數後重試。');
         } else {
           updateStatus('error', `導出失敗：${message}`);
         }
@@ -1164,11 +1181,14 @@
       parseTimeAccumulated = 0;
       fileInput.value = '';
       selectedColumns = new Set(); // 重置選取狀態
+      selectedFileNames = new Set();
       
       stepUpload.style.display = 'block';
       fileListWrapper.style.display = 'none';
       stepControl.style.display = 'none';
       stepResult.style.display = 'none';
+      selectedFileCount.textContent = '0';
+      totalFileCount.textContent = '0';
       
       updateStatus('info', '請上傳 Datalog 檔案');
     }
