@@ -6,12 +6,25 @@ import type { MasterSummaryRow } from '../types/analysis';
 const requiredColumns = ['Test_Item_Merged', 'Grand_Total_Time', 'Total_Merged_Count'];
 const analysisColumns = ['Product', 'Test_Item_Merged', 'Grand_Total_Time', 'Total_Merged_Count'];
 const mappingColumns = ['Original_Item_Name', 'Mode', 'Operation'];
+const encryptedWorkbookPattern = /ECMA-376|\/EncryptionInfo|Encrypted|password-protected/i;
 
 export type MappingRow = {
   Original_Item_Name: string;
   Mode: string;
   Operation: string;
 };
+
+export class EncryptedWorkbookError extends Error {
+  constructor() {
+    super('系統無法分析受保護的 Excel 檔案，請解除加密設定後重新上傳。');
+    this.name = 'EncryptedWorkbookError';
+  }
+}
+
+export function isEncryptedWorkbookError(error: unknown): boolean {
+  if (error instanceof EncryptedWorkbookError) return true;
+  return error instanceof Error && encryptedWorkbookPattern.test(error.message);
+}
 
 function readAsArrayBuffer(blob: Blob) {
   return new Promise<ArrayBuffer>((resolve, reject) => {
@@ -25,6 +38,15 @@ function readAsArrayBuffer(blob: Blob) {
 function asNumber(value: unknown) {
   const number = typeof value === 'number' ? value : Number.parseFloat(String(value).replace('%', ''));
   return Number.isFinite(number) ? number : 0;
+}
+
+async function readWorkbook(file: File) {
+  try {
+    return XLSX.read(await readAsArrayBuffer(file), { type: 'array' });
+  } catch (error) {
+    if (isEncryptedWorkbookError(error)) throw new EncryptedWorkbookError();
+    throw error;
+  }
 }
 
 export function writeMasterSummaryWorkbook(rows: MasterSummaryRow[]): ArrayBuffer {
@@ -210,7 +232,7 @@ export function writeAnalysisWorkbook(rows: MasterSummaryRow[]): ArrayBuffer {
 }
 
 export async function readAnalysisWorkbook(file: File): Promise<MasterSummaryRow[]> {
-  const workbook = XLSX.read(await readAsArrayBuffer(file), { type: 'array' });
+  const workbook = await readWorkbook(file);
   const worksheet = workbook.Sheets.Master_Summary;
   if (!worksheet) throw new Error('找不到 Master_Summary 工作表');
 
@@ -245,7 +267,7 @@ export async function readAnalysisWorkbook(file: File): Promise<MasterSummaryRow
 }
 
 export async function readMasterSummaryWorkbook(file: File): Promise<MasterSummaryRow[]> {
-  const workbook = XLSX.read(await readAsArrayBuffer(file), { type: 'array' });
+  const workbook = await readWorkbook(file);
   const worksheet = workbook.Sheets.Master_Summary;
   if (!worksheet) throw new Error('找不到 Master_Summary 工作表');
 
@@ -286,7 +308,7 @@ export async function readMasterSummaryWorkbook(file: File): Promise<MasterSumma
 }
 
 export async function readMappingWorkbook(file: File): Promise<MappingRow[]> {
-  const workbook = XLSX.read(await readAsArrayBuffer(file), { type: 'array' });
+  const workbook = await readWorkbook(file);
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: '' });
   const columns = new Set(Object.keys(rows[0] ?? {}));

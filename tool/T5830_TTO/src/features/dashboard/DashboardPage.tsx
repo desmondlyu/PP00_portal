@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { readMappingWorkbook, writeAnalysisWorkbook, writeMasterSummaryWorkbook, type MappingRow } from '../../lib/workbook';
+import { isEncryptedWorkbookError, readMappingWorkbook, writeAnalysisWorkbook, writeMasterSummaryWorkbook, type MappingRow } from '../../lib/workbook';
 import { DEFAULT_MAPPING } from '../../lib/defaultMapping';
 import type { MasterSummaryRow } from '../../types/analysis';
 import { CountTab } from './CountTab';
@@ -18,6 +18,7 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
   const [baseline, setBaseline] = useState<MasterSummaryRow[]>([]);
   const [optimized, setOptimized] = useState<MasterSummaryRow[]>([]);
   const [ttrError, setTtrError] = useState('');
+  const [showEncryptedDialog, setShowEncryptedDialog] = useState(false);
   const [mappingStatus, setMappingStatus] = useState('預設分類已載入');
   // ponytail: 預設用內建規則，使用者上傳可覆蓋
   const [mapping, setMapping] = useState<MappingRow[]>(DEFAULT_MAPPING);
@@ -45,6 +46,10 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
       setMappingStatus(`已套用 Mapping：${matchedItems}/${summaryItems.size}`);
       setActiveTab('多維度旭日圖');
     } catch (error) {
+      if (isEncryptedWorkbookError(error)) {
+        setShowEncryptedDialog(true);
+        return;
+      }
       setMappingStatus(error instanceof Error ? error.message : '無法讀取 Mapping 檔案');
     }
   }
@@ -108,13 +113,20 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
       <div id={panelId} role="tabpanel" aria-labelledby={`dashboard-tab-${tabs.indexOf(activeTab)}`}>
         {filtered.length === 0 && activeTab !== 'TTR 對比'
           ? <p>{summaries.length === 0 ? '尚無 Master Summary 資料。請先完成分析或載入 Master Summary 檔案。' : '沒有符合目前篩選條件的資料。'}</p>
-          : <TabContent tab={activeTab} rows={filtered} rawRows={rawFiltered} mapping={mapping} baseline={baseline} optimized={optimized} onLoad={(kind, rows) => kind === 'baseline' ? setBaseline(rows) : setOptimized(rows)} error={ttrError} onError={setTtrError} />}
+          : <TabContent tab={activeTab} rows={filtered} rawRows={rawFiltered} mapping={mapping} baseline={baseline} optimized={optimized} onLoad={(kind, rows) => kind === 'baseline' ? setBaseline(rows) : setOptimized(rows)} error={ttrError} onError={setTtrError} onEncryptedFile={() => setShowEncryptedDialog(true)} />}
       </div>
+      <dialog className="encrypted-dialog" open={showEncryptedDialog} aria-labelledby="encrypted-dialog-title">
+        <p id="encrypted-dialog-title">⚠️ 系統無法分析受保護的 Excel 檔案，請解除加密設定後重新上傳。</p>
+        <img src="/unlock_irm.jpg" alt="解除保護說明" />
+        <div className="encrypted-dialog-actions">
+          <button className="primary-action" type="button" onClick={() => setShowEncryptedDialog(false)}>關閉</button>
+        </div>
+      </dialog>
     </section>
   );
 }
 
-function TabContent({ tab, rows, rawRows, mapping, baseline, optimized, onLoad, error, onError }: {
+function TabContent({ tab, rows, rawRows, mapping, baseline, optimized, onLoad, error, onError, onEncryptedFile }: {
   tab: (typeof tabs)[number];
   rows: MasterSummaryRow[];
   rawRows: MasterSummaryRow[];
@@ -124,13 +136,14 @@ function TabContent({ tab, rows, rawRows, mapping, baseline, optimized, onLoad, 
   onLoad: (kind: 'baseline' | 'optimized', rows: MasterSummaryRow[]) => void;
   error: string;
   onError: (error: string) => void;
+  onEncryptedFile: () => void;
 }) {
   if (tab === '核心戰情總覽') return <OverviewTab rows={rows} rawRows={rawRows} mapping={mapping} />;
   if (tab === '視覺化對比') return <StackedTimeBars rows={rows} />;
   if (tab === '跨產品明細 (時間)') return <TimeTab rows={rows} />;
   if (tab === '跨產品明細 (次數)') return <CountTab rows={rows} />;
   if (tab === '多維度旭日圖') return <SunburstTab rows={rawRows} mapping={mapping} />;
-  return <TtrCompareTab baseline={baseline} optimized={optimized} onLoad={onLoad} error={error} onError={onError} />;
+  return <TtrCompareTab baseline={baseline} optimized={optimized} onLoad={onLoad} error={error} onError={onError} onEncryptedFile={onEncryptedFile} />;
 }
 
 function StackedTimeBars({ rows }: { rows: MasterSummaryRow[] }) {

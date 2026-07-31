@@ -1,6 +1,8 @@
 import * as XLSX from 'xlsx';
 import { describe, expect, it } from 'vitest';
 import {
+  EncryptedWorkbookError,
+  isEncryptedWorkbookError,
   readAnalysisWorkbook,
   readMappingWorkbook,
   readMasterSummaryWorkbook,
@@ -102,5 +104,11 @@ describe('Master Summary workbook', () => {
     const file = new File([XLSX.write(workbook, { type: 'array', bookType: 'xlsx' })], 'invalid.xlsx');
 
     await expect(readAnalysisWorkbook(file)).rejects.toThrow('分析結構缺少必要欄位');
+  });
+
+  it('detects encrypted workbook errors', () => {
+    expect(isEncryptedWorkbookError(new Error('ECMA-376 Encrypted file missing /EncryptionInfo'))).toBe(true);
+    expect(isEncryptedWorkbookError(new EncryptedWorkbookError())).toBe(true);
+    expect(isEncryptedWorkbookError(new Error('unexpected signature'))).toBe(false);
   });
 });
