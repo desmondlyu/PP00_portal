@@ -444,7 +444,8 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
-    { version: 'v1.9.1', date: '2026-07-28', text: '🛠️ Yield Summary：第一次執行 proxy.bat 會自動檢查 Python，未安裝時可自動安裝，免手動找安裝檔。', isNew: true },
+    { version: 'v1.9.2', date: '2026-07-31', text: '🚀 DL to Excel：支援多檔批次匯出下載，降低大檔匯出記憶體不足風險；新增欄位「框選模式」，可快速圈選要匯出的參數。', isNew: true },
+    { version: 'v1.9.1', date: '2026-07-28', text: '🛠️ Yield Summary：第一次執行 proxy.bat 會自動檢查 Python，未安裝時可自動安裝，免手動找安裝檔。', isNew: false },
     { version: 'v1.9.0', date: '2026-07-27', text: '🆕 新增「T5830 測試程式優化分析」工具，支援解析 T5830 RAWDATA (.TGZ)，自動產生測試時間/次數跨產品 Dashboard。', isNew: false },
     { version: 'v1.8.0', date: '2026-07-17', text: '🐛 Yield Summary：更新 proxy.bat 與 proxy.py，提升資料連線穩定性。', isNew: false },
     { version: 'v1.7.0', date: '2026-07-07', text: '🔒 上傳受 IRM 保護的 Excel 時，各工具現在會彈出說明視窗附圖教你解鎖，不再只顯示一串看不懂的錯誤碼！', isNew: false },
