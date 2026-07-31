@@ -1002,6 +1002,28 @@
       return `${cleaned}.xlsx`;
     }
 
+    async function fallbackSplitExportAsFiles(dataHeaders) {
+      let totalRows = 0;
+      parsedFiles.forEach(file => {
+        const wsData = [dataHeaders];
+        file.rows.forEach(row => {
+          const rowArr = [];
+          dataHeaders.forEach(h => {
+            rowArr.push(row[h] !== undefined ? row[h] : "");
+          });
+          wsData.push(rowArr);
+        });
+        totalRows += wsData.length - 1;
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(wsData, { dense: true });
+        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+        const fileNameNoExt = file.fileName.replace(/\.[^/.]+$/, "");
+        XLSX.writeFile(wb, `${fileNameNoExt}.xlsx`);
+      });
+      return totalRows;
+    }
+
     // 觸發 Excel 導出或 ZIP 下載
     confirmExportBtn.addEventListener('click', async () => {
       const selectedHeaders = getSelectedHeaders();
@@ -1099,8 +1121,24 @@
       } catch (err) {
         console.error(err);
         const message = String(err && err.message ? err.message : err);
-        if (message.includes('Invalid string length')) {
-          updateStatus('error', '導出失敗：資料量過大或欄位內容異常（Invalid string length）。請先減少勾選欄位，或改用「分開儲存打包 (Split)」重試。');
+        if (message.includes('Invalid string length') || message.includes('Invalid array length')) {
+          if (exportMode === 'split') {
+            try {
+              updateStatus('loading', '偵測到記憶體限制，改用逐檔下載模式重試...');
+              const fallbackStart = performance.now();
+              const totalRows = await fallbackSplitExportAsFiles(dataHeaders);
+              const fallbackEnd = performance.now();
+              const exportTime = Math.round(fallbackEnd - fallbackStart);
+              showResult(totalRows, exportTime, `individual_xlsx_${parsedFiles.length}_files`);
+              updateStatus('success', '✔ 已改用逐檔下載模式完成匯出。');
+              return;
+            } catch (fallbackErr) {
+              const fallbackMessage = String(fallbackErr && fallbackErr.message ? fallbackErr.message : fallbackErr);
+              updateStatus('error', `導出失敗：${fallbackMessage}`);
+              return;
+            }
+          }
+          updateStatus('error', '導出失敗：資料量過大或欄位內容異常（Invalid string/array length）。請先減少勾選欄位，或改用「分開儲存打包 (Split)」重試。');
         } else {
           updateStatus('error', `導出失敗：${message}`);
         }
