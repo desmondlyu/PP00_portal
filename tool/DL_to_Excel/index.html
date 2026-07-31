@@ -985,6 +985,23 @@
       updateSelectedCount();
     }
 
+    function deriveSafeMergeFilename() {
+      if (parsedFiles.length !== 1) return 'datalog_merged.xlsx';
+      const sourceName = parsedFiles[0].fileName || 'datalog_merged.txt';
+      const rawBase = sourceName.replace(/\.[^/.]+$/, '');
+      const cleaned = rawBase
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+        .replace(/[\s.]+$/g, '')
+        .replace(/\s+/g, '_')
+        .slice(0, 120);
+
+      if (!cleaned) return 'datalog_merged.xlsx';
+      if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(cleaned)) {
+        return `${cleaned}_file.xlsx`;
+      }
+      return `${cleaned}.xlsx`;
+    }
+
     // 觸發 Excel 導出或 ZIP 下載
     confirmExportBtn.addEventListener('click', async () => {
       const selectedHeaders = getSelectedHeaders();
@@ -1031,11 +1048,7 @@
           const ws = XLSX.utils.aoa_to_sheet(wsData, { dense: true });
           
           XLSX.utils.book_append_sheet(wb, ws, "Merged Data");
-          if (parsedFiles.length === 1) {
-            outputName = `${parsedFiles[0].fileName.replace(/\.[^/.]+$/, "")}.xlsx`;
-          } else {
-            outputName = "datalog_merged.xlsx";
-          }
+          outputName = deriveSafeMergeFilename();
           XLSX.writeFile(wb, outputName);
 
         } else {
@@ -1085,7 +1098,12 @@
 
       } catch (err) {
         console.error(err);
-        updateStatus('error', `導出失敗：${err.message}`);
+        const message = String(err && err.message ? err.message : err);
+        if (message.includes('Invalid string length')) {
+          updateStatus('error', '導出失敗：資料量過大或欄位內容異常（Invalid string length）。請先減少勾選欄位，或改用「分開儲存打包 (Split)」重試。');
+        } else {
+          updateStatus('error', `導出失敗：${message}`);
+        }
       }
     });
 
