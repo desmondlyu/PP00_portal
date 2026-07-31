@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { AnalysisReport } from '../../lib/analysis';
 import { PRODUCT_METADATA, exportProductMetadata, mergeProductMetadata, type ProductMeta } from '../../lib/productMetadata';
-import { readAnalysisWorkbook } from '../../lib/workbook';
+import { isEncryptedWorkbookError, readAnalysisWorkbook } from '../../lib/workbook';
 import type { MasterSummaryRow } from '../../types/analysis';
 import type { WorkerResponse } from '../../workers/protocol';
 
@@ -72,6 +72,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<JobStatus>('idle');
   const [error, setError] = useState('');
+  const [showEncryptedDialog, setShowEncryptedDialog] = useState(false);
   const [progress, setProgress] = useState<ProgressInfo | null>(null);
   const [detectedProducts, setDetectedProducts] = useState<string[]>([]);
   const workerRef = useRef<Worker>();
@@ -159,6 +160,10 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
       if (rows.length === 0) throw new Error('分析結構檔案沒有資料');
       onAnalysisLoaded?.(rows);
     } catch (error) {
+      if (isEncryptedWorkbookError(error)) {
+        setShowEncryptedDialog(true);
+        return;
+      }
       setError(error instanceof Error ? error.message : '無法讀取分析結構 Excel');
     }
   }
@@ -276,6 +281,13 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
         </div>
         {metaStatus && <p role="status" style={{ marginTop: 8, fontSize: '0.85em' }}>{metaStatus}</p>}
       </div>
+      <dialog className="encrypted-dialog" open={showEncryptedDialog} aria-labelledby="encrypted-dialog-title">
+        <p id="encrypted-dialog-title">⚠️ 系統無法分析受保護的 Excel 檔案，請解除加密設定後重新上傳。</p>
+        <img src="/unlock_irm.jpg" alt="解除保護說明" />
+        <div className="encrypted-dialog-actions">
+          <button className="primary-action" type="button" onClick={() => setShowEncryptedDialog(false)}>關閉</button>
+        </div>
+      </dialog>
       <div className="pipeline-stages" aria-label="分析流程">
         <span><b>01</b> Extract</span><span><b>02</b> Analyze</span><span><b>03</b> Monitor</span>
       </div>

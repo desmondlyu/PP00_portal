@@ -1,6 +1,6 @@
 import type { ChangeEvent } from 'react';
 import type { MasterSummaryRow } from '../../types/analysis';
-import { readMasterSummaryWorkbook } from '../../lib/workbook';
+import { isEncryptedWorkbookError, readMasterSummaryWorkbook } from '../../lib/workbook';
 
 type Props = {
   baseline: MasterSummaryRow[];
@@ -8,6 +8,7 @@ type Props = {
   onLoad: (kind: 'baseline' | 'optimized', rows: MasterSummaryRow[]) => void;
   error: string;
   onError: (error: string) => void;
+  onEncryptedFile: () => void;
 };
 
 function totalsByItem(rows: MasterSummaryRow[]) {
@@ -92,7 +93,7 @@ function downloadCombinedCsv(before: Map<string, number>, after: Map<string, num
   URL.revokeObjectURL(url);
 }
 
-export function TtrCompareTab({ baseline, optimized, onLoad, error, onError }: Props) {
+export function TtrCompareTab({ baseline, optimized, onLoad, error, onError, onEncryptedFile }: Props) {
   async function load(kind: 'baseline' | 'optimized', event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -104,6 +105,10 @@ export function TtrCompareTab({ baseline, optimized, onLoad, error, onError }: P
       onLoad(kind, await readMasterSummaryWorkbook(file));
       onError('');
     } catch (cause) {
+      if (isEncryptedWorkbookError(cause)) {
+        onEncryptedFile();
+        return;
+      }
       onError(cause instanceof Error ? cause.message : '無法讀取 Master Summary');
     }
   }

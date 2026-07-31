@@ -66,6 +66,20 @@ input[type="file"], select { width: 100%; color: var(--muted); background: var(-
 .pipeline-stages { grid-column: 1 / -1; display: flex; gap: 16px; color: var(--muted); font-size: .85rem; }
 .pipeline-stages span { flex: 1; padding-top: 12px; border-top: 1px solid var(--border); }
 .pipeline-stages b { color: var(--primary); margin-right: 8px; }
+.encrypted-dialog {
+  border: 0;
+  border-radius: 12px;
+  max-width: 380px;
+  width: min(90vw, 380px);
+  padding: 24px;
+  color: var(--ink);
+  background: linear-gradient(145deg, rgba(20, 49, 78, .95), rgba(7, 22, 39, .95));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .6);
+}
+.encrypted-dialog::backdrop { background: rgba(0, 0, 0, .55); }
+.encrypted-dialog p { margin: 0 0 16px; line-height: 1.7; }
+.encrypted-dialog img { display: block; max-width: 100%; border-radius: 8px; }
+.encrypted-dialog-actions { margin-top: 16px; text-align: right; }
 
 .dashboard-page > h1 { margin: 0 0 22px; font-size: clamp(2rem, 4vw, 3.5rem); letter-spacing: -.04em; }
 .dashboard-page fieldset, .dashboard-page > section { margin: 14px 0; padding: 18px; }
