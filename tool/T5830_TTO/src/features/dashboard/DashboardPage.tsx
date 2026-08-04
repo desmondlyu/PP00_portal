@@ -11,6 +11,14 @@ import { TimeTab } from './TimeTab';
 import { TtrCompareTab } from './TtrCompareTab';
 
 const tabs = ['核心戰情總覽', '視覺化對比', '跨產品明細 (時間)', '跨產品明細 (次數)', '多維度旭日圖', 'TTR 對比'] as const;
+const downloadButtonStyle = {
+  padding: '6px 12px',
+  borderRadius: 6,
+  border: '1px solid rgba(88,202,255,.4)',
+  background: 'var(--surface)',
+  color: 'var(--ink)',
+  cursor: 'pointer'
+} as const;
 
 export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) {
   const [filters, setFilters] = useState<FilterValues>(allFilters);
@@ -93,8 +101,7 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
       )}
       {products.length > 0 && (
         <section aria-label="完整分析結構匯出" style={{ marginTop: 12 }}>
-          <button type="button" onClick={downloadAllAnalysisStructure}
-            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid rgba(88,202,255,.4)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer' }}>
+          <button type="button" onClick={downloadAllAnalysisStructure} style={downloadButtonStyle}>
             📦 匯出所有分析結構
           </button>
         </section>
@@ -102,7 +109,7 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
       <section aria-label="Mapping 檔案">
         <label>Management Mapping 檔案<input type="file" accept=".xlsx" onChange={(event) => updateMapping(event.target.files?.[0])} /></label>
         <p>Mapping 檔案必須是 .xlsx，且應有 Original_Item_Name、Mode、Operation 欄位。</p>
-        <a href="./Management_Mapping.xlsx" download style={{ display: 'inline-block', marginTop: 8 }}>
+        <a href="./Management_Mapping.xlsx" download style={{ ...downloadButtonStyle, display: 'inline-block', marginTop: 8, textDecoration: 'none' }}>
           📥 下載 Management Mapping 範本
         </a>
         {mappingStatus && <p role="status">{mappingStatus}</p>}
