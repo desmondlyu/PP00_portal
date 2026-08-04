@@ -74,3 +74,6 @@ __pycache__/
 /.agents/
 /.gemini/
 /.playwright-mcp/
+
+# Private GitHub agent/skill settings
+/.github/
