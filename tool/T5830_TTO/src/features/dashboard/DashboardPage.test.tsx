@@ -81,12 +81,10 @@ describe('DashboardPage', () => {
     expect(screen.getByText(/Original_Item_Name.*Mode.*Operation/i)).toBeVisible();
   });
 
-  it('shows Management Mapping template download link', () => {
+  it('shows Test Item Mapping template download button', () => {
     render(<DashboardPage summaries={summaries} />);
 
-    const link = screen.getByRole('link', { name: '📥 下載 Management Mapping 範本' });
-    expect(link).toHaveAttribute('href', './Management_Mapping.xlsx');
-    expect(link).toHaveAttribute('download');
+    expect(screen.getByRole('button', { name: '下載 Test Item Mapping 範本' })).toBeVisible();
   });
 
   it('loads a valid Mapping workbook for dashboard classification', async () => {
