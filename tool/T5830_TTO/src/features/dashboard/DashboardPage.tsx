@@ -102,6 +102,9 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
       <section aria-label="Mapping 檔案">
         <label>Management Mapping 檔案<input type="file" accept=".xlsx" onChange={(event) => updateMapping(event.target.files?.[0])} /></label>
         <p>Mapping 檔案必須是 .xlsx，且應有 Original_Item_Name、Mode、Operation 欄位。</p>
+        <a href="./Management_Mapping.xlsx" download style={{ display: 'inline-block', marginTop: 8 }}>
+          📥 下載 Management Mapping 範本
+        </a>
         {mappingStatus && <p role="status">{mappingStatus}</p>}
       </section>
       <div role="tablist" aria-label="Dashboard 分頁">
