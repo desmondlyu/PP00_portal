@@ -81,6 +81,13 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
     URL.revokeObjectURL(url);
   }
 
+  function downloadMappingTemplate() {
+    const a = document.createElement('a');
+    a.href = './Management_Mapping.xlsx';
+    a.download = 'Management_Mapping.xlsx';
+    a.click();
+  }
+
   const products = [...new Set(summaries.map((r) => r.Product))].sort();
   const panelId = `dashboard-panel-${tabs.indexOf(activeTab)}`;
   return (
@@ -109,9 +116,9 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
       <section aria-label="Mapping 檔案">
         <label>Management Mapping 檔案<input type="file" accept=".xlsx" onChange={(event) => updateMapping(event.target.files?.[0])} /></label>
         <p>Mapping 檔案必須是 .xlsx，且應有 Original_Item_Name、Mode、Operation 欄位。</p>
-        <a href="./Management_Mapping.xlsx" download style={{ ...downloadButtonStyle, display: 'inline-block', marginTop: 8, textDecoration: 'none' }}>
-          📥 下載 Management Mapping 範本
-        </a>
+        <button type="button" onClick={downloadMappingTemplate} style={{ ...downloadButtonStyle, marginTop: 8 }}>
+          下載 Test Item Mapping 範本
+        </button>
         {mappingStatus && <p role="status">{mappingStatus}</p>}
       </section>
       <div role="tablist" aria-label="Dashboard 分頁">
