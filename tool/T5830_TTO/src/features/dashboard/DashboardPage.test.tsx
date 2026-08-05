@@ -55,6 +55,24 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('heading', { name: 'TD 分析' })).toBeVisible();
   });
 
+  it('applies default Mapping Mode to TD analysis rows', async () => {
+    const user = userEvent.setup();
+    render(<DashboardPage summaries={[{
+      ...summaries[0],
+      Original_Item_Name: 'Chip_Erase_KGD_(M)',
+      Test_Item_Merged: 'Chip_Erase_KGD',
+      Test_Item: 'Chip_Erase_KGD',
+      touchdownStats: {
+        TD_1: { avg: 1, max: 1, min: 1, range: 0, ratio: 100 }
+      }
+    }]} />);
+
+    await user.click(screen.getByRole('tab', { name: 'TD分析' }));
+    await user.selectOptions(screen.getByLabelText('Item 顯示欄位'), 'Mode');
+
+    expect(screen.getByRole('cell', { name: 'UM ERS' })).toBeVisible();
+  });
+
   it('orders the overview chart, sunburst, and pivot sections', () => {
     render(<DashboardPage summaries={summaries} />);
 

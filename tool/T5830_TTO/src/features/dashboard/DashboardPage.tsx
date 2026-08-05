@@ -35,6 +35,14 @@ function mappingFromSummaries(summaries: MasterSummaryRow[]) {
   return [...imported.values()];
 }
 
+function applyMapping(summaries: MasterSummaryRow[], mapping: MappingRow[]) {
+  const mappingByOriginalName = new Map(mapping.map((row) => [row.Original_Item_Name, row]));
+  return summaries.map((row) => {
+    const mapped = mappingByOriginalName.get(row.Original_Item_Name);
+    return mapped ? { ...row, Mode: row.Mode ?? mapped.Mode, Operation: row.Operation ?? mapped.Operation } : row;
+  });
+}
+
 export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) {
   const [filters, setFilters] = useState<FilterValues>(allFilters);
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>(tabs[0]);
@@ -52,9 +60,10 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
       setMappingStatus(`已從分析結構還原 Mapping：${importedMapping.length} 項`);
     }
   }, [summaries]);
-  const filtered = filterSummary(summaries, filters);
+  const classifiedSummaries = applyMapping(summaries, mapping);
+  const filtered = filterSummary(classifiedSummaries, filters);
   // ponytail: Sunburst needs un-aggregated rows to join on Original_Item_Name
-  const rawFiltered = filterRawSummary(summaries, filters);
+  const rawFiltered = filterRawSummary(classifiedSummaries, filters);
 
   async function updateMapping(file?: File) {
     if (!file) return;
