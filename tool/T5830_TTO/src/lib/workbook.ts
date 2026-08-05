@@ -15,11 +15,15 @@ export type MappingRow = {
   Operation: string;
 };
 
-type SunburstRow = {
+type SunburstOperationRow = {
   Product: string;
+  Station: string;
   Mode: string;
-  Operation?: string;
-  Total_Time: number;
+  Operation: string;
+  Test_Item_Merged: string;
+  Original_Item_Name: string;
+  Station_Time: number;
+  Station_Count: number;
   Ratio: number;
 };
 
@@ -67,69 +71,45 @@ function buildMappingLookup(mapping: MappingRow[]) {
   return lookup;
 }
 
-function buildSunburstRows(rows: MasterSummaryRow[], mapping: MappingRow[]) {
+function buildSunburstRows(rows: MasterSummaryRow[], mapping: MappingRow[]): SunburstOperationRow[] {
   const mappingLookup = buildMappingLookup(mapping);
-  const modeTotals = new Map<string, number>();
-  const operationTotals = new Map<string, number>();
-
-  for (const row of rows) {
+  const productTotals = new Map<string, number>();
+  const operationRows = rows.map((row) => {
     const mapped = mappingLookup.get(String(row.Original_Item_Name ?? '').trim());
-    const mode = asClassifiedLabel(mapped?.Mode);
-    const operation = asClassifiedLabel(mapped?.Operation);
     const totalTime = getRowTime(row);
+    productTotals.set(row.Product, (productTotals.get(row.Product) ?? 0) + totalTime);
+    return {
+      Product: row.Product,
+      Station: row.Station,
+      Mode: asClassifiedLabel(mapped?.Mode),
+      Operation: asClassifiedLabel(mapped?.Operation),
+      Test_Item_Merged: row.Test_Item_Merged,
+      Original_Item_Name: row.Original_Item_Name,
+      Station_Time: Math.round(totalTime * 100) / 100,
+      Station_Count: row.Station_Count,
+      Ratio: 0
+    };
+  });
 
-    modeTotals.set(`${row.Product}|||${mode}`, (modeTotals.get(`${row.Product}|||${mode}`) ?? 0) + totalTime);
-    operationTotals.set(
-      `${row.Product}|||${mode}|||${operation}`,
-      (operationTotals.get(`${row.Product}|||${mode}|||${operation}`) ?? 0) + totalTime
-    );
-  }
-
-  const modeGrandTotal = [...modeTotals.values()].reduce((sum, value) => sum + value, 0) || 0.000001;
-  const operationGrandTotal = [...operationTotals.values()].reduce((sum, value) => sum + value, 0) || 0.000001;
-
-  const modeRows = [...modeTotals.entries()]
-    .map(([key, totalTime]) => {
-      const [product, mode] = key.split('|||');
-      return {
-        Product: product,
-        Mode: mode,
-        Total_Time: Math.round(totalTime * 100) / 100,
-        Ratio: Math.round((totalTime / modeGrandTotal) * 100 * 100) / 100
-      };
-    })
-    .sort((a, b) => a.Product.localeCompare(b.Product) || b.Total_Time - a.Total_Time || a.Mode.localeCompare(b.Mode));
-
-  const operationRows = [...operationTotals.entries()]
-    .map(([key, totalTime]) => {
-      const [product, mode, operation] = key.split('|||');
-      return {
-        Product: product,
-        Mode: mode,
-        Operation: operation,
-        Total_Time: Math.round(totalTime * 100) / 100,
-        Ratio: Math.round((totalTime / operationGrandTotal) * 100 * 100) / 100
-      };
-    })
+  return operationRows
+    .map((row) => ({
+      ...row,
+      Ratio: Math.round((row.Station_Time / (productTotals.get(row.Product) || 0.000001)) * 100 * 100) / 100
+    }))
     .sort(
       (a, b) =>
         a.Product.localeCompare(b.Product) ||
         a.Mode.localeCompare(b.Mode) ||
-        b.Total_Time - a.Total_Time ||
-        a.Operation!.localeCompare(b.Operation!)
+        a.Operation.localeCompare(b.Operation) ||
+        a.Test_Item_Merged.localeCompare(b.Test_Item_Merged) ||
+        a.Original_Item_Name.localeCompare(b.Original_Item_Name) ||
+        a.Station.localeCompare(b.Station)
     );
-
-  return { modeRows, operationRows };
 }
 
 function appendSunburstSheets(workbook: XLSX.WorkBook, rows: MasterSummaryRow[], mapping: MappingRow[], usedSheets?: Set<string>) {
-  const { modeRows, operationRows } = buildSunburstRows(rows, mapping);
+  const operationRows = buildSunburstRows(rows, mapping);
   const sheetNames = usedSheets ?? new Set<string>(workbook.SheetNames);
-  XLSX.utils.book_append_sheet(
-    workbook,
-    XLSX.utils.json_to_sheet(modeRows),
-    uniqueSheetName('Sunburst_Mode', sheetNames)
-  );
   XLSX.utils.book_append_sheet(
     workbook,
     XLSX.utils.json_to_sheet(operationRows),
@@ -146,7 +126,8 @@ async function readWorkbook(file: File) {
   }
 }
 
-export function writeMasterSummaryWorkbook(rows: MasterSummaryRow[]): ArrayBuffer {
+export function writeMasterSummaryWorkbook(rows: MasterSummaryRow[], mapping: MappingRow[] = []): ArrayBuffer {
+  const mappingLookup = buildMappingLookup(mapping);
   // 按產品分組（與 Python aggregate_product_reports 邏輯對齊）
   const byProduct = new Map<string, MasterSummaryRow[]>();
   for (const row of rows) {
@@ -202,7 +183,18 @@ export function writeMasterSummaryWorkbook(rows: MasterSummaryRow[]): ArrayBuffe
     // Python 欄位順序: Total_Merged_Count, {station}_Count..., Grand_Total_Time, {station}_Time..., Grand_Total_Ratio(%), {station}_Ratio(%)...
     const masterRows: Record<string, unknown>[] = [];
     for (const entry of entries) {
-      const row: Record<string, unknown> = { Test_Item_Merged: entry.testItem };
+      const modes = new Set<string>();
+      const operations = new Set<string>();
+      for (const itemRow of byTestItem.get(entry.testItem) ?? []) {
+        const mapped = mappingLookup.get(String(itemRow.Original_Item_Name ?? '').trim());
+        modes.add(asClassifiedLabel(mapped?.Mode));
+        operations.add(asClassifiedLabel(mapped?.Operation));
+      }
+      const row: Record<string, unknown> = {
+        Test_Item_Merged: entry.testItem,
+        Mode: [...modes].sort().join(' / '),
+        Operation: [...operations].sort().join(' / ')
+      };
       row['Total_Merged_Count'] = entry.totalMergedCount;
       for (const st of stations) row[`${st}_Count`] = entry.stationCounts.get(st) ?? 0;
       row['Grand_Total_Time'] = Math.round(entry.grandTotalTime * 100) / 100;
@@ -271,7 +263,8 @@ export function writeMasterSummaryWorkbook(rows: MasterSummaryRow[]): ArrayBuffe
   return XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
 }
 
-function analysisRowToRecord(row: MasterSummaryRow): Record<string, unknown> {
+function analysisRowToRecord(row: MasterSummaryRow, mappingLookup?: Map<string, MappingRow>): Record<string, unknown> {
+  const mapped = mappingLookup?.get(String(row.Original_Item_Name ?? '').trim());
   return {
     Product: row.Product,
     Process: row.Process,
@@ -279,6 +272,8 @@ function analysisRowToRecord(row: MasterSummaryRow): Record<string, unknown> {
     Voltage: row.Voltage,
     Original_Item_Name: row.Original_Item_Name,
     Test_Item_Merged: row.Test_Item_Merged,
+    Mode: asClassifiedLabel(mapped?.Mode),
+    Operation: asClassifiedLabel(mapped?.Operation),
     Grand_Total_Time: row.Grand_Total_Time,
     Grand_Total_Ratio: row.Grand_Total_Ratio,
     Total_Merged_Count: row.Total_Merged_Count,
@@ -311,7 +306,8 @@ export function writeSunburstWorkbook(rows: MasterSummaryRow[], mapping: Mapping
 export function writeAnalysisWorkbook(rows: MasterSummaryRow[], mapping: MappingRow[] = []): ArrayBuffer {
   const workbook = XLSX.utils.book_new();
   const usedSheets = new Set<string>();
-  const masterRows = rows.map(analysisRowToRecord);
+  const mappingLookup = buildMappingLookup(mapping);
+  const masterRows = rows.map((row) => analysisRowToRecord(row, mappingLookup));
   XLSX.utils.book_append_sheet(
     workbook,
     XLSX.utils.json_to_sheet(masterRows),
@@ -326,7 +322,7 @@ export function writeAnalysisWorkbook(rows: MasterSummaryRow[], mapping: Mapping
   for (const [key, groupRows] of groups) {
     XLSX.utils.book_append_sheet(
       workbook,
-      XLSX.utils.json_to_sheet(groupRows.map(analysisRowToRecord)),
+      XLSX.utils.json_to_sheet(groupRows.map((row) => analysisRowToRecord(row, mappingLookup))),
       uniqueSheetName(key, usedSheets)
     );
   }

@@ -52,7 +52,10 @@ function stripRowNumbers<T extends Record<string, unknown>>(rows: T[]): T[] {
 
 describe('Master Summary workbook', () => {
   it('writes and reads the dashboard required fields', async () => {
-    const workbook = writeMasterSummaryWorkbook(rows);
+    const workbook = writeMasterSummaryWorkbook(rows, mappingRows);
+    const parsed = XLSX.read(workbook, { type: 'array' });
+    const summaryRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(parsed.Sheets.Master_Summary, { defval: '' });
+    expect(summaryRows[0]).toMatchObject({ Mode: 'User Mode', Operation: 'Read' });
     const loaded = await readMasterSummaryWorkbook(new File([workbook], 'EAG119_Master_Summary.xlsx'));
 
     // 讀回後 Station 為 Unknown（Master_Summary sheet 為跨站彙整，無個別站點），
@@ -95,8 +98,12 @@ describe('Master Summary workbook', () => {
     expect(parsed.SheetNames).toContain('Master_Summary');
     expect(parsed.SheetNames).toContain('EAG119_S1P1');
     expect(parsed.SheetNames).toContain('EAG120_S1P1');
-    expect(parsed.SheetNames).toContain('Sunburst_Mode');
     expect(parsed.SheetNames).toContain('Sunburst_Operation');
+
+    const masterRows = stripRowNumbers(
+      XLSX.utils.sheet_to_json<Record<string, unknown>>(parsed.Sheets.Master_Summary, { defval: '' })
+    );
+    expect(masterRows[0]).toMatchObject({ Mode: 'User Mode', Operation: 'Read' });
 
     const loaded = await readAnalysisWorkbook(new File([workbook], 'T5830_Analysis_Structure.xlsx'));
     expect(loaded).toHaveLength(2);
@@ -112,48 +119,49 @@ describe('Master Summary workbook', () => {
     const workbook = writeSunburstWorkbook(rows, mappingRows);
     const parsed = XLSX.read(workbook, { type: 'array' });
 
-    expect(parsed.SheetNames).toEqual(['Sunburst_Mode', 'Sunburst_Operation']);
-
-    const modeRows = stripRowNumbers(
-      XLSX.utils.sheet_to_json<Record<string, unknown>>(parsed.Sheets.Sunburst_Mode, { defval: '' })
-    );
-    expect(modeRows).toEqual([{
-      Product: 'EAG119',
-      Mode: 'User Mode',
-      Total_Time: 1.25,
-      Ratio: 100
-    }]);
+    expect(parsed.SheetNames).toEqual(['Sunburst_Operation']);
 
     const operationRows = stripRowNumbers(
       XLSX.utils.sheet_to_json<Record<string, unknown>>(parsed.Sheets.Sunburst_Operation, { defval: '' })
     );
     expect(operationRows).toEqual([{
       Product: 'EAG119',
+      Station: 'S1P1',
       Mode: 'User Mode',
       Operation: 'Read',
-      Total_Time: 1.25,
+      Test_Item_Merged: 'READ_ARRAY',
+      Original_Item_Name: 'READ_ARRAY_(M)',
+      Station_Time: 1.25,
+      Station_Count: 1,
       Ratio: 100
     }]);
 
     const fallbackWorkbook = writeSunburstWorkbook(multiProductRows, mappingRows);
     const fallbackParsed = XLSX.read(fallbackWorkbook, { type: 'array' });
-    const fallbackModeRows = stripRowNumbers(
-      XLSX.utils.sheet_to_json<Record<string, unknown>>(fallbackParsed.Sheets.Sunburst_Mode, { defval: '' })
+    const fallbackRows = stripRowNumbers(
+      XLSX.utils.sheet_to_json<Record<string, unknown>>(fallbackParsed.Sheets.Sunburst_Operation, { defval: '' })
     );
-    expect(fallbackModeRows).toEqual([
-      {
-        Product: 'EAG119',
-        Mode: 'User Mode',
-        Total_Time: 1.25,
-        Ratio: 33.33
-      },
-      {
-        Product: 'EAG120',
-        Mode: 'Not Classified',
-        Total_Time: 2.5,
-        Ratio: 66.67
-      }
-    ]);
+    expect(fallbackRows[1]).toMatchObject({
+      Product: 'EAG120',
+      Mode: 'Not Classified',
+      Operation: 'Not Classified',
+      Ratio: 100
+    });
+  });
+
+  it('keeps station-level rows traceable within one product', () => {
+    const workbook = writeSunburstWorkbook([
+      rows[0],
+      { ...rows[0], Station: 'S2P1', Station_Time: 0.75, Station_Count: 1 }
+    ], mappingRows);
+    const parsed = XLSX.read(workbook, { type: 'array' });
+    const operationRows = stripRowNumbers(
+      XLSX.utils.sheet_to_json<Record<string, unknown>>(parsed.Sheets.Sunburst_Operation, { defval: '' })
+    );
+
+    expect(operationRows).toHaveLength(2);
+    expect(operationRows.map((row) => row.Station)).toEqual(['S1P1', 'S2P1']);
+    expect(operationRows.map((row) => row.Ratio)).toEqual([62.5, 37.5]);
   });
 
   it('rejects an analysis workbook with missing required columns', async () => {
