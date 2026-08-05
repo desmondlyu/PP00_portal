@@ -68,6 +68,20 @@ describe('DashboardPage', () => {
     expect(screen.getAllByText(/EAG119/).length).toBeGreaterThan(0);
   });
 
+  it('keeps the floating filters collapsed until opened', async () => {
+    const user = userEvent.setup();
+    render(<DashboardPage summaries={summaries} />);
+
+    const filterPanel = screen.getByRole('region', { name: '資料篩選' });
+    const toggle = screen.getByRole('button', { name: /篩選條件/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(filterPanel).toHaveClass('is-collapsed');
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(filterPanel).toHaveClass('is-expanded');
+  });
+
   it('explains when no summary data is available', () => {
     render(<DashboardPage summaries={[]} />);
 

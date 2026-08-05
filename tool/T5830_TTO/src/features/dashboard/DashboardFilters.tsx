@@ -83,23 +83,29 @@ function MultiSelectDropdown({
 }
 
 export function DashboardFilters({ rows, value, onChange }: Props) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <div style={{
-      position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)',
-      zIndex: 1000, display: 'flex', flexWrap: 'wrap', gap: 12,
-      padding: '12px 24px', borderRadius: 14,
-      background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(12px)',
-      border: '1px solid rgba(88, 202, 255, 0.3)',
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)'
-    }}>
-      <MultiSelectDropdown label="製程" selected={value.process} options={distinct(rows, 'Process')}
-        onChange={(process) => onChange({ ...value, process })} />
-      <MultiSelectDropdown label="容量" selected={value.size} options={distinct(rows, 'Size')}
-        onChange={(size) => onChange({ ...value, size })} />
-      <MultiSelectDropdown label="電壓" selected={value.voltage} options={distinct(rows, 'Voltage')}
-        onChange={(voltage) => onChange({ ...value, voltage })} />
-      <MultiSelectDropdown label="產品" selected={value.product} options={distinct(rows, 'Product')}
-        onChange={(product) => onChange({ ...value, product })} />
+    <div className={`dashboard-filters ${expanded ? 'is-expanded' : 'is-collapsed'}`} role="region" aria-label="資料篩選">
+      <button
+        type="button"
+        className="dashboard-filters-toggle"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((current) => !current)}
+      >
+        <span>篩選條件</span>
+        <span aria-hidden="true">{expanded ? '⌄' : '⌃'}</span>
+      </button>
+      <div className="dashboard-filters-fields">
+        <MultiSelectDropdown label="製程" selected={value.process} options={distinct(rows, 'Process')}
+          onChange={(process) => onChange({ ...value, process })} />
+        <MultiSelectDropdown label="容量" selected={value.size} options={distinct(rows, 'Size')}
+          onChange={(size) => onChange({ ...value, size })} />
+        <MultiSelectDropdown label="電壓" selected={value.voltage} options={distinct(rows, 'Voltage')}
+          onChange={(voltage) => onChange({ ...value, voltage })} />
+        <MultiSelectDropdown label="產品" selected={value.product} options={distinct(rows, 'Product')}
+          onChange={(product) => onChange({ ...value, product })} />
+      </div>
     </div>
   );
 }
