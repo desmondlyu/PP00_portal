@@ -6,12 +6,21 @@ import {
   tdDimensions,
   tdMetrics,
   topTdItems,
+  type TdAnalysisItem,
   type TdDimension,
   type TdDimensionFilters,
   type TdMetric
 } from './dashboardSelectors';
 
 type Props = { rows: MasterSummaryRow[] };
+
+type SelectedCell = {
+  product: string;
+  item: TdAnalysisItem;
+  touchdown: string;
+  metric: TdMetric;
+  value: number;
+};
 
 const initialFilters: TdDimensionFilters = {
   Mode: '',
@@ -21,7 +30,6 @@ const initialFilters: TdDimensionFilters = {
   Test_Item: ''
 };
 const metricLabels: Record<TdMetric, string> = { avg: 'AVG', max: 'MAX', min: 'MIN', range: 'RANGE' };
-const touchdownColors = ['#60a5fa', '#c084fc', '#fb7185', '#34d399', '#fbbf24', '#22d3ee'];
 
 function sortedTouchdowns(rows: MasterSummaryRow[]) {
   return [...new Set(rows.flatMap((row) => Object.keys(row.touchdownStats ?? {})))].sort(
@@ -40,76 +48,118 @@ function dimensionOptions(rows: MasterSummaryRow[], filters: TdDimensionFilters,
     .sort();
 }
 
-function MetricChart({ product, items, metric, touchdowns }: {
+function heatColor(value: number, min: number, max: number) {
+  if (max === min) return 'hsl(52 88% 55%)';
+  const ratio = (value - min) / (max - min);
+  return `hsl(${120 - ratio * 120} 82% ${48 + ratio * 5}%)`;
+}
+
+function itemKey(item: TdAnalysisItem) {
+  return tdDimensions.map((dimension) => item.hierarchy[dimension]).join('\x00');
+}
+
+function HeatmapTable({ product, items, metric, touchdowns, selectedCell, onSelect }: {
   product: string;
-  items: ReturnType<typeof topTdItems>;
+  items: TdAnalysisItem[];
   metric: TdMetric;
   touchdowns: string[];
+  selectedCell?: SelectedCell;
+  onSelect: (cell: SelectedCell) => void;
 }) {
   const chartItems = topTdItems(items, metric);
-  const label = metricLabels[metric];
-  const maxValue = Math.max(1, ...chartItems.flatMap((item) => Object.values(item.stats).map((stats) => stats[metric])));
-  const chartWidth = 700;
-  const labelWidth = 220;
-  const plotWidth = chartWidth - labelWidth - 30;
-  const rowHeight = 30;
-  const topPadding = 20;
-  const bottomPadding = 30;
-  const chartHeight = topPadding + chartItems.length * rowHeight + bottomPadding;
-  const barHeight = Math.max(3, (rowHeight - 6) / Math.max(touchdowns.length, 1));
+  const values = chartItems.flatMap((item) =>
+    touchdowns.flatMap((touchdown) => {
+      const value = item.stats[touchdown]?.[metric];
+      return value === undefined ? [] : [value];
+    })
+  );
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const stickyHierarchy = { position: 'sticky' as const, left: 0, zIndex: 1, background: 'var(--surface-raised)' };
+  const stickyTestItem = { position: 'sticky' as const, left: 260, zIndex: 1, background: 'var(--surface-raised)' };
+  const headerStyle = { position: 'sticky' as const, top: 0, zIndex: 2, background: 'var(--surface-raised)', padding: '8px 10px', textAlign: 'left' as const };
 
   return (
-    <section style={{ minWidth: 0, padding: 12, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-raised)' }}>
-      <h3 style={{ margin: '0 0 8px' }}>{label}</h3>
-      <div style={{ overflowX: 'auto' }}>
-        <svg
-          role="img"
-          aria-label={`${label} Top 20`}
-          width="100%"
-          height={chartHeight}
-          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-          style={{ display: 'block', minWidth: chartWidth }}
-        >
-          {chartItems.map((item, itemIndex) => {
-            const y = topPadding + itemIndex * rowHeight;
-            return (
-              <g key={item.testItem}>
-                <line x1={labelWidth} x2={labelWidth + plotWidth} y1={y + rowHeight} y2={y + rowHeight} stroke="rgba(255,255,255,.08)" />
-                <text x={labelWidth - 8} y={y + rowHeight / 2 + 4} textAnchor="end" fill="var(--ink)" fontSize="11">
-                  {item.testItem}
-                </text>
-                {touchdowns.map((touchdown, touchdownIndex) => {
-                  const value = item.stats[touchdown]?.[metric];
-                  if (value === undefined) return null;
-                  const width = value / maxValue * plotWidth;
-                  return (
-                    <rect
-                      key={touchdown}
-                      x={labelWidth}
-                      y={y + 3 + touchdownIndex * barHeight}
-                      width={width}
-                      height={barHeight}
-                      fill={touchdownColors[touchdownIndex % touchdownColors.length]}
+    <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
+      <table aria-label={`${product} TD Heatmap`} style={{ width: 'max-content', minWidth: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+        <caption style={{ padding: 10, textAlign: 'left', color: 'var(--muted)' }}>
+          {metricLabels[metric]}：每列以所選 TD 的最大值排序，顏色由綠（快）至紅（慢）。
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col" style={{ ...headerStyle, ...stickyHierarchy, zIndex: 4, minWidth: 240 }}>Hierarchy</th>
+            <th scope="col" style={{ ...headerStyle, ...stickyTestItem, zIndex: 4, minWidth: 140 }}>Test_Item</th>
+            {touchdowns.map((touchdown) => <th key={touchdown} scope="col" style={headerStyle}>{touchdown}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {chartItems.map((item) => (
+            <tr key={itemKey(item)}>
+              <td style={{ ...stickyHierarchy, padding: '8px 10px', maxWidth: 240, borderTop: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
+                {`${item.hierarchy.Mode} > ${item.hierarchy.Operation} > ${item.hierarchy.Test_Item_Merged} > ${item.hierarchy.Original_Item_Name}`}
+              </td>
+              <td style={{ ...stickyTestItem, padding: '8px 10px', borderTop: '1px solid var(--border)', fontWeight: 'bold' }}>{item.testItem}</td>
+              {touchdowns.map((touchdown) => {
+                const value = item.stats[touchdown]?.[metric];
+                if (value === undefined) return <td key={touchdown} style={{ padding: 2, textAlign: 'center' }}>—</td>;
+                const selected = selectedCell?.product === product
+                  && selectedCell.touchdown === touchdown
+                  && selectedCell.metric === metric
+                  && itemKey(selectedCell.item) === itemKey(item);
+                return (
+                  <td key={touchdown} style={{ padding: 2 }}>
+                    <button
+                      type="button"
+                      aria-label={`${product} · ${item.testItem} · ${touchdown} · ${metricLabels[metric]} · ${value.toFixed(2)} 秒`}
+                      title={`${product} · ${item.hierarchy.Original_Item_Name} · ${touchdown} · ${metricLabels[metric]}: ${value.toFixed(2)} 秒`}
+                      style={{
+                        width: '100%',
+                        minWidth: 72,
+                        padding: '9px 8px',
+                        border: selected ? '2px solid var(--ink)' : '1px solid transparent',
+                        borderRadius: 5,
+                        background: heatColor(value, min, max),
+                        color: '#06111f',
+                        cursor: 'pointer',
+                        fontVariantNumeric: 'tabular-nums'
+                      }}
+                      onClick={() => onSelect({ product, item, touchdown, metric, value })}
                     >
-                      <title>{`${product} · ${item.testItem} · ${touchdown} · ${label}: ${value.toFixed(2)} 秒`}</title>
-                    </rect>
-                  );
-                })}
-              </g>
-            );
-          })}
-          <text x={labelWidth} y={chartHeight - 8} fill="var(--muted)" fontSize="10">0</text>
-          <text x={labelWidth + plotWidth} y={chartHeight - 8} textAnchor="end" fill="var(--muted)" fontSize="10">
-            {maxValue.toFixed(2)} 秒
-          </text>
-        </svg>
-      </div>
-    </section>
+                      {value.toFixed(2)}
+                    </button>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DetailCard({ selectedCell }: { selectedCell?: SelectedCell }) {
+  if (!selectedCell) {
+    return <aside role="region" aria-label="TD 格子明細" style={{ padding: 14, border: '1px solid var(--border)', borderRadius: 10 }}>
+      選取 Heatmap 色格以查看 TD 明細。
+    </aside>;
+  }
+  const { item } = selectedCell;
+  return (
+    <aside role="region" aria-label="TD 格子明細" style={{ padding: 14, border: '1px solid var(--border)', borderRadius: 10 }}>
+      <h3 style={{ marginTop: 0 }}>TD 格子明細</h3>
+      <p><strong>Product：</strong>{selectedCell.product}</p>
+      {tdDimensions.map((dimension) => <p key={dimension}><strong>{dimension}：</strong>{item.hierarchy[dimension]}</p>)}
+      <p><strong>TD：</strong>{selectedCell.touchdown}</p>
+      <p><strong>{metricLabels[selectedCell.metric]}：</strong>{selectedCell.value.toFixed(2)} 秒</p>
+    </aside>
   );
 }
 
 export function TdAnalysisTab({ rows }: Props) {
   const [filters, setFilters] = useState<TdDimensionFilters>(initialFilters);
+  const [metric, setMetric] = useState<TdMetric>('max');
+  const [selectedCell, setSelectedCell] = useState<SelectedCell>();
   const hasStats = rows.some((row) => row.touchdownStats && Object.keys(row.touchdownStats).length > 0);
   const groups = tdAnalysisGroups(rows, filters);
   const touchdowns = sortedTouchdowns(rows);
@@ -121,12 +171,18 @@ export function TdAnalysisTab({ rows }: Props) {
       next[dimension] = value;
       return next;
     });
+    setSelectedCell(undefined);
+  }
+
+  function selectMetric(nextMetric: TdMetric) {
+    setMetric(nextMetric);
+    setSelectedCell(undefined);
   }
 
   return (
     <section aria-labelledby="td-analysis-title">
       <h1 id="td-analysis-title">TD 分析</h1>
-      <p>每張圖各自顯示前 20 名；以所選 TD 的最大值排序，並保留同列所有所選 TD 的數值。</p>
+      <p>每個產品各自顯示前 20 名；以所選 TD 的最大值排序，色階由綠（快）至紅（慢）。</p>
       {!hasStats
         ? <p>沒有可用的 TD 統計資料。請以「分析所有TD」重新分析，並匯入支援 TD 統計的分析檔案。</p>
         : <>
@@ -142,26 +198,44 @@ export function TdAnalysisTab({ rows }: Props) {
               </label>
             ))}
           </fieldset>
+          {tdDimensions.some((dimension) => filters[dimension]) && (
+            <div aria-label="目前 TD 分析篩選" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+              {tdDimensions.filter((dimension) => filters[dimension]).map((dimension) => (
+                <button key={dimension} type="button" aria-label={`清除 ${dimension}: ${filters[dimension]}`} onClick={() => updateFilter(dimension, '')}>
+                  {dimension}: {filters[dimension]} ×
+                </button>
+              ))}
+            </div>
+          )}
+          <div aria-label="TD 統計切換" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '16px 0' }}>
+            {tdMetrics.map((currentMetric) => (
+              <button key={currentMetric} type="button" aria-pressed={metric === currentMetric} onClick={() => selectMetric(currentMetric)}>
+                {metricLabels[currentMetric]}
+              </button>
+            ))}
+          </div>
           {groups.length === 0
             ? <p>沒有符合目前階層篩選條件的 TD 統計資料。</p>
-            : groups.map((group) => (
-              <section key={group.product} aria-label={`${group.product} TD 統計`} style={{ marginTop: 18 }}>
-                <h2>{group.product}</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 14 }}>
-                  {tdMetrics.map((metric) => (
-                    <MetricChart key={metric} product={group.product} items={group.items} metric={metric} touchdowns={touchdowns} />
-                  ))}
-                </div>
-                <div className="overview-chart-legend" aria-label={`${group.product} TD 圖例`}>
-                  {touchdowns.map((touchdown, index) => (
-                    <span key={touchdown} className="overview-chart-legend-item">
-                      <span className="overview-chart-legend-swatch" style={{ backgroundColor: touchdownColors[index % touchdownColors.length] }} aria-hidden="true" />
-                      {touchdown}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            ))}
+            : <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(260px, 320px)', gap: 16, alignItems: 'start' }}>
+              <div>
+                {groups.map((group) => (
+                  <section key={group.product} aria-label={`${group.product} TD 統計`} style={{ marginBottom: 22 }}>
+                    <h2>{group.product}</h2>
+                    <HeatmapTable
+                      product={group.product}
+                      items={group.items}
+                      metric={metric}
+                      touchdowns={touchdowns}
+                      selectedCell={selectedCell}
+                      onSelect={setSelectedCell}
+                    />
+                  </section>
+                ))}
+              </div>
+              <div style={{ position: 'sticky', top: 12 }}>
+                <DetailCard selectedCell={selectedCell} />
+              </div>
+            </div>}
         </>}
     </section>
   );

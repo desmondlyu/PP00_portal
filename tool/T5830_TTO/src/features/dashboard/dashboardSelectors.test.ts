@@ -58,6 +58,13 @@ describe('TD analysis selectors', () => {
     expect(groups.map((group) => group.product)).toEqual(['FAG103', 'EAG119']);
     expect(groups[1].items[0].stats.TD_1).toEqual({ avg: 3, max: 4, min: 2, range: 2 });
     expect(groups[1].items[0].stats.TD_2).toEqual({ avg: 4.5, max: 6, min: 3, range: 3 });
+    expect(groups[1].items[0].hierarchy).toEqual({
+      Mode: 'Read',
+      Operation: 'Read',
+      Test_Item_Merged: 'READ',
+      Original_Item_Name: 'READ_(M)',
+      Test_Item: 'READ'
+    });
   });
 
   it('keeps mapping categories separate and filters by all five dimensions', () => {
