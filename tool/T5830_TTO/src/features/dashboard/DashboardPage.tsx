@@ -73,7 +73,7 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
   }
 
   function downloadAllAnalysisStructure() {
-    const buf = writeAnalysisWorkbook(summaries);
+    const buf = writeAnalysisWorkbook(summaries, mapping);
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
