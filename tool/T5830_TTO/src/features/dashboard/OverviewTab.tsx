@@ -39,11 +39,9 @@ export function OverviewTab({ rows, rawRows, mapping }: { rows: MasterSummaryRow
       </div>
       <hr style={divider} />
 
-      {/* Charts row: stacked bar + sunburst */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 24, alignItems: 'start' }}>
-        <div>
+      <section className="overview-chart-section" role="region" aria-label="跨產品時間結構對比">
           <h3>📊 跨產品時間結構對比</h3>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="overview-chart-scroll">
             <svg role="img" aria-label="堆疊條圖" width={chartW} height={chartH}>
               {Array.from({ length: ticks + 1 }, (_, i) => {
                 const val = i * yStep;
@@ -79,21 +77,20 @@ export function OverviewTab({ rows, rawRows, mapping }: { rows: MasterSummaryRow
               })}
             </svg>
           </div>
-        </div>
-        <div>
-          <h3>🍩 總體測試時間結構 (Mode/Operation)</h3>
-          {mapping.length > 0
-            ? <SunburstTab rows={rawRows} mapping={mapping} />
-            : <p style={{ color: 'var(--muted)' }}>請載入 Management_Mapping.xlsx 以解鎖旭日圖。</p>}
-        </div>
-      </div>
-      <hr style={divider} />
+      </section>
 
-      {/* Pivot tables */}
-      <h3>⏱️ 時間與次數樞紐分析總表</h3>
-      <PivotTable rows={rows} valueField="Grand_Total_Time" />
-      <div style={{ marginTop: 24 }} />
-      <PivotTable rows={rows} valueField="Total_Merged_Count" />
+      <section className="overview-sunburst-section" role="region" aria-label="總體測試時間結構">
+        <h3>🍩 總體測試時間結構 (Mode/Operation)</h3>
+        {mapping.length > 0
+          ? <SunburstTab rows={rawRows} mapping={mapping} />
+          : <p style={{ color: 'var(--muted)' }}>請載入 Management_Mapping.xlsx 以解鎖旭日圖。</p>}
+      </section>
+
+      <section className="overview-pivot-section" role="region" aria-label="時間與次數樞紐分析總表">
+        <h3 className="overview-pivot-title">⏱️ 時間與次數樞紐分析總表</h3>
+        <div className="overview-pivot-table"><PivotTable rows={rows} valueField="Grand_Total_Time" /></div>
+        <div className="overview-pivot-table"><PivotTable rows={rows} valueField="Total_Merged_Count" /></div>
+      </section>
     </section>
   );
 }

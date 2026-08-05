@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { DashboardPage } from './DashboardPage';
@@ -44,6 +44,18 @@ describe('DashboardPage', () => {
       expect(screen.getByRole('tab', { name })).toBeVisible();
     }
     expect(screen.getByRole('tablist')).toBeVisible();
+  });
+
+  it('orders the overview chart, sunburst, and pivot sections', () => {
+    render(<DashboardPage summaries={summaries} />);
+
+    const panel = screen.getByRole('tabpanel');
+    const chart = within(panel).getByRole('region', { name: '跨產品時間結構對比' });
+    const sunbursts = within(panel).getByRole('region', { name: '總體測試時間結構' });
+    const pivots = within(panel).getByRole('region', { name: '時間與次數樞紐分析總表' });
+
+    expect(chart.compareDocumentPosition(sunbursts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(sunbursts.compareDocumentPosition(pivots) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('shows complete analysis export on its own row', () => {

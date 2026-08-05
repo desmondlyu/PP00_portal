@@ -116,6 +116,15 @@ svg { max-width: 100%; height: auto; }
 .sunburst-tree-node-label { overflow-wrap: anywhere; }
 .sunburst-tree-node-meta { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; color: var(--muted); font-size: .78rem; }
 .sunburst-tree-node-meta strong { color: var(--accent); font-variant-numeric: tabular-nums; }
+.sunburst-product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 18px; }
+.sunburst-product-card { min-width: 0; padding: 16px; background: rgba(7, 22, 39, .45); border: 1px solid var(--border); border-radius: var(--radius); }
+.sunburst-product-card .sunburst-chart { display: grid; justify-items: center; }
+.sunburst-product-card .sunburst-tree { margin-top: 16px; }
+.overview-chart-section, .overview-sunburst-section, .overview-pivot-section { width: 100%; margin: 18px 0; }
+.overview-chart-scroll { overflow-x: auto; }
+.overview-pivot-section { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.overview-pivot-title { grid-column: 1 / -1; margin: 0; }
+.overview-pivot-table { min-width: 0; }
 
 @media (max-width: 760px) {
   .app-shell { padding: 18px; }
@@ -124,6 +133,12 @@ svg { max-width: 100%; height: auto; }
   .pipeline-stages { gap: 8px; }
   .dashboard-page select { width: 100%; }
   .dashboard-filters-fields { flex-wrap: wrap; }
+}
+@media (max-width: 900px) {
+  .overview-pivot-section { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .sunburst-product-grid { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

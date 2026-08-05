@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { expect, it } from 'vitest';
 import { SunburstTab } from './SunburstTab';
 
@@ -26,4 +26,7 @@ it('renders per-product sunburst with mode/operation arcs', () => {
   // 應顯示產品標題與 SVG 圖
   expect(screen.getByRole('heading', { name: /EAG119 \(1\.0s\)/ })).toBeVisible();
   expect(screen.getByRole('img', { name: /EAG119 旭日圖/ })).toBeVisible();
+  const productCard = screen.getByRole('article', { name: 'EAG119 旭日圖與關聯樹' });
+  expect(within(productCard).getByRole('img', { name: /EAG119 旭日圖/ })).toBeVisible();
+  expect(within(productCard).getByRole('region', { name: 'EAG119 關聯樹' })).toBeVisible();
 });
