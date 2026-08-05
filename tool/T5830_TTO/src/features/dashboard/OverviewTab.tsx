@@ -59,6 +59,8 @@ export function OverviewTab({ rows, rawRows, mapping }: { rows: MasterSummaryRow
                   segments.set(key, (segments.get(key) ?? 0) + time);
                 }
                 const cx = padL + gap * pi + gap / 2;
+                const total = [...segments.values()].reduce((sum, time) => sum + time, 0);
+                const totalY = Math.max(12, padT + plotH - (total / maxTime) * plotH - 8);
                 let offsetY = 0;
                 const meta = rows.find((r) => r.Product === product);
                 return <g key={product}>
@@ -69,6 +71,9 @@ export function OverviewTab({ rows, rawRows, mapping }: { rows: MasterSummaryRow
                     const ci = legendItems.indexOf(item) % colors.length;
                     return <rect key={item} x={cx - barW / 2} y={y} width={barW} height={h} fill={colors[ci]}><title>{`${item}: ${time.toFixed(2)}s`}</title></rect>;
                   })}
+                  <text x={cx} y={totalY} textAnchor="middle" fill="var(--ink)" fontSize="12" fontWeight="bold">
+                    {`${total.toFixed(1)}s`}
+                  </text>
                   <text x={cx} y={padT + plotH + 14} textAnchor="middle" fill="var(--ink)" fontSize="11" fontWeight="bold">{product}</text>
                   <text x={cx} y={padT + plotH + 26} textAnchor="middle" fill="var(--muted)" fontSize="9">{meta?.Process ?? ''}</text>
                   <text x={cx} y={padT + plotH + 37} textAnchor="middle" fill="var(--muted)" fontSize="9">{meta?.Size ?? ''}</text>
@@ -76,6 +81,14 @@ export function OverviewTab({ rows, rawRows, mapping }: { rows: MasterSummaryRow
                 </g>;
               })}
             </svg>
+          </div>
+          <div className="overview-chart-legend" aria-label="跨產品時間結構圖例">
+            {legendItems.map((item, index) => (
+              <span key={item} className="overview-chart-legend-item">
+                <span className="overview-chart-legend-swatch" style={{ backgroundColor: colors[index % colors.length] }} aria-hidden="true" />
+                {item}
+              </span>
+            ))}
           </div>
       </section>
 
