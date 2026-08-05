@@ -96,6 +96,12 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
 th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); }
 th { color: var(--primary); }
 svg { max-width: 100%; height: auto; }
+.dashboard-filters { position: fixed; bottom: 16px; left: 50%; z-index: 1000; width: min(calc(100vw - 32px), 900px); transform: translateX(-50%); padding: 10px 14px; border-radius: 14px; background: rgba(15, 23, 42, .92); backdrop-filter: blur(12px); border: 1px solid rgba(88, 202, 255, .3); box-shadow: 0 8px 32px rgba(0, 0, 0, .5); }
+.dashboard-filters-toggle { display: flex; width: 100%; min-height: 32px; align-items: center; justify-content: space-between; padding: 4px 8px; color: var(--ink); background: transparent; border-radius: 8px; font-size: .88rem; }
+.dashboard-filters-toggle:hover { background: rgba(88, 202, 255, .12); }
+.dashboard-filters-fields { display: flex; max-height: 180px; align-items: flex-end; gap: 12px; overflow: visible; opacity: 1; transition: max-height .22s ease, padding-top .22s ease, opacity .18s ease; }
+.dashboard-filters.is-collapsed .dashboard-filters-fields { max-height: 0; padding-top: 0; opacity: 0; pointer-events: none; overflow: hidden; }
+.dashboard-filters.is-expanded .dashboard-filters-fields { padding-top: 8px; }
 .sunburst-tree { margin-top: 22px; padding: 18px; background: linear-gradient(145deg, rgba(20, 49, 78, .9), rgba(7, 22, 39, .9)); border: 1px solid var(--border); border-radius: var(--radius); }
 .sunburst-tree h3 { margin: 0; }
 .sunburst-tree-hint { margin: 4px 0 14px; color: var(--muted); font-size: .86rem; }
@@ -117,6 +123,7 @@ svg { max-width: 100%; height: auto; }
   .hero-copy h1 { font-size: clamp(2.8rem, 14vw, 4.4rem); }
   .pipeline-stages { gap: 8px; }
   .dashboard-page select { width: 100%; }
+  .dashboard-filters-fields { flex-wrap: wrap; }
 }
 
 @media (prefers-reduced-motion: reduce) {
