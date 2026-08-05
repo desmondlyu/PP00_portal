@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { MasterSummaryRow } from '../../types/analysis';
 import { compareProducts } from '../../lib/productMetadata';
@@ -248,9 +248,37 @@ function DataTable({
 }) {
   // ponytail: default collapsed, user expands when needed
   const [collapsed, setCollapsed] = useState(true);
+  const [tableWidth, setTableWidth] = useState(720);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const bottomScrollRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
   const columnValues = headers.slice(1).map((_, index) => numericRows.map((row) =>
     index === headers.length - 2 ? row.total : row.values[index]
   ));
+
+  useEffect(() => {
+    if (collapsed || !tableRef.current) return;
+    const updateWidth = () => setTableWidth(tableRef.current?.scrollWidth ?? 720);
+    updateWidth();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(tableRef.current);
+    return () => observer.disconnect();
+  }, [collapsed, headers.length, renderRows.length]);
+
+  useEffect(() => {
+    const top = topScrollRef.current;
+    const bottom = bottomScrollRef.current;
+    if (!top || !bottom) return;
+    const syncTop = () => { bottom.scrollLeft = top.scrollLeft; };
+    const syncBottom = () => { top.scrollLeft = bottom.scrollLeft; };
+    top.addEventListener('scroll', syncTop);
+    bottom.addEventListener('scroll', syncBottom);
+    return () => {
+      top.removeEventListener('scroll', syncTop);
+      bottom.removeEventListener('scroll', syncBottom);
+    };
+  }, [collapsed]);
 
   return (
     <section aria-label={title}>
@@ -271,8 +299,12 @@ function DataTable({
         </button>
       </div>
       {!collapsed && (
-        <div style={shellStyle}>
-          <table style={tableStyle}>
+        <>
+        <div ref={topScrollRef} className="pivot-top-scroll" aria-label={`${title} 上方水平捲軸`}>
+          <div style={{ width: tableWidth, height: 1 }} />
+        </div>
+        <div ref={bottomScrollRef} style={shellStyle}>
+          <table ref={tableRef} style={tableStyle}>
             <thead>
               <tr>
                 <th scope="col" style={rowHeaderStyle}>測項</th>
@@ -306,6 +338,7 @@ function DataTable({
             <caption style={{ captionSide: 'bottom', color: '#94a3b8', paddingTop: 12 }}>{totalLabel}</caption>
           </table>
         </div>
+        </>
       )}
     </section>
   );

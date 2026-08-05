@@ -21,7 +21,7 @@ export function OverviewTab({ rows, rawRows, mapping }: { rows: MasterSummaryRow
   maxTime = maxTime || 1;
   const chartH = 380, padL = 55, padR = 10, padT = 15, padB = 75;
   const plotH = chartH - padT - padB;
-  const chartW = Math.max(360, productTimes.size * 100);
+  const chartW = Math.max(720, productTimes.size * 140);
   const plotW = chartW - padL - padR;
   const barW = Math.min(55, plotW / Math.max(productTimes.size, 1) * 0.65);
   const gap = plotW / Math.max(productTimes.size, 1);
@@ -42,7 +42,7 @@ export function OverviewTab({ rows, rawRows, mapping }: { rows: MasterSummaryRow
       <section className="overview-chart-section" role="region" aria-label="跨產品時間結構對比">
           <h3>📊 跨產品時間結構對比</h3>
           <div className="overview-chart-scroll">
-            <svg role="img" aria-label="堆疊條圖" width={chartW} height={chartH}>
+            <svg role="img" aria-label="堆疊條圖" width="100%" height={chartH} viewBox={`0 0 ${chartW} ${chartH}`} preserveAspectRatio="none" style={{ minWidth: chartW }}>
               {Array.from({ length: ticks + 1 }, (_, i) => {
                 const val = i * yStep;
                 if (val > maxTime * 1.1) return null;
