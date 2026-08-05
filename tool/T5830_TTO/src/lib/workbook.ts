@@ -7,11 +7,20 @@ const requiredColumns = ['Test_Item_Merged', 'Grand_Total_Time', 'Total_Merged_C
 const analysisColumns = ['Product', 'Test_Item_Merged', 'Grand_Total_Time', 'Total_Merged_Count'];
 const mappingColumns = ['Original_Item_Name', 'Mode', 'Operation'];
 const encryptedWorkbookPattern = /ECMA-376|\/EncryptionInfo|Encrypted|password-protected/i;
+const notClassified = 'Not Classified';
 
 export type MappingRow = {
   Original_Item_Name: string;
   Mode: string;
   Operation: string;
+};
+
+type SunburstRow = {
+  Product: string;
+  Mode: string;
+  Operation?: string;
+  Total_Time: number;
+  Ratio: number;
 };
 
 export class EncryptedWorkbookError extends Error {
@@ -38,6 +47,94 @@ function readAsArrayBuffer(blob: Blob) {
 function asNumber(value: unknown) {
   const number = typeof value === 'number' ? value : Number.parseFloat(String(value).replace('%', ''));
   return Number.isFinite(number) ? number : 0;
+}
+
+function asClassifiedLabel(value: unknown) {
+  const label = String(value ?? '').trim();
+  return label || notClassified;
+}
+
+function getRowTime(row: MasterSummaryRow) {
+  return asNumber(row.Station_Time ?? row.Grand_Total_Time);
+}
+
+function buildMappingLookup(mapping: MappingRow[]) {
+  const lookup = new Map<string, MappingRow>();
+  for (const row of mapping) {
+    const key = String(row.Original_Item_Name ?? '').trim();
+    if (key) lookup.set(key, row);
+  }
+  return lookup;
+}
+
+function buildSunburstRows(rows: MasterSummaryRow[], mapping: MappingRow[]) {
+  const mappingLookup = buildMappingLookup(mapping);
+  const modeTotals = new Map<string, number>();
+  const operationTotals = new Map<string, number>();
+
+  for (const row of rows) {
+    const mapped = mappingLookup.get(String(row.Original_Item_Name ?? '').trim());
+    const mode = asClassifiedLabel(mapped?.Mode);
+    const operation = asClassifiedLabel(mapped?.Operation);
+    const totalTime = getRowTime(row);
+
+    modeTotals.set(`${row.Product}|||${mode}`, (modeTotals.get(`${row.Product}|||${mode}`) ?? 0) + totalTime);
+    operationTotals.set(
+      `${row.Product}|||${mode}|||${operation}`,
+      (operationTotals.get(`${row.Product}|||${mode}|||${operation}`) ?? 0) + totalTime
+    );
+  }
+
+  const modeGrandTotal = [...modeTotals.values()].reduce((sum, value) => sum + value, 0) || 0.000001;
+  const operationGrandTotal = [...operationTotals.values()].reduce((sum, value) => sum + value, 0) || 0.000001;
+
+  const modeRows = [...modeTotals.entries()]
+    .map(([key, totalTime]) => {
+      const [product, mode] = key.split('|||');
+      return {
+        Product: product,
+        Mode: mode,
+        Total_Time: Math.round(totalTime * 100) / 100,
+        Ratio: Math.round((totalTime / modeGrandTotal) * 100 * 100) / 100
+      };
+    })
+    .sort((a, b) => a.Product.localeCompare(b.Product) || b.Total_Time - a.Total_Time || a.Mode.localeCompare(b.Mode));
+
+  const operationRows = [...operationTotals.entries()]
+    .map(([key, totalTime]) => {
+      const [product, mode, operation] = key.split('|||');
+      return {
+        Product: product,
+        Mode: mode,
+        Operation: operation,
+        Total_Time: Math.round(totalTime * 100) / 100,
+        Ratio: Math.round((totalTime / operationGrandTotal) * 100 * 100) / 100
+      };
+    })
+    .sort(
+      (a, b) =>
+        a.Product.localeCompare(b.Product) ||
+        a.Mode.localeCompare(b.Mode) ||
+        b.Total_Time - a.Total_Time ||
+        a.Operation!.localeCompare(b.Operation!)
+    );
+
+  return { modeRows, operationRows };
+}
+
+function appendSunburstSheets(workbook: XLSX.WorkBook, rows: MasterSummaryRow[], mapping: MappingRow[], usedSheets?: Set<string>) {
+  const { modeRows, operationRows } = buildSunburstRows(rows, mapping);
+  const sheetNames = usedSheets ?? new Set<string>(workbook.SheetNames);
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.json_to_sheet(modeRows),
+    uniqueSheetName('Sunburst_Mode', sheetNames)
+  );
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.json_to_sheet(operationRows),
+    uniqueSheetName('Sunburst_Operation', sheetNames)
+  );
 }
 
 async function readWorkbook(file: File) {
@@ -205,7 +302,13 @@ function uniqueSheetName(name: string, used: Set<string>) {
   return candidate;
 }
 
-export function writeAnalysisWorkbook(rows: MasterSummaryRow[]): ArrayBuffer {
+export function writeSunburstWorkbook(rows: MasterSummaryRow[], mapping: MappingRow[]): ArrayBuffer {
+  const workbook = XLSX.utils.book_new();
+  appendSunburstSheets(workbook, rows, mapping);
+  return XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+}
+
+export function writeAnalysisWorkbook(rows: MasterSummaryRow[], mapping: MappingRow[] = []): ArrayBuffer {
   const workbook = XLSX.utils.book_new();
   const usedSheets = new Set<string>();
   const masterRows = rows.map(analysisRowToRecord);
@@ -227,6 +330,8 @@ export function writeAnalysisWorkbook(rows: MasterSummaryRow[]): ArrayBuffer {
       uniqueSheetName(key, usedSheets)
     );
   }
+
+  appendSunburstSheets(workbook, rows, mapping, usedSheets);
 
   return XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
 }
