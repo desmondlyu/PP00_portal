@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import { standardizeTestItem } from './standardizeTestItem';
 import { getProductMeta } from './productMetadata';
-import type { MasterSummaryRow } from '../types/analysis';
+import type { MasterSummaryRow, TouchdownStats } from '../types/analysis';
 
 const requiredColumns = ['Test_Item_Merged', 'Grand_Total_Time', 'Total_Merged_Count'];
 const analysisColumns = ['Product', 'Test_Item_Merged', 'Grand_Total_Time', 'Total_Merged_Count'];
@@ -60,6 +60,43 @@ function asClassifiedLabel(value: unknown) {
 
 function getRowTime(row: MasterSummaryRow) {
   return asNumber(row.Station_Time ?? row.Grand_Total_Time);
+}
+
+const touchdownStatColumns = [
+  ['test_item_avg', 'avg'],
+  ['test_item_max', 'max'],
+  ['test_item_min', 'min'],
+  ['test_item_range', 'range'],
+  ['Test_Item_Station_Ratio(%)', 'ratio']
+] as const;
+
+function sortTouchdowns(left: string, right: string) {
+  return Number.parseInt(left.slice(3), 10) - Number.parseInt(right.slice(3), 10);
+}
+
+function touchdownStatsToRecord(stats: MasterSummaryRow['touchdownStats']): Record<string, number> {
+  if (!stats) return {};
+  const record: Record<string, number> = {};
+  for (const touchdown of Object.keys(stats).sort(sortTouchdowns)) {
+    for (const [column, key] of touchdownStatColumns) {
+      record[`${touchdown}_${column}`] = stats[touchdown][key];
+    }
+  }
+  return record;
+}
+
+function touchdownStatsFromRecord(row: Record<string, unknown>): MasterSummaryRow['touchdownStats'] {
+  const stats = new Map<string, TouchdownStats>();
+  for (const [column, value] of Object.entries(row)) {
+    const match = /^(TD_\d+)_(test_item_avg|test_item_max|test_item_min|test_item_range|Test_Item_Station_Ratio\(%\))$/.exec(column);
+    if (!match || value === '' || value === undefined) continue;
+    const touchdown = match[1];
+    const stat = stats.get(touchdown) ?? { avg: 0, max: 0, min: 0, range: 0, ratio: 0 };
+    const key = touchdownStatColumns.find(([name]) => name === match[2])?.[1];
+    if (key) stat[key] = asNumber(value);
+    stats.set(touchdown, stat);
+  }
+  return stats.size > 0 ? Object.fromEntries(stats) : undefined;
 }
 
 function buildMappingLookup(mapping: MappingRow[]) {
@@ -181,6 +218,7 @@ function analysisRowToRecord(row: MasterSummaryRow, mappingLookup?: Map<string, 
     test_item_min: row.test_item_min,
     test_item_range: row.test_item_range,
     'Test_Item_Station_Ratio(%)': row.Test_Item_Station_Ratio,
+    ...touchdownStatsToRecord(row.touchdownStats),
     Grand_Total_Time: row.Grand_Total_Time,
     Grand_Total_Ratio: row.Grand_Total_Ratio,
     Total_Merged_Count: row.Total_Merged_Count,
@@ -209,7 +247,8 @@ function detailRowToRecord(row: MasterSummaryRow, mappingLookup?: Map<string, Ma
     test_item_max: row.test_item_max,
     test_item_min: row.test_item_min,
     test_item_range: row.test_item_range,
-    'Test_Item_Station_Ratio(%)': row.Test_Item_Station_Ratio
+    'Test_Item_Station_Ratio(%)': row.Test_Item_Station_Ratio,
+    ...touchdownStatsToRecord(row.touchdownStats)
   };
 }
 
@@ -323,6 +362,7 @@ export async function readAnalysisWorkbook(file: File): Promise<MasterSummaryRow
       Test_Item_Station_Ratio: row['Test_Item_Station_Ratio(%)'] === '' || row['Test_Item_Station_Ratio(%)'] === undefined
         ? undefined
         : asNumber(row['Test_Item_Station_Ratio(%)']),
+      touchdownStats: touchdownStatsFromRecord(row),
       touchdownTimes: Object.keys(touchdownTimes).length > 0 ? touchdownTimes : undefined
     };
   });
@@ -377,7 +417,8 @@ export async function readMasterSummaryWorkbook(file: File): Promise<MasterSumma
       test_item_range: row.test_item_range === '' || row.test_item_range === undefined ? undefined : asNumber(row.test_item_range),
       Test_Item_Station_Ratio: row['Test_Item_Station_Ratio(%)'] === '' || row['Test_Item_Station_Ratio(%)'] === undefined
         ? undefined
-        : asNumber(row['Test_Item_Station_Ratio(%)'])
+        : asNumber(row['Test_Item_Station_Ratio(%)']),
+      touchdownStats: touchdownStatsFromRecord(row)
     };
   });
 }

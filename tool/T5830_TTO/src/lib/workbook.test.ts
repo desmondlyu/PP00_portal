@@ -85,6 +85,26 @@ describe('Master Summary workbook', () => {
     expect(exported.map((row) => row.Original_Item_Name)).toEqual(['A_(M)', 'Z_(M)', 'B_(M)']);
   });
 
+  it('round-trips touchdown statistics through analysis and Master Summary workbooks', async () => {
+    const touchdownStats = {
+      TD_1: { avg: 2, max: 3, min: 1, range: 2, ratio: 40 },
+      TD_2: { avg: 6, max: 10, min: 2, range: 8, ratio: 75 }
+    };
+    const analysisWorkbook = writeAnalysisWorkbook([{ ...rows[0], touchdownStats }], mappingRows);
+    const analysisSheet = XLSX.read(analysisWorkbook, { type: 'array' }).Sheets.Master_Summary;
+    const exported = XLSX.utils.sheet_to_json<Record<string, unknown>>(analysisSheet, { defval: '' })[0];
+    expect(exported).toMatchObject({
+      TD_2_test_item_avg: 6,
+      'TD_2_Test_Item_Station_Ratio(%)': 75
+    });
+    await expect(readAnalysisWorkbook(new File([analysisWorkbook], 'analysis.xlsx')))
+      .resolves.toMatchObject([{ touchdownStats }]);
+
+    const masterWorkbook = writeMasterSummaryWorkbook([{ ...rows[0], touchdownStats }], mappingRows);
+    await expect(readMasterSummaryWorkbook(new File([masterWorkbook], 'EAG119_Master_Summary.xlsx')))
+      .resolves.toMatchObject([{ touchdownStats }]);
+  });
+
   it('reads the Management Mapping columns', async () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{

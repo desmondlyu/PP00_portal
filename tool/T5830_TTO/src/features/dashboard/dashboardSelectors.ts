@@ -7,6 +7,7 @@ export type DashboardFilters = {
   voltage: string[];
   product: string[];
   station: string[];
+  touchdown: string[];
 };
 
 export const allFilters: DashboardFilters = {
@@ -14,7 +15,8 @@ export const allFilters: DashboardFilters = {
   size: [],
   voltage: [],
   product: [],
-  station: []
+  station: [],
+  touchdown: []
 };
 
 /**
@@ -45,20 +47,65 @@ export function aggregateByStandardizedItem(rows: MasterSummaryRow[]): MasterSum
   return [...groups.values()];
 }
 
-export function filterSummary(rows: MasterSummaryRow[], filters: DashboardFilters) {
-  const filtered = rows.filter((row) =>
+function matchesFilters(row: MasterSummaryRow, filters: DashboardFilters) {
+  return (
     (filters.process.length === 0 || filters.process.includes(row.Process)) &&
     (filters.size.length === 0 || filters.size.includes(row.Size)) &&
     (filters.voltage.length === 0 || filters.voltage.includes(row.Voltage)) &&
     (filters.product.length === 0 || filters.product.includes(row.Product)) &&
     (filters.station.length === 0 || filters.station.includes(row.Station))
   );
-  return aggregateByStandardizedItem(filtered);
+}
+
+function selectTouchdowns(row: MasterSummaryRow, touchdowns: string[]) {
+  if (touchdowns.length === 0) return row;
+  const touchdownTimes = Object.fromEntries(
+    touchdowns
+      .filter((touchdown) => row.touchdownTimes?.[touchdown] !== undefined)
+      .map((touchdown) => [touchdown, row.touchdownTimes![touchdown]])
+  );
+  const touchdownStats = row.touchdownStats
+    ? Object.fromEntries(
+        touchdowns
+          .filter((touchdown) => row.touchdownStats?.[touchdown] !== undefined)
+          .map((touchdown) => [touchdown, row.touchdownStats![touchdown]])
+      )
+    : undefined;
+  const selectedTime = Object.values(touchdownTimes).reduce((sum, time) => sum + time, 0);
+  const maxRatio = touchdownStats
+    ? Math.max(0, ...Object.values(touchdownStats).map((stats) => stats.ratio))
+    : row.Test_Item_Station_Ratio;
+
+  return {
+    ...row,
+    Grand_Total_Time: selectedTime,
+    Station_Time: selectedTime,
+    Test_Item_Station_Ratio: maxRatio,
+    touchdownTimes,
+    touchdownStats
+  };
+}
+
+export function filterRawSummary(rows: MasterSummaryRow[], filters: DashboardFilters) {
+  return rows
+    .filter((row) => matchesFilters(row, filters))
+    .map((row) => selectTouchdowns(row, filters.touchdown));
+}
+
+export function filterSummary(rows: MasterSummaryRow[], filters: DashboardFilters) {
+  return aggregateByStandardizedItem(filterRawSummary(rows, filters));
 }
 
 export function distinct(rows: MasterSummaryRow[], field: keyof Pick<MasterSummaryRow, 'Process' | 'Size' | 'Voltage' | 'Product' | 'Station'>) {
   const values = [...new Set(rows.map((row) => row[field]).filter(Boolean))];
   return field === 'Product' ? values.sort(compareProducts) : values.sort();
+}
+
+export function distinctTouchdowns(rows: MasterSummaryRow[]) {
+  return [...new Set(rows.flatMap((row) => [
+    ...Object.keys(row.touchdownTimes ?? {}),
+    ...Object.keys(row.touchdownStats ?? {})
+  ]))].sort((left, right) => Number.parseInt(left.slice(3), 10) - Number.parseInt(right.slice(3), 10));
 }
 
 export function productItemTimes(rows: MasterSummaryRow[]) {

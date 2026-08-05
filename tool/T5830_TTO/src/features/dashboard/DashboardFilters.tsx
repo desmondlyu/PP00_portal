@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import type { MasterSummaryRow } from '../../types/analysis';
-import { distinct, type DashboardFilters as FilterValues } from './dashboardSelectors';
+import { distinct, distinctTouchdowns, type DashboardFilters as FilterValues } from './dashboardSelectors';
 
 type Props = {
   rows: MasterSummaryRow[];
@@ -107,6 +107,8 @@ export function DashboardFilters({ rows, value, onChange }: Props) {
           onChange={(product) => onChange({ ...value, product })} />
         <MultiSelectDropdown label="站點" selected={value.station} options={distinct(rows, 'Station')}
           onChange={(station) => onChange({ ...value, station })} />
+        <MultiSelectDropdown label="TD No" selected={value.touchdown} options={distinctTouchdowns(rows)}
+          onChange={(touchdown) => onChange({ ...value, touchdown })} />
       </div>
     </div>
   );

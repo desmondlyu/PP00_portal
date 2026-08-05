@@ -4,7 +4,7 @@ import { DEFAULT_MAPPING } from '../../lib/defaultMapping';
 import type { MasterSummaryRow } from '../../types/analysis';
 import { CountTab } from './CountTab';
 import { DashboardFilters } from './DashboardFilters';
-import { allFilters, filterSummary, productItemTimes, topStackedItems, type DashboardFilters as FilterValues } from './dashboardSelectors';
+import { allFilters, filterRawSummary, filterSummary, productItemTimes, topStackedItems, type DashboardFilters as FilterValues } from './dashboardSelectors';
 import { OverviewTab } from './OverviewTab';
 import { SunburstTab } from './SunburstTab';
 import { TimeTab } from './TimeTab';
@@ -53,13 +53,7 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
   }, [summaries]);
   const filtered = filterSummary(summaries, filters);
   // ponytail: Sunburst needs un-aggregated rows to join on Original_Item_Name
-  const rawFiltered = summaries.filter((row) =>
-    (filters.process.length === 0 || filters.process.includes(row.Process)) &&
-    (filters.size.length === 0 || filters.size.includes(row.Size)) &&
-    (filters.voltage.length === 0 || filters.voltage.includes(row.Voltage)) &&
-    (filters.product.length === 0 || filters.product.includes(row.Product)) &&
-    (filters.station.length === 0 || filters.station.includes(row.Station))
-  );
+  const rawFiltered = filterRawSummary(summaries, filters);
 
   async function updateMapping(file?: File) {
     if (!file) return;
