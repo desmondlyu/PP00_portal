@@ -117,27 +117,32 @@ function SingleSunburst({ rows, mapping, title }: { rows: MasterSummaryRow[]; ma
 }
 
 export function SunburstTab({ rows, mapping = [] }: { rows: MasterSummaryRow[]; mapping?: MappingRow[] }) {
-  // ponytail: 按產品分開顯示各自旭日圖
-  const byProduct = new Map<string, MasterSummaryRow[]>();
+  // ponytail: Station 的 TD_1 比例不能跨站混算
+  const byProductStation = new Map<string, MasterSummaryRow[]>();
   for (const row of rows) {
-    const list = byProduct.get(row.Product) ?? [];
+    const key = `${row.Product}\x00${row.Station}`;
+    const list = byProductStation.get(key) ?? [];
     list.push(row);
-    byProduct.set(row.Product, list);
+    byProductStation.set(key, list);
   }
 
-  const products = [...byProduct.keys()].sort();
-  if (products.length === 0) return <section><h2>多維度旭日圖</h2><p>無資料可顯示。</p></section>;
+  const productStations = [...byProductStation.keys()].sort();
+  if (productStations.length === 0) return <section><h2>多維度旭日圖</h2><p>無資料可顯示。</p></section>;
 
   return (
     <section aria-labelledby="sunburst-title">
       <h2 id="sunburst-title">多維度旭日圖 (Mode / Operation)</h2>
       <div className="sunburst-product-grid">
-        {products.map((product) => (
-          <article key={product} className="sunburst-product-card" aria-label={`${product} 旭日圖與關聯樹`}>
-            <SingleSunburst rows={byProduct.get(product)!} mapping={mapping} title={product} />
-            <SunburstTree rows={byProduct.get(product)!} mapping={mapping} title={product} />
+        {productStations.map((key) => {
+          const [product, station] = key.split('\x00');
+          const title = `${product} · ${station}`;
+          return (
+          <article key={key} className="sunburst-product-card" aria-label={`${title} 旭日圖與關聯樹`}>
+            <SingleSunburst rows={byProductStation.get(key)!} mapping={mapping} title={title} />
+            <SunburstTree rows={byProductStation.get(key)!} mapping={mapping} title={title} />
           </article>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

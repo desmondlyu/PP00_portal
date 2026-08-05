@@ -50,6 +50,9 @@ describe('buildAnalysisReport', () => {
       Process: 'F58',
       Size: '512M',
       Voltage: '1.8',
+      Step: 1,
+      Test_Item: 'READ_ARRAY',
+      Sweep_Info: 'None',
       Original_Item_Name: 'READ_ARRAY_(M)',
       Test_Item_Merged: 'READ_ARRAY_(M)',
       Grand_Total_Time: 1,
@@ -58,8 +61,37 @@ describe('buildAnalysisReport', () => {
       Station: 'Unknown',
       Station_Time: 1,
       Station_Count: 1,
+      test_item_avg: 1,
+      test_item_max: 1,
+      test_item_min: 1,
+      test_item_range: 0,
+      Test_Item_Station_Ratio: 100,
       touchdownTimes: { TD_1: 1 }
     }]);
+  });
+
+  it('calculates TD_1 site statistics without mixing TD_2', () => {
+    const report = buildAnalysisReport(
+      [
+        row('Site_01', 'TD_1', 3, 'READ_ARRAY', '1~2', 2),
+        row('Site_02', 'TD_1', 3, 'READ_ARRAY', '1~2', 4),
+        row('Site_01', 'TD_2', 4, 'READ_ARRAY', 'None', 100)
+      ],
+      { product: 'EAG119', process: 'F58', size: '512M', voltage: '1.8' },
+      'S1P1'
+    );
+
+    expect(report.masterSummary[0]).toMatchObject({
+      Station: 'S1P1',
+      Step: 3,
+      Test_Item: 'READ_ARRAY',
+      Sweep_Info: '1~2',
+      test_item_avg: 3,
+      test_item_max: 4,
+      test_item_min: 2,
+      test_item_range: 2,
+      Test_Item_Station_Ratio: 100
+    });
   });
 
   it('keeps a unique Test_No for the matching original test item', () => {

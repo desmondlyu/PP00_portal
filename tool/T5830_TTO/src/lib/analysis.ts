@@ -59,6 +59,7 @@ export function buildAnalysisReport(
   const perSite = new Map<string, number>();
   const stepsByItem = new Map<string, Set<number>>();
   const testNumbersByItem = new Map<string, Set<number>>();
+  const td1MetadataByItem = new Map<string, { step: number; sweepInfos: Set<string> }>();
 
   for (const row of rows) {
     const key = `${row.site}\u0000${row.testItem}\u0000${row.touchdown}`;
@@ -72,9 +73,19 @@ export function buildAnalysisReport(
       numbers.add(row.testNo);
       testNumbersByItem.set(row.testItem, numbers);
     }
+    if (row.touchdown === 'TD_1') {
+      const current = td1MetadataByItem.get(row.testItem);
+      if (current) {
+        current.step = Math.min(current.step, row.step);
+        current.sweepInfos.add(row.sweepInfo);
+      } else {
+        td1MetadataByItem.set(row.testItem, { step: row.step, sweepInfos: new Set([row.sweepInfo]) });
+      }
+    }
   }
 
   const perItem = new Map<string, Map<string, number[]>>();
+  const td1ValuesByItem = new Map<string, number[]>();
   for (const [key, timeSeconds] of perSite) {
     const [, testItem, touchdown] = key.split('\u0000');
     const touchdowns = perItem.get(testItem) ?? new Map<string, number[]>();
@@ -82,6 +93,11 @@ export function buildAnalysisReport(
     values.push(timeSeconds);
     touchdowns.set(touchdown, values);
     perItem.set(testItem, touchdowns);
+    if (touchdown === 'TD_1') {
+      const td1Values = td1ValuesByItem.get(testItem) ?? [];
+      td1Values.push(timeSeconds);
+      td1ValuesByItem.set(testItem, td1Values);
+    }
   }
 
   const merge = [...perItem].map(([testItem, touchdowns]) => {
@@ -103,6 +119,9 @@ export function buildAnalysisReport(
   }).sort((left, right) => right.totalTime - left.totalTime);
 
   const grandTotal = merge.reduce((sum, item) => sum + item.totalTime, 0);
+  const stationTd1Total = [...td1ValuesByItem.values()]
+    .flat()
+    .reduce((sum, value) => sum + value, 0);
   for (const item of merge) {
     item.totalRatioPercent = grandTotal > 0 ? item.totalTime / grandTotal * 100 : 0;
   }
@@ -115,11 +134,21 @@ export function buildAnalysisReport(
     for (const [td, time] of Object.entries(item.touchdownTimes)) {
       tdTimes[td] = Math.round(time * 100) / 100;
     }
+    const td1Values = td1ValuesByItem.get(item.testItem) ?? [];
+    const td1Metadata = td1MetadataByItem.get(item.testItem);
+    const td1Total = td1Values.reduce((sum, value) => sum + value, 0);
     return {
       Product: resolvedMeta.product,
       Process: resolvedMeta.process,
       Size: resolvedMeta.size,
       Voltage: resolvedMeta.voltage,
+      ...(td1Metadata
+        ? {
+            Step: td1Metadata.step,
+            Test_Item: item.testItem,
+            Sweep_Info: [...td1Metadata.sweepInfos].sort().join(' / ')
+          }
+        : {}),
       ...(testNumbersByItem.get(item.testItem)?.size === 1
         ? { Test_No: [...testNumbersByItem.get(item.testItem)!][0] }
         : {}),
@@ -131,6 +160,15 @@ export function buildAnalysisReport(
       Station: station,
       Station_Time: item.totalTime,
       Station_Count: item.mergedCount,
+      ...(td1Values.length > 0
+        ? {
+            test_item_avg: td1Total / td1Values.length,
+            test_item_max: Math.max(...td1Values),
+            test_item_min: Math.min(...td1Values),
+            test_item_range: Math.max(...td1Values) - Math.min(...td1Values),
+            Test_Item_Station_Ratio: stationTd1Total > 0 ? td1Total / stationTd1Total * 100 : 0
+          }
+        : {}),
       touchdownTimes: tdTimes
     };
   });

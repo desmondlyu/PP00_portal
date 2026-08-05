@@ -32,6 +32,25 @@ describe('PipelinePage', () => {
     expect(screen.getByText('已取消')).toBeVisible();
   });
 
+  it('extracts any station label before the filename timestamp', async () => {
+    const user = userEvent.setup();
+    const worker = {
+      postMessage: vi.fn(),
+      terminate: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    } as unknown as Worker;
+
+    render(<PipelinePage workerFactory={() => worker} />);
+    await user.upload(
+      screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'),
+      new File(['x'], 'RW_P_D6505985AF08_20_DS00_20260725083033.tar')
+    );
+    await user.click(screen.getByRole('button', { name: '開始分析' }));
+
+    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ stations: ['DS00'] }));
+  });
+
   it('returns the completed report to its parent', async () => {
     const user = userEvent.setup();
     const listeners: Record<string, (event: Event) => void> = {};
