@@ -198,8 +198,8 @@ function StackedTimeBars({ rows }: { rows: MasterSummaryRow[] }) {
 
   // Chart dimensions
   const chartH = 400;
-  const chartW = Math.max(400, products.size * 120);
-  const padL = 60, padR = 220, padT = 20, padB = 80;
+  const chartW = Math.max(720, products.size * 140);
+  const padL = 60, padR = 10, padT = 20, padB = 80;
   const plotH = chartH - padT - padB;
   const plotW = chartW - padL - padR;
   const barW = Math.min(60, plotW / Math.max(products.size, 1) * 0.7);
@@ -213,7 +213,7 @@ function StackedTimeBars({ rows }: { rows: MasterSummaryRow[] }) {
     <section aria-labelledby="stacked-title">
       <h2 id="stacked-title">跨產品時間結構對比</h2>
       <div style={{ overflowX: 'auto' }}>
-        <svg role="img" aria-label="各產品測試時間堆疊條圖" width={chartW} height={chartH} style={{ display: 'block' }}>
+        <svg role="img" aria-label="各產品測試時間堆疊條圖" width="100%" height={chartH} viewBox={`0 0 ${chartW} ${chartH}`} preserveAspectRatio="none" style={{ display: 'block', minWidth: chartW }}>
           {/* Y-axis labels & grid */}
           {Array.from({ length: ticks + 1 }, (_, i) => {
             const val = i * yStep;
@@ -255,14 +255,15 @@ function StackedTimeBars({ rows }: { rows: MasterSummaryRow[] }) {
             </g>;
           })}
 
-          {/* Legend */}
-          {legendItems.map((item, i) => (
-            <g key={item} transform={`translate(${padL + plotW + 16} ${padT + i * 22})`}>
-              <rect width="14" height="14" fill={colors[i % colors.length]} rx="2" />
-              <text x="20" y="11" fill="var(--ink)" fontSize="11">{item}</text>
-            </g>
-          ))}
         </svg>
+        <div className="overview-chart-legend" aria-label="視覺化對比圖例">
+          {legendItems.map((item, index) => (
+            <span key={item} className="overview-chart-legend-item">
+              <span className="overview-chart-legend-swatch" style={{ backgroundColor: colors[index % colors.length] }} aria-hidden="true" />
+              {item}
+            </span>
+          ))}
+        </div>
       </div>
     </section>
   );
