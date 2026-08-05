@@ -1,5 +1,5 @@
 import { compareProducts } from '../../lib/productMetadata';
-import type { MasterSummaryRow } from '../../types/analysis';
+import type { MasterSummaryRow, TouchdownStats } from '../../types/analysis';
 
 export type DashboardFilters = {
   process: string[];
@@ -18,6 +18,28 @@ export const allFilters: DashboardFilters = {
   station: [],
   touchdown: []
 };
+
+export const tdMetrics = ['avg', 'max', 'min', 'range'] as const;
+export type TdMetric = (typeof tdMetrics)[number];
+export const tdDimensions = ['Mode', 'Operation', 'Test_Item_Merged', 'Original_Item_Name', 'Test_Item'] as const;
+export type TdDimension = (typeof tdDimensions)[number];
+export type TdDimensionFilters = Record<TdDimension, string>;
+
+export type TdAnalysisItem = {
+  testItem: string;
+  stats: Record<string, Pick<TouchdownStats, TdMetric>>;
+};
+
+export type TdAnalysisGroup = {
+  product: string;
+  items: TdAnalysisItem[];
+};
+
+export function tdDimensionValue(row: MasterSummaryRow, dimension: TdDimension) {
+  return dimension === 'Test_Item'
+    ? row.Test_Item ?? row.Test_Item_Merged
+    : row[dimension] ?? '';
+}
 
 /**
  * ponytail: Python dashboard does groupby(['Process','Size','Product','Voltage','Test_Item_Merged']).agg(sum)
@@ -106,6 +128,73 @@ export function distinctTouchdowns(rows: MasterSummaryRow[]) {
     ...Object.keys(row.touchdownTimes ?? {}),
     ...Object.keys(row.touchdownStats ?? {})
   ]))].sort((left, right) => Number.parseInt(left.slice(3), 10) - Number.parseInt(right.slice(3), 10));
+}
+
+export function tdAnalysisGroups(rows: MasterSummaryRow[], filters: TdDimensionFilters): TdAnalysisGroup[] {
+  type Aggregate = {
+    product: string;
+    testItem: string;
+    touchdowns: Map<string, { avgTotal: number; count: number; max: number; min: number }>;
+  };
+  const groups = new Map<string, Aggregate>();
+
+  for (const row of rows) {
+    if (!row.touchdownStats) continue;
+    const dimensions = tdDimensions.map((dimension) => tdDimensionValue(row, dimension));
+    if (tdDimensions.some((dimension, index) => filters[dimension] && filters[dimension] !== dimensions[index])) continue;
+
+    const key = [row.Product, ...dimensions].join('\x00');
+    const aggregate = groups.get(key) ?? {
+      product: row.Product,
+      testItem: dimensions[tdDimensions.indexOf('Test_Item')],
+      touchdowns: new Map()
+    };
+
+    for (const [touchdown, stats] of Object.entries(row.touchdownStats)) {
+      const values = aggregate.touchdowns.get(touchdown) ?? {
+        avgTotal: 0,
+        count: 0,
+        max: Number.NEGATIVE_INFINITY,
+        min: Number.POSITIVE_INFINITY
+      };
+      values.avgTotal += stats.avg;
+      values.count += 1;
+      values.max = Math.max(values.max, stats.max);
+      values.min = Math.min(values.min, stats.min);
+      aggregate.touchdowns.set(touchdown, values);
+    }
+    groups.set(key, aggregate);
+  }
+
+  const byProduct = new Map<string, TdAnalysisItem[]>();
+  for (const aggregate of groups.values()) {
+    const stats = Object.fromEntries(
+      [...aggregate.touchdowns].map(([touchdown, values]) => [touchdown, {
+        avg: values.avgTotal / values.count,
+        max: values.max,
+        min: values.min,
+        range: values.max - values.min
+      }])
+    );
+    const items = byProduct.get(aggregate.product) ?? [];
+    items.push({ testItem: aggregate.testItem, stats });
+    byProduct.set(aggregate.product, items);
+  }
+
+  return [...byProduct].map(([product, items]) => ({
+    product,
+    items: items.sort((left, right) => left.testItem.localeCompare(right.testItem))
+  })).sort((left, right) => compareProducts(left.product, right.product));
+}
+
+export function topTdItems(items: TdAnalysisItem[], metric: TdMetric, limit = 20) {
+  return [...items]
+    .sort((left, right) => {
+      const leftWorst = Math.max(0, ...Object.values(left.stats).map((stats) => stats[metric]));
+      const rightWorst = Math.max(0, ...Object.values(right.stats).map((stats) => stats[metric]));
+      return rightWorst - leftWorst || left.testItem.localeCompare(right.testItem);
+    })
+    .slice(0, limit);
 }
 
 export function productItemTimes(rows: MasterSummaryRow[]) {
