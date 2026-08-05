@@ -3,6 +3,7 @@ export type ParsedTestRow = {
   touchdown: string;
   step: number;
   testItem: string;
+  testNo?: number;
   sweepInfo: string;
   timeSeconds: number;
 };

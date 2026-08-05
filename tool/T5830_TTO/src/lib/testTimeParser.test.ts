@@ -26,4 +26,35 @@ describe('parseTestTimeText', () => {
 
     expect(rows[0]).toMatchObject({ site: 'Site_02', touchdown: 'TD_2', sweepInfo: 'None' });
   });
+
+  it('extracts test number from the matching RAWDATA title header', () => {
+    const rows = parseTestTimeText(
+      'G:----:----,----:001:////////////////////////  227, JEDEC_ID ////////////////////////\n' +
+      'G:----:----,----:001:<<< Test Time >>>, 227, JEDEC_ID, 0.023860 ,(S)\n',
+      'EAG119_S0001.txt'
+    );
+
+    expect(rows[0]).toMatchObject({ testItem: 'JEDEC_ID', testNo: 227 });
+  });
+
+  it('does not infer test number without a matching title header', () => {
+    const rows = parseTestTimeText(
+      'G:----:----,----:001:<<< Test Time >>>, 227, JEDEC_ID, 0.023860 ,(S)\n',
+      'EAG119_S0001.txt'
+    );
+
+    expect(rows[0]).toMatchObject({ testItem: 'JEDEC_ID' });
+    expect(rows[0].testNo).toBeUndefined();
+  });
+
+  it('does not apply a title number when its item differs from the timing item', () => {
+    const rows = parseTestTimeText(
+      'G:----:----,----:001:////////////////////////  227, OTHER_ITEM ////////////////////////\n' +
+      'G:----:----,----:001:<<< Test Time >>>, 227, JEDEC_ID, 0.023860 ,(S)\n',
+      'EAG119_S0001.txt'
+    );
+
+    expect(rows[0]).toMatchObject({ testItem: 'JEDEC_ID' });
+    expect(rows[0].testNo).toBeUndefined();
+  });
 });

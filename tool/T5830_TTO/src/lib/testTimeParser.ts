@@ -2,6 +2,7 @@ import type { ParsedTestRow } from '../types/analysis';
 
 const sitePattern = /_S(\d{4})/;
 const timePattern = /:(\d{3}):/;
+const testHeaderPattern = /\/{2,}\s*(\d+)\s*,\s*([^,]+?)\s*\/{2,}/;
 const x1x2Pattern = /X1\s*=\s*([^;]+);\s*X2\s*=\s*([^;)]+)/;
 const xPattern = /X\s*=\s*([a-zA-Z0-9_.-]+(?:\s*~\s*[a-zA-Z0-9_.-]+)?)/;
 const excludedSweepKeywords = [
@@ -28,8 +29,14 @@ export function parseTestTimeText(text: string, fileName: string): ParsedTestRow
   let currentTouchdown: number | undefined;
   let step = 1;
   let sweepInfo = 'None';
+  const testNoByItem = new Map<string, number>();
 
   for (const line of text.split(/\r?\n/)) {
+    const testHeader = testHeaderPattern.exec(line);
+    if (testHeader) {
+      testNoByItem.set(testHeader[2].trim(), Number.parseInt(testHeader[1], 10));
+    }
+
     if (line.includes('####')) {
       sweepInfo = 'None';
       continue;
@@ -63,7 +70,7 @@ export function parseTestTimeText(text: string, fileName: string): ParsedTestRow
     const timeSeconds = Number.parseFloat(fields[2]);
     if (!Number.isFinite(timeSeconds)) continue;
 
-    rows.push({
+    const row: ParsedTestRow = {
       site,
       touchdown: `TD_${touchdown}`,
       step: step++,
@@ -72,7 +79,10 @@ export function parseTestTimeText(text: string, fileName: string): ParsedTestRow
         ? 'None'
         : sweepInfo,
       timeSeconds
-    });
+    };
+    const testNo = testNoByItem.get(testItem);
+    if (testNo !== undefined) row.testNo = testNo;
+    rows.push(row);
   }
 
   return rows;
