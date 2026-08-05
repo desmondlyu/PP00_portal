@@ -185,15 +185,18 @@ export function writeMasterSummaryWorkbook(rows: MasterSummaryRow[], mapping: Ma
     for (const entry of entries) {
       const modes = new Set<string>();
       const operations = new Set<string>();
+      const testNumbers = new Set<number>();
       for (const itemRow of byTestItem.get(entry.testItem) ?? []) {
         const mapped = mappingLookup.get(String(itemRow.Original_Item_Name ?? '').trim());
         modes.add(asClassifiedLabel(mapped?.Mode));
         operations.add(asClassifiedLabel(mapped?.Operation));
+        if (itemRow.Test_No !== undefined) testNumbers.add(itemRow.Test_No);
       }
       const row: Record<string, unknown> = {
         Test_Item_Merged: entry.testItem,
         Mode: [...modes].sort().join(' / '),
-        Operation: [...operations].sort().join(' / ')
+        Operation: [...operations].sort().join(' / '),
+        ...(testNumbers.size === 1 ? { Test_No: [...testNumbers][0] } : {})
       };
       row['Total_Merged_Count'] = entry.totalMergedCount;
       for (const st of stations) row[`${st}_Count`] = entry.stationCounts.get(st) ?? 0;
@@ -270,6 +273,7 @@ function analysisRowToRecord(row: MasterSummaryRow, mappingLookup?: Map<string, 
     Process: row.Process,
     Size: row.Size,
     Voltage: row.Voltage,
+    Test_No: row.Test_No,
     Original_Item_Name: row.Original_Item_Name,
     Test_Item_Merged: row.Test_Item_Merged,
     Mode: asClassifiedLabel(mapped?.Mode),
@@ -354,6 +358,7 @@ export async function readAnalysisWorkbook(file: File): Promise<MasterSummaryRow
       Process: String(row.Process || '') || meta.Process,
       Size: String(row.Size || '') || meta.Size,
       Voltage: String(row.Voltage || '') || meta.Voltage,
+      Test_No: row.Test_No === '' || row.Test_No === undefined ? undefined : asNumber(row.Test_No),
       Original_Item_Name: String(row.Original_Item_Name || row.Test_Item_Merged),
       Test_Item_Merged: String(row.Test_Item_Merged),
       Grand_Total_Time: asNumber(row.Grand_Total_Time),
@@ -396,6 +401,7 @@ export async function readMasterSummaryWorkbook(file: File): Promise<MasterSumma
       Process: String(row.Process || '') || meta.Process,
       Size: String(row.Size || '') || meta.Size,
       Voltage: String(row.Voltage || '') || meta.Voltage,
+      Test_No: row.Test_No === '' || row.Test_No === undefined ? undefined : asNumber(row.Test_No),
       Original_Item_Name: originalName,
       Test_Item_Merged: mergedName,
       Grand_Total_Time: grandTotalTime,
