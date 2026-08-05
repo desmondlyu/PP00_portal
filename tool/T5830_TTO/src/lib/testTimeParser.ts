@@ -29,12 +29,14 @@ export function parseTestTimeText(text: string, fileName: string): ParsedTestRow
   let currentTouchdown: number | undefined;
   let step = 1;
   let sweepInfo = 'None';
-  const testNoByItem = new Map<string, number>();
+  let currentTestItem: string | undefined;
+  let currentTestNo: number | undefined;
 
   for (const line of text.split(/\r?\n/)) {
     const testHeader = testHeaderPattern.exec(line);
     if (testHeader) {
-      testNoByItem.set(testHeader[2].trim(), Number.parseInt(testHeader[1], 10));
+      currentTestItem = testHeader[2].trim();
+      currentTestNo = Number.parseInt(testHeader[1], 10);
     }
 
     if (line.includes('####')) {
@@ -80,8 +82,9 @@ export function parseTestTimeText(text: string, fileName: string): ParsedTestRow
         : sweepInfo,
       timeSeconds
     };
-    const testNo = testNoByItem.get(testItem);
-    if (testNo !== undefined) row.testNo = testNo;
+    if (currentTestItem === testItem && currentTestNo !== undefined) {
+      row.testNo = currentTestNo;
+    }
     rows.push(row);
   }
 
