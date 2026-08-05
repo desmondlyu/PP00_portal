@@ -10,6 +10,7 @@ type TreeNode = {
   time: number;
   children: TreeNode[];
   stationRatio?: number;
+  ratioTouchdown?: string;
 };
 
 const levelLabels: Record<TreeLevel, string> = {
@@ -22,6 +23,15 @@ const levelLabels: Record<TreeLevel, string> = {
 
 function rowTime(row: MasterSummaryRow) {
   return Number(row.Station_Time ?? row.Grand_Total_Time) || 0;
+}
+
+function maxTouchdownRatio(row: MasterSummaryRow) {
+  const ratios = Object.entries(row.touchdownStats ?? {})
+    .map(([touchdown, stats]) => ({ touchdown, ratio: stats.ratio }))
+    .sort((left, right) => right.ratio - left.ratio || left.touchdown.localeCompare(right.touchdown, undefined, { numeric: true }));
+  if (ratios[0]) return ratios[0];
+  if (row.Test_Item_Station_Ratio !== undefined) return { touchdown: 'TD_1', ratio: row.Test_Item_Station_Ratio };
+  return undefined;
 }
 
 function buildTree(rows: MasterSummaryRow[], mapping: MappingRow[]) {
@@ -52,8 +62,10 @@ function buildTree(rows: MasterSummaryRow[], mapping: MappingRow[]) {
       path.push(label);
       const node = getOrCreate(children, label, level, path.join('\0'));
       node.time += time;
-      if (level === 'raw-test-item' && row.Test_Item_Station_Ratio !== undefined) {
-        node.stationRatio = row.Test_Item_Station_Ratio;
+      const touchdownRatio = level === 'raw-test-item' ? maxTouchdownRatio(row) : undefined;
+      if (touchdownRatio && (node.stationRatio === undefined || touchdownRatio.ratio > node.stationRatio)) {
+        node.stationRatio = touchdownRatio.ratio;
+        node.ratioTouchdown = touchdownRatio.touchdown;
       }
       if (parent) parent.children = [...children.values()];
       parent = node;
@@ -88,7 +100,9 @@ function TreeNodeView({ node, total, expanded, onToggle, depth }: {
           {hasChildren ? (isExpanded ? '▾' : '▸') : '•'} {node.label}
         </span>
         <span className="sunburst-tree-node-meta">
-          <span>{levelLabels[node.level]}</span>
+          <span>{node.level === 'raw-test-item' && node.ratioTouchdown
+            ? `${levelLabels[node.level]} · ${node.ratioTouchdown}`
+            : levelLabels[node.level]}</span>
           <strong>{ratio}%</strong>
         </span>
       </button>

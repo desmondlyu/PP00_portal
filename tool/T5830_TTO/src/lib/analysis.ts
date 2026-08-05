@@ -1,6 +1,6 @@
 import { standardizeTestItem } from './standardizeTestItem';
 import { getProductMeta } from './productMetadata';
-import type { MasterSummaryRow, ParsedTestRow } from '../types/analysis';
+import type { MasterSummaryRow, ParsedTestRow, TouchdownStats } from '../types/analysis';
 
 export type MergeRow = {
   testItem: string;
@@ -85,7 +85,7 @@ export function buildAnalysisReport(
   }
 
   const perItem = new Map<string, Map<string, number[]>>();
-  const td1ValuesByItem = new Map<string, number[]>();
+  const touchdownValuesByItem = new Map<string, Map<string, number[]>>();
   for (const [key, timeSeconds] of perSite) {
     const [, testItem, touchdown] = key.split('\u0000');
     const touchdowns = perItem.get(testItem) ?? new Map<string, number[]>();
@@ -93,11 +93,11 @@ export function buildAnalysisReport(
     values.push(timeSeconds);
     touchdowns.set(touchdown, values);
     perItem.set(testItem, touchdowns);
-    if (touchdown === 'TD_1') {
-      const td1Values = td1ValuesByItem.get(testItem) ?? [];
-      td1Values.push(timeSeconds);
-      td1ValuesByItem.set(testItem, td1Values);
-    }
+    const touchdownValues = touchdownValuesByItem.get(testItem) ?? new Map<string, number[]>();
+    const valuesByTouchdown = touchdownValues.get(touchdown) ?? [];
+    valuesByTouchdown.push(timeSeconds);
+    touchdownValues.set(touchdown, valuesByTouchdown);
+    touchdownValuesByItem.set(testItem, touchdownValues);
   }
 
   const merge = [...perItem].map(([testItem, touchdowns]) => {
@@ -119,9 +119,15 @@ export function buildAnalysisReport(
   }).sort((left, right) => right.totalTime - left.totalTime);
 
   const grandTotal = merge.reduce((sum, item) => sum + item.totalTime, 0);
-  const stationTd1Total = [...td1ValuesByItem.values()]
-    .flat()
-    .reduce((sum, value) => sum + value, 0);
+  const stationTouchdownTotals = new Map<string, number>();
+  for (const touchdownValues of touchdownValuesByItem.values()) {
+    for (const [touchdown, values] of touchdownValues) {
+      stationTouchdownTotals.set(
+        touchdown,
+        (stationTouchdownTotals.get(touchdown) ?? 0) + values.reduce((sum, value) => sum + value, 0)
+      );
+    }
+  }
   for (const item of merge) {
     item.totalRatioPercent = grandTotal > 0 ? item.totalTime / grandTotal * 100 : 0;
   }
@@ -134,9 +140,22 @@ export function buildAnalysisReport(
     for (const [td, time] of Object.entries(item.touchdownTimes)) {
       tdTimes[td] = Math.round(time * 100) / 100;
     }
-    const td1Values = td1ValuesByItem.get(item.testItem) ?? [];
+    const touchdownValues = touchdownValuesByItem.get(item.testItem) ?? new Map<string, number[]>();
+    const touchdownStats: Record<string, TouchdownStats> = {};
+    for (const [touchdown, values] of touchdownValues) {
+      const total = values.reduce((sum, value) => sum + value, 0);
+      touchdownStats[touchdown] = {
+        avg: total / values.length,
+        max: Math.max(...values),
+        min: Math.min(...values),
+        range: Math.max(...values) - Math.min(...values),
+        ratio: stationTouchdownTotals.get(touchdown)
+          ? total / stationTouchdownTotals.get(touchdown)! * 100
+          : 0
+      };
+    }
+    const td1Stats = touchdownStats.TD_1;
     const td1Metadata = td1MetadataByItem.get(item.testItem);
-    const td1Total = td1Values.reduce((sum, value) => sum + value, 0);
     return {
       Product: resolvedMeta.product,
       Process: resolvedMeta.process,
@@ -160,15 +179,16 @@ export function buildAnalysisReport(
       Station: station,
       Station_Time: item.totalTime,
       Station_Count: item.mergedCount,
-      ...(td1Values.length > 0
+      ...(td1Stats
         ? {
-            test_item_avg: td1Total / td1Values.length,
-            test_item_max: Math.max(...td1Values),
-            test_item_min: Math.min(...td1Values),
-            test_item_range: Math.max(...td1Values) - Math.min(...td1Values),
-            Test_Item_Station_Ratio: stationTd1Total > 0 ? td1Total / stationTd1Total * 100 : 0
+            test_item_avg: td1Stats.avg,
+            test_item_max: td1Stats.max,
+            test_item_min: td1Stats.min,
+            test_item_range: td1Stats.range,
+            Test_Item_Station_Ratio: td1Stats.ratio
           }
         : {}),
+      touchdownStats: Object.keys(touchdownStats).length > 0 ? touchdownStats : undefined,
       touchdownTimes: tdTimes
     };
   });

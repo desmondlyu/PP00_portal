@@ -66,6 +66,9 @@ describe('buildAnalysisReport', () => {
       test_item_min: 1,
       test_item_range: 0,
       Test_Item_Station_Ratio: 100,
+      touchdownStats: {
+        TD_1: { avg: 1, max: 1, min: 1, range: 0, ratio: 100 }
+      },
       touchdownTimes: { TD_1: 1 }
     }]);
   });
@@ -91,6 +94,28 @@ describe('buildAnalysisReport', () => {
       test_item_min: 2,
       test_item_range: 2,
       Test_Item_Station_Ratio: 100
+    });
+  });
+
+  it('calculates site statistics and station ratios for every touchdown', () => {
+    const report = buildAnalysisReport(
+      [
+        row('Site_01', 'TD_1', 1, 'READ', 'None', 1),
+        row('Site_02', 'TD_1', 1, 'READ', 'None', 3),
+        row('Site_01', 'TD_2', 2, 'READ', 'None', 10),
+        row('Site_02', 'TD_2', 2, 'READ', 'None', 2),
+        row('Site_01', 'TD_1', 3, 'WRITE', 'None', 2),
+        row('Site_02', 'TD_1', 3, 'WRITE', 'None', 4),
+        row('Site_01', 'TD_2', 4, 'WRITE', 'None', 1),
+        row('Site_02', 'TD_2', 4, 'WRITE', 'None', 3)
+      ],
+      { product: 'EAG119', process: 'F58', size: '512M', voltage: '1.8' },
+      'S1P1'
+    );
+
+    expect(report.masterSummary.find((item) => item.Test_Item === 'READ')?.touchdownStats).toEqual({
+      TD_1: { avg: 2, max: 3, min: 1, range: 2, ratio: 40 },
+      TD_2: { avg: 6, max: 10, min: 2, range: 8, ratio: 75 }
     });
   });
 

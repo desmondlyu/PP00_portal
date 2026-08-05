@@ -23,7 +23,11 @@ it('starts collapsed and expands to Test_Item with the station TD_1 ratio', asyn
   const testRows = [{
     ...rows[0],
     Test_Item: 'PROGRAM',
-    Test_Item_Station_Ratio: 42.5
+    Test_Item_Station_Ratio: 42.5,
+    touchdownStats: {
+      TD_1: { avg: 1, max: 1, min: 1, range: 0, ratio: 42.5 },
+      TD_2: { avg: 1, max: 1, min: 1, range: 0, ratio: 65 }
+    }
   }];
   render(
     <SunburstTree
@@ -46,5 +50,5 @@ it('starts collapsed and expands to Test_Item with the station TD_1 ratio', asyn
   expect(screen.getByRole('button', { name: /PROGRAM_\(M\).*Original_Item_Name/ })).toBeVisible();
 
   await user.click(screen.getByRole('button', { name: /PROGRAM_\(M\).*Original_Item_Name/ }));
-  expect(screen.getByRole('button', { name: /PROGRAM.*Test_Item.*42\.50%/ })).toBeVisible();
+  expect(screen.getByRole('button', { name: /PROGRAM.*TD_2.*65\.00%/ })).toBeVisible();
 });

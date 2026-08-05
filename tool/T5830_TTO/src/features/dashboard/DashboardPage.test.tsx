@@ -124,6 +124,37 @@ describe('DashboardPage', () => {
     expect(screen.getByText('2.5 秒')).toBeVisible();
   });
 
+  it('filters Dashboard totals by TD No', async () => {
+    const user = userEvent.setup();
+    render(<DashboardPage summaries={[{
+      ...summaries[0],
+      Grand_Total_Time: 4,
+      Station_Time: 4,
+      Mode: 'Imported Mode',
+      Operation: 'Imported Operation',
+      touchdownTimes: { TD_1: 1, TD_2: 3 },
+      touchdownStats: {
+        TD_1: { avg: 1, max: 1, min: 1, range: 0, ratio: 90 },
+        TD_2: { avg: 3, max: 3, min: 3, range: 0, ratio: 10 }
+      }
+    }]} />);
+
+    await user.click(screen.getByRole('button', { name: /篩選條件/ }));
+    const touchdownDropdown = screen.getByText('TD No').parentElement!;
+    await user.click(within(touchdownDropdown).getByRole('button', { name: /全部/ }));
+    await user.click(screen.getByRole('option', { name: 'TD_2' }));
+
+    expect(screen.getByText('3 秒')).toBeVisible();
+
+    await user.click(screen.getByRole('tab', { name: '多維度旭日圖' }));
+    await user.click(screen.getByRole('button', { name: /Imported Mode/ }));
+    await user.click(screen.getByRole('button', { name: /Imported Operation/ }));
+    await user.click(screen.getByRole('button', { name: /READ_ARRAY.*Test_Item_Merged/ }));
+    await user.click(screen.getByRole('button', { name: /READ_ARRAY_\(M\).*Original_Item_Name/ }));
+
+    expect(screen.getByRole('button', { name: /READ_ARRAY.*TD_2.*10\.00%/ })).toBeVisible();
+  });
+
   it('explains when no summary data is available', () => {
     render(<DashboardPage summaries={[]} />);
 
