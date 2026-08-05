@@ -13,6 +13,7 @@ export type MasterSummaryRow = {
   Process: string;
   Size: string;
   Voltage: string;
+  Test_No?: number;
   Test_Item_Merged: string;
   Original_Item_Name: string;
   Grand_Total_Time: number;

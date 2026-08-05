@@ -58,6 +58,7 @@ export function buildAnalysisReport(
 
   const perSite = new Map<string, number>();
   const stepsByItem = new Map<string, Set<number>>();
+  const testNumbersByItem = new Map<string, Set<number>>();
 
   for (const row of rows) {
     const key = `${row.site}\u0000${row.testItem}\u0000${row.touchdown}`;
@@ -66,6 +67,11 @@ export function buildAnalysisReport(
     const steps = stepsByItem.get(row.testItem) ?? new Set<number>();
     steps.add(row.step);
     stepsByItem.set(row.testItem, steps);
+    if (row.testNo !== undefined) {
+      const numbers = testNumbersByItem.get(row.testItem) ?? new Set<number>();
+      numbers.add(row.testNo);
+      testNumbersByItem.set(row.testItem, numbers);
+    }
   }
 
   const perItem = new Map<string, Map<string, number[]>>();
@@ -114,6 +120,9 @@ export function buildAnalysisReport(
       Process: resolvedMeta.process,
       Size: resolvedMeta.size,
       Voltage: resolvedMeta.voltage,
+      ...(testNumbersByItem.get(item.testItem)?.size === 1
+        ? { Test_No: [...testNumbersByItem.get(item.testItem)!][0] }
+        : {}),
       Original_Item_Name: originalName,
       Test_Item_Merged: standardizeTestItem(originalName),
       Grand_Total_Time: item.totalTime,

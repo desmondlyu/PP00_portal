@@ -8,8 +8,9 @@ const row = (
   step: number,
   testItem: string,
   sweepInfo: string,
-  timeSeconds: number
-): ParsedTestRow => ({ site, touchdown, step, testItem, sweepInfo, timeSeconds });
+  timeSeconds: number,
+  testNo?: number
+): ParsedTestRow => ({ site, touchdown, step, testItem, sweepInfo, timeSeconds, testNo });
 
 describe('buildAnalysisReport', () => {
   it('creates Merge rows sorted by total time', () => {
@@ -59,5 +60,29 @@ describe('buildAnalysisReport', () => {
       Station_Count: 1,
       touchdownTimes: { TD_1: 1 }
     }]);
+  });
+
+  it('keeps a unique Test_No for the matching original test item', () => {
+    const report = buildAnalysisReport(
+      [row('Site_01', 'TD_1', 1, 'JEDEC_ID', 'None', 1, 227)],
+      { product: 'EAG119', process: 'F58', size: '512M', voltage: '1.8' }
+    );
+
+    expect(report.masterSummary[0]).toMatchObject({
+      Test_No: 227,
+      Original_Item_Name: 'JEDEC_ID_(M)'
+    });
+  });
+
+  it('clears Test_No when one test item has conflicting numbers', () => {
+    const report = buildAnalysisReport(
+      [
+        row('Site_01', 'TD_1', 1, 'JEDEC_ID', 'None', 1, 227),
+        row('Site_01', 'TD_2', 2, 'JEDEC_ID', 'None', 1, 228)
+      ],
+      { product: 'EAG119', process: 'F58', size: '512M', voltage: '1.8' }
+    );
+
+    expect(report.masterSummary[0].Test_No).toBeUndefined();
   });
 });

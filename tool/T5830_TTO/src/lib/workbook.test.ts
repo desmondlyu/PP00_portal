@@ -17,6 +17,7 @@ const rows: MasterSummaryRow[] = [{
   Process: 'F58',
   Size: '512M',
   Voltage: '1.8',
+  Test_No: 227,
   Original_Item_Name: 'READ_ARRAY_(M)',
   Test_Item_Merged: 'READ_ARRAY',
   Grand_Total_Time: 1.25,
@@ -55,7 +56,7 @@ describe('Master Summary workbook', () => {
     const workbook = writeMasterSummaryWorkbook(rows, mappingRows);
     const parsed = XLSX.read(workbook, { type: 'array' });
     const summaryRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(parsed.Sheets.Master_Summary, { defval: '' });
-    expect(summaryRows[0]).toMatchObject({ Mode: 'User Mode', Operation: 'Read' });
+    expect(summaryRows[0]).toMatchObject({ Test_No: 227, Mode: 'User Mode', Operation: 'Read' });
     const loaded = await readMasterSummaryWorkbook(new File([workbook], 'EAG119_Master_Summary.xlsx'));
 
     // 讀回後 Station 為 Unknown（Master_Summary sheet 為跨站彙整，無個別站點），
@@ -104,6 +105,7 @@ describe('Master Summary workbook', () => {
       XLSX.utils.sheet_to_json<Record<string, unknown>>(parsed.Sheets.Master_Summary, { defval: '' })
     );
     expect(masterRows[0]).toMatchObject({ Mode: 'User Mode', Operation: 'Read' });
+    expect(masterRows[0].Test_No).toBe(227);
 
     const loaded = await readAnalysisWorkbook(new File([workbook], 'T5830_Analysis_Structure.xlsx'));
     expect(loaded).toHaveLength(2);
@@ -113,6 +115,22 @@ describe('Master Summary workbook', () => {
       Grand_Total_Time: 2.5,
       Total_Merged_Count: 1
     });
+  });
+
+  it('imports legacy analysis workbooks without Test_No', async () => {
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{
+      Product: 'EAG119',
+      Test_Item_Merged: 'READ_ARRAY',
+      Grand_Total_Time: 1.25,
+      Total_Merged_Count: 1
+    }]), 'Master_Summary');
+
+    const loaded = await readAnalysisWorkbook(new File([
+      XLSX.write(workbook, { type: 'array', bookType: 'xlsx' })
+    ], 'legacy.xlsx'));
+
+    expect(loaded[0].Test_No).toBeUndefined();
   });
 
   it('writes reusable sunburst sheets with classified fallback', () => {
