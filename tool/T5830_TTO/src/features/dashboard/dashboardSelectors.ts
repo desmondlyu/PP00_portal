@@ -24,9 +24,11 @@ export type TdMetric = (typeof tdMetrics)[number];
 export const tdDimensions = ['Mode', 'Operation', 'Test_Item_Merged', 'Original_Item_Name', 'Test_Item'] as const;
 export type TdDimension = (typeof tdDimensions)[number];
 export type TdDimensionFilters = Record<TdDimension, string>;
+export type TdHierarchy = Record<TdDimension, string>;
 
 export type TdAnalysisItem = {
   testItem: string;
+  hierarchy: TdHierarchy;
   stats: Record<string, Pick<TouchdownStats, TdMetric>>;
 };
 
@@ -39,6 +41,16 @@ export function tdDimensionValue(row: MasterSummaryRow, dimension: TdDimension) 
   return dimension === 'Test_Item'
     ? row.Test_Item ?? row.Test_Item_Merged
     : row[dimension] ?? '';
+}
+
+function tdHierarchy(dimensions: string[]): TdHierarchy {
+  return {
+    Mode: dimensions[0],
+    Operation: dimensions[1],
+    Test_Item_Merged: dimensions[2],
+    Original_Item_Name: dimensions[3],
+    Test_Item: dimensions[4]
+  };
 }
 
 /**
@@ -134,6 +146,7 @@ export function tdAnalysisGroups(rows: MasterSummaryRow[], filters: TdDimensionF
   type Aggregate = {
     product: string;
     testItem: string;
+    hierarchy: TdHierarchy;
     touchdowns: Map<string, { avgTotal: number; count: number; max: number; min: number }>;
   };
   const groups = new Map<string, Aggregate>();
@@ -147,6 +160,7 @@ export function tdAnalysisGroups(rows: MasterSummaryRow[], filters: TdDimensionF
     const aggregate = groups.get(key) ?? {
       product: row.Product,
       testItem: dimensions[tdDimensions.indexOf('Test_Item')],
+      hierarchy: tdHierarchy(dimensions),
       touchdowns: new Map()
     };
 
@@ -177,7 +191,7 @@ export function tdAnalysisGroups(rows: MasterSummaryRow[], filters: TdDimensionF
       }])
     );
     const items = byProduct.get(aggregate.product) ?? [];
-    items.push({ testItem: aggregate.testItem, stats });
+    items.push({ testItem: aggregate.testItem, hierarchy: aggregate.hierarchy, stats });
     byProduct.set(aggregate.product, items);
   }
 
