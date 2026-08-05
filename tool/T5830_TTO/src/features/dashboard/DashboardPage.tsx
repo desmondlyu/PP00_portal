@@ -7,10 +7,11 @@ import { DashboardFilters } from './DashboardFilters';
 import { allFilters, filterRawSummary, filterSummary, productItemTimes, topStackedItems, type DashboardFilters as FilterValues } from './dashboardSelectors';
 import { OverviewTab } from './OverviewTab';
 import { SunburstTab } from './SunburstTab';
+import { TdAnalysisTab } from './TdAnalysisTab';
 import { TimeTab } from './TimeTab';
 import { TtrCompareTab } from './TtrCompareTab';
 
-const tabs = ['核心戰情總覽', '視覺化對比', '跨產品明細 (時間)', '跨產品明細 (次數)', '多維度旭日圖', 'TTR 對比'] as const;
+const tabs = ['核心戰情總覽', '視覺化對比', '跨產品明細 (時間)', '跨產品明細 (次數)', '多維度旭日圖', 'TTR 對比', 'TD分析'] as const;
 const downloadButtonStyle = {
   padding: '6px 12px',
   borderRadius: 6,
@@ -160,7 +161,7 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
         </section>
       )}
       <div id={panelId} role="tabpanel" aria-labelledby={`dashboard-tab-${tabs.indexOf(activeTab)}`}>
-        {filtered.length === 0 && activeTab !== 'TTR 對比'
+        {filtered.length === 0 && activeTab !== 'TTR 對比' && activeTab !== 'TD分析'
           ? <p>{summaries.length === 0 ? '尚無 Master Summary 資料。請先完成分析或載入 Master Summary 檔案。' : '沒有符合目前篩選條件的資料。'}</p>
           : <TabContent tab={activeTab} rows={filtered} rawRows={rawFiltered} mapping={mapping} baseline={baseline} optimized={optimized} onLoad={(kind, rows) => kind === 'baseline' ? setBaseline(rows) : setOptimized(rows)} error={ttrError} onError={setTtrError} onEncryptedFile={() => setShowEncryptedDialog(true)} />}
       </div>
@@ -192,6 +193,7 @@ function TabContent({ tab, rows, rawRows, mapping, baseline, optimized, onLoad, 
   if (tab === '跨產品明細 (時間)') return <TimeTab rows={rows} />;
   if (tab === '跨產品明細 (次數)') return <CountTab rows={rows} />;
   if (tab === '多維度旭日圖') return <SunburstTab rows={rawRows} mapping={mapping} />;
+  if (tab === 'TD分析') return <TdAnalysisTab rows={rawRows} />;
   return <TtrCompareTab baseline={baseline} optimized={optimized} onLoad={onLoad} error={error} onError={onError} onEncryptedFile={onEncryptedFile} />;
 }
 

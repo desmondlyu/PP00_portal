@@ -37,13 +37,22 @@ const summaries: MasterSummaryRow[] = [
 ];
 
 describe('DashboardPage', () => {
-  it('renders all six accessible tabs from supplied summaries', () => {
+  it('renders all seven accessible tabs from supplied summaries', () => {
     render(<DashboardPage summaries={summaries} />);
 
-    for (const name of ['核心戰情總覽', '視覺化對比', '跨產品明細 (時間)', '跨產品明細 (次數)', '多維度旭日圖', 'TTR 對比']) {
+    for (const name of ['核心戰情總覽', '視覺化對比', '跨產品明細 (時間)', '跨產品明細 (次數)', '多維度旭日圖', 'TTR 對比', 'TD分析']) {
       expect(screen.getByRole('tab', { name })).toBeVisible();
     }
     expect(screen.getByRole('tablist')).toBeVisible();
+  });
+
+  it('opens TD analysis after the TTR comparison tab', async () => {
+    const user = userEvent.setup();
+    render(<DashboardPage summaries={summaries} />);
+
+    await user.click(screen.getByRole('tab', { name: 'TD分析' }));
+
+    expect(screen.getByRole('heading', { name: 'TD 分析' })).toBeVisible();
   });
 
   it('orders the overview chart, sunburst, and pivot sections', () => {
