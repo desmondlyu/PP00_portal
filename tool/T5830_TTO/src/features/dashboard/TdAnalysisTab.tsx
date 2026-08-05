@@ -19,6 +19,8 @@ type SelectedCell = {
 };
 
 const metricLabels: Record<TdMetric, string> = { avg: 'AVG', max: 'MAX', min: 'MIN', range: 'RANGE' };
+const itemFields = ['Mode', 'Operation', 'Original_Item_Name', 'Test_Item_Merged', 'Test_Item'] as const;
+type ItemField = (typeof itemFields)[number];
 
 function sortedTouchdowns(rows: MasterSummaryRow[]) {
   return [...new Set(rows.flatMap((row) => Object.keys(row.touchdownStats ?? {})))].sort(
@@ -36,13 +38,15 @@ function itemKey(item: TdAnalysisItem) {
   return `${item.hierarchy.Test_Item_Merged}\x00${item.hierarchy.Original_Item_Name}\x00${item.testItem}`;
 }
 
-function HeatmapTable({ product, items, metric, touchdowns, selectedCell, onSelect }: {
+function HeatmapTable({ product, items, metric, touchdowns, itemField, selectedCell, onSelect, onItemFieldChange }: {
   product: string;
   items: TdAnalysisItem[];
   metric: TdMetric;
   touchdowns: string[];
+  itemField: ItemField;
   selectedCell?: SelectedCell;
   onSelect: (cell: SelectedCell) => void;
+  onItemFieldChange: (field: ItemField) => void;
 }) {
   const chartItems = topTdItems(items, metric);
   const values = chartItems.flatMap((item) =>
@@ -63,7 +67,20 @@ function HeatmapTable({ product, items, metric, touchdowns, selectedCell, onSele
         </caption>
         <thead>
           <tr>
-            <th scope="col" style={{ ...headerStyle, left: 0, zIndex: 4, minWidth: 240, position: 'sticky', fontSize: '0.5em' }}>Item</th>
+            <th scope="col" style={{ ...headerStyle, left: 0, zIndex: 4, minWidth: 240, position: 'sticky', fontSize: '0.75em' }}>
+              Item
+              <select
+                aria-label="Item 顯示欄位"
+                value={itemField}
+                onChange={(event) => {
+                  const field = itemFields.find((itemField) => itemField === event.target.value);
+                  if (field) onItemFieldChange(field);
+                }}
+                style={{ marginLeft: 8, padding: 4 }}
+              >
+                {itemFields.map((field) => <option key={field} value={field}>{field}</option>)}
+              </select>
+            </th>
             {touchdowns.map((touchdown) => <th key={touchdown} scope="col" style={headerStyle}>{touchdown}</th>)}
           </tr>
         </thead>
@@ -71,10 +88,10 @@ function HeatmapTable({ product, items, metric, touchdowns, selectedCell, onSele
           {chartItems.map((item) => (
             <tr key={itemKey(item)}>
               <td
-                title={`Item: ${item.hierarchy.Test_Item_Merged} > ${item.hierarchy.Original_Item_Name} > ${item.testItem}`}
-                style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--surface-raised)', padding: '8px 10px', maxWidth: 240, borderTop: '1px solid var(--border)', whiteSpace: 'nowrap', fontSize: '0.5em' }}
+                title={item.hierarchy[itemField] || '未分類'}
+                style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--surface-raised)', padding: '8px 10px', maxWidth: 240, borderTop: '1px solid var(--border)', whiteSpace: 'nowrap', fontSize: '0.75em' }}
               >
-                {`Item: ${item.hierarchy.Test_Item_Merged} > ${item.hierarchy.Original_Item_Name} > ${item.testItem}`}
+                {item.hierarchy[itemField] || '未分類'}
               </td>
               {touchdowns.map((touchdown) => {
                 const value = item.stats[touchdown]?.[metric];
@@ -134,6 +151,7 @@ function DetailDialog({ selectedCell, onClose }: { selectedCell?: SelectedCell; 
 
 export function TdAnalysisTab({ rows }: Props) {
   const [metric, setMetric] = useState<TdMetric>('max');
+  const [itemField, setItemField] = useState<ItemField>('Original_Item_Name');
   const [selectedCell, setSelectedCell] = useState<SelectedCell>();
   const hasStats = rows.some((row) => row.touchdownStats && Object.keys(row.touchdownStats).length > 0);
   const groups = tdAnalysisGroups(rows, {
@@ -176,8 +194,10 @@ export function TdAnalysisTab({ rows }: Props) {
                       items={group.items}
                       metric={metric}
                       touchdowns={touchdowns}
+                      itemField={itemField}
                       selectedCell={selectedCell}
                       onSelect={setSelectedCell}
+                      onItemFieldChange={setItemField}
                     />
                 </section>
               ))}

@@ -42,11 +42,14 @@ describe('TdAnalysisTab', () => {
     expect(screen.getAllByRole('button', { name: 'MAX' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'MAX' }).every((button) => button.getAttribute('aria-pressed') === 'true')).toBe(true);
     expect(screen.getAllByRole('table', { name: /TD Heatmap/ })).toHaveLength(2);
-    expect(screen.getAllByRole('columnheader', { name: 'Item' })).toHaveLength(2);
+    expect(screen.getAllByRole('columnheader', { name: /Item/ })).toHaveLength(2);
     expect(screen.queryByRole('columnheader', { name: 'Hierarchy' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Test_Item' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('columnheader', { name: 'TD_1' })).toHaveLength(2);
-    expect(screen.getAllByRole('cell', { name: 'Item: READ > READ_(M) > READ' })).toHaveLength(1);
+    expect(screen.getAllByRole('cell', { name: 'READ_(M)' })).toHaveLength(1);
+    for (const select of screen.getAllByLabelText('Item 顯示欄位')) {
+      expect(select).toHaveValue('Original_Item_Name');
+    }
     expect(screen.getByRole('button', { name: /EAG119.*READ.*TD_2.*MAX.*3\.00 秒/ })).toBeVisible();
   });
 
@@ -68,6 +71,7 @@ describe('TdAnalysisTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /EAG119.*READ.*TD_2.*RANGE.*2\.00 秒/ }));
 
     const detail = screen.getByRole('dialog', { name: 'TD 明細' });
+    expect(detail).toHaveClass('td-detail-dialog');
     expect(detail).toHaveTextContent('TD_2');
     expect(detail).toHaveTextContent('2.00 秒');
     expect(detail).toHaveTextContent('READ_(M)');
@@ -82,5 +86,13 @@ describe('TdAnalysisTab', () => {
 
     expect(screen.queryByLabelText('Mode')).not.toBeInTheDocument();
     expect(screen.queryByText('TD 分析階層篩選')).not.toBeInTheDocument();
+  });
+
+  it('switches the Item column between the five supported fields', () => {
+    render(<TdAnalysisTab rows={[row()]} />);
+
+    fireEvent.change(screen.getByLabelText('Item 顯示欄位'), { target: { value: 'Mode' } });
+
+    expect(screen.getByRole('cell', { name: 'Read' })).toBeVisible();
   });
 });
