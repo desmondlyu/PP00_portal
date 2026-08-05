@@ -73,6 +73,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
   const [showEncryptedDialog, setShowEncryptedDialog] = useState(false);
   const [progress, setProgress] = useState<ProgressInfo | null>(null);
   const [detectedProducts, setDetectedProducts] = useState<string[]>([]);
+  const [analyzeAllTouchdowns, setAnalyzeAllTouchdowns] = useState(false);
   const workerRef = useRef<Worker>();
   const metaInputRef = useRef<HTMLInputElement>(null);
   const analysisInputRef = useRef<HTMLInputElement>(null);
@@ -138,7 +139,14 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
         onProcessing?.(false);
       }
     });
-    worker.postMessage({ type: 'start', jobId, files, products: buildProductList(files), stations: buildStationList(files) });
+    worker.postMessage({
+      type: 'start',
+      jobId,
+      files,
+      products: buildProductList(files),
+      stations: buildStationList(files),
+      analyzeAllTouchdowns
+    });
   }
 
   function cancel() {
@@ -229,6 +237,15 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
             : '上傳請選擇根目錄，根目錄資料夾包含你要分析的所有產品資料夾。\n範例: 選擇根目錄 ABC；ABC 底下包含 產品1, 產品2，各產品資料夾下包含一份 .TGZ 壓縮檔'}
           {detectedProducts.length > 0 && ` — 偵測到: ${detectedProducts.join(', ')}`}
         </p>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={analyzeAllTouchdowns}
+            onChange={(event) => setAnalyzeAllTouchdowns(event.target.checked)}
+          />
+          分析所有TD
+        </label>
+        <p className="file-hint">分析所有TD可能造成分析時間過長造成Timeout問題，預設只分析TD1</p>
         {error && <p role="alert">{error}</p>}
         {status === 'processing' && progress && (
           <div className="progress-area" aria-live="polite">
