@@ -2,13 +2,9 @@ import { useState } from 'react';
 import type { MasterSummaryRow } from '../../types/analysis';
 import {
   tdAnalysisGroups,
-  tdDimensionValue,
-  tdDimensions,
   tdMetrics,
   topTdItems,
   type TdAnalysisItem,
-  type TdDimension,
-  type TdDimensionFilters,
   type TdMetric
 } from './dashboardSelectors';
 
@@ -22,30 +18,12 @@ type SelectedCell = {
   value: number;
 };
 
-const initialFilters: TdDimensionFilters = {
-  Mode: '',
-  Operation: '',
-  Test_Item_Merged: '',
-  Original_Item_Name: '',
-  Test_Item: ''
-};
 const metricLabels: Record<TdMetric, string> = { avg: 'AVG', max: 'MAX', min: 'MIN', range: 'RANGE' };
 
 function sortedTouchdowns(rows: MasterSummaryRow[]) {
   return [...new Set(rows.flatMap((row) => Object.keys(row.touchdownStats ?? {})))].sort(
     (left, right) => Number.parseInt(left.slice(3), 10) - Number.parseInt(right.slice(3), 10)
   );
-}
-
-function dimensionOptions(rows: MasterSummaryRow[], filters: TdDimensionFilters, dimension: TdDimension) {
-  const index = tdDimensions.indexOf(dimension);
-  return [...new Set(rows
-    .filter((row) => row.touchdownStats && tdDimensions
-      .slice(0, index)
-      .every((previous) => !filters[previous] || filters[previous] === tdDimensionValue(row, previous)))
-    .map((row) => tdDimensionValue(row, dimension))
-    .filter(Boolean))]
-    .sort();
 }
 
 function heatColor(value: number, min: number, max: number) {
@@ -55,7 +33,7 @@ function heatColor(value: number, min: number, max: number) {
 }
 
 function itemKey(item: TdAnalysisItem) {
-  return tdDimensions.map((dimension) => item.hierarchy[dimension]).join('\x00');
+  return `${item.hierarchy.Test_Item_Merged}\x00${item.hierarchy.Original_Item_Name}\x00${item.testItem}`;
 }
 
 function HeatmapTable({ product, items, metric, touchdowns, selectedCell, onSelect }: {
@@ -75,8 +53,6 @@ function HeatmapTable({ product, items, metric, touchdowns, selectedCell, onSele
   );
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const stickyHierarchy = { position: 'sticky' as const, left: 0, zIndex: 1, background: 'var(--surface-raised)' };
-  const stickyTestItem = { position: 'sticky' as const, left: 260, zIndex: 1, background: 'var(--surface-raised)' };
   const headerStyle = { position: 'sticky' as const, top: 0, zIndex: 2, background: 'var(--surface-raised)', padding: '8px 10px', textAlign: 'left' as const };
 
   return (
@@ -87,18 +63,19 @@ function HeatmapTable({ product, items, metric, touchdowns, selectedCell, onSele
         </caption>
         <thead>
           <tr>
-            <th scope="col" style={{ ...headerStyle, ...stickyHierarchy, zIndex: 4, minWidth: 240 }}>Hierarchy</th>
-            <th scope="col" style={{ ...headerStyle, ...stickyTestItem, zIndex: 4, minWidth: 140 }}>Test_Item</th>
+            <th scope="col" style={{ ...headerStyle, left: 0, zIndex: 4, minWidth: 240, position: 'sticky', fontSize: '0.5em' }}>Item</th>
             {touchdowns.map((touchdown) => <th key={touchdown} scope="col" style={headerStyle}>{touchdown}</th>)}
           </tr>
         </thead>
         <tbody>
           {chartItems.map((item) => (
             <tr key={itemKey(item)}>
-              <td style={{ ...stickyHierarchy, padding: '8px 10px', maxWidth: 240, borderTop: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
-                {`${item.hierarchy.Mode} > ${item.hierarchy.Operation} > ${item.hierarchy.Test_Item_Merged} > ${item.hierarchy.Original_Item_Name}`}
+              <td
+                title={`Item: ${item.hierarchy.Test_Item_Merged} > ${item.hierarchy.Original_Item_Name} > ${item.testItem}`}
+                style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--surface-raised)', padding: '8px 10px', maxWidth: 240, borderTop: '1px solid var(--border)', whiteSpace: 'nowrap', fontSize: '0.5em' }}
+              >
+                {`Item: ${item.hierarchy.Test_Item_Merged} > ${item.hierarchy.Original_Item_Name} > ${item.testItem}`}
               </td>
-              <td style={{ ...stickyTestItem, padding: '8px 10px', borderTop: '1px solid var(--border)', fontWeight: 'bold' }}>{item.testItem}</td>
               {touchdowns.map((touchdown) => {
                 const value = item.stats[touchdown]?.[metric];
                 if (value === undefined) return <td key={touchdown} style={{ padding: 2, textAlign: 'center' }}>—</td>;
@@ -138,41 +115,35 @@ function HeatmapTable({ product, items, metric, touchdowns, selectedCell, onSele
   );
 }
 
-function DetailCard({ selectedCell }: { selectedCell?: SelectedCell }) {
-  if (!selectedCell) {
-    return <aside role="region" aria-label="TD 格子明細" style={{ padding: 14, border: '1px solid var(--border)', borderRadius: 10 }}>
-      選取 Heatmap 色格以查看 TD 明細。
-    </aside>;
-  }
+function DetailDialog({ selectedCell, onClose }: { selectedCell?: SelectedCell; onClose: () => void }) {
+  if (!selectedCell) return null;
   const { item } = selectedCell;
   return (
-    <aside role="region" aria-label="TD 格子明細" style={{ padding: 14, border: '1px solid var(--border)', borderRadius: 10 }}>
-      <h3 style={{ marginTop: 0 }}>TD 格子明細</h3>
+    <dialog className="encrypted-dialog td-detail-dialog" open aria-label="TD 明細" onCancel={(event) => { event.preventDefault(); onClose(); }}>
+      <h2 style={{ marginTop: 0 }}>TD 明細</h2>
       <p><strong>Product：</strong>{selectedCell.product}</p>
-      {tdDimensions.map((dimension) => <p key={dimension}><strong>{dimension}：</strong>{item.hierarchy[dimension]}</p>)}
+      <p><strong>Item：</strong>{`${item.hierarchy.Test_Item_Merged} > ${item.hierarchy.Original_Item_Name} > ${item.testItem}`}</p>
       <p><strong>TD：</strong>{selectedCell.touchdown}</p>
       <p><strong>{metricLabels[selectedCell.metric]}：</strong>{selectedCell.value.toFixed(2)} 秒</p>
-    </aside>
+      <div className="encrypted-dialog-actions">
+        <button className="secondary-action" type="button" onClick={onClose}>關閉</button>
+      </div>
+    </dialog>
   );
 }
 
 export function TdAnalysisTab({ rows }: Props) {
-  const [filters, setFilters] = useState<TdDimensionFilters>(initialFilters);
   const [metric, setMetric] = useState<TdMetric>('max');
   const [selectedCell, setSelectedCell] = useState<SelectedCell>();
   const hasStats = rows.some((row) => row.touchdownStats && Object.keys(row.touchdownStats).length > 0);
-  const groups = tdAnalysisGroups(rows, filters);
+  const groups = tdAnalysisGroups(rows, {
+    Mode: '',
+    Operation: '',
+    Test_Item_Merged: '',
+    Original_Item_Name: '',
+    Test_Item: ''
+  });
   const touchdowns = sortedTouchdowns(rows);
-
-  function updateFilter(dimension: TdDimension, value: string) {
-    setFilters((current) => {
-      const next = { ...current };
-      for (const later of tdDimensions.slice(tdDimensions.indexOf(dimension))) next[later] = '';
-      next[dimension] = value;
-      return next;
-    });
-    setSelectedCell(undefined);
-  }
 
   function selectMetric(nextMetric: TdMetric) {
     setMetric(nextMetric);
@@ -186,41 +157,20 @@ export function TdAnalysisTab({ rows }: Props) {
       {!hasStats
         ? <p>沒有可用的 TD 統計資料。請以「分析所有TD」重新分析，並匯入支援 TD 統計的分析檔案。</p>
         : <>
-          <fieldset style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            <legend>TD 分析階層篩選</legend>
-            {tdDimensions.map((dimension) => (
-              <label key={dimension}>
-                {dimension}
-                <select aria-label={dimension} value={filters[dimension]} onChange={(event) => updateFilter(dimension, event.target.value)}>
-                  <option value="">全部</option>
-                  {dimensionOptions(rows, filters, dimension).map((value) => <option key={value} value={value}>{value}</option>)}
-                </select>
-              </label>
-            ))}
-          </fieldset>
-          {tdDimensions.some((dimension) => filters[dimension]) && (
-            <div aria-label="目前 TD 分析篩選" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-              {tdDimensions.filter((dimension) => filters[dimension]).map((dimension) => (
-                <button key={dimension} type="button" aria-label={`清除 ${dimension}: ${filters[dimension]}`} onClick={() => updateFilter(dimension, '')}>
-                  {dimension}: {filters[dimension]} ×
-                </button>
-              ))}
-            </div>
-          )}
-          <div aria-label="TD 統計切換" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '16px 0' }}>
-            {tdMetrics.map((currentMetric) => (
-              <button key={currentMetric} type="button" aria-pressed={metric === currentMetric} onClick={() => selectMetric(currentMetric)}>
-                {metricLabels[currentMetric]}
-              </button>
-            ))}
-          </div>
           {groups.length === 0
-            ? <p>沒有符合目前階層篩選條件的 TD 統計資料。</p>
-            : <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(260px, 320px)', gap: 16, alignItems: 'start' }}>
-              <div>
-                {groups.map((group) => (
-                  <section key={group.product} aria-label={`${group.product} TD 統計`} style={{ marginBottom: 22 }}>
-                    <h2>{group.product}</h2>
+            ? <p>沒有可用的 TD 統計資料。</p>
+            : groups.map((group) => (
+                <section key={group.product} aria-label={`${group.product} TD 統計`} style={{ marginBottom: 22 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+                    <h2 style={{ margin: 0 }}>{group.product}</h2>
+                    <div aria-label={`${group.product} TD 統計切換`} className="td-metric-tabs">
+                      {tdMetrics.map((currentMetric) => (
+                        <button key={currentMetric} className="td-metric-toggle" type="button" aria-pressed={metric === currentMetric} onClick={() => selectMetric(currentMetric)}>
+                          {metricLabels[currentMetric]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                     <HeatmapTable
                       product={group.product}
                       items={group.items}
@@ -229,14 +179,10 @@ export function TdAnalysisTab({ rows }: Props) {
                       selectedCell={selectedCell}
                       onSelect={setSelectedCell}
                     />
-                  </section>
-                ))}
-              </div>
-              <div style={{ position: 'sticky', top: 12 }}>
-                <DetailCard selectedCell={selectedCell} />
-              </div>
-            </div>}
+                </section>
+              ))}
         </>}
+      <DetailDialog selectedCell={selectedCell} onClose={() => setSelectedCell(undefined)} />
     </section>
   );
 }
