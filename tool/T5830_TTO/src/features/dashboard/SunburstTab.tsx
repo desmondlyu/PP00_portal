@@ -1,5 +1,6 @@
 import type { MasterSummaryRow } from '../../types/analysis';
 import type { MappingRow } from '../../lib/workbook';
+import { SunburstTree } from './SunburstTree';
 
 type Segment = { label: string; value: number; color: string };
 
@@ -135,6 +136,9 @@ export function SunburstTab({ rows, mapping = [] }: { rows: MasterSummaryRow[]; 
           <SingleSunburst key={product} rows={byProduct.get(product)!} mapping={mapping} title={product} />
         ))}
       </div>
+      {products.map((product) => (
+        <SunburstTree key={`tree-${product}`} rows={byProduct.get(product)!} mapping={mapping} title={product} />
+      ))}
     </section>
   );
 }

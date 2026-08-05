@@ -24,6 +24,6 @@ it('renders per-product sunburst with mode/operation arcs', () => {
   );
 
   // 應顯示產品標題與 SVG 圖
-  expect(screen.getByText(/EAG119/)).toBeVisible();
+  expect(screen.getByRole('heading', { name: /EAG119 \(1\.0s\)/ })).toBeVisible();
   expect(screen.getByRole('img', { name: /EAG119 旭日圖/ })).toBeVisible();
 });

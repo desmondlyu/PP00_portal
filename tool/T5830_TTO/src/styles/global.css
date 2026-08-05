@@ -96,6 +96,20 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
 th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); }
 th { color: var(--primary); }
 svg { max-width: 100%; height: auto; }
+.sunburst-tree { margin-top: 22px; padding: 18px; background: linear-gradient(145deg, rgba(20, 49, 78, .9), rgba(7, 22, 39, .9)); border: 1px solid var(--border); border-radius: var(--radius); }
+.sunburst-tree h3 { margin: 0; }
+.sunburst-tree-hint { margin: 4px 0 14px; color: var(--muted); font-size: .86rem; }
+.sunburst-tree-branch { position: relative; }
+.sunburst-tree-children { margin-left: 20px; padding-left: 16px; border-left: 2px solid rgba(54, 213, 255, .28); }
+.sunburst-tree-node { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 16px; margin: 6px 0; padding: 8px 12px; color: var(--ink); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 9px; text-align: left; }
+.sunburst-tree-node:hover { background: var(--surface-muted); }
+.sunburst-tree-node.mode { border-color: var(--primary); background: rgba(54, 213, 255, .1); }
+.sunburst-tree-node.operation { border-color: var(--primary-strong); }
+.sunburst-tree-node.test-item { border-color: #f6b748; background: rgba(246, 183, 72, .08); }
+.sunburst-tree-node.original-item { border-color: var(--accent); background: rgba(166, 255, 77, .08); }
+.sunburst-tree-node-label { overflow-wrap: anywhere; }
+.sunburst-tree-node-meta { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; color: var(--muted); font-size: .78rem; }
+.sunburst-tree-node-meta strong { color: var(--accent); font-variant-numeric: tabular-nums; }
 
 @media (max-width: 760px) {
   .app-shell { padding: 18px; }
