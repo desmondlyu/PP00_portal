@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { isEncryptedWorkbookError, readMappingWorkbook, writeAnalysisWorkbook, writeMasterSummaryWorkbook, writeSunburstWorkbook, type MappingRow } from '../../lib/workbook';
 import { DEFAULT_MAPPING } from '../../lib/defaultMapping';
 import type { MasterSummaryRow } from '../../types/analysis';
@@ -20,6 +20,20 @@ const downloadButtonStyle = {
   cursor: 'pointer'
 } as const;
 
+function mappingFromSummaries(summaries: MasterSummaryRow[]) {
+  const imported = new Map<string, MappingRow>();
+  for (const row of summaries) {
+    if (row.Mode && row.Operation) {
+      imported.set(row.Original_Item_Name, {
+        Original_Item_Name: row.Original_Item_Name,
+        Mode: row.Mode,
+        Operation: row.Operation
+      });
+    }
+  }
+  return [...imported.values()];
+}
+
 export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) {
   const [filters, setFilters] = useState<FilterValues>(allFilters);
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>(tabs[0]);
@@ -30,13 +44,21 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
   const [mappingStatus, setMappingStatus] = useState('預設分類已載入');
   // ponytail: 預設用內建規則，使用者上傳可覆蓋
   const [mapping, setMapping] = useState<MappingRow[]>(DEFAULT_MAPPING);
+  useEffect(() => {
+    const importedMapping = mappingFromSummaries(summaries);
+    if (importedMapping.length > 0) {
+      setMapping(importedMapping);
+      setMappingStatus(`已從分析結構還原 Mapping：${importedMapping.length} 項`);
+    }
+  }, [summaries]);
   const filtered = filterSummary(summaries, filters);
   // ponytail: Sunburst needs un-aggregated rows to join on Original_Item_Name
   const rawFiltered = summaries.filter((row) =>
     (filters.process.length === 0 || filters.process.includes(row.Process)) &&
     (filters.size.length === 0 || filters.size.includes(row.Size)) &&
     (filters.voltage.length === 0 || filters.voltage.includes(row.Voltage)) &&
-    (filters.product.length === 0 || filters.product.includes(row.Product))
+    (filters.product.length === 0 || filters.product.includes(row.Product)) &&
+    (filters.station.length === 0 || filters.station.includes(row.Station))
   );
 
   async function updateMapping(file?: File) {

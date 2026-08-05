@@ -94,6 +94,36 @@ describe('DashboardPage', () => {
     expect(filterPanel).toHaveClass('is-expanded');
   });
 
+  it('restores xlsx mapping for the Sunburst and relationship tree', async () => {
+    const user = userEvent.setup();
+    render(<DashboardPage summaries={[{
+      ...summaries[0],
+      Original_Item_Name: 'CUSTOM_ITEM_(M)',
+      Test_Item_Merged: 'CUSTOM_ITEM',
+      Mode: 'Imported Mode',
+      Operation: 'Imported Operation'
+    }]} />);
+
+    await user.click(screen.getByRole('tab', { name: '多維度旭日圖' }));
+
+    expect(screen.getByRole('button', { name: /Imported Mode/ })).toBeVisible();
+  });
+
+  it('filters Dashboard totals by Station', async () => {
+    const user = userEvent.setup();
+    render(<DashboardPage summaries={[
+      summaries[0],
+      { ...summaries[0], Station: 'DS00', Grand_Total_Time: 2.5, Station_Time: 2.5 }
+    ]} />);
+
+    await user.click(screen.getByRole('button', { name: /篩選條件/ }));
+    const stationDropdown = screen.getByText('站點').parentElement!;
+    await user.click(within(stationDropdown).getByRole('button', { name: /全部/ }));
+    await user.click(screen.getByRole('option', { name: 'DS00' }));
+
+    expect(screen.getByText('2.5 秒')).toBeVisible();
+  });
+
   it('explains when no summary data is available', () => {
     render(<DashboardPage summaries={[]} />);
 

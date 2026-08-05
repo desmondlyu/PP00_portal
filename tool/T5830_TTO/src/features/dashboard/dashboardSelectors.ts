@@ -6,13 +6,15 @@ export type DashboardFilters = {
   size: string[];
   voltage: string[];
   product: string[];
+  station: string[];
 };
 
 export const allFilters: DashboardFilters = {
   process: [],
   size: [],
   voltage: [],
-  product: []
+  product: [],
+  station: []
 };
 
 /**
@@ -48,12 +50,13 @@ export function filterSummary(rows: MasterSummaryRow[], filters: DashboardFilter
     (filters.process.length === 0 || filters.process.includes(row.Process)) &&
     (filters.size.length === 0 || filters.size.includes(row.Size)) &&
     (filters.voltage.length === 0 || filters.voltage.includes(row.Voltage)) &&
-    (filters.product.length === 0 || filters.product.includes(row.Product))
+    (filters.product.length === 0 || filters.product.includes(row.Product)) &&
+    (filters.station.length === 0 || filters.station.includes(row.Station))
   );
   return aggregateByStandardizedItem(filtered);
 }
 
-export function distinct(rows: MasterSummaryRow[], field: keyof Pick<MasterSummaryRow, 'Process' | 'Size' | 'Voltage' | 'Product'>) {
+export function distinct(rows: MasterSummaryRow[], field: keyof Pick<MasterSummaryRow, 'Process' | 'Size' | 'Voltage' | 'Product' | 'Station'>) {
   const values = [...new Set(rows.map((row) => row[field]).filter(Boolean))];
   return field === 'Product' ? values.sort(compareProducts) : values.sort();
 }
