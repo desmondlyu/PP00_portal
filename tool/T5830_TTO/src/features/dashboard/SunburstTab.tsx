@@ -84,7 +84,7 @@ function SingleSunburst({ rows, mapping, title }: { rows: MasterSummaryRow[]; ma
   }
 
   return (
-    <div style={{ display: 'inline-block', verticalAlign: 'top', margin: '0 12px 24px' }}>
+    <div className="sunburst-chart">
       <h3 style={{ textAlign: 'center' }}>{title} ({total.toFixed(1)}s)</h3>
       <svg role="img" aria-label={`${title} 旭日圖`} width="360" height="360" viewBox="0 0 360 360">
         {outerArcs.map((arc, i) => (
@@ -131,14 +131,14 @@ export function SunburstTab({ rows, mapping = [] }: { rows: MasterSummaryRow[]; 
   return (
     <section aria-labelledby="sunburst-title">
       <h2 id="sunburst-title">多維度旭日圖 (Mode / Operation)</h2>
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
+      <div className="sunburst-product-grid">
         {products.map((product) => (
-          <SingleSunburst key={product} rows={byProduct.get(product)!} mapping={mapping} title={product} />
+          <article key={product} className="sunburst-product-card" aria-label={`${product} 旭日圖與關聯樹`}>
+            <SingleSunburst rows={byProduct.get(product)!} mapping={mapping} title={product} />
+            <SunburstTree rows={byProduct.get(product)!} mapping={mapping} title={product} />
+          </article>
         ))}
       </div>
-      {products.map((product) => (
-        <SunburstTree key={`tree-${product}`} rows={byProduct.get(product)!} mapping={mapping} title={product} />
-      ))}
     </section>
   );
 }
