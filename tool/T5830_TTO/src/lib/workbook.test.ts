@@ -7,6 +7,7 @@ import {
   readMappingWorkbook,
   readMasterSummaryWorkbook,
   writeAnalysisWorkbook,
+  writeSunburstWorkbook,
   writeMasterSummaryWorkbook
 } from './workbook';
 import type { MasterSummaryRow } from '../types/analysis';
@@ -38,6 +39,16 @@ const multiProductRows: MasterSummaryRow[] = [
     Station_Time: 2.5
   }
 ];
+
+const mappingRows = [{
+  Original_Item_Name: 'READ_ARRAY_(M)',
+  Mode: 'User Mode',
+  Operation: 'Read'
+}];
+
+function stripRowNumbers<T extends Record<string, unknown>>(rows: T[]): T[] {
+  return rows.map(({ __rowNum__, ...row }) => row as T);
+}
 
 describe('Master Summary workbook', () => {
   it('writes and reads the dashboard required fields', async () => {
@@ -78,12 +89,14 @@ describe('Master Summary workbook', () => {
   });
 
   it('round-trips all products through one analysis workbook', async () => {
-    const workbook = writeAnalysisWorkbook(multiProductRows);
+    const workbook = writeAnalysisWorkbook(multiProductRows, mappingRows);
     const parsed = XLSX.read(workbook, { type: 'array' });
 
     expect(parsed.SheetNames).toContain('Master_Summary');
     expect(parsed.SheetNames).toContain('EAG119_S1P1');
     expect(parsed.SheetNames).toContain('EAG120_S1P1');
+    expect(parsed.SheetNames).toContain('Sunburst_Mode');
+    expect(parsed.SheetNames).toContain('Sunburst_Operation');
 
     const loaded = await readAnalysisWorkbook(new File([workbook], 'T5830_Analysis_Structure.xlsx'));
     expect(loaded).toHaveLength(2);
@@ -93,6 +106,54 @@ describe('Master Summary workbook', () => {
       Grand_Total_Time: 2.5,
       Total_Merged_Count: 1
     });
+  });
+
+  it('writes reusable sunburst sheets with classified fallback', () => {
+    const workbook = writeSunburstWorkbook(rows, mappingRows);
+    const parsed = XLSX.read(workbook, { type: 'array' });
+
+    expect(parsed.SheetNames).toEqual(['Sunburst_Mode', 'Sunburst_Operation']);
+
+    const modeRows = stripRowNumbers(
+      XLSX.utils.sheet_to_json<Record<string, unknown>>(parsed.Sheets.Sunburst_Mode, { defval: '' })
+    );
+    expect(modeRows).toEqual([{
+      Product: 'EAG119',
+      Mode: 'User Mode',
+      Total_Time: 1.25,
+      Ratio: 100
+    }]);
+
+    const operationRows = stripRowNumbers(
+      XLSX.utils.sheet_to_json<Record<string, unknown>>(parsed.Sheets.Sunburst_Operation, { defval: '' })
+    );
+    expect(operationRows).toEqual([{
+      Product: 'EAG119',
+      Mode: 'User Mode',
+      Operation: 'Read',
+      Total_Time: 1.25,
+      Ratio: 100
+    }]);
+
+    const fallbackWorkbook = writeSunburstWorkbook(multiProductRows, mappingRows);
+    const fallbackParsed = XLSX.read(fallbackWorkbook, { type: 'array' });
+    const fallbackModeRows = stripRowNumbers(
+      XLSX.utils.sheet_to_json<Record<string, unknown>>(fallbackParsed.Sheets.Sunburst_Mode, { defval: '' })
+    );
+    expect(fallbackModeRows).toEqual([
+      {
+        Product: 'EAG119',
+        Mode: 'User Mode',
+        Total_Time: 1.25,
+        Ratio: 33.33
+      },
+      {
+        Product: 'EAG120',
+        Mode: 'Not Classified',
+        Total_Time: 2.5,
+        Ratio: 66.67
+      }
+    ]);
   });
 
   it('rejects an analysis workbook with missing required columns', async () => {
