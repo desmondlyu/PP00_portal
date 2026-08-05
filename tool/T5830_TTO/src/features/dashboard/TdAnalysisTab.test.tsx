@@ -39,11 +39,14 @@ describe('TdAnalysisTab', () => {
     expect(screen.getByText(/每個產品各自顯示前 20 名/)).toBeVisible();
     expect(screen.getByRole('heading', { name: 'EAG119' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'FAG103' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'MAX' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getAllByRole('button', { name: 'MAX' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'MAX' }).every((button) => button.getAttribute('aria-pressed') === 'true')).toBe(true);
     expect(screen.getAllByRole('table', { name: /TD Heatmap/ })).toHaveLength(2);
-    expect(screen.getAllByRole('columnheader', { name: 'Hierarchy' })).toHaveLength(2);
-    expect(screen.getAllByRole('columnheader', { name: 'Test_Item' })).toHaveLength(2);
+    expect(screen.getAllByRole('columnheader', { name: 'Item' })).toHaveLength(2);
+    expect(screen.queryByRole('columnheader', { name: 'Hierarchy' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Test_Item' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('columnheader', { name: 'TD_1' })).toHaveLength(2);
+    expect(screen.getAllByRole('cell', { name: 'Item: READ > READ_(M) > READ' })).toHaveLength(1);
     expect(screen.getByRole('button', { name: /EAG119.*READ.*TD_2.*MAX.*3\.00 秒/ })).toBeVisible();
   });
 
@@ -54,7 +57,7 @@ describe('TdAnalysisTab', () => {
     expect(screen.getByText(/分析所有TD/)).toBeVisible();
   });
 
-  it('switches statistics and shows the selected cell detail', () => {
+  it('switches statistics and opens a closable TD detail dialog', () => {
     render(<TdAnalysisTab rows={[row()]} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'RANGE' }));
@@ -64,26 +67,20 @@ describe('TdAnalysisTab', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /EAG119.*READ.*TD_2.*RANGE.*2\.00 秒/ }));
 
-    const detail = screen.getByRole('region', { name: 'TD 格子明細' });
+    const detail = screen.getByRole('dialog', { name: 'TD 明細' });
     expect(detail).toHaveTextContent('TD_2');
     expect(detail).toHaveTextContent('2.00 秒');
     expect(detail).toHaveTextContent('READ_(M)');
+
+    fireEvent.click(screen.getByRole('button', { name: '關閉' }));
+
+    expect(screen.queryByRole('dialog', { name: 'TD 明細' })).not.toBeInTheDocument();
   });
 
-  it('filters Heatmap rows and shows removable hierarchy conditions', () => {
-    render(<TdAnalysisTab rows={[
-      row(),
-      row({ Test_Item: 'PROGRAM', Test_Item_Merged: 'PROGRAM', Original_Item_Name: 'PROGRAM_(M)', Mode: 'Program', Operation: 'Program' })
-    ]} />);
+  it('removes hierarchy filters from the Heatmap tab', () => {
+    render(<TdAnalysisTab rows={[row()]} />);
 
-    fireEvent.change(screen.getByLabelText('Mode'), { target: { value: 'Read' } });
-
-    expect(screen.getByRole('button', { name: '清除 Mode: Read' })).toBeVisible();
-    expect(screen.getByRole('cell', { name: 'READ' })).toBeVisible();
-    expect(screen.queryByRole('cell', { name: 'PROGRAM' })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '清除 Mode: Read' }));
-
-    expect(screen.queryByRole('button', { name: '清除 Mode: Read' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Mode')).not.toBeInTheDocument();
+    expect(screen.queryByText('TD 分析階層篩選')).not.toBeInTheDocument();
   });
 });
