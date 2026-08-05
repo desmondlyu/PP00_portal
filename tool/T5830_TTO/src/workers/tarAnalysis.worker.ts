@@ -53,7 +53,8 @@ export async function processWorkerRequest(
           return;
         }
         const rows = rowsByGroup.get(key) ?? [];
-        rows.push(...parseTestTimeText(member.text, member.name));
+        const parsed = parseTestTimeText(member.text, member.name);
+        rows.push(...(request.analyzeAllTouchdowns ? parsed : parsed.filter((row) => row.touchdown === 'TD_1')));
         rowsByGroup.set(key, rows);
       }
     } catch (error) {

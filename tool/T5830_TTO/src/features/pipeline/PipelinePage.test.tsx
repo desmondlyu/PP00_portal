@@ -51,6 +51,42 @@ describe('PipelinePage', () => {
     expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ stations: ['DS00'] }));
   });
 
+  it('uses TD_1 only by default and explains the all-TD timeout risk', async () => {
+    const user = userEvent.setup();
+    const worker = {
+      postMessage: vi.fn(),
+      terminate: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    } as unknown as Worker;
+
+    render(<PipelinePage workerFactory={() => worker} />);
+    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    expect(screen.getByLabelText('分析所有TD')).not.toBeChecked();
+    expect(screen.getByText('分析所有TD可能造成分析時間過長造成Timeout問題，預設只分析TD1')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: '開始分析' }));
+
+    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ analyzeAllTouchdowns: false }));
+  });
+
+  it('sends the all-TD option when selected', async () => {
+    const user = userEvent.setup();
+    const worker = {
+      postMessage: vi.fn(),
+      terminate: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    } as unknown as Worker;
+
+    render(<PipelinePage workerFactory={() => worker} />);
+    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await user.click(screen.getByLabelText('分析所有TD'));
+    await user.click(screen.getByRole('button', { name: '開始分析' }));
+
+    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ analyzeAllTouchdowns: true }));
+  });
+
   it('returns the completed report to its parent', async () => {
     const user = userEvent.setup();
     const listeners: Record<string, (event: Event) => void> = {};
