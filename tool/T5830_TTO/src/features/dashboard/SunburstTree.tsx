@@ -2,20 +2,22 @@ import { useState } from 'react';
 import type { MasterSummaryRow } from '../../types/analysis';
 import type { MappingRow } from '../../lib/workbook';
 
-type TreeLevel = 'mode' | 'operation' | 'test-item' | 'original-item';
+type TreeLevel = 'mode' | 'operation' | 'test-item' | 'original-item' | 'raw-test-item';
 type TreeNode = {
   key: string;
   label: string;
   level: TreeLevel;
   time: number;
   children: TreeNode[];
+  stationRatio?: number;
 };
 
 const levelLabels: Record<TreeLevel, string> = {
   mode: 'Mode',
   operation: 'Operation',
   'test-item': 'Test_Item_Merged',
-  'original-item': 'Original_Item_Name'
+  'original-item': 'Original_Item_Name',
+  'raw-test-item': 'Test_Item'
 };
 
 function rowTime(row: MasterSummaryRow) {
@@ -28,7 +30,7 @@ function buildTree(rows: MasterSummaryRow[], mapping: MappingRow[]) {
   const getOrCreate = (parent: Map<string, TreeNode>, label: string, level: TreeLevel, key: string) => {
     const existing = parent.get(key);
     if (existing) return existing;
-    const node = { key, label, level, time: 0, children: [] };
+    const node: TreeNode = { key, label, level, time: 0, children: [] };
     parent.set(key, node);
     return node;
   };
@@ -39,7 +41,8 @@ function buildTree(rows: MasterSummaryRow[], mapping: MappingRow[]) {
       ['mode', mapped?.Mode?.trim() || 'Not Classified'],
       ['operation', mapped?.Operation?.trim() || 'Not Classified'],
       ['test-item', row.Test_Item_Merged],
-      ['original-item', row.Original_Item_Name]
+      ['original-item', row.Original_Item_Name],
+      ['raw-test-item', row.Test_Item?.trim() || row.Original_Item_Name.replace(/_\(M\)$/i, '')]
     ] as const;
     const time = rowTime(row);
     let children = root;
@@ -49,6 +52,9 @@ function buildTree(rows: MasterSummaryRow[], mapping: MappingRow[]) {
       path.push(label);
       const node = getOrCreate(children, label, level, path.join('\0'));
       node.time += time;
+      if (level === 'raw-test-item' && row.Test_Item_Station_Ratio !== undefined) {
+        node.stationRatio = row.Test_Item_Station_Ratio;
+      }
       if (parent) parent.children = [...children.values()];
       parent = node;
       children = new Map(parent.children.map((child) => [child.key, child]));
@@ -67,7 +73,9 @@ function TreeNodeView({ node, total, expanded, onToggle, depth }: {
 }) {
   const isExpanded = expanded.has(node.key);
   const hasChildren = node.children.length > 0;
-  const ratio = ((node.time / (total || 0.000001)) * 100).toFixed(2);
+  const ratio = (node.level === 'raw-test-item' && node.stationRatio !== undefined
+    ? node.stationRatio
+    : node.time / (total || 0.000001) * 100).toFixed(2);
   return (
     <div className={`sunburst-tree-branch sunburst-tree-depth-${depth}`}>
       <button
@@ -116,7 +124,7 @@ export function SunburstTree({ rows, mapping = [], title }: {
   return (
     <section className="sunburst-tree" aria-label={`${title} 關聯樹`}>
       <h3>{title} 關聯樹</h3>
-      <p className="sunburst-tree-hint">點擊節點展開 Mode → Operation → Test Item → Original Item</p>
+      <p className="sunburst-tree-hint">點擊節點展開 Mode → Operation → Test Item Merged → Original Item → Test Item</p>
       {nodes.map((node) => (
         <TreeNodeView key={node.key} node={node} total={total} expanded={expanded} onToggle={toggleNode} depth={0} />
       ))}

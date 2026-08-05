@@ -18,12 +18,17 @@ const rows = [{
   Station_Count: 2
 }];
 
-it('starts collapsed and expands the four relationship levels', async () => {
+it('starts collapsed and expands to Test_Item with the station TD_1 ratio', async () => {
   const user = userEvent.setup();
+  const testRows = [{
+    ...rows[0],
+    Test_Item: 'PROGRAM',
+    Test_Item_Station_Ratio: 42.5
+  }];
   render(
     <SunburstTree
       title="EAG119"
-      rows={rows}
+      rows={testRows}
       mapping={[{ Original_Item_Name: 'PROGRAM_(M)', Mode: 'UM PGM', Operation: 'PGM' }]}
     />
   );
@@ -39,5 +44,7 @@ it('starts collapsed and expands the four relationship levels', async () => {
 
   await user.click(screen.getByRole('button', { name: /PROGRAM.*Test_Item_Merged/ }));
   expect(screen.getByRole('button', { name: /PROGRAM_\(M\).*Original_Item_Name/ })).toBeVisible();
-  expect(screen.getAllByText(/100\.00%/).length).toBeGreaterThan(0);
+
+  await user.click(screen.getByRole('button', { name: /PROGRAM_\(M\).*Original_Item_Name/ }));
+  expect(screen.getByRole('button', { name: /PROGRAM.*Test_Item.*42\.50%/ })).toBeVisible();
 });

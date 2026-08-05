@@ -57,6 +57,7 @@ describe('Master Summary workbook', () => {
     const parsed = XLSX.read(workbook, { type: 'array' });
     const summaryRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(parsed.Sheets.Master_Summary, { defval: '' });
     expect(summaryRows[0]).toMatchObject({ Test_No: 227, Mode: 'User Mode', Operation: 'Read' });
+    expect(parsed.SheetNames).toContain('Detail (各Site明細)');
     const loaded = await readMasterSummaryWorkbook(new File([workbook], 'EAG119_Master_Summary.xlsx'));
 
     // 讀回後 Station 為 Unknown（Master_Summary sheet 為跨站彙整，無個別站點），
@@ -70,6 +71,18 @@ describe('Master Summary workbook', () => {
       Grand_Total_Ratio: 100,
       Station: 'Unknown'
     });
+  });
+
+  it('sorts exported analysis rows by product metadata and Step', () => {
+    const workbook = writeAnalysisWorkbook([
+      { ...rows[0], Step: 2, Original_Item_Name: 'Z_(M)', Test_Item_Merged: 'Z' },
+      { ...rows[0], Step: 1, Original_Item_Name: 'A_(M)', Test_Item_Merged: 'A' },
+      { ...rows[0], Product: 'FAG103', Process: 'F45', Size: '256M', Step: 1, Original_Item_Name: 'B_(M)', Test_Item_Merged: 'B' }
+    ], mappingRows);
+    const parsed = XLSX.read(workbook, { type: 'array' });
+    const exported = XLSX.utils.sheet_to_json<Record<string, unknown>>(parsed.Sheets.Master_Summary, { defval: '' });
+
+    expect(exported.map((row) => row.Original_Item_Name)).toEqual(['A_(M)', 'Z_(M)', 'B_(M)']);
   });
 
   it('reads the Management Mapping columns', async () => {
@@ -97,6 +110,7 @@ describe('Master Summary workbook', () => {
     const parsed = XLSX.read(workbook, { type: 'array' });
 
     expect(parsed.SheetNames).toContain('Master_Summary');
+    expect(parsed.SheetNames).toContain('Detail (各Site明細)');
     expect(parsed.SheetNames).toContain('EAG119_S1P1');
     expect(parsed.SheetNames).toContain('EAG120_S1P1');
     expect(parsed.SheetNames).toContain('Sunburst_Operation');
@@ -106,6 +120,8 @@ describe('Master Summary workbook', () => {
     );
     expect(masterRows[0]).toMatchObject({ Mode: 'User Mode', Operation: 'Read' });
     expect(masterRows[0].Test_No).toBe(227);
+    expect(masterRows[0]).toHaveProperty('Step');
+    expect(masterRows[0]).toHaveProperty('Test_Item_Station_Ratio(%)');
 
     const loaded = await readAnalysisWorkbook(new File([workbook], 'T5830_Analysis_Structure.xlsx'));
     expect(loaded).toHaveLength(2);

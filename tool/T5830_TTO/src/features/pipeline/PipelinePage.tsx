@@ -42,14 +42,12 @@ function detectProductForFile(file: File): string {
 
 /** 從 TAR 檔名解析站點 (RW_*_LOTNO_WAFERID_STATION_DATETIME.tar → STATION) */
 function detectStationForFile(file: File): string {
-  // 檔名格式: RW_P_D6505985AF08_20_S1P1_20260523093451.tar
+  // ponytail: 最後的 14 碼時間戳前一段就是 Station，支援 S1P1、DS00 等命名
   const base = file.name.replace(/\.(tgz|tar\.gz|tar)$/i, '');
   const parts = base.split('_');
-  // Station 通常是倒數第二段（最後一段是日期時間）
-  if (parts.length >= 3) {
+  if (parts[0]?.toUpperCase() === 'RW' && /^\d{14}$/.test(parts[parts.length - 1] ?? '')) {
     const candidate = parts[parts.length - 2];
-    // Station 格式: S + 數字 + P + 數字 (如 S1P1, S2P1)
-    if (/^S\d+P\d+$/i.test(candidate)) return candidate.toUpperCase();
+    if (candidate) return candidate.toUpperCase();
   }
   return 'Unknown';
 }
