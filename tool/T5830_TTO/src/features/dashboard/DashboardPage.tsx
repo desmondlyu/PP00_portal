@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { isEncryptedWorkbookError, readMappingWorkbook, writeAnalysisWorkbook, writeMasterSummaryWorkbook, type MappingRow } from '../../lib/workbook';
+import { isEncryptedWorkbookError, readMappingWorkbook, writeAnalysisWorkbook, writeMasterSummaryWorkbook, writeSunburstWorkbook, type MappingRow } from '../../lib/workbook';
 import { DEFAULT_MAPPING } from '../../lib/defaultMapping';
 import type { MasterSummaryRow } from '../../types/analysis';
 import { CountTab } from './CountTab';
@@ -81,6 +81,15 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
     URL.revokeObjectURL(url);
   }
 
+  function downloadSunburstStructure() {
+    const buf = writeSunburstWorkbook(summaries, mapping);
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'Sunburst_Structure.xlsx'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function downloadMappingTemplate() {
     const a = document.createElement('a');
     a.href = './Management_Mapping.xlsx';
@@ -127,6 +136,13 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
             aria-controls={`dashboard-panel-${index}`} onClick={() => setActiveTab(tab)}>{tab}</button>
         ))}
       </div>
+      {activeTab === '多維度旭日圖' && (
+        <section aria-label="Sunburst 資料結構匯出" style={{ marginTop: 12 }}>
+          <button type="button" onClick={downloadSunburstStructure} style={downloadButtonStyle}>
+            下載 Sunburst 資料結構
+          </button>
+        </section>
+      )}
       <div id={panelId} role="tabpanel" aria-labelledby={`dashboard-tab-${tabs.indexOf(activeTab)}`}>
         {filtered.length === 0 && activeTab !== 'TTR 對比'
           ? <p>{summaries.length === 0 ? '尚無 Master Summary 資料。請先完成分析或載入 Master Summary 檔案。' : '沒有符合目前篩選條件的資料。'}</p>
