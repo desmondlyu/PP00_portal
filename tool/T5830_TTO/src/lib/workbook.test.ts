@@ -131,6 +131,7 @@ describe('Master Summary workbook', () => {
       Grand_Total_Time: 2.5,
       Total_Merged_Count: 1
     });
+    expect(loaded[0]).toMatchObject({ Mode: 'User Mode', Operation: 'Read' });
   });
 
   it('imports legacy analysis workbooks without Test_No', async () => {

@@ -105,6 +105,8 @@ export function DashboardFilters({ rows, value, onChange }: Props) {
           onChange={(voltage) => onChange({ ...value, voltage })} />
         <MultiSelectDropdown label="產品" selected={value.product} options={distinct(rows, 'Product')}
           onChange={(product) => onChange({ ...value, product })} />
+        <MultiSelectDropdown label="站點" selected={value.station} options={distinct(rows, 'Station')}
+          onChange={(station) => onChange({ ...value, station })} />
       </div>
     </div>
   );

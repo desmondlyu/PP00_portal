@@ -19,6 +19,8 @@ export type MasterSummaryRow = {
   Test_No?: number;
   Test_Item_Merged: string;
   Original_Item_Name: string;
+  Mode?: string;
+  Operation?: string;
   Grand_Total_Time: number;
   Grand_Total_Ratio: number;
   Total_Merged_Count: number;
