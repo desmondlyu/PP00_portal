@@ -87,6 +87,17 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('button', { name: '下載 Test Item Mapping 範本' })).toBeVisible();
   });
 
+  it('shows the Sunburst export button only after switching to the Sunburst tab', async () => {
+    const user = userEvent.setup();
+    render(<DashboardPage summaries={summaries} />);
+
+    expect(screen.queryByRole('button', { name: '下載 Sunburst 資料結構' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: '多維度旭日圖' }));
+
+    expect(screen.getByRole('button', { name: '下載 Sunburst 資料結構' })).toBeVisible();
+  });
+
   it('loads a valid Mapping workbook for dashboard classification', async () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{
