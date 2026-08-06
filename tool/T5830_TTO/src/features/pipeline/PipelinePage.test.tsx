@@ -16,6 +16,25 @@ function productStationFile(product: string, station: string, suffix = '') {
   return file;
 }
 
+function analysisWorkbookFile(name: string, product: string, station: string) {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{
+    Product: product,
+    Process: 'F58',
+    Size: '512M',
+    Voltage: '1.8',
+    Original_Item_Name: 'READ_ARRAY_(M)',
+    Test_Item_Merged: 'READ_ARRAY',
+    Grand_Total_Time: 1.25,
+    Grand_Total_Ratio: 100,
+    Total_Merged_Count: 1,
+    Station: station,
+    Station_Time: 1.25,
+    Station_Count: 1
+  }]), 'Master_Summary');
+  return new File([XLSX.write(workbook, { type: 'array', bookType: 'xlsx' })], name);
+}
+
 async function confirmProducts(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: '確認選擇' }));
 }
@@ -184,6 +203,64 @@ describe('PipelinePage', () => {
       Product: 'EAG119',
       Test_Item_Merged: 'READ_ARRAY'
     });
+  });
+
+  it('merges disjoint analyzed workbooks before loading the dashboard', async () => {
+    const onAnalysisLoaded = vi.fn();
+    render(<PipelinePage onAnalysisLoaded={onAnalysisLoaded} />);
+
+    fireEvent.change(screen.getByLabelText('上傳已分析的資料'), {
+      target: {
+        files: [
+          analysisWorkbookFile('EAG119_S1P1.xlsx', 'EAG119', 'S1P1'),
+          analysisWorkbookFile('FAG103_S2P1.xlsx', 'FAG103', 'S2P1')
+        ]
+      }
+    });
+
+    await vi.waitFor(() => expect(onAnalysisLoaded).toHaveBeenCalledTimes(1));
+    expect(onAnalysisLoaded.mock.calls[0][0]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ Product: 'EAG119', Station: 'S1P1' }),
+      expect.objectContaining({ Product: 'FAG103', Station: 'S2P1' })
+    ]));
+  });
+
+  it('blocks analyzed workbooks that share a product and station', async () => {
+    const onAnalysisLoaded = vi.fn();
+    render(<PipelinePage onAnalysisLoaded={onAnalysisLoaded} />);
+
+    fireEvent.change(screen.getByLabelText('上傳已分析的資料'), {
+      target: {
+        files: [
+          analysisWorkbookFile('first.xlsx', 'EAG119', 'S1P1'),
+          analysisWorkbookFile('second.xlsx', 'EAG119', 'S1P1')
+        ]
+      }
+    });
+
+    const dialog = await screen.findByRole('dialog', { name: '分析結構重複' });
+    expect(dialog).toHaveTextContent('EAG119');
+    expect(dialog).toHaveTextContent('S1P1');
+    expect(dialog).toHaveTextContent('first.xlsx');
+    expect(dialog).toHaveTextContent('second.xlsx');
+    expect(onAnalysisLoaded).not.toHaveBeenCalled();
+  });
+
+  it('blocks duplicate product and station when filenames match', async () => {
+    const onAnalysisLoaded = vi.fn();
+    render(<PipelinePage onAnalysisLoaded={onAnalysisLoaded} />);
+
+    fireEvent.change(screen.getByLabelText('上傳已分析的資料'), {
+      target: {
+        files: [
+          analysisWorkbookFile('analysis.xlsx', 'EAG119', 'S1P1'),
+          analysisWorkbookFile('analysis.xlsx', 'EAG119', 'S1P1')
+        ]
+      }
+    });
+
+    await screen.findByRole('dialog', { name: '分析結構重複' });
+    expect(onAnalysisLoaded).not.toHaveBeenCalled();
   });
 
   it('shows the active analysis step', async () => {
