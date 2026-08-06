@@ -319,7 +319,40 @@
     <section id="guide-page" class="entry-page hidden p-6">
       <h2 class="text-2xl font-bold mb-4">操作說明</h2>
       <div id="guide-content" class="guide-content">
-        載入操作說明中...
+        <h1>Rawdata 分析工具（使用者說明）</h1>
+        <h2>系統介紹</h2>
+        <p>本工具用於分析 NOR Flash CP 測試資料，提供站點與產品統計比較、Group 分層報表、模擬欄位與 Site / Touch Down 熱圖。</p>
+        <h2>操作方式</h2>
+        <ol>
+          <li>選擇匯入方式：資料夾、TXT 或既有 XLSX。</li>
+          <li>資料夾模式請選擇包含所有產品資料夾的根目錄；每個產品資料夾內放置一份 <code>.TGZ</code>，系統會自動讀取其中的 RAWDATA <code>.TXT</code>，不需手動解出 TAR 或原始資料夾。</li>
+        </ol>
+        <pre>資料夾根目錄/
+├─ AAG106/
+│  └─ RW_*_LOTNO_WAFERID_站點_YYYYMMDDHHMMSS.TGZ
+├─ EAG119/
+│  └─ RW_*_LOTNO_WAFERID_站點_YYYYMMDDHHMMSS.TGZ
+└─ FAG102/
+   └─ RW_*_LOTNO_WAFERID_站點_YYYYMMDDHHMMSS.TGZ</pre>
+        <ol start="3">
+          <li>選擇要分析的產品與站點後按「開始分析」。</li>
+          <li>在「統計圖表」查看測試項與群組化圖表；在「統計報表」按 <code>+</code> 查看 Test Item 明細與模擬欄位。</li>
+          <li>需要還原模擬結果時，按「重置模擬」。</li>
+        </ol>
+        <h3>關鍵字分析</h3>
+        <p>勾選後可從 RAWDATA 鎖定關鍵字，並對應站點、Site、UTL_DUT 與 BIN；可再以 BIN 篩選縮小範圍。</p>
+        <h2>重要說明</h2>
+        <ol>
+          <li>模擬值只影響畫面計算，不會改動原始資料。</li>
+          <li>群組化規則已內建，不需讀取外部 Mapping 檔。</li>
+        </ol>
+        <h2>常見問題</h2>
+        <h3>為什麼 Group 會出現「未分組」？</h3>
+        <p>代表 Test Item 沒命中內建對照規則，或名稱不完全一致。</p>
+        <h3>為什麼降低百分比圖沒有 bar？</h3>
+        <p>通常是尚未輸入模擬值，或篩選條件已排除該產品。</p>
+        <h3>為什麼 Group 列沒有模擬輸入框？</h3>
+        <p>Group 僅做彙總；請展開後在 Test Item 層調整，Group 會即時反映結果。</p>
       </div>
     </section>
     </section>
@@ -336,7 +369,6 @@
 
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="js/siteTdHeatmapReact.js"></script>
   <script src="js/kpiCompareReact.js"></script>
   <script src="js/groupingRules.js"></script>

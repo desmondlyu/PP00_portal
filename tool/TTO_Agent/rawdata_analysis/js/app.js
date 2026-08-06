@@ -185,7 +185,6 @@ document.addEventListener("click", onGlobalZoomableImageClick, true);
 document.addEventListener("keydown", onDocumentKeydown);
 console.log("[TTO] Event binding complete. scopeSelectAll=", !!dom.scopeSelectAll, "scopeSelectNone=", !!dom.scopeSelectNone, "folderMeta=", !!dom.folderMeta);
 
-initializeGuidePage();
 initializeGroupingMapping();
 applyEntryModeUI();
 initializeTheme();
