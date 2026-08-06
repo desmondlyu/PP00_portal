@@ -135,6 +135,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
   const [pendingGroupKeys, setPendingGroupKeys] = useState<string[]>([]);
   const [selectedGroupKeys, setSelectedGroupKeys] = useState<string[]>([]);
   const [showProductDialog, setShowProductDialog] = useState(false);
+  const [isParsingSelection, setIsParsingSelection] = useState(false);
   const [analyzeAllTouchdowns, setAnalyzeAllTouchdowns] = useState(false);
   const workerRef = useRef<Worker>();
   const analysisInputRef = useRef<HTMLInputElement>(null);
@@ -151,6 +152,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
       setPendingGroupKeys([]);
       setSelectedGroupKeys([]);
       setShowProductDialog(false);
+      setIsParsingSelection(false);
       setError('找不到 .tgz / .tar 檔案。請上傳包含 rawdata 壓縮檔的產品資料夾。');
       return;
     }
@@ -158,17 +160,22 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
     setFiles(tarFiles);
     setStatus('idle');
     setProgress(null);
-    const detectedGroups = buildProductStationGroups(tarFiles);
-    setGroups(detectedGroups);
-    setMetadataByProduct(Object.fromEntries(
-      [...new Set(detectedGroups.map((group) => group.product))].map((product) => [
-        product,
-        PRODUCT_METADATA[product] ?? blankProductMeta()
-      ])
-    ));
-    setPendingGroupKeys(detectedGroups.map((group) => group.key));
+    setIsParsingSelection(true);
     setSelectedGroupKeys([]);
-    setShowProductDialog(true);
+    setShowProductDialog(false);
+    window.setTimeout(() => {
+      const detectedGroups = buildProductStationGroups(tarFiles);
+      setGroups(detectedGroups);
+      setMetadataByProduct(Object.fromEntries(
+        [...new Set(detectedGroups.map((group) => group.product))].map((product) => [
+          product,
+          PRODUCT_METADATA[product] ?? blankProductMeta()
+        ])
+      ));
+      setPendingGroupKeys(detectedGroups.map((group) => group.key));
+      setIsParsingSelection(false);
+      setShowProductDialog(true);
+    }, 0);
   }
 
   async function start() {
@@ -313,6 +320,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
           分析所有TD
         </label>
         <p className="file-hint">分析所有TD可能造成分析時間過長造成Timeout問題，預設只分析TD1</p>
+        {isParsingSelection && <p className="status-text" role="status">正在解析產品名稱與站點…</p>}
         {error && <p role="alert">{error}</p>}
         {status === 'processing' && progress && (
           <div className="progress-area" aria-live="polite">
@@ -334,7 +342,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
             <p className="progress-label">{phaseLabel} {progress.completed}/{progress.total}{progress.fileName ? ` — ${progress.fileName}` : ''}</p>
           </div>
         )}
-        <button className="primary-action" type="button" disabled={selectedFiles.length === 0 || showProductDialog || status === 'processing'} onClick={start}>
+        <button className="primary-action" type="button" disabled={selectedFiles.length === 0 || isParsingSelection || showProductDialog || status === 'processing'} onClick={start}>
           開始分析
         </button>
         {status === 'processing' && <button className="secondary-action" type="button" onClick={cancel}>取消分析</button>}

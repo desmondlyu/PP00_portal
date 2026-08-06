@@ -36,7 +36,7 @@ function analysisWorkbookFile(name: string, product: string, station: string) {
 }
 
 async function confirmProducts(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: '確認選擇' }));
+  await user.click(await screen.findByRole('button', { name: '確認選擇' }));
 }
 
 describe('PipelinePage', () => {
@@ -300,12 +300,12 @@ describe('PipelinePage', () => {
       target: { files: [productFile('EAG119'), productFile('FAG103')] }
     });
 
-    expect(screen.getByRole('dialog', { name: '選擇要分析的產品、站點' })).toBeVisible();
-    expect(screen.getByLabelText('EAG119 · Unknown')).toBeChecked();
-    expect(screen.getByLabelText('FAG103 · Unknown')).toBeChecked();
+    expect(await screen.findByRole('dialog', { name: '選擇要分析的產品、站點' })).toBeVisible();
+    expect(await screen.findByLabelText('EAG119 · Unknown')).toBeChecked();
+    expect(await screen.findByLabelText('FAG103 · Unknown')).toBeChecked();
 
-    await user.click(screen.getByLabelText('FAG103 · Unknown'));
-    await user.click(screen.getByRole('button', { name: '確認選擇' }));
+    await user.click(await screen.findByLabelText('FAG103 · Unknown'));
+    await user.click(await screen.findByRole('button', { name: '確認選擇' }));
     await user.click(screen.getByRole('button', { name: '開始分析' }));
 
     expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
@@ -317,13 +317,14 @@ describe('PipelinePage', () => {
     const user = userEvent.setup();
     render(<PipelinePage />);
 
-    await user.upload(
-      screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'),
-      productStationFile('FAG112', 'DS00')
-    );
+    fireEvent.change(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), {
+      target: { files: [productStationFile('FAG112', 'DS00')] }
+    });
 
+    expect(screen.getByRole('status')).toHaveTextContent('正在解析產品名稱與站點…');
     const dialog = await screen.findByRole('dialog', { name: '選擇要分析的產品、站點' });
     expect(dialog).toBeVisible();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(screen.getByLabelText('FAG112 · DS00')).toBeChecked();
     expect(screen.getByRole('button', { name: '確認選擇' })).toBeEnabled();
   });
@@ -335,9 +336,9 @@ describe('PipelinePage', () => {
     fireEvent.change(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), {
       target: { files: [productFile('EAG119')] }
     });
-    await user.click(screen.getByRole('button', { name: '全不選' }));
+    await user.click(await screen.findByRole('button', { name: '全不選' }));
 
-    expect(screen.getByRole('button', { name: '確認選擇' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: '確認選擇' })).toBeDisabled();
   });
 
   it('resets the confirmed selection when a new folder is selected', async () => {
@@ -346,11 +347,11 @@ describe('PipelinePage', () => {
     const input = screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）');
 
     fireEvent.change(input, { target: { files: [productFile('EAG119')] } });
-    await user.click(screen.getByRole('button', { name: '確認選擇' }));
+    await user.click(await screen.findByRole('button', { name: '確認選擇' }));
     fireEvent.change(input, { target: { files: [productFile('FAG103')] } });
 
-    expect(screen.getByRole('dialog', { name: '選擇要分析的產品、站點' })).toBeVisible();
-    expect(screen.getByLabelText('FAG103 · Unknown')).toBeChecked();
+    expect(await screen.findByRole('dialog', { name: '選擇要分析的產品、站點' })).toBeVisible();
+    expect(await screen.findByLabelText('FAG103 · Unknown')).toBeChecked();
     expect(screen.queryByLabelText('EAG119 · Unknown')).not.toBeInTheDocument();
   });
 
@@ -368,14 +369,14 @@ describe('PipelinePage', () => {
       target: { files: [productStationFile('NEW123', 'S1P1'), productStationFile('NEW123', 'S2P1')] }
     });
 
-    expect(screen.getByRole('button', { name: '確認選擇' })).toBeDisabled();
-    await user.type(screen.getByLabelText('NEW123 · S1P1 Process'), 'F99');
-    await user.type(screen.getByLabelText('NEW123 · S1P1 Size'), '1G');
-    await user.type(screen.getByLabelText('NEW123 · S1P1 Voltage'), '1.8');
+    expect(await screen.findByRole('button', { name: '確認選擇' })).toBeDisabled();
+    await user.type(await screen.findByLabelText('NEW123 · S1P1 Process'), 'F99');
+    await user.type(await screen.findByLabelText('NEW123 · S1P1 Size'), '1G');
+    await user.type(await screen.findByLabelText('NEW123 · S1P1 Voltage'), '1.8');
 
-    expect(screen.getByLabelText('NEW123 · S2P1 Process')).toHaveValue('F99');
-    expect(screen.getByLabelText('NEW123 · S2P1 Size')).toHaveValue('1G');
-    expect(screen.getByLabelText('NEW123 · S2P1 Voltage')).toHaveValue('1.8');
+    expect(await screen.findByLabelText('NEW123 · S2P1 Process')).toHaveValue('F99');
+    expect(await screen.findByLabelText('NEW123 · S2P1 Size')).toHaveValue('1G');
+    expect(await screen.findByLabelText('NEW123 · S2P1 Voltage')).toHaveValue('1.8');
 
     await confirmProducts(user);
     await user.click(screen.getByRole('button', { name: '開始分析' }));
@@ -395,14 +396,14 @@ describe('PipelinePage', () => {
     expect(screen.queryByRole('button', { name: /產品清單/ })).not.toBeInTheDocument();
   });
 
-  it('contains product metadata columns in an opaque scrollable selection dialog', () => {
+  it('contains product metadata columns in an opaque scrollable selection dialog', async () => {
     render(<PipelinePage />);
 
     fireEvent.change(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), {
       target: { files: [productStationFile('EAG119', 'S1P1')] }
     });
 
-    const dialog = screen.getByRole('dialog', { name: '選擇要分析的產品、站點' });
+    const dialog = await screen.findByRole('dialog', { name: '選擇要分析的產品、站點' });
     expect(dialog).toHaveClass('product-selection-dialog');
     expect(dialog.querySelector('table')?.parentElement).toHaveClass('product-selection-table-scroll');
   });
@@ -425,13 +426,13 @@ describe('PipelinePage', () => {
       ] }
     });
 
-    expect(screen.getByRole('dialog', { name: '選擇要分析的產品、站點' })).toBeVisible();
-    expect(screen.getByRole('heading', { name: '請選擇要分析的產品、站點' })).toBeVisible();
+    expect(await screen.findByRole('dialog', { name: '選擇要分析的產品、站點' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '請選擇要分析的產品、站點' })).toBeVisible();
     expect(screen.getAllByRole('columnheader')).toHaveLength(6);
-    expect(screen.getByLabelText('FAG112 · DS00')).toBeChecked();
-    expect(screen.getByLabelText('FAG112 · DS03')).toBeChecked();
+    expect(await screen.findByLabelText('FAG112 · DS00')).toBeChecked();
+    expect(await screen.findByLabelText('FAG112 · DS03')).toBeChecked();
 
-    await user.click(screen.getByLabelText('FAG112 · DS03'));
+    await user.click(await screen.findByLabelText('FAG112 · DS03'));
     await confirmProducts(user);
     await user.click(screen.getByRole('button', { name: '開始分析' }));
 
