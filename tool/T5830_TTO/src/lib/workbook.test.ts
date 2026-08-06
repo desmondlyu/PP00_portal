@@ -25,7 +25,11 @@ const rows: MasterSummaryRow[] = [{
   Total_Merged_Count: 1,
   Station: 'S1P1',
   Station_Time: 1.25,
-  Station_Count: 1
+  Station_Count: 1,
+  touchdownSiteTimes: {
+    TD_1: { Site_01: 1, Site_02: 3 },
+    TD_2: { Site_01: 10, Site_02: 2 }
+  }
 }];
 
 const multiProductRows: MasterSummaryRow[] = [
@@ -58,10 +62,18 @@ describe('Master Summary workbook', () => {
     const summaryRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(parsed.Sheets.Master_Summary, { defval: '' });
     expect(summaryRows[0]).toMatchObject({ Test_No: 227, Mode: 'User Mode', Operation: 'Read' });
     expect(parsed.SheetNames).toContain('Detail (各Site明細)');
+    expect(parsed.SheetNames).toContain('TD_Site_Detail');
+    const siteDetail = XLSX.utils.sheet_to_json<Record<string, unknown>>(parsed.Sheets.TD_Site_Detail, { defval: '' });
+    expect(siteDetail[0]).toMatchObject({
+      Product: 'EAG119',
+      Station: 'S1P1',
+      Site: 'Site_01',
+      TD: 'TD_1',
+      Original_Item_Name: 'READ_ARRAY_(M)',
+      TD_Site_Time: 1
+    });
     const loaded = await readMasterSummaryWorkbook(new File([workbook], 'EAG119_Master_Summary.xlsx'));
 
-    // 讀回後 Station 為 Unknown（Master_Summary sheet 為跨站彙整，無個別站點），
-    // touchdownTimes 不保留在 reader 中，Grand_Total_Ratio 為 "100.00%" → 100
     expect(loaded.length).toBe(1);
     expect(loaded[0]).toMatchObject({
       Product: 'EAG119',
@@ -69,7 +81,8 @@ describe('Master Summary workbook', () => {
       Grand_Total_Time: 1.25,
       Total_Merged_Count: 1,
       Grand_Total_Ratio: 100,
-      Station: 'Unknown'
+      Station: 'S1P1',
+      touchdownSiteTimes: rows[0].touchdownSiteTimes
     });
   });
 
@@ -98,11 +111,11 @@ describe('Master Summary workbook', () => {
       'TD_2_Test_Item_Station_Ratio(%)': 75
     });
     await expect(readAnalysisWorkbook(new File([analysisWorkbook], 'analysis.xlsx')))
-      .resolves.toMatchObject([{ touchdownStats }]);
+      .resolves.toMatchObject([{ touchdownStats, touchdownSiteTimes: rows[0].touchdownSiteTimes }]);
 
     const masterWorkbook = writeMasterSummaryWorkbook([{ ...rows[0], touchdownStats }], mappingRows);
     await expect(readMasterSummaryWorkbook(new File([masterWorkbook], 'EAG119_Master_Summary.xlsx')))
-      .resolves.toMatchObject([{ touchdownStats }]);
+      .resolves.toMatchObject([{ touchdownStats, touchdownSiteTimes: rows[0].touchdownSiteTimes }]);
   });
 
   it('reads the Management Mapping columns', async () => {
@@ -168,6 +181,7 @@ describe('Master Summary workbook', () => {
     ], 'legacy.xlsx'));
 
     expect(loaded[0].Test_No).toBeUndefined();
+    expect(loaded[0].touchdownSiteTimes).toBeUndefined();
   });
 
   it('writes reusable sunburst sheets with classified fallback', () => {

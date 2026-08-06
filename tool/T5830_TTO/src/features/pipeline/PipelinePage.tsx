@@ -73,10 +73,14 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
   const [showEncryptedDialog, setShowEncryptedDialog] = useState(false);
   const [progress, setProgress] = useState<ProgressInfo | null>(null);
   const [detectedProducts, setDetectedProducts] = useState<string[]>([]);
+  const [pendingProducts, setPendingProducts] = useState<string[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [showProductDialog, setShowProductDialog] = useState(false);
   const [analyzeAllTouchdowns, setAnalyzeAllTouchdowns] = useState(false);
   const workerRef = useRef<Worker>();
   const metaInputRef = useRef<HTMLInputElement>(null);
   const analysisInputRef = useRef<HTMLInputElement>(null);
+  const selectedFiles = files.filter((file) => selectedProducts.includes(detectProductForFile(file)));
 
   function selectFolder(event: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files ?? []);
@@ -84,6 +88,9 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
     if (tarFiles.length === 0) {
       setFiles([]);
       setDetectedProducts([]);
+      setPendingProducts([]);
+      setSelectedProducts([]);
+      setShowProductDialog(false);
       setError('找不到 .tgz / .tar 檔案。請上傳包含 rawdata 壓縮檔的產品資料夾。');
       return;
     }
@@ -95,6 +102,9 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
     const productList = buildProductList(tarFiles);
     const unique = [...new Set(productList)];
     setDetectedProducts(unique);
+    setPendingProducts(unique);
+    setSelectedProducts([]);
+    setShowProductDialog(true);
   }
 
   async function start() {
@@ -103,7 +113,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
     workerRef.current = worker;
     setStatus('processing');
     onProcessing?.(true);
-    setProgress({ phase: 'extracting', completed: 0, total: files.length });
+    setProgress({ phase: 'extracting', completed: 0, total: selectedFiles.length });
 
     worker.addEventListener('error', (event) => {
       worker.terminate();
@@ -142,9 +152,9 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
     worker.postMessage({
       type: 'start',
       jobId,
-      files,
-      products: buildProductList(files),
-      stations: buildStationList(files),
+      files: selectedFiles,
+      products: buildProductList(selectedFiles),
+      stations: buildStationList(selectedFiles),
       analyzeAllTouchdowns
     });
   }
@@ -233,7 +243,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
 
         <p className="file-hint">
           {files.length
-            ? `已選擇 ${files.length} 個壓縮檔`
+            ? `已選擇 ${selectedFiles.length}/${files.length} 個壓縮檔`
             : '上傳請選擇根目錄，根目錄資料夾包含你要分析的所有產品資料夾。\n範例: 選擇根目錄 ABC；ABC 底下包含 產品1, 產品2，各產品資料夾下包含一份 .TGZ 壓縮檔'}
           {detectedProducts.length > 0 && ` — 偵測到: ${detectedProducts.join(', ')}`}
         </p>
@@ -267,7 +277,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
             <p className="progress-label">{phaseLabel} {progress.completed}/{progress.total}{progress.fileName ? ` — ${progress.fileName}` : ''}</p>
           </div>
         )}
-        <button className="primary-action" type="button" disabled={files.length === 0 || status === 'processing'} onClick={start}>
+        <button className="primary-action" type="button" disabled={selectedFiles.length === 0 || showProductDialog || status === 'processing'} onClick={start}>
           開始分析
         </button>
         {status === 'processing' && <button className="secondary-action" type="button" onClick={cancel}>取消分析</button>}
@@ -301,6 +311,41 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
         <img src="unlock_irm.jpg" alt="解除保護說明" />
         <div className="encrypted-dialog-actions">
           <button className="primary-action" type="button" onClick={() => setShowEncryptedDialog(false)}>關閉</button>
+        </div>
+      </dialog>
+      <dialog className="encrypted-dialog" open={showProductDialog} aria-label="選擇要分析的產品">
+        <p>選擇要分析的產品</p>
+        <div className="encrypted-dialog-actions">
+          <button className="secondary-action" type="button" onClick={() => setPendingProducts(detectedProducts)}>全選</button>
+          <button className="secondary-action" type="button" onClick={() => setPendingProducts([])}>全不選</button>
+        </div>
+        {detectedProducts.map((product) => (
+          <label key={product} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              aria-label={product}
+              checked={pendingProducts.includes(product)}
+              onChange={() => setPendingProducts((current) =>
+                current.includes(product)
+                  ? current.filter((value) => value !== product)
+                  : [...current, product]
+              )}
+            />
+            {product}
+          </label>
+        ))}
+        <div className="encrypted-dialog-actions">
+          <button
+            className="primary-action"
+            type="button"
+            disabled={pendingProducts.length === 0}
+            onClick={() => {
+              setSelectedProducts(pendingProducts);
+              setShowProductDialog(false);
+            }}
+          >
+            確認選擇
+          </button>
         </div>
       </dialog>
       <div className="pipeline-stages" aria-label="分析流程">

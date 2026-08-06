@@ -16,6 +16,8 @@ export type TouchdownStats = {
   ratio: number;
 };
 
+export type TouchdownSiteTimes = Record<string, Record<string, number>>;
+
 export type MasterSummaryRow = {
   Product: string;
   Process: string;
@@ -47,6 +49,8 @@ export type MasterSummaryRow = {
   Test_Item_Station_Ratio?: number;
   /** 各 touchdown 的跨 Site 統計與所在 Station 時間比例 */
   touchdownStats?: Record<string, TouchdownStats>;
+  /** 各 touchdown 在各 Site 的實際秒數，供分類 TD 統計重新計算 */
+  touchdownSiteTimes?: TouchdownSiteTimes;
   /** 各觸針(touchdown)時間明細，key 為 TD_1, TD_2... */
   touchdownTimes?: Record<string, number>;
 };

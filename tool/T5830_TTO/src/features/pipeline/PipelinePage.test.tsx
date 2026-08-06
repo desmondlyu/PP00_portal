@@ -4,6 +4,16 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { PipelinePage } from './PipelinePage';
 
+function productFile(product: string, name = 'raw.tar') {
+  const file = new File(['x'], name);
+  Object.defineProperty(file, 'webkitRelativePath', { value: `ROOT/${product}/${name}` });
+  return file;
+}
+
+async function confirmProducts(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: '確認選擇' }));
+}
+
 describe('PipelinePage', () => {
   it('rejects folders without tar files', async () => {
     render(<PipelinePage />);
@@ -26,6 +36,7 @@ describe('PipelinePage', () => {
 
     render(<PipelinePage workerFactory={() => worker} />);
     await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await confirmProducts(user);
     await user.click(screen.getByRole('button', { name: '開始分析' }));
     await user.click(screen.getByRole('button', { name: '取消分析' }));
 
@@ -46,6 +57,7 @@ describe('PipelinePage', () => {
       screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'),
       new File(['x'], 'RW_P_D6505985AF08_20_DS00_20260725083033.tar')
     );
+    await confirmProducts(user);
     await user.click(screen.getByRole('button', { name: '開始分析' }));
 
     expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ stations: ['DS00'] }));
@@ -65,6 +77,7 @@ describe('PipelinePage', () => {
     expect(screen.getByLabelText('分析所有TD')).not.toBeChecked();
     expect(screen.getByText('分析所有TD可能造成分析時間過長造成Timeout問題，預設只分析TD1')).toBeVisible();
 
+    await confirmProducts(user);
     await user.click(screen.getByRole('button', { name: '開始分析' }));
 
     expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ analyzeAllTouchdowns: false }));
@@ -81,6 +94,7 @@ describe('PipelinePage', () => {
 
     render(<PipelinePage workerFactory={() => worker} />);
     await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await confirmProducts(user);
     await user.click(screen.getByLabelText('分析所有TD'));
     await user.click(screen.getByRole('button', { name: '開始分析' }));
 
@@ -100,6 +114,7 @@ describe('PipelinePage', () => {
 
     render(<PipelinePage workerFactory={() => worker} onComplete={onComplete} />);
     await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await confirmProducts(user);
     await user.click(screen.getByRole('button', { name: '開始分析' }));
     act(() => {
       listeners.message?.({
@@ -126,6 +141,7 @@ describe('PipelinePage', () => {
 
     render(<PipelinePage workerFactory={() => worker} />);
     await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await confirmProducts(user);
     await user.click(screen.getByRole('button', { name: '開始分析' }));
     act(() => listeners.error?.(new ErrorEvent('error', { message: 'Failed to fetch' })));
 
@@ -176,6 +192,7 @@ describe('PipelinePage', () => {
 
     render(<PipelinePage workerFactory={() => worker} />);
     await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await confirmProducts(user);
     await user.click(screen.getByRole('button', { name: '開始分析' }));
     act(() => listeners.message?.({
       data: { type: 'progress', jobId: 'job-1', phase: 'parsing', completed: 0, total: 1, fileName: 'raw.tar' }
@@ -184,5 +201,58 @@ describe('PipelinePage', () => {
     expect(screen.getByText('.tgz 解壓成功')).toBeVisible();
     expect(screen.getByText('.tar 內容解析中')).toBeVisible();
     expect(screen.getByText('開始分析')).toBeVisible();
+  });
+
+  it('opens an all-selected product dialog and analyzes only confirmed products', async () => {
+    const user = userEvent.setup();
+    const worker = {
+      postMessage: vi.fn(),
+      terminate: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    } as unknown as Worker;
+    render(<PipelinePage workerFactory={() => worker} />);
+
+    fireEvent.change(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), {
+      target: { files: [productFile('EAG119'), productFile('FAG103')] }
+    });
+
+    expect(screen.getByRole('dialog', { name: '選擇要分析的產品' })).toBeVisible();
+    expect(screen.getByLabelText('EAG119')).toBeChecked();
+    expect(screen.getByLabelText('FAG103')).toBeChecked();
+
+    await user.click(screen.getByLabelText('FAG103'));
+    await user.click(screen.getByRole('button', { name: '確認選擇' }));
+    await user.click(screen.getByRole('button', { name: '開始分析' }));
+
+    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      products: ['EAG119']
+    }));
+  });
+
+  it('does not allow confirming an empty product selection', async () => {
+    const user = userEvent.setup();
+    render(<PipelinePage />);
+
+    fireEvent.change(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), {
+      target: { files: [productFile('EAG119')] }
+    });
+    await user.click(screen.getByRole('button', { name: '全不選' }));
+
+    expect(screen.getByRole('button', { name: '確認選擇' })).toBeDisabled();
+  });
+
+  it('resets the confirmed selection when a new folder is selected', async () => {
+    const user = userEvent.setup();
+    render(<PipelinePage />);
+    const input = screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）');
+
+    fireEvent.change(input, { target: { files: [productFile('EAG119')] } });
+    await user.click(screen.getByRole('button', { name: '確認選擇' }));
+    fireEvent.change(input, { target: { files: [productFile('FAG103')] } });
+
+    expect(screen.getByRole('dialog', { name: '選擇要分析的產品' })).toBeVisible();
+    expect(screen.getByLabelText('FAG103')).toBeChecked();
+    expect(screen.queryByLabelText('EAG119')).not.toBeInTheDocument();
   });
 });

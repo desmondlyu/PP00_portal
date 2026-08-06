@@ -69,7 +69,8 @@ describe('buildAnalysisReport', () => {
       touchdownStats: {
         TD_1: { avg: 1, max: 1, min: 1, range: 0, ratio: 100 }
       },
-      touchdownTimes: { TD_1: 1 }
+      touchdownTimes: { TD_1: 1 },
+      touchdownSiteTimes: { TD_1: { Site_01: 1 } }
     }]);
   });
 
@@ -101,6 +102,7 @@ describe('buildAnalysisReport', () => {
     const report = buildAnalysisReport(
       [
         row('Site_01', 'TD_1', 1, 'READ', 'None', 1),
+        row('Site_01', 'TD_1', 1, 'READ', 'None', 2),
         row('Site_02', 'TD_1', 1, 'READ', 'None', 3),
         row('Site_01', 'TD_2', 2, 'READ', 'None', 10),
         row('Site_02', 'TD_2', 2, 'READ', 'None', 2),
@@ -114,8 +116,12 @@ describe('buildAnalysisReport', () => {
     );
 
     expect(report.masterSummary.find((item) => item.Test_Item === 'READ')?.touchdownStats).toEqual({
-      TD_1: { avg: 2, max: 3, min: 1, range: 2, ratio: 40 },
+      TD_1: { avg: 3, max: 3, min: 3, range: 0, ratio: 50 },
       TD_2: { avg: 6, max: 10, min: 2, range: 8, ratio: 75 }
+    });
+    expect(report.masterSummary.find((item) => item.Test_Item === 'READ')?.touchdownSiteTimes).toEqual({
+      TD_1: { Site_01: 3, Site_02: 3 },
+      TD_2: { Site_01: 10, Site_02: 2 }
     });
   });
 

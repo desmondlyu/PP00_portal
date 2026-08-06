@@ -23,7 +23,10 @@ const itemFields = ['Mode', 'Operation', 'Original_Item_Name', 'Test_Item_Merged
 type ItemField = (typeof itemFields)[number];
 
 function sortedTouchdowns(rows: MasterSummaryRow[]) {
-  return [...new Set(rows.flatMap((row) => Object.keys(row.touchdownStats ?? {})))].sort(
+  return [...new Set(rows.flatMap((row) => [
+    ...Object.keys(row.touchdownStats ?? {}),
+    ...Object.keys(row.touchdownSiteTimes ?? {})
+  ]))].sort(
     (left, right) => Number.parseInt(left.slice(3), 10) - Number.parseInt(right.slice(3), 10)
   );
 }
@@ -35,7 +38,7 @@ function heatColor(value: number, min: number, max: number) {
 }
 
 function itemKey(item: TdAnalysisItem) {
-  return `${item.hierarchy.Test_Item_Merged}\x00${item.hierarchy.Original_Item_Name}\x00${item.testItem}`;
+  return item.category;
 }
 
 function HeatmapTable({ product, items, metric, touchdowns, itemField, selectedCell, onSelect, onItemFieldChange }: {
@@ -88,10 +91,10 @@ function HeatmapTable({ product, items, metric, touchdowns, itemField, selectedC
           {chartItems.map((item) => (
             <tr key={itemKey(item)}>
               <td
-                title={item.hierarchy[itemField] || '未分類'}
+                title={item.category}
                 style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--surface-raised)', padding: '8px 10px', maxWidth: 240, borderTop: '1px solid var(--border)', whiteSpace: 'nowrap', fontSize: '0.75em' }}
               >
-                {item.hierarchy[itemField] || '未分類'}
+                {item.category}
               </td>
               {touchdowns.map((touchdown) => {
                 const value = item.stats[touchdown]?.[metric];
@@ -104,8 +107,8 @@ function HeatmapTable({ product, items, metric, touchdowns, itemField, selectedC
                   <td key={touchdown} style={{ padding: 2 }}>
                     <button
                       type="button"
-                      aria-label={`${product} · ${item.testItem} · ${touchdown} · ${metricLabels[metric]} · ${value.toFixed(2)} 秒`}
-                      title={`${product} · ${item.hierarchy.Original_Item_Name} · ${touchdown} · ${metricLabels[metric]}: ${value.toFixed(2)} 秒`}
+                      aria-label={`${product} · ${item.category} · ${touchdown} · ${metricLabels[metric]} · ${value.toFixed(2)} 秒`}
+                      title={`${product} · ${item.category} · ${touchdown} · ${metricLabels[metric]}: ${value.toFixed(2)} 秒`}
                       style={{
                         width: '100%',
                         minWidth: 72,
@@ -139,7 +142,7 @@ function DetailDialog({ selectedCell, onClose }: { selectedCell?: SelectedCell; 
     <dialog className="encrypted-dialog td-detail-dialog" open aria-label="TD 明細" onCancel={(event) => { event.preventDefault(); onClose(); }}>
       <h2 style={{ marginTop: 0 }}>TD 明細</h2>
       <p><strong>Product：</strong>{selectedCell.product}</p>
-      <p><strong>Item：</strong>{`${item.hierarchy.Test_Item_Merged} > ${item.hierarchy.Original_Item_Name} > ${item.testItem}`}</p>
+      <p><strong>Item：</strong>{item.category}</p>
       <p><strong>TD：</strong>{selectedCell.touchdown}</p>
       <p><strong>{metricLabels[selectedCell.metric]}：</strong>{selectedCell.value.toFixed(2)} 秒</p>
       <div className="encrypted-dialog-actions">
@@ -154,13 +157,8 @@ export function TdAnalysisTab({ rows }: Props) {
   const [itemField, setItemField] = useState<ItemField>('Original_Item_Name');
   const [selectedCell, setSelectedCell] = useState<SelectedCell>();
   const hasStats = rows.some((row) => row.touchdownStats && Object.keys(row.touchdownStats).length > 0);
-  const groups = tdAnalysisGroups(rows, {
-    Mode: '',
-    Operation: '',
-    Test_Item_Merged: '',
-    Original_Item_Name: '',
-    Test_Item: ''
-  });
+  const hasSiteTimes = rows.some((row) => row.touchdownSiteTimes && Object.keys(row.touchdownSiteTimes).length > 0);
+  const groups = tdAnalysisGroups(rows, itemField);
   const touchdowns = sortedTouchdowns(rows);
 
   function selectMetric(nextMetric: TdMetric) {
@@ -174,6 +172,8 @@ export function TdAnalysisTab({ rows }: Props) {
       <p>每個產品各自顯示前 20 名；以所選 TD 的最大值排序，色階由綠（快）至紅（慢）。</p>
       {!hasStats
         ? <p>沒有可用的 TD 統計資料。請以「分析所有TD」重新分析，並匯入支援 TD 統計的分析檔案。</p>
+        : !hasSiteTimes
+          ? <p>缺少 Site × TD 明細，請重新分析或匯入新版檔案。</p>
         : <>
           {groups.length === 0
             ? <p>沒有可用的 TD 統計資料。</p>
@@ -197,7 +197,10 @@ export function TdAnalysisTab({ rows }: Props) {
                       itemField={itemField}
                       selectedCell={selectedCell}
                       onSelect={setSelectedCell}
-                      onItemFieldChange={setItemField}
+                      onItemFieldChange={(field) => {
+                        setItemField(field);
+                        setSelectedCell(undefined);
+                      }}
                     />
                 </section>
               ))}

@@ -9,7 +9,7 @@ type TreeNode = {
   level: TreeLevel;
   time: number;
   children: TreeNode[];
-  stationRatio?: number;
+  touchdownRatio?: number;
   ratioTouchdown?: string;
 };
 
@@ -25,17 +25,31 @@ function rowTime(row: MasterSummaryRow) {
   return Number(row.Station_Time ?? row.Grand_Total_Time) || 0;
 }
 
-function maxTouchdownRatio(row: MasterSummaryRow) {
-  const ratios = Object.entries(row.touchdownStats ?? {})
-    .map(([touchdown, stats]) => ({ touchdown, ratio: stats.ratio }))
-    .sort((left, right) => right.ratio - left.ratio || left.touchdown.localeCompare(right.touchdown, undefined, { numeric: true }));
-  if (ratios[0]) return ratios[0];
-  if (row.Test_Item_Station_Ratio !== undefined) return { touchdown: 'TD_1', ratio: row.Test_Item_Station_Ratio };
-  return undefined;
+function productTouchdownRatios(rows: MasterSummaryRow[]) {
+  const itemTotals = new Map<string, Map<string, number>>();
+  const productTotals = new Map<string, number>();
+  for (const row of rows) {
+    const totals = itemTotals.get(row.Original_Item_Name) ?? new Map<string, number>();
+    for (const [touchdown, siteTimes] of Object.entries(row.touchdownSiteTimes ?? {})) {
+      const time = Object.values(siteTimes).reduce((sum, value) => sum + value, 0);
+      totals.set(touchdown, (totals.get(touchdown) ?? 0) + time);
+      productTotals.set(touchdown, (productTotals.get(touchdown) ?? 0) + time);
+    }
+    itemTotals.set(row.Original_Item_Name, totals);
+  }
+
+  return new Map([...itemTotals].flatMap(([item, totals]) => {
+    const ratios = [...totals].map(([touchdown, time]) => ({
+      touchdown,
+      ratio: time / (productTotals.get(touchdown) || 0.000001) * 100
+    })).sort((left, right) => right.ratio - left.ratio || left.touchdown.localeCompare(right.touchdown, undefined, { numeric: true }));
+    return ratios[0] ? [[item, ratios[0]] as const] : [];
+  }));
 }
 
 function buildTree(rows: MasterSummaryRow[], mapping: MappingRow[]) {
   const lookup = new Map(mapping.map((item) => [item.Original_Item_Name.trim(), item]));
+  const touchdownRatios = productTouchdownRatios(rows);
   const root = new Map<string, TreeNode>();
   const getOrCreate = (parent: Map<string, TreeNode>, label: string, level: TreeLevel, key: string) => {
     const existing = parent.get(key);
@@ -62,9 +76,9 @@ function buildTree(rows: MasterSummaryRow[], mapping: MappingRow[]) {
       path.push(label);
       const node = getOrCreate(children, label, level, path.join('\0'));
       node.time += time;
-      const touchdownRatio = level === 'raw-test-item' ? maxTouchdownRatio(row) : undefined;
-      if (touchdownRatio && (node.stationRatio === undefined || touchdownRatio.ratio > node.stationRatio)) {
-        node.stationRatio = touchdownRatio.ratio;
+      const touchdownRatio = level === 'raw-test-item' ? touchdownRatios.get(row.Original_Item_Name) : undefined;
+      if (touchdownRatio) {
+        node.touchdownRatio = touchdownRatio.ratio;
         node.ratioTouchdown = touchdownRatio.touchdown;
       }
       if (parent) parent.children = [...children.values()];
@@ -85,8 +99,8 @@ function TreeNodeView({ node, total, expanded, onToggle, depth }: {
 }) {
   const isExpanded = expanded.has(node.key);
   const hasChildren = node.children.length > 0;
-  const ratio = (node.level === 'raw-test-item' && node.stationRatio !== undefined
-    ? node.stationRatio
+  const ratio = (node.level === 'raw-test-item' && node.touchdownRatio !== undefined
+    ? node.touchdownRatio
     : node.time / (total || 0.000001) * 100).toFixed(2);
   return (
     <div className={`sunburst-tree-branch sunburst-tree-depth-${depth}`}>

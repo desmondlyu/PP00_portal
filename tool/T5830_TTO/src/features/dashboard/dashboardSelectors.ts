@@ -23,12 +23,9 @@ export const tdMetrics = ['avg', 'max', 'min', 'range'] as const;
 export type TdMetric = (typeof tdMetrics)[number];
 export const tdDimensions = ['Mode', 'Operation', 'Test_Item_Merged', 'Original_Item_Name', 'Test_Item'] as const;
 export type TdDimension = (typeof tdDimensions)[number];
-export type TdDimensionFilters = Record<TdDimension, string>;
-export type TdHierarchy = Record<TdDimension, string>;
 
 export type TdAnalysisItem = {
-  testItem: string;
-  hierarchy: TdHierarchy;
+  category: string;
   stats: Record<string, Pick<TouchdownStats, TdMetric>>;
 };
 
@@ -41,16 +38,6 @@ export function tdDimensionValue(row: MasterSummaryRow, dimension: TdDimension) 
   return dimension === 'Test_Item'
     ? row.Test_Item ?? row.Test_Item_Merged
     : row[dimension] ?? '';
-}
-
-function tdHierarchy(dimensions: string[]): TdHierarchy {
-  return {
-    Mode: dimensions[0],
-    Operation: dimensions[1],
-    Test_Item_Merged: dimensions[2],
-    Original_Item_Name: dimensions[3],
-    Test_Item: dimensions[4]
-  };
 }
 
 /**
@@ -105,6 +92,13 @@ function selectTouchdowns(row: MasterSummaryRow, touchdowns: string[]) {
           .map((touchdown) => [touchdown, row.touchdownStats![touchdown]])
       )
     : undefined;
+  const touchdownSiteTimes = row.touchdownSiteTimes
+    ? Object.fromEntries(
+        touchdowns
+          .filter((touchdown) => row.touchdownSiteTimes?.[touchdown] !== undefined)
+          .map((touchdown) => [touchdown, row.touchdownSiteTimes![touchdown]])
+      )
+    : undefined;
   const selectedTime = Object.values(touchdownTimes).reduce((sum, time) => sum + time, 0);
   const maxRatio = touchdownStats
     ? Math.max(0, ...Object.values(touchdownStats).map((stats) => stats.ratio))
@@ -116,7 +110,8 @@ function selectTouchdowns(row: MasterSummaryRow, touchdowns: string[]) {
     Station_Time: selectedTime,
     Test_Item_Station_Ratio: maxRatio,
     touchdownTimes,
-    touchdownStats
+    touchdownStats,
+    touchdownSiteTimes
   };
 }
 
@@ -142,39 +137,30 @@ export function distinctTouchdowns(rows: MasterSummaryRow[]) {
   ]))].sort((left, right) => Number.parseInt(left.slice(3), 10) - Number.parseInt(right.slice(3), 10));
 }
 
-export function tdAnalysisGroups(rows: MasterSummaryRow[], filters: TdDimensionFilters): TdAnalysisGroup[] {
+export function tdAnalysisGroups(rows: MasterSummaryRow[], categoryDimension: TdDimension): TdAnalysisGroup[] {
   type Aggregate = {
     product: string;
-    testItem: string;
-    hierarchy: TdHierarchy;
-    touchdowns: Map<string, { avgTotal: number; count: number; max: number; min: number }>;
+    category: string;
+    touchdowns: Map<string, Map<string, number>>;
   };
   const groups = new Map<string, Aggregate>();
 
   for (const row of rows) {
-    if (!row.touchdownStats) continue;
-    const dimensions = tdDimensions.map((dimension) => tdDimensionValue(row, dimension));
-    if (tdDimensions.some((dimension, index) => filters[dimension] && filters[dimension] !== dimensions[index])) continue;
-
-    const key = [row.Product, ...dimensions].join('\x00');
+    if (!row.touchdownSiteTimes) continue;
+    const category = tdDimensionValue(row, categoryDimension) || '未分類';
+    const key = `${row.Product}\x00${category}`;
     const aggregate = groups.get(key) ?? {
       product: row.Product,
-      testItem: dimensions[tdDimensions.indexOf('Test_Item')],
-      hierarchy: tdHierarchy(dimensions),
+      category,
       touchdowns: new Map()
     };
 
-    for (const [touchdown, stats] of Object.entries(row.touchdownStats)) {
-      const values = aggregate.touchdowns.get(touchdown) ?? {
-        avgTotal: 0,
-        count: 0,
-        max: Number.NEGATIVE_INFINITY,
-        min: Number.POSITIVE_INFINITY
-      };
-      values.avgTotal += stats.avg;
-      values.count += 1;
-      values.max = Math.max(values.max, stats.max);
-      values.min = Math.min(values.min, stats.min);
+    for (const [touchdown, siteTimes] of Object.entries(row.touchdownSiteTimes)) {
+      const values = aggregate.touchdowns.get(touchdown) ?? new Map<string, number>();
+      for (const [site, time] of Object.entries(siteTimes)) {
+        const siteKey = `${row.Station}\x00${site}`;
+        values.set(siteKey, (values.get(siteKey) ?? 0) + time);
+      }
       aggregate.touchdowns.set(touchdown, values);
     }
     groups.set(key, aggregate);
@@ -184,20 +170,20 @@ export function tdAnalysisGroups(rows: MasterSummaryRow[], filters: TdDimensionF
   for (const aggregate of groups.values()) {
     const stats = Object.fromEntries(
       [...aggregate.touchdowns].map(([touchdown, values]) => [touchdown, {
-        avg: values.avgTotal / values.count,
-        max: values.max,
-        min: values.min,
-        range: values.max - values.min
+        avg: [...values.values()].reduce((sum, value) => sum + value, 0) / values.size,
+        max: Math.max(...values.values()),
+        min: Math.min(...values.values()),
+        range: Math.max(...values.values()) - Math.min(...values.values())
       }])
     );
     const items = byProduct.get(aggregate.product) ?? [];
-    items.push({ testItem: aggregate.testItem, hierarchy: aggregate.hierarchy, stats });
+    items.push({ category: aggregate.category, stats });
     byProduct.set(aggregate.product, items);
   }
 
   return [...byProduct].map(([product, items]) => ({
     product,
-    items: items.sort((left, right) => left.testItem.localeCompare(right.testItem))
+    items: items.sort((left, right) => left.category.localeCompare(right.category))
   })).sort((left, right) => compareProducts(left.product, right.product));
 }
 
@@ -206,7 +192,7 @@ export function topTdItems(items: TdAnalysisItem[], metric: TdMetric, limit = 20
     .sort((left, right) => {
       const leftWorst = Math.max(0, ...Object.values(left.stats).map((stats) => stats[metric]));
       const rightWorst = Math.max(0, ...Object.values(right.stats).map((stats) => stats[metric]));
-      return rightWorst - leftWorst || left.testItem.localeCompare(right.testItem);
+      return rightWorst - leftWorst || left.category.localeCompare(right.category);
     })
     .slice(0, limit);
 }

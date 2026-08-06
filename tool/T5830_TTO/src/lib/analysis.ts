@@ -1,6 +1,6 @@
 import { standardizeTestItem } from './standardizeTestItem';
 import { getProductMeta } from './productMetadata';
-import type { MasterSummaryRow, ParsedTestRow, TouchdownStats } from '../types/analysis';
+import type { MasterSummaryRow, ParsedTestRow, TouchdownSiteTimes, TouchdownStats } from '../types/analysis';
 
 export type MergeRow = {
   testItem: string;
@@ -86,8 +86,9 @@ export function buildAnalysisReport(
 
   const perItem = new Map<string, Map<string, number[]>>();
   const touchdownValuesByItem = new Map<string, Map<string, number[]>>();
+  const touchdownSiteTimesByItem = new Map<string, TouchdownSiteTimes>();
   for (const [key, timeSeconds] of perSite) {
-    const [, testItem, touchdown] = key.split('\u0000');
+    const [site, testItem, touchdown] = key.split('\u0000');
     const touchdowns = perItem.get(testItem) ?? new Map<string, number[]>();
     const values = touchdowns.get(touchdown) ?? [];
     values.push(timeSeconds);
@@ -98,6 +99,12 @@ export function buildAnalysisReport(
     valuesByTouchdown.push(timeSeconds);
     touchdownValues.set(touchdown, valuesByTouchdown);
     touchdownValuesByItem.set(testItem, touchdownValues);
+
+    const touchdownSiteTimes = touchdownSiteTimesByItem.get(testItem) ?? {};
+    const siteTimes = touchdownSiteTimes[touchdown] ?? {};
+    siteTimes[site] = timeSeconds;
+    touchdownSiteTimes[touchdown] = siteTimes;
+    touchdownSiteTimesByItem.set(testItem, touchdownSiteTimes);
   }
 
   const merge = [...perItem].map(([testItem, touchdowns]) => {
@@ -189,6 +196,7 @@ export function buildAnalysisReport(
           }
         : {}),
       touchdownStats: Object.keys(touchdownStats).length > 0 ? touchdownStats : undefined,
+      touchdownSiteTimes: touchdownSiteTimesByItem.get(item.testItem),
       touchdownTimes: tdTimes
     };
   });
