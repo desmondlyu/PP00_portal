@@ -109,6 +109,28 @@ describe('TdAnalysisTab', () => {
     expect(screen.getByRole('button', { name: /EAG119.*Read.*TD_1.*MAX.*7\.00 秒/ })).toBeVisible();
   });
 
+  it('lists every source Item and TD seconds in the detail dialog', () => {
+    render(<TdAnalysisTab rows={[
+      row({ touchdownSiteTimes: { TD_1: { Site_01: 1, Site_02: 3 } } }),
+      row({
+        Test_Item: 'WRITE',
+        Test_Item_Merged: 'WRITE',
+        Original_Item_Name: 'WRITE_(M)',
+        touchdownSiteTimes: { TD_1: { Site_01: 2, Site_02: 4 } }
+      })
+    ]} />);
+
+    fireEvent.change(screen.getByLabelText('Item 顯示欄位'), { target: { value: 'Mode' } });
+    fireEvent.click(screen.getByRole('button', { name: /EAG119.*Read.*TD_1.*MAX.*7\.00 秒/ }));
+
+    const detail = screen.getByRole('dialog', { name: 'TD 明細' });
+    expect(detail).toHaveTextContent('READ_(M)');
+    expect(detail).toHaveTextContent('WRITE_(M)');
+    expect(detail).toHaveTextContent('4.00 秒');
+    expect(detail).toHaveTextContent('6.00 秒');
+    expect(detail).toHaveTextContent('TD 合計：10.00 秒');
+  });
+
   it('explains that legacy TD statistics cannot be recalculated by category', () => {
     render(<TdAnalysisTab rows={[row({ touchdownSiteTimes: undefined })]} />);
 
