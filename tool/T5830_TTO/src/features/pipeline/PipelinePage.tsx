@@ -385,7 +385,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
           </div>
         </dialog>
       )}
-      <dialog className="product-selection-dialog" open={showProductDialog} aria-label="選擇要分析的產品、站點">
+      {showProductDialog && <dialog className="product-selection-dialog" open aria-label="選擇要分析的產品、站點">
         <h2 style={{ marginTop: 0 }}>請選擇要分析的產品、站點</h2>
         <div className="encrypted-dialog-actions">
           <button className="secondary-action" type="button" onClick={() => setPendingGroupKeys(groups.map((group) => group.key))}>全選</button>
@@ -449,7 +449,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
             確認選擇
           </button>
         </div>
-      </dialog>
+      </dialog>}
       <div className="pipeline-stages" aria-label="分析流程">
         <span><b>01</b> Extract</span><span><b>02</b> Analyze</span><span><b>03</b> Monitor</span>
       </div>
