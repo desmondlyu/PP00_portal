@@ -39,7 +39,7 @@ describe('TdAnalysisTab', () => {
       row({ Product: 'FAG103', Test_Item: 'PROGRAM', Test_Item_Merged: 'PROGRAM', Original_Item_Name: 'PROGRAM_(M)' })
     ]} />);
 
-    expect(screen.getByRole('heading', { name: 'TD 分析' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'TD/SITE分析' })).toBeVisible();
     expect(screen.getByText(/每個產品各自顯示前 20 名/)).toBeVisible();
     expect(screen.getByRole('heading', { name: 'EAG119' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'FAG103' })).toBeVisible();

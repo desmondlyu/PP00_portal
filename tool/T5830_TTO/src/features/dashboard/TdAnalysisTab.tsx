@@ -209,7 +209,7 @@ export function TdAnalysisTab({ rows }: Props) {
 
   return (
     <section aria-labelledby="td-analysis-title">
-      <h1 id="td-analysis-title">TD 分析</h1>
+      <h1 id="td-analysis-title">TD/SITE分析</h1>
       <p>每個產品各自顯示前 20 名；以所選 TD 的最大值排序，色階由綠（快）至紅（慢）。</p>
       {!hasStats
         ? <p>沒有可用的 TD 統計資料。請以「分析所有TD」重新分析，並匯入支援 TD 統計的分析檔案。</p>

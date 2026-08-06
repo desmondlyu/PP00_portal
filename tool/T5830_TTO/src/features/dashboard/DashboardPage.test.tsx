@@ -40,7 +40,7 @@ describe('DashboardPage', () => {
   it('renders all seven accessible tabs from supplied summaries', () => {
     render(<DashboardPage summaries={summaries} />);
 
-    for (const name of ['核心戰情總覽', '視覺化對比', '跨產品明細 (時間)', '跨產品明細 (次數)', '多維度旭日圖', 'TTR 對比', 'TD分析']) {
+    for (const name of ['儀表板總覽', '總時間比較', '跨產品明細 (時間)', '跨產品明細 (次數)', '旭日圖/關聯樹', 'TTR前後分析', 'TD/SITE分析']) {
       expect(screen.getByRole('tab', { name })).toBeVisible();
     }
     expect(screen.getByRole('tablist')).toBeVisible();
@@ -50,9 +50,9 @@ describe('DashboardPage', () => {
     const user = userEvent.setup();
     render(<DashboardPage summaries={summaries} />);
 
-    await user.click(screen.getByRole('tab', { name: 'TD分析' }));
+    await user.click(screen.getByRole('tab', { name: 'TD/SITE分析' }));
 
-    expect(screen.getByRole('heading', { name: 'TD 分析' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'TD/SITE分析' })).toBeVisible();
   });
 
   it('applies default Mapping Mode to TD analysis rows', async () => {
@@ -68,22 +68,20 @@ describe('DashboardPage', () => {
       touchdownSiteTimes: { TD_1: { Site_01: 1 } }
     }]} />);
 
-    await user.click(screen.getByRole('tab', { name: 'TD分析' }));
+    await user.click(screen.getByRole('tab', { name: 'TD/SITE分析' }));
     await user.selectOptions(screen.getByLabelText('Item 顯示欄位'), 'Mode');
 
     expect(screen.getByRole('cell', { name: 'UM ERS' })).toBeVisible();
   });
 
-  it('orders the overview chart, sunburst, and pivot sections', () => {
+  it('shows only sunbursts in the dashboard overview', () => {
     render(<DashboardPage summaries={summaries} />);
 
     const panel = screen.getByRole('tabpanel');
-    const chart = within(panel).getByRole('region', { name: '跨產品時間結構對比' });
-    const sunbursts = within(panel).getByRole('region', { name: '總體測試時間結構' });
-    const pivots = within(panel).getByRole('region', { name: '時間與次數樞紐分析總表' });
-
-    expect(chart.compareDocumentPosition(sunbursts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(sunbursts.compareDocumentPosition(pivots) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(panel).getByRole('img', { name: 'EAG119 旭日圖' })).toBeVisible();
+    expect(within(panel).queryByRole('region', { name: 'EAG119 關聯樹' })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole('region', { name: '跨產品時間結構對比' })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole('region', { name: '時間與次數樞紐分析總表' })).not.toBeInTheDocument();
   });
 
   it('shows complete analysis export on its own row', () => {
@@ -132,7 +130,7 @@ describe('DashboardPage', () => {
       Operation: 'Imported Operation'
     }]} />);
 
-    await user.click(screen.getByRole('tab', { name: '多維度旭日圖' }));
+    await user.click(screen.getByRole('tab', { name: '旭日圖/關聯樹' }));
 
     expect(screen.getByRole('button', { name: /Imported Mode/ })).toBeVisible();
   });
@@ -149,7 +147,7 @@ describe('DashboardPage', () => {
     await user.click(within(stationDropdown).getByRole('button', { name: /全部/ }));
     await user.click(screen.getByRole('option', { name: 'DS00' }));
 
-    expect(screen.getByText('2.5 秒')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'EAG119 (2.5s)' })).toBeVisible();
   });
 
   it('filters Dashboard totals by TD No', async () => {
@@ -176,9 +174,9 @@ describe('DashboardPage', () => {
     await user.click(within(touchdownDropdown).getByRole('button', { name: /全部/ }));
     await user.click(screen.getByRole('option', { name: 'TD_2' }));
 
-    expect(screen.getByText('3 秒')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'EAG119 (3.0s)' })).toBeVisible();
 
-    await user.click(screen.getByRole('tab', { name: '多維度旭日圖' }));
+    await user.click(screen.getByRole('tab', { name: '旭日圖/關聯樹' }));
     await user.click(screen.getByRole('button', { name: /Imported Mode/ }));
     await user.click(screen.getByRole('button', { name: /Imported Operation/ }));
     await user.click(screen.getByRole('button', { name: /READ_ARRAY.*Test_Item_Merged/ }));
@@ -212,7 +210,7 @@ describe('DashboardPage', () => {
 
     expect(screen.queryByRole('button', { name: '下載 Sunburst 資料結構' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: '多維度旭日圖' }));
+    await user.click(screen.getByRole('tab', { name: '旭日圖/關聯樹' }));
 
     expect(screen.getByRole('button', { name: '下載 Sunburst 資料結構' })).toBeVisible();
   });
@@ -230,6 +228,6 @@ describe('DashboardPage', () => {
     fireEvent.change(screen.getByLabelText('Management Mapping 檔案'), { target: { files: [file] } });
 
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('已套用 Mapping：1/2'));
-    expect(screen.getByRole('tab', { name: '多維度旭日圖' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: '旭日圖/關聯樹' })).toHaveAttribute('aria-selected', 'true');
   });
 });

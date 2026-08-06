@@ -116,7 +116,7 @@ function SingleSunburst({ rows, mapping, title }: { rows: MasterSummaryRow[]; ma
   );
 }
 
-export function SunburstTab({ rows, mapping = [] }: { rows: MasterSummaryRow[]; mapping?: MappingRow[] }) {
+export function SunburstTab({ rows, mapping = [], showTree = true }: { rows: MasterSummaryRow[]; mapping?: MappingRow[]; showTree?: boolean }) {
   const byProduct = new Map<string, MasterSummaryRow[]>();
   for (const row of rows) {
     const list = byProduct.get(row.Product) ?? [];
@@ -125,18 +125,18 @@ export function SunburstTab({ rows, mapping = [] }: { rows: MasterSummaryRow[]; 
   }
 
   const products = [...byProduct.keys()].sort();
-  if (products.length === 0) return <section><h2>多維度旭日圖</h2><p>無資料可顯示。</p></section>;
+  if (products.length === 0) return <section><h2>旭日圖/關聯樹</h2><p>無資料可顯示。</p></section>;
 
   return (
     <section aria-labelledby="sunburst-title">
-      <h2 id="sunburst-title">多維度旭日圖 (Mode / Operation)</h2>
+      <h2 id="sunburst-title">旭日圖/關聯樹 (Mode / Operation)</h2>
       <div className="sunburst-product-grid">
         {products.map((product) => {
           const title = product;
           return (
-          <article key={product} className="sunburst-product-card" aria-label={`${title} 旭日圖與關聯樹`}>
+          <article key={product} className="sunburst-product-card" aria-label={`${title} ${showTree ? '旭日圖與關聯樹' : '旭日圖'}`}>
             <SingleSunburst rows={byProduct.get(product)!} mapping={mapping} title={title} />
-            <SunburstTree rows={byProduct.get(product)!} mapping={mapping} title={title} />
+            {showTree && <SunburstTree rows={byProduct.get(product)!} mapping={mapping} title={title} />}
           </article>
           );
         })}

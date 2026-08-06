@@ -11,7 +11,7 @@ import { TdAnalysisTab } from './TdAnalysisTab';
 import { TimeTab } from './TimeTab';
 import { TtrCompareTab } from './TtrCompareTab';
 
-const tabs = ['核心戰情總覽', '視覺化對比', '跨產品明細 (時間)', '跨產品明細 (次數)', '多維度旭日圖', 'TTR 對比', 'TD分析'] as const;
+const tabs = ['儀表板總覽', '總時間比較', '跨產品明細 (時間)', '跨產品明細 (次數)', '旭日圖/關聯樹', 'TTR前後分析', 'TD/SITE分析'] as const;
 const downloadButtonStyle = {
   padding: '6px 12px',
   borderRadius: 6,
@@ -78,7 +78,7 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
       const matchedItems = [...summaryItems].filter((item) => mappedItems.has(item)).length;
       setMapping(loaded);
       setMappingStatus(`已套用 Mapping：${matchedItems}/${summaryItems.size}`);
-      setActiveTab('多維度旭日圖');
+      setActiveTab('旭日圖/關聯樹');
     } catch (error) {
       if (isEncryptedWorkbookError(error)) {
         setShowEncryptedDialog(true);
@@ -162,7 +162,7 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
             aria-controls={`dashboard-panel-${index}`} onClick={() => setActiveTab(tab)}>{tab}</button>
         ))}
       </div>
-      {activeTab === '多維度旭日圖' && (
+      {activeTab === '旭日圖/關聯樹' && (
         <section aria-label="Sunburst 資料結構匯出" style={{ marginTop: 12 }}>
           <button type="button" onClick={downloadSunburstStructure} style={downloadButtonStyle}>
             下載 Sunburst 資料結構
@@ -170,7 +170,7 @@ export function DashboardPage({ summaries }: { summaries: MasterSummaryRow[] }) 
         </section>
       )}
       <div id={panelId} role="tabpanel" aria-labelledby={`dashboard-tab-${tabs.indexOf(activeTab)}`}>
-        {filtered.length === 0 && activeTab !== 'TTR 對比' && activeTab !== 'TD分析'
+        {filtered.length === 0 && activeTab !== 'TTR前後分析' && activeTab !== 'TD/SITE分析'
           ? <p>{summaries.length === 0 ? '尚無 Master Summary 資料。請先完成分析或載入 Master Summary 檔案。' : '沒有符合目前篩選條件的資料。'}</p>
           : <TabContent tab={activeTab} rows={filtered} rawRows={rawFiltered} mapping={mapping} baseline={baseline} optimized={optimized} onLoad={(kind, rows) => kind === 'baseline' ? setBaseline(rows) : setOptimized(rows)} error={ttrError} onError={setTtrError} onEncryptedFile={() => setShowEncryptedDialog(true)} />}
       </div>
@@ -197,12 +197,12 @@ function TabContent({ tab, rows, rawRows, mapping, baseline, optimized, onLoad, 
   onError: (error: string) => void;
   onEncryptedFile: () => void;
 }) {
-  if (tab === '核心戰情總覽') return <OverviewTab rows={rows} rawRows={rawRows} mapping={mapping} />;
-  if (tab === '視覺化對比') return <StackedTimeBars rows={rows} />;
+  if (tab === '儀表板總覽') return <OverviewTab rawRows={rawRows} mapping={mapping} />;
+  if (tab === '總時間比較') return <StackedTimeBars rows={rows} />;
   if (tab === '跨產品明細 (時間)') return <TimeTab rows={rows} />;
   if (tab === '跨產品明細 (次數)') return <CountTab rows={rows} />;
-  if (tab === '多維度旭日圖') return <SunburstTab rows={rawRows} mapping={mapping} />;
-  if (tab === 'TD分析') return <TdAnalysisTab rows={rawRows} />;
+  if (tab === '旭日圖/關聯樹') return <SunburstTab rows={rawRows} mapping={mapping} />;
+  if (tab === 'TD/SITE分析') return <TdAnalysisTab rows={rawRows} />;
   return <TtrCompareTab baseline={baseline} optimized={optimized} onLoad={onLoad} error={error} onError={onError} onEncryptedFile={onEncryptedFile} />;
 }
 
@@ -238,7 +238,7 @@ function StackedTimeBars({ rows }: { rows: MasterSummaryRow[] }) {
 
   return (
     <section aria-labelledby="stacked-title">
-      <h2 id="stacked-title">跨產品時間結構對比</h2>
+      <h2 id="stacked-title">總時間比較</h2>
       <div style={{ overflowX: 'auto' }}>
         <svg role="img" aria-label="各產品測試時間堆疊條圖" width="100%" height={chartH} viewBox={`0 0 ${chartW} ${chartH}`} preserveAspectRatio="none" style={{ display: 'block', minWidth: chartW }}>
           {/* Y-axis labels & grid */}
@@ -283,7 +283,7 @@ function StackedTimeBars({ rows }: { rows: MasterSummaryRow[] }) {
           })}
 
         </svg>
-        <div className="overview-chart-legend" aria-label="視覺化對比圖例">
+        <div className="overview-chart-legend" aria-label="總時間比較圖例">
           {legendItems.map((item, index) => (
             <span key={item} className="overview-chart-legend-item">
               <span className="overview-chart-legend-swatch" style={{ backgroundColor: colors[index % colors.length] }} aria-hidden="true" />
