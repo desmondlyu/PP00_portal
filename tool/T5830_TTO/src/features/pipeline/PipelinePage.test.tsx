@@ -10,6 +10,12 @@ function productFile(product: string, name = 'raw.tar') {
   return file;
 }
 
+function productStationFile(product: string, station: string, suffix = '') {
+  const file = new File(['x'], `RW_P_LOT${suffix}_05_${station}_20260101000000.tgz`);
+  Object.defineProperty(file, 'webkitRelativePath', { value: `ROOT/${product}/${file.name}` });
+  return file;
+}
+
 async function confirmProducts(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: '確認選擇' }));
 }
@@ -217,11 +223,11 @@ describe('PipelinePage', () => {
       target: { files: [productFile('EAG119'), productFile('FAG103')] }
     });
 
-    expect(screen.getByRole('dialog', { name: '選擇要分析的產品' })).toBeVisible();
-    expect(screen.getByLabelText('EAG119')).toBeChecked();
-    expect(screen.getByLabelText('FAG103')).toBeChecked();
+    expect(screen.getByRole('dialog', { name: '選擇要分析的產品、站點' })).toBeVisible();
+    expect(screen.getByLabelText('EAG119 · Unknown')).toBeChecked();
+    expect(screen.getByLabelText('FAG103 · Unknown')).toBeChecked();
 
-    await user.click(screen.getByLabelText('FAG103'));
+    await user.click(screen.getByLabelText('FAG103 · Unknown'));
     await user.click(screen.getByRole('button', { name: '確認選擇' }));
     await user.click(screen.getByRole('button', { name: '開始分析' }));
 
@@ -251,8 +257,66 @@ describe('PipelinePage', () => {
     await user.click(screen.getByRole('button', { name: '確認選擇' }));
     fireEvent.change(input, { target: { files: [productFile('FAG103')] } });
 
-    expect(screen.getByRole('dialog', { name: '選擇要分析的產品' })).toBeVisible();
-    expect(screen.getByLabelText('FAG103')).toBeChecked();
-    expect(screen.queryByLabelText('EAG119')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '選擇要分析的產品、站點' })).toBeVisible();
+    expect(screen.getByLabelText('FAG103 · Unknown')).toBeChecked();
+    expect(screen.queryByLabelText('EAG119 · Unknown')).not.toBeInTheDocument();
+  });
+
+  it('selects complete Product and Station groups from a table', async () => {
+    const user = userEvent.setup();
+    const worker = {
+      postMessage: vi.fn(),
+      terminate: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    } as unknown as Worker;
+    render(<PipelinePage workerFactory={() => worker} />);
+
+    fireEvent.change(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), {
+      target: { files: [
+        productStationFile('FAG112', 'DS00'),
+        productStationFile('FAG112', 'DS03', '1'),
+        productStationFile('FAG112', 'DS03', '2')
+      ] }
+    });
+
+    expect(screen.getByRole('dialog', { name: '選擇要分析的產品、站點' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: '請選擇要分析的產品、站點' })).toBeVisible();
+    expect(screen.getAllByRole('columnheader')).toHaveLength(3);
+    expect(screen.getByLabelText('FAG112 · DS00')).toBeChecked();
+    expect(screen.getByLabelText('FAG112 · DS03')).toBeChecked();
+
+    await user.click(screen.getByLabelText('FAG112 · DS03'));
+    await confirmProducts(user);
+    await user.click(screen.getByRole('button', { name: '開始分析' }));
+
+    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      products: ['FAG112'],
+      stations: ['DS00']
+    }));
+  });
+
+  it('submits every archive from a selected Product and Station group', async () => {
+    const user = userEvent.setup();
+    const worker = {
+      postMessage: vi.fn(),
+      terminate: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    } as unknown as Worker;
+    render(<PipelinePage workerFactory={() => worker} />);
+
+    fireEvent.change(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), {
+      target: { files: [
+        productStationFile('FAG112', 'DS03', '1'),
+        productStationFile('FAG112', 'DS03', '2')
+      ] }
+    });
+    await confirmProducts(user);
+    await user.click(screen.getByRole('button', { name: '開始分析' }));
+
+    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      stations: ['DS03', 'DS03']
+    }));
   });
 });
