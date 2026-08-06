@@ -10,6 +10,7 @@ type JobStatus = 'idle' | 'processing' | 'cancelled' | 'completed' | 'failed';
 type ProgressPhase = Extract<WorkerResponse, { type: 'progress' }>['phase'];
 type ProgressInfo = { phase: ProgressPhase; completed: number; total: number; fileName?: string };
 type ProductStationGroup = { key: string; product: string; station: string };
+type AnalysisImportCollision = { product: string; station: string; fileNames: string[] };
 
 type PipelinePageProps = {
   workerFactory?: () => Worker;
@@ -67,6 +68,28 @@ function productStationKey(product: string, station: string) {
   return `${product}\u0000${station}`;
 }
 
+function findAnalysisImportCollisions(imports: { fileName: string; rows: MasterSummaryRow[] }[]) {
+  const filesByKey = new Map<string, { collision: AnalysisImportCollision; importIndexes: Set<number> }>();
+  for (const [importIndex, { fileName, rows }] of imports.entries()) {
+    for (const { Product: product, Station: station } of rows) {
+      const key = productStationKey(product, station);
+      const entry = filesByKey.get(key) ?? {
+        collision: { product, station, fileNames: [] },
+        importIndexes: new Set<number>()
+      };
+      if (!entry.importIndexes.has(importIndex)) {
+        entry.importIndexes.add(importIndex);
+        entry.collision.fileNames.push(fileName);
+      }
+      filesByKey.set(key, entry);
+    }
+  }
+  return [...filesByKey.values()]
+    .map(({ collision }) => collision)
+    .filter(({ fileNames }) => fileNames.length > 1)
+    .sort((left, right) => left.product.localeCompare(right.product) || left.station.localeCompare(right.station));
+}
+
 function buildProductStationGroups(files: File[]): ProductStationGroup[] {
   const groups = new Map<string, ProductStationGroup>();
   for (const file of files) {
@@ -89,6 +112,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
   const [status, setStatus] = useState<JobStatus>('idle');
   const [error, setError] = useState('');
   const [showEncryptedDialog, setShowEncryptedDialog] = useState(false);
+  const [analysisImportCollisions, setAnalysisImportCollisions] = useState<AnalysisImportCollision[]>([]);
   const [progress, setProgress] = useState<ProgressInfo | null>(null);
   const [groups, setGroups] = useState<ProductStationGroup[]>([]);
   const [pendingGroupKeys, setPendingGroupKeys] = useState<string[]>([]);
@@ -186,13 +210,24 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
   }
 
   async function handleAnalysisImport(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files ?? []);
     event.target.value = '';
-    if (!file) return;
+    if (files.length === 0) return;
+    setError('');
+    setAnalysisImportCollisions([]);
     try {
-      const rows = await readAnalysisWorkbook(file);
-      if (rows.length === 0) throw new Error('分析結構檔案沒有資料');
-      onAnalysisLoaded?.(rows);
+      const imports: { fileName: string; rows: MasterSummaryRow[] }[] = [];
+      for (const file of files) {
+        const rows = await readAnalysisWorkbook(file);
+        if (rows.length === 0) throw new Error(`${file.name} 沒有分析資料`);
+        imports.push({ fileName: file.name, rows });
+      }
+      const collisions = findAnalysisImportCollisions(imports);
+      if (collisions.length > 0) {
+        setAnalysisImportCollisions(collisions);
+        return;
+      }
+      onAnalysisLoaded?.(imports.flatMap(({ rows }) => rows));
     } catch (error) {
       if (isEncryptedWorkbookError(error)) {
         setShowEncryptedDialog(true);
@@ -302,9 +337,9 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
         {status === 'cancelled' && <p className="status-text">已取消</p>}
         {status === 'completed' && <p className="status-text">分析完成</p>}
         <button className="secondary-action" type="button" onClick={() => analysisInputRef.current?.click()}>
-          📥 上傳已分析的資料 (.xlsx)
+          📥 上傳已分析的資料 (.xlsx，可多選)
         </button>
-        <input ref={analysisInputRef} aria-label="上傳已分析的資料" type="file" accept=".xlsx" style={{ display: 'none' }} onChange={handleAnalysisImport} />
+        <input ref={analysisInputRef} aria-label="上傳已分析的資料" type="file" accept=".xlsx" multiple style={{ display: 'none' }} onChange={handleAnalysisImport} />
 
         {/* 產品屬性資料庫 */}
         <hr style={{ border: 'none', borderTop: '1px solid rgba(88,202,255,.2)', margin: '20px 0' }} />
@@ -331,6 +366,30 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
           <button className="primary-action" type="button" onClick={() => setShowEncryptedDialog(false)}>關閉</button>
         </div>
       </dialog>
+      {analysisImportCollisions.length > 0 && (
+        <dialog
+          className="encrypted-dialog"
+          open
+          aria-label="分析結構重複"
+          onCancel={(event) => {
+            event.preventDefault();
+            setAnalysisImportCollisions([]);
+          }}
+        >
+          <h2 style={{ marginTop: 0 }}>偵測到重複產品／站點</h2>
+          <p>請移除重複的分析檔案後重新上傳，儀表板資料尚未更新。</p>
+          <ul>
+            {analysisImportCollisions.map(({ product, station, fileNames }) => (
+              <li key={productStationKey(product, station)}>
+                {product}／{station}：{fileNames.join('、')}
+              </li>
+            ))}
+          </ul>
+          <div className="encrypted-dialog-actions">
+            <button className="secondary-action" type="button" onClick={() => setAnalysisImportCollisions([])}>關閉</button>
+          </div>
+        </dialog>
+      )}
       <dialog className="encrypted-dialog" open={showProductDialog} aria-label="選擇要分析的產品、站點">
         <h2 style={{ marginTop: 0 }}>請選擇要分析的產品、站點</h2>
         <div className="encrypted-dialog-actions">
