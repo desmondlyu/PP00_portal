@@ -58,4 +58,17 @@ describe('processWorkerRequest', () => {
     const completed = messages.find((message) => message.type === 'completed');
     expect(completed?.type === 'completed' && completed.report.masterSummary[0].touchdownTimes).toEqual({ TD_1: 0.1 });
   });
+
+  it('does not return raw Test Time rows after analysis', async () => {
+    const messages: WorkerResponse[] = [];
+
+    await processWorkerRequest(
+      { type: 'start', jobId: 'job-1', files: [multiTouchdownTarFile], products: ['EAG119'], stations: ['S1P1'] },
+      (message) => messages.push(message),
+      () => false
+    );
+
+    const completed = messages.find((message) => message.type === 'completed');
+    expect(completed?.type === 'completed' && completed.report.detail).toEqual([]);
+  });
 });

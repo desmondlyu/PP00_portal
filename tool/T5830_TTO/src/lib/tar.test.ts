@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readRawdataTextMembers } from './tar';
+import { forEachRawdataTextMember, readRawdataTextMembers } from './tar';
 import { makeTar } from '../test/makeTar';
 
 describe('readRawdataTextMembers', () => {
@@ -22,5 +22,22 @@ describe('readRawdataTextMembers', () => {
 
     await expect(readRawdataTextMembers(new File([header], 'bad.tar')))
       .rejects.toThrow('TAR member payload exceeds archive boundary');
+  });
+
+  it('streams rawdata members to the callback without returning a member array', async () => {
+    const archive = makeTar([
+      ['home/winbond/rawdata/log_S0001.txt', 'first'],
+      ['home/winbond/rawdata/log_S0002.txt', 'second']
+    ]);
+    const names: string[] = [];
+
+    await expect(forEachRawdataTextMember(archive, (member) => {
+      names.push(`${member.name}:${member.text}`);
+    })).resolves.toBeUndefined();
+
+    expect(names).toEqual([
+      'home/winbond/rawdata/log_S0001.txt:first',
+      'home/winbond/rawdata/log_S0002.txt:second'
+    ]);
   });
 });
