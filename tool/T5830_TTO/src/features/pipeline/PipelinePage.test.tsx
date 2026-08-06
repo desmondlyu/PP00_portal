@@ -40,6 +40,12 @@ async function confirmProducts(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('PipelinePage', () => {
+  it('does not show the product selection dialog on initial load', () => {
+    render(<PipelinePage />);
+
+    expect(screen.queryByRole('dialog', { name: '選擇要分析的產品、站點' })).not.toBeInTheDocument();
+  });
+
   it('rejects folders without tar files', async () => {
     render(<PipelinePage />);
 
