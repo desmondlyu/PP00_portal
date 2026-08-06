@@ -27,6 +27,7 @@ export type TdDimension = (typeof tdDimensions)[number];
 export type TdAnalysisItem = {
   category: string;
   stats: Record<string, Pick<TouchdownStats, TdMetric>>;
+  siteTimes: Record<string, Record<string, number>>;
   sources: TdAnalysisSource[];
 };
 
@@ -206,6 +207,9 @@ export function tdAnalysisGroups(rows: MasterSummaryRow[], categoryDimension: Td
     items.push({
       category: aggregate.category,
       stats,
+      siteTimes: Object.fromEntries(
+        [...aggregate.touchdowns].map(([touchdown, values]) => [touchdown, Object.fromEntries(values)])
+      ),
       sources: [...aggregate.sources.values()].sort((left, right) =>
         left.Original_Item_Name.localeCompare(right.Original_Item_Name)
       )
