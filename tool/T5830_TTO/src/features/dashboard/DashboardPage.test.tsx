@@ -64,7 +64,8 @@ describe('DashboardPage', () => {
       Test_Item: 'Chip_Erase_KGD',
       touchdownStats: {
         TD_1: { avg: 1, max: 1, min: 1, range: 0, ratio: 100 }
-      }
+      },
+      touchdownSiteTimes: { TD_1: { Site_01: 1 } }
     }]} />);
 
     await user.click(screen.getByRole('tab', { name: 'TD分析' }));
@@ -163,6 +164,10 @@ describe('DashboardPage', () => {
       touchdownStats: {
         TD_1: { avg: 1, max: 1, min: 1, range: 0, ratio: 90 },
         TD_2: { avg: 3, max: 3, min: 3, range: 0, ratio: 10 }
+      },
+      touchdownSiteTimes: {
+        TD_1: { Site_01: 1 },
+        TD_2: { Site_01: 3 }
       }
     }]} />);
 
@@ -179,7 +184,7 @@ describe('DashboardPage', () => {
     await user.click(screen.getByRole('button', { name: /READ_ARRAY.*Test_Item_Merged/ }));
     await user.click(screen.getByRole('button', { name: /READ_ARRAY_\(M\).*Original_Item_Name/ }));
 
-    expect(screen.getByRole('button', { name: /READ_ARRAY.*TD_2.*10\.00%/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: /READ_ARRAY.*TD_2.*100\.00%/ })).toBeVisible();
   });
 
   it('explains when no summary data is available', () => {

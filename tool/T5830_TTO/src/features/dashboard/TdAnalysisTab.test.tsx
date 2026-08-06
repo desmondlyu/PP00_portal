@@ -24,6 +24,10 @@ function row(overrides: Partial<MasterSummaryRow> = {}): MasterSummaryRow {
       TD_1: { avg: 1, max: 2, min: 0.5, range: 1.5, ratio: 50 },
       TD_2: { avg: 2, max: 3, min: 1, range: 2, ratio: 50 }
     },
+    touchdownSiteTimes: {
+      TD_1: { Site_01: 0.5, Site_02: 2 },
+      TD_2: { Site_01: 1, Site_02: 3 }
+    },
     ...overrides
   };
 }
@@ -89,10 +93,26 @@ describe('TdAnalysisTab', () => {
   });
 
   it('switches the Item column between the five supported fields', () => {
-    render(<TdAnalysisTab rows={[row()]} />);
+    render(<TdAnalysisTab rows={[
+      row({ touchdownSiteTimes: { TD_1: { Site_01: 1, Site_02: 3 }, TD_2: { Site_01: 1, Site_02: 3 } } }),
+      row({
+        Test_Item: 'WRITE',
+        Test_Item_Merged: 'WRITE',
+        Original_Item_Name: 'WRITE_(M)',
+        touchdownSiteTimes: { TD_1: { Site_01: 2, Site_02: 4 }, TD_2: { Site_01: 2, Site_02: 4 } }
+      })
+    ]} />);
 
     fireEvent.change(screen.getByLabelText('Item 顯示欄位'), { target: { value: 'Mode' } });
 
     expect(screen.getByRole('cell', { name: 'Read' })).toBeVisible();
+    expect(screen.getByRole('button', { name: /EAG119.*Read.*TD_1.*MAX.*7\.00 秒/ })).toBeVisible();
+  });
+
+  it('explains that legacy TD statistics cannot be recalculated by category', () => {
+    render(<TdAnalysisTab rows={[row({ touchdownSiteTimes: undefined })]} />);
+
+    expect(screen.getByText(/缺少 Site × TD 明細/)).toBeVisible();
+    expect(screen.getByText(/重新分析或匯入新版檔案/)).toBeVisible();
   });
 });

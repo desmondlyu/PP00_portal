@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import { standardizeTestItem } from './standardizeTestItem';
 import { getProductMeta } from './productMetadata';
-import type { MasterSummaryRow, TouchdownStats } from '../types/analysis';
+import type { MasterSummaryRow, TouchdownSiteTimes, TouchdownStats } from '../types/analysis';
 
 const requiredColumns = ['Test_Item_Merged', 'Grand_Total_Time', 'Total_Merged_Count'];
 const analysisColumns = ['Product', 'Test_Item_Merged', 'Grand_Total_Time', 'Total_Merged_Count'];
@@ -25,6 +25,19 @@ type SunburstOperationRow = {
   Station_Time: number;
   Station_Count: number;
   Ratio: number;
+};
+
+type TouchdownSiteDetailRow = {
+  Product: string;
+  Station: string;
+  Site: string;
+  TD: string;
+  Mode: string;
+  Operation: string;
+  Original_Item_Name: string;
+  Test_Item_Merged: string;
+  Test_Item: string;
+  TD_Site_Time: number;
 };
 
 export class EncryptedWorkbookError extends Error {
@@ -108,6 +121,67 @@ function buildMappingLookup(mapping: MappingRow[]) {
   return lookup;
 }
 
+function touchdownSiteDetailKey(product: string, station: string, originalItemName: string) {
+  return `${product}\x00${station}\x00${originalItemName}`;
+}
+
+function buildTouchdownSiteDetailRows(rows: MasterSummaryRow[], mappingLookup: Map<string, MappingRow>): TouchdownSiteDetailRow[] {
+  return rows.flatMap((row) => {
+    const mapped = mappingLookup.get(String(row.Original_Item_Name ?? '').trim());
+    return Object.entries(row.touchdownSiteTimes ?? {}).flatMap(([touchdown, siteTimes]) =>
+      Object.entries(siteTimes).map(([site, time]) => ({
+        Product: row.Product,
+        Station: row.Station,
+        Site: site,
+        TD: touchdown,
+        Mode: asClassifiedLabel(mapped?.Mode ?? row.Mode),
+        Operation: asClassifiedLabel(mapped?.Operation ?? row.Operation),
+        Original_Item_Name: row.Original_Item_Name,
+        Test_Item_Merged: row.Test_Item_Merged,
+        Test_Item: row.Test_Item ?? row.Test_Item_Merged,
+        TD_Site_Time: time
+      }))
+    );
+  });
+}
+
+function appendTouchdownSiteDetailSheet(
+  workbook: XLSX.WorkBook,
+  rows: MasterSummaryRow[],
+  mappingLookup: Map<string, MappingRow>,
+  usedSheets: Set<string>
+) {
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.json_to_sheet(buildTouchdownSiteDetailRows(rows, mappingLookup)),
+    uniqueSheetName('TD_Site_Detail', usedSheets)
+  );
+}
+
+function readTouchdownSiteTimes(workbook: XLSX.WorkBook) {
+  const worksheet = workbook.Sheets.TD_Site_Detail;
+  if (!worksheet) return new Map<string, TouchdownSiteTimes>();
+
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: '' });
+  const timesByItem = new Map<string, TouchdownSiteTimes>();
+  for (const row of rows) {
+    const product = String(row.Product ?? '').trim();
+    const station = String(row.Station ?? '').trim();
+    const originalItemName = String(row.Original_Item_Name ?? '').trim();
+    const site = String(row.Site ?? '').trim();
+    const touchdown = String(row.TD ?? '').trim();
+    if (!product || !station || !originalItemName || !site || !touchdown) continue;
+
+    const key = touchdownSiteDetailKey(product, station, originalItemName);
+    const touchdownSiteTimes = timesByItem.get(key) ?? {};
+    const siteTimes = touchdownSiteTimes[touchdown] ?? {};
+    siteTimes[site] = (siteTimes[site] ?? 0) + asNumber(row.TD_Site_Time);
+    touchdownSiteTimes[touchdown] = siteTimes;
+    timesByItem.set(key, touchdownSiteTimes);
+  }
+  return timesByItem;
+}
+
 function buildSunburstRows(rows: MasterSummaryRow[], mapping: MappingRow[]): SunburstOperationRow[] {
   const mappingLookup = buildMappingLookup(mapping);
   const productTotals = new Map<string, number>();
@@ -180,6 +254,7 @@ export function writeMasterSummaryWorkbook(rows: MasterSummaryRow[], mapping: Ma
     XLSX.utils.json_to_sheet(sortedRows.map((row) => detailRowToRecord(row, mappingLookup))),
     uniqueSheetName('Detail (各Site明細)', usedSheets)
   );
+  appendTouchdownSiteDetailSheet(workbook, sortedRows, mappingLookup, usedSheets);
 
   const byStation = new Map<string, MasterSummaryRow[]>();
   for (const row of sortedRows) {
@@ -300,6 +375,7 @@ export function writeAnalysisWorkbook(rows: MasterSummaryRow[], mapping: Mapping
     XLSX.utils.json_to_sheet(sortedRows.map((row) => detailRowToRecord(row, mappingLookup))),
     uniqueSheetName('Detail (各Site明細)', usedSheets)
   );
+  appendTouchdownSiteDetailSheet(workbook, sortedRows, mappingLookup, usedSheets);
 
   const groups = new Map<string, MasterSummaryRow[]>();
   for (const row of sortedRows) {
@@ -328,6 +404,7 @@ export async function readAnalysisWorkbook(file: File): Promise<MasterSummaryRow
   const columns = new Set(Object.keys(sourceRows[0] ?? {}));
   const missing = analysisColumns.filter((column) => !columns.has(column));
   if (missing.length > 0) throw new Error(`分析結構缺少必要欄位：${missing.join(', ')}`);
+  const touchdownSiteTimesByItem = readTouchdownSiteTimes(workbook);
 
   return sourceRows.map((row) => {
     const product = String(row.Product);
@@ -336,6 +413,8 @@ export async function readAnalysisWorkbook(file: File): Promise<MasterSummaryRow
     for (const [key, value] of Object.entries(row)) {
       if (/^TD_\d+$/.test(key)) touchdownTimes[key] = asNumber(value);
     }
+    const station = String(row.Station || 'Unknown');
+    const originalItemName = String(row.Original_Item_Name || row.Test_Item_Merged);
     return {
       Product: product,
       Process: String(row.Process || '') || meta.Process,
@@ -345,14 +424,14 @@ export async function readAnalysisWorkbook(file: File): Promise<MasterSummaryRow
       Test_Item: String(row.Test_Item || '') || undefined,
       Sweep_Info: String(row.Sweep_Info || '') || undefined,
       Test_No: row.Test_No === '' || row.Test_No === undefined ? undefined : asNumber(row.Test_No),
-      Original_Item_Name: String(row.Original_Item_Name || row.Test_Item_Merged),
+      Original_Item_Name: originalItemName,
       Test_Item_Merged: String(row.Test_Item_Merged),
       Mode: String(row.Mode || '') || undefined,
       Operation: String(row.Operation || '') || undefined,
       Grand_Total_Time: asNumber(row.Grand_Total_Time),
       Grand_Total_Ratio: asNumber(row.Grand_Total_Ratio),
       Total_Merged_Count: asNumber(row.Total_Merged_Count),
-      Station: String(row.Station || 'Unknown'),
+      Station: station,
       Station_Time: asNumber(row.Station_Time ?? row.Grand_Total_Time),
       Station_Count: asNumber(row.Station_Count ?? row.Total_Merged_Count),
       test_item_avg: row.test_item_avg === '' || row.test_item_avg === undefined ? undefined : asNumber(row.test_item_avg),
@@ -363,6 +442,7 @@ export async function readAnalysisWorkbook(file: File): Promise<MasterSummaryRow
         ? undefined
         : asNumber(row['Test_Item_Station_Ratio(%)']),
       touchdownStats: touchdownStatsFromRecord(row),
+      touchdownSiteTimes: touchdownSiteTimesByItem.get(touchdownSiteDetailKey(product, station, originalItemName)),
       touchdownTimes: Object.keys(touchdownTimes).length > 0 ? touchdownTimes : undefined
     };
   });
@@ -377,6 +457,7 @@ export async function readMasterSummaryWorkbook(file: File): Promise<MasterSumma
   const columns = new Set(Object.keys(sourceRows[0] ?? {}));
   const missing = requiredColumns.filter((column) => !columns.has(column));
   if (missing.length > 0) throw new Error(`缺少必要欄位：${missing.join(', ')}`);
+  const touchdownSiteTimesByItem = readTouchdownSiteTimes(workbook);
 
   // ponytail: Python Master_Summary 沒有 Product/Process/Size/Voltage 欄位
   // 從檔名擷取產品名，再查 PRODUCT_METADATA
@@ -392,6 +473,7 @@ export async function readMasterSummaryWorkbook(file: File): Promise<MasterSumma
     const meta = getProductMeta(productName);
     const grandTotalTime = asNumber(row.Grand_Total_Time);
     const totalMergedCount = asNumber(row.Total_Merged_Count);
+    const station = String(row.Station || 'Unknown');
     return {
       Product: productName,
       Process: String(row.Process || '') || meta.Process,
@@ -408,9 +490,9 @@ export async function readMasterSummaryWorkbook(file: File): Promise<MasterSumma
       Grand_Total_Time: grandTotalTime,
       Grand_Total_Ratio: asNumber(row['Grand_Total_Ratio(%)'] ?? row.Grand_Total_Ratio),
       Total_Merged_Count: totalMergedCount,
-      Station: 'Unknown',
-      Station_Time: grandTotalTime,
-      Station_Count: totalMergedCount,
+      Station: station,
+      Station_Time: asNumber(row.Station_Time ?? grandTotalTime),
+      Station_Count: asNumber(row.Station_Count ?? totalMergedCount),
       test_item_avg: row.test_item_avg === '' || row.test_item_avg === undefined ? undefined : asNumber(row.test_item_avg),
       test_item_max: row.test_item_max === '' || row.test_item_max === undefined ? undefined : asNumber(row.test_item_max),
       test_item_min: row.test_item_min === '' || row.test_item_min === undefined ? undefined : asNumber(row.test_item_min),
@@ -418,7 +500,8 @@ export async function readMasterSummaryWorkbook(file: File): Promise<MasterSumma
       Test_Item_Station_Ratio: row['Test_Item_Station_Ratio(%)'] === '' || row['Test_Item_Station_Ratio(%)'] === undefined
         ? undefined
         : asNumber(row['Test_Item_Station_Ratio(%)']),
-      touchdownStats: touchdownStatsFromRecord(row)
+      touchdownStats: touchdownStatsFromRecord(row),
+      touchdownSiteTimes: touchdownSiteTimesByItem.get(touchdownSiteDetailKey(productName, station, originalName))
     };
   });
 }

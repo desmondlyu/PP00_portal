@@ -20,101 +20,80 @@ function row(overrides: Partial<MasterSummaryRow> = {}): MasterSummaryRow {
     Station_Time: 1,
     Station_Count: 1,
     touchdownStats: {
-      TD_1: { avg: 2, max: 2, min: 2, range: 0, ratio: 50 },
-      TD_2: { avg: 3, max: 3, min: 3, range: 0, ratio: 50 }
+      TD_1: { avg: 2, max: 2, min: 2, range: 0, ratio: 100 }
+    },
+    touchdownSiteTimes: {
+      TD_1: { Site_01: 1, Site_02: 3 }
     },
     ...overrides
   };
 }
 
-const noDimensionFilters = {
-  Mode: '',
-  Operation: '',
-  Test_Item_Merged: '',
-  Original_Item_Name: '',
-  Test_Item: ''
-};
-
 describe('TD analysis selectors', () => {
-  it('aggregates each touchdown by product and all mapping dimensions', () => {
-    const groups = tdAnalysisGroups([
-      row({
-        Station: 'S1P1',
-        touchdownStats: {
-          TD_1: { avg: 2, max: 2, min: 2, range: 0, ratio: 50 },
-          TD_2: { avg: 3, max: 3, min: 3, range: 0, ratio: 50 }
-        }
-      }),
-      row({
-        Station: 'S2P1',
-        touchdownStats: {
-          TD_1: { avg: 4, max: 4, min: 4, range: 0, ratio: 50 },
-          TD_2: { avg: 6, max: 6, min: 6, range: 0, ratio: 50 }
-        }
-      }),
-      row({ Product: 'FAG103', Test_Item: 'PROGRAM', Test_Item_Merged: 'PROGRAM', Original_Item_Name: 'PROGRAM_(M)' })
-    ], noDimensionFilters);
-
-    expect(groups.map((group) => group.product)).toEqual(['FAG103', 'EAG119']);
-    expect(groups[1].items[0].stats.TD_1).toEqual({ avg: 3, max: 4, min: 2, range: 2 });
-    expect(groups[1].items[0].stats.TD_2).toEqual({ avg: 4.5, max: 6, min: 3, range: 3 });
-    expect(groups[1].items[0].hierarchy).toEqual({
-      Mode: 'Read',
-      Operation: 'Read',
-      Test_Item_Merged: 'READ',
-      Original_Item_Name: 'READ_(M)',
-      Test_Item: 'READ'
-    });
-  });
-
-  it('keeps mapping categories separate and filters by all five dimensions', () => {
+  it('sums each category Site time before calculating TD statistics', () => {
     const groups = tdAnalysisGroups([
       row(),
-      row({ Mode: 'Program', Operation: 'Program', Test_Item_Merged: 'PROGRAM', Original_Item_Name: 'PROGRAM_(M)', Test_Item: 'READ' })
-    ], { ...noDimensionFilters, Mode: 'Read' });
+      row({
+        Test_Item: 'WRITE',
+        Test_Item_Merged: 'WRITE',
+        Original_Item_Name: 'WRITE_(M)',
+        touchdownSiteTimes: { TD_1: { Site_01: 2, Site_02: 4 } }
+      })
+    ], 'Mode');
 
-    expect(groups[0].items).toHaveLength(1);
-    expect(groups[0].items[0].testItem).toBe('READ');
+    expect(groups).toMatchObject([{
+      product: 'EAG119',
+      items: [{
+        category: 'Read',
+        stats: {
+          TD_1: { avg: 5, max: 7, min: 3, range: 4 }
+        }
+      }]
+    }]);
   });
 
-  it('ranks each metric independently by the largest selected TD value and limits to 20', () => {
-    const rows = Array.from({ length: 21 }, (_, index) => row({
-      Test_Item: `ITEM_${index + 1}`,
-      Test_Item_Merged: `ITEM_${index + 1}`,
-      Original_Item_Name: `ITEM_${index + 1}_(M)`,
-      touchdownStats: {
-        TD_1: { avg: index + 1, max: index + 1, min: index + 1, range: 0, ratio: 100 }
-      }
-    }));
-    const groups = tdAnalysisGroups(rows, noDimensionFilters);
+  it('keeps selected categories separate and uses 未分類 for missing Mapping labels', () => {
+    const groups = tdAnalysisGroups([
+      row({ Operation: 'Read' }),
+      row({
+        Test_Item: 'WRITE',
+        Test_Item_Merged: 'WRITE',
+        Original_Item_Name: 'WRITE_(M)',
+        Operation: 'Program'
+      }),
+      row({
+        Test_Item: 'UNKNOWN',
+        Test_Item_Merged: 'UNKNOWN',
+        Original_Item_Name: 'UNKNOWN_(M)',
+        Mode: undefined
+      })
+    ], 'Operation');
+    const modeGroups = tdAnalysisGroups([row({ Mode: undefined })], 'Mode');
+
+    expect(groups[0].items.map((item) => item.category)).toEqual(['Program', 'Read']);
+    expect(modeGroups[0].items[0].category).toBe('未分類');
+  });
+
+  it('excludes legacy summary rows without Site × TD detail', () => {
+    expect(tdAnalysisGroups([
+      row({ touchdownSiteTimes: undefined })
+    ], 'Test_Item')).toEqual([]);
+  });
+
+  it('ranks categories by their largest TD value and limits to 20', () => {
+    const groups = tdAnalysisGroups(
+      Array.from({ length: 21 }, (_, index) => row({
+        Test_Item: `ITEM_${index + 1}`,
+        Test_Item_Merged: `ITEM_${index + 1}`,
+        Original_Item_Name: `ITEM_${index + 1}_(M)`,
+        touchdownSiteTimes: { TD_1: { Site_01: index + 1 } }
+      })),
+      'Test_Item'
+    );
     const ranked = topTdItems(groups[0].items, 'max');
 
     expect(ranked).toHaveLength(20);
-    expect(ranked[0].testItem).toBe('ITEM_21');
-    expect(ranked[ranked.length - 1]?.testItem).toBe('ITEM_2');
-  });
-
-  it('uses the largest value from any selected touchdown for ranking', () => {
-    const groups = tdAnalysisGroups([
-      row({
-        Test_Item: 'TD_1_ONLY',
-        Test_Item_Merged: 'TD_1_ONLY',
-        Original_Item_Name: 'TD_1_ONLY_(M)',
-        touchdownStats: {
-          TD_1: { avg: 1, max: 10, min: 1, range: 9, ratio: 100 }
-        }
-      }),
-      row({
-        Test_Item: 'TD_2_WORST',
-        Test_Item_Merged: 'TD_2_WORST',
-        Original_Item_Name: 'TD_2_WORST_(M)',
-        touchdownStats: {
-          TD_1: { avg: 1, max: 5, min: 1, range: 4, ratio: 50 },
-          TD_2: { avg: 1, max: 11, min: 1, range: 10, ratio: 50 }
-        }
-      })
-    ], noDimensionFilters);
-
-    expect(topTdItems(groups[0].items, 'max')[0].testItem).toBe('TD_2_WORST');
+    expect(ranked[0].category).toBe('ITEM_21');
+    expect(ranked[ranked.length - 1]?.category).toBe('ITEM_2');
   });
 });

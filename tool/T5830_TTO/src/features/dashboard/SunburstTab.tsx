@@ -117,29 +117,26 @@ function SingleSunburst({ rows, mapping, title }: { rows: MasterSummaryRow[]; ma
 }
 
 export function SunburstTab({ rows, mapping = [] }: { rows: MasterSummaryRow[]; mapping?: MappingRow[] }) {
-  // ponytail: Station 的 TD_1 比例不能跨站混算
-  const byProductStation = new Map<string, MasterSummaryRow[]>();
+  const byProduct = new Map<string, MasterSummaryRow[]>();
   for (const row of rows) {
-    const key = `${row.Product}\x00${row.Station}`;
-    const list = byProductStation.get(key) ?? [];
+    const list = byProduct.get(row.Product) ?? [];
     list.push(row);
-    byProductStation.set(key, list);
+    byProduct.set(row.Product, list);
   }
 
-  const productStations = [...byProductStation.keys()].sort();
-  if (productStations.length === 0) return <section><h2>多維度旭日圖</h2><p>無資料可顯示。</p></section>;
+  const products = [...byProduct.keys()].sort();
+  if (products.length === 0) return <section><h2>多維度旭日圖</h2><p>無資料可顯示。</p></section>;
 
   return (
     <section aria-labelledby="sunburst-title">
       <h2 id="sunburst-title">多維度旭日圖 (Mode / Operation)</h2>
       <div className="sunburst-product-grid">
-        {productStations.map((key) => {
-          const [product, station] = key.split('\x00');
-          const title = `${product} · ${station}`;
+        {products.map((product) => {
+          const title = product;
           return (
-          <article key={key} className="sunburst-product-card" aria-label={`${title} 旭日圖與關聯樹`}>
-            <SingleSunburst rows={byProductStation.get(key)!} mapping={mapping} title={title} />
-            <SunburstTree rows={byProductStation.get(key)!} mapping={mapping} title={title} />
+          <article key={product} className="sunburst-product-card" aria-label={`${title} 旭日圖與關聯樹`}>
+            <SingleSunburst rows={byProduct.get(product)!} mapping={mapping} title={title} />
+            <SunburstTree rows={byProduct.get(product)!} mapping={mapping} title={title} />
           </article>
           );
         })}
