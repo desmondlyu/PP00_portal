@@ -406,6 +406,7 @@ function createStation(name, rootFolderName = "", parsedMeta = null) {
     name,
     rootFolderName,
     parsedMeta,
+    rawTgzFiles: [],
     rawTxtFiles: [],
     stats: [],
     stationTotalTime: 0,
@@ -468,11 +469,15 @@ function getActiveStationData() {
   return product.stations.get(APP.activeStation) ?? null;
 }
 
+function getStationInputFiles(station) {
+  return APP.sourceMode === "folder" ? station.rawTgzFiles : station.rawTxtFiles;
+}
+
 function getTotalRawTxtCount() {
   let total = 0;
   for (const product of getProducts()) {
     for (const station of product.stations.values()) {
-      total += station.rawTxtFiles.length;
+      total += getStationInputFiles(station).length;
     }
   }
   return total;
@@ -495,7 +500,7 @@ function getSelectableStationEntries() {
   const entries = [];
   for (const product of getProducts()) {
     for (const station of product.stations.values()) {
-      if (!station.rawTxtFiles.length) continue;
+      if (!getStationInputFiles(station).length) continue;
       entries.push({ product, station, key: makeScopeKey(product.name, station.name) });
     }
   }
@@ -507,7 +512,7 @@ function getSelectedStationEntries() {
 }
 
 function getSelectedRawTxtCount() {
-  return getSelectedStationEntries().reduce((acc, entry) => acc + entry.station.rawTxtFiles.length, 0);
+  return getSelectedStationEntries().reduce((acc, entry) => acc + getStationInputFiles(entry.station).length, 0);
 }
 
 function isProductFullySelected(productName) {
@@ -940,21 +945,16 @@ function detectProductToken(value) {
   return PRODUCT_ROOT_REGEX.test(text) ? text : "";
 }
 
-function parseImportPath(relativePath) {
+function parseTgzImportPath(relativePath) {
   const normalized = String(relativePath || "").replaceAll("\\", "/");
   const parts = normalized.split("/").filter(Boolean);
-  const homeIndex = parts.findIndex(
-    (part, idx) =>
-      part.toLowerCase() === "home" &&
-      Boolean(parts[idx + 1]) &&
-      Boolean(parts[idx + 2]),
-  );
-  if (homeIndex < 1) return null;
+  const archiveName = parts.at(-1) || "";
+  if (parts.length < 2 || !/\.tgz$/i.test(archiveName)) return null;
 
-  const stationFolder = parts[homeIndex - 1];
+  const stationFolder = archiveName.replace(/\.tgz$/i, "");
   const stationMeta = parseRootMeta(stationFolder);
   let productName = "";
-  for (let i = homeIndex - 2; i >= 0; i -= 1) {
+  for (let i = parts.length - 2; i >= 0; i -= 1) {
     const token = detectProductToken(parts[i]);
     if (token) {
       productName = token;
@@ -1021,31 +1021,23 @@ function handleFolderSelection(event) {
     APP.manualProductName = "";
   }
 
-  let totalTxt = 0;
-  let acceptedTxt = 0;
+  let totalTgz = 0;
+  let acceptedTgz = 0;
   for (const file of APP.files) {
     const rel = String(file.webkitRelativePath || "");
-    if (!rel.toLowerCase().endsWith(".txt")) continue;
-    totalTxt += 1;
-    const parsed = parseImportPath(rel);
+    if (!file.name.toLowerCase().endsWith(".tgz")) continue;
+    totalTgz += 1;
+    const parsed = parseTgzImportPath(rel);
     if (!parsed) continue;
     if (!parsed.productName) {
-      APP.manualFallback.pendingFiles.push(file);
-      if (parsed.stationMeta) {
-        APP.manualFallback.lotNo = APP.manualFallback.lotNo || String(parsed.stationMeta.lotNo || "").trim();
-        APP.manualFallback.waferId = APP.manualFallback.waferId || String(parsed.stationMeta.waferId || "").trim();
-        APP.manualFallback.station = APP.manualFallback.station || String(parsed.stationMeta.station || parsed.stationName || "").trim();
-      } else if (!APP.manualFallback.station) {
-        APP.manualFallback.station = String(parsed.stationName || "").trim();
-      }
       continue;
     }
 
     const productName = parsed.productName;
     const product = ensureProduct(productName);
     const station = ensureStation(product, parsed.stationName, parsed.stationFolder, parsed.stationMeta);
-    station.rawTxtFiles.push(file);
-    acceptedTxt += 1;
+    station.rawTgzFiles.push(file);
+    acceptedTgz += 1;
 
     if (parsed.stationMeta) {
       product.lotNos.add(parsed.stationMeta.lotNo);
@@ -1063,13 +1055,13 @@ function handleFolderSelection(event) {
   renderMeta(buildMetaCards());
   renderScopeSelection();
 
-  const txtCount = getTotalRawTxtCount();
-  if (!txtCount) {
-    showMessage("未找到符合產品目錄（FAG/EAG/MAG/AAG/KAG/RAG）且位於 home/*/rawdata 的 .TXT 檔案。", "error");
+  const tgzCount = getTotalRawTxtCount();
+  if (!tgzCount) {
+    showMessage("未找到位於產品資料夾內、可辨識產品名稱（FAG/EAG/MAG/AAG/KAG/RAG）的 .TGZ 檔案。", "error");
   } else {
-    const skipped = Math.max(0, totalTxt - acceptedTxt);
-    const skippedText = skipped > 0 ? `，略過 ${skipped} 個非產品目錄 .TXT` : "";
-    showMessage(`已找到 ${getProducts().length} 個產品、${stationNames.length} 個站點、共 ${txtCount} 個 .TXT 檔案${skippedText}。`, "success");
+    const skipped = Math.max(0, totalTgz - acceptedTgz);
+    const skippedText = skipped > 0 ? `，略過 ${skipped} 個非產品目錄 .TGZ` : "";
+    showMessage(`已找到 ${getProducts().length} 個產品、${stationNames.length} 個站點、共 ${tgzCount} 個 .TGZ 檔案${skippedText}。`, "success");
   }
   updateAnalyzeState();
 }
@@ -1217,7 +1209,7 @@ function renderMeta(cards) {
               <label class="meta-scope-item"><input type="checkbox" data-scope-product="${escapeHtml(productName)}" ${isProductFullySelected(productName) ? "checked" : ""}> 勾選產品 ${escapeHtml(productName)}</label>
               ${productEntries
                 .sort((a, b) => a.station.name.localeCompare(b.station.name))
-                .map((entry) => `<label class="meta-scope-item"><input type="checkbox" data-scope-station="${escapeHtml(entry.key)}" ${APP.selectedScopes.has(entry.key) ? "checked" : ""}> ${escapeHtml(entry.station.name)} <span class="hint-text">(${entry.station.rawTxtFiles.length} 檔)</span></label>`)
+                .map((entry) => `<label class="meta-scope-item"><input type="checkbox" data-scope-station="${escapeHtml(entry.key)}" ${APP.selectedScopes.has(entry.key) ? "checked" : ""}> ${escapeHtml(entry.station.name)} <span class="hint-text">(${getStationInputFiles(entry.station).length} 檔)</span></label>`)
                 .join("")}
             </div>
           </div>
@@ -1326,7 +1318,7 @@ async function startAnalysis() {
     renderScopeSelection();
     selectedEntries = getSelectedStationEntries();
   }
-  const totalFiles = selectedEntries.reduce((acc, entry) => acc + entry.station.rawTxtFiles.length, 0);
+  const totalFiles = selectedEntries.reduce((acc, entry) => acc + getStationInputFiles(entry.station).length, 0);
   if (!totalFiles) {
     showMessage(APP.sourceMode === "folder" ? "請先勾選至少一個要分析的產品/站點。" : "請先選擇資料夾或上傳 TXT。", "error");
     updateAnalyzeState();
@@ -1359,10 +1351,9 @@ async function startAnalysis() {
     const tdMaxMap = new Map();
     const siteTdMap = new Map();
 
-    for (const file of station.rawTxtFiles) {
-      const fileMeta = parseRawTxtFilename(file.name);
+    function processRawText(fileName, text) {
+      const fileMeta = parseRawTxtFilename(fileName);
       const siteKey = fileMeta ? String(fileMeta.site) : "Unknown";
-      const text = await file.text();
       const lines = text.split(/\r?\n/);
 
       for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
@@ -1408,7 +1399,30 @@ async function startAnalysis() {
         });
         itemMap.set(testItem, row);
       }
+    }
 
+    const inputFiles = getStationInputFiles(station);
+    if (APP.sourceMode === "folder") {
+      station.rawTxtFiles = [];
+      for (const file of inputFiles) {
+        try {
+          await window.forEachTgzRawdataTextMember(file, (member) => {
+            processRawText(member.name, member.text);
+            station.rawTxtFiles.push(APP.enableRawKeywordAnalysis
+              ? new File([member.text], member.name, { type: "text/plain" })
+              : { name: member.name });
+          });
+        } catch (error) {
+          dom.progressWrap.classList.add("hidden");
+          showMessage(error instanceof Error ? `${file.name}：${error.message}` : `${file.name} 無法解壓。`, "error");
+          updateAnalyzeState();
+          return;
+        }
+        processed += 1;
+        setProgress(Math.round((processed / totalFiles) * 100));
+      }
+    } else for (const file of inputFiles) {
+      processRawText(file.name, await file.text());
       processed += 1;
       setProgress(Math.round((processed / totalFiles) * 100));
     }
@@ -1634,6 +1648,10 @@ async function startRawKeywordAnalysis() {
   if (!entries.length) {
     showMessage("目前沒有可分析的 RAWDATA 檔案。", "error");
     syncRawKeywordAnalysisUI();
+    return;
+  }
+  if (entries.some((entry) => entry.station.rawTxtFiles.some((file) => typeof file.text !== "function"))) {
+    showMessage("關鍵字分析需在開始分析前啟用；請勾選後重新分析 TGZ 資料。", "error");
     return;
   }
 
@@ -3665,7 +3683,7 @@ function exportXlsx() {
       if (station.stats.length > 0) entries.push({ product: product.name, station });
     }
   }
-  const sourceLabel = APP.sourceMode === "txt" ? "Direct TXT Upload" : "Folder home/*/rawdata";
+  const sourceLabel = APP.sourceMode === "txt" ? "Direct TXT Upload" : "TGZ Archive home/*/rawdata";
   const summaryRows = [["Field", ...entries.map((e) => `${e.product}_${e.station.name}`)]];
   const summaryFields = [
     { key: "Product", getValue: (entry) => entry.product },
@@ -4008,7 +4026,7 @@ function syncSourceModeUI() {
   }
   if (dom.sourceRuleText) {
     if (selected === "folder") {
-      dom.sourceRuleText.innerHTML = "規則：會讀取符合 <code>產品主目錄/RW_*_LOTNO_WAFERID_站點_YYYYMMDDHHMMSS/home/*/rawdata</code> 的 .TXT，掃描後可在下方勾選產品/站點再分析。";
+      dom.sourceRuleText.innerHTML = "上傳請選擇根目錄，根目錄資料夾包含你要分析的所有產品資料夾。<br>範例：選擇根目錄 ABC；ABC 底下包含產品1、產品2，各產品資料夾下包含一份 <code>.TGZ</code> 壓縮檔。";
     } else if (selected === "txt") {
       dom.sourceRuleText.innerHTML = "規則：直接解析你選擇的單一/多個 TXT 文字檔；若無法自動辨識產品欄位，可在下方測試資訊手動補齊。";
     } else {
@@ -4046,21 +4064,16 @@ async function initializeGuidePage() {
 ## 操作方式
 
 1. 匯入資料（資料夾、TXT 或匯入既有 XLSX）。
-   - 多產品資料夾建議格式：
+   - 選擇包含所有產品資料夾的根目錄；每個產品資料夾內放置一份 `.TGZ` 壓縮檔，系統會自動解壓並讀取其中的 RAWDATA `.TXT`。不需手動解出 TAR 或原始資料夾。
 
 \`\`\`text
 資料夾根目錄/
 ├─ AAG106/
-│  ├─ RW_*_LOTNO_WAFERID_站點_YYYYMMDDHHMMSS/
-│  │  └─ home/*/rawdata/*.TXT
-│  └─ ...
+│  └─ RW_*_LOTNO_WAFERID_站點_YYYYMMDDHHMMSS.TGZ
 ├─ EAG119/
-│  ├─ RW_*_LOTNO_WAFERID_站點_YYYYMMDDHHMMSS/
-│  │  └─ home/*/rawdata/*.TXT
-│  └─ ...
+│  └─ RW_*_LOTNO_WAFERID_站點_YYYYMMDDHHMMSS.TGZ
 └─ FAG102/
-   └─ RW_*_LOTNO_WAFERID_站點_YYYYMMDDHHMMSS/
-      └─ home/*/rawdata/*.TXT
+   └─ RW_*_LOTNO_WAFERID_站點_YYYYMMDDHHMMSS.TGZ
 \`\`\`
 
 2. 選擇要分析的產品與站點後按「開始分析」。
