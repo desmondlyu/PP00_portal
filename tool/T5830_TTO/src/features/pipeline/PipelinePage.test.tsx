@@ -313,6 +313,21 @@ describe('PipelinePage', () => {
     }));
   });
 
+  it('parses product and station labels before opening the selection dialog', async () => {
+    const user = userEvent.setup();
+    render(<PipelinePage />);
+
+    await user.upload(
+      screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'),
+      productStationFile('FAG112', 'DS00')
+    );
+
+    const dialog = await screen.findByRole('dialog', { name: '選擇要分析的產品、站點' });
+    expect(dialog).toBeVisible();
+    expect(screen.getByLabelText('FAG112 · DS00')).toBeChecked();
+    expect(screen.getByRole('button', { name: '確認選擇' })).toBeEnabled();
+  });
+
   it('does not allow confirming an empty product selection', async () => {
     const user = userEvent.setup();
     render(<PipelinePage />);
