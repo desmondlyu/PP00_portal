@@ -82,6 +82,8 @@ describe('DashboardPage', () => {
     expect(within(panel).queryByRole('region', { name: 'EAG119 關聯樹' })).not.toBeInTheDocument();
     expect(within(panel).getByRole('region', { name: '總時間比較' })).toBeVisible();
     expect(within(panel).getByRole('region', { name: '時間與次數樞紐分析總表' })).toBeVisible();
+    expect(within(within(panel).getByRole('region', { name: 'Pivot Table Time' })).queryByRole('table')).toBeVisible();
+    expect(within(within(panel).getByRole('region', { name: 'Pivot Table Count' })).queryByRole('table')).toBeVisible();
   });
 
   it('shows complete analysis export on its own row', () => {

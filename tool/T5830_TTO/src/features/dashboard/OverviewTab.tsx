@@ -94,8 +94,8 @@ export function OverviewTab({ rows, rawRows, mapping }: { rows: MasterSummaryRow
       </section>
       <section className="overview-pivot-section" role="region" aria-label="時間與次數樞紐分析總表">
         <h3 className="overview-pivot-title">⏱️ 時間與次數樞紐分析總表</h3>
-        <div className="overview-pivot-table"><PivotTable rows={rows} valueField="Grand_Total_Time" /></div>
-        <div className="overview-pivot-table"><PivotTable rows={rows} valueField="Total_Merged_Count" /></div>
+        <div className="overview-pivot-table"><PivotTable rows={rows} valueField="Grand_Total_Time" defaultCollapsed={false} /></div>
+        <div className="overview-pivot-table"><PivotTable rows={rows} valueField="Total_Merged_Count" defaultCollapsed={false} /></div>
       </section>
     </section>
   );
