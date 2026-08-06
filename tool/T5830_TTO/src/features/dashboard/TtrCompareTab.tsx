@@ -132,7 +132,7 @@ export function TtrCompareTab({ baseline, optimized, onLoad, error, onError, onE
   if (baseline.length === 0 || optimized.length === 0) {
     return (
       <section aria-labelledby="ttr-title">
-        <h2 id="ttr-title">📊 TTR 優化效益成果戰報</h2>
+        <h2 id="ttr-title">📊 TTR前後分析</h2>
         <p>請載入優化前與優化後兩份 Master Summary .xlsx 檔案，以計算實際 TTR 增減。</p>
         {uploadSection}
         {error && <p role="alert">{error}</p>}
@@ -157,7 +157,7 @@ export function TtrCompareTab({ baseline, optimized, onLoad, error, onError, onE
 
   return (
     <section aria-labelledby="ttr-title">
-      <h2 id="ttr-title">📊 TTR 優化效益成果戰報</h2>
+      <h2 id="ttr-title">📊 TTR前後分析</h2>
       {uploadSection}
 
       {/* KPI Cards */}
