@@ -12,6 +12,8 @@ export type TarProgress = {
   memberName?: string;
 };
 
+export type TarTextMemberHandler = (member: TarTextMember) => void | Promise<void>;
+
 function isEmptyBlock(block: Uint8Array) {
   return block.every((byte) => byte === 0);
 }
@@ -62,10 +64,13 @@ function readAsText(blob: Blob) {
   });
 }
 
-async function readStreamMembers(stream: ReadableStream<Uint8Array>) {
+async function forEachStreamMember(
+  stream: ReadableStream<Uint8Array>,
+  onMember: TarTextMemberHandler,
+  signal?: AbortSignal
+) {
   const reader = stream.getReader();
   let pending: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
-  const members: TarTextMember[] = [];
 
   async function readBytes(length: number) {
     const chunks: Uint8Array[] = [];
@@ -106,6 +111,7 @@ async function readStreamMembers(stream: ReadableStream<Uint8Array>) {
   }
 
   while (true) {
+    if (signal?.aborted) throw new DOMException('Analysis cancelled', 'AbortError');
     const header = await readBytes(blockSize);
     if (isEmptyBlock(header)) break;
 
@@ -113,7 +119,7 @@ async function readStreamMembers(stream: ReadableStream<Uint8Array>) {
     const size = readSize(header);
     if (isSafeRawdataTextMember(name)) {
       const payload = await readBytes(size);
-      members.push({ name, text: new TextDecoder().decode(payload) });
+      await onMember({ name, text: new TextDecoder().decode(payload) });
     } else {
       await skipBytes(size);
     }
@@ -121,15 +127,14 @@ async function readStreamMembers(stream: ReadableStream<Uint8Array>) {
     if (padding) await skipBytes(padding);
   }
 
-  return members;
 }
 
-export async function readRawdataTextMembers(
+export async function forEachRawdataTextMember(
   file: File,
+  onMember: TarTextMemberHandler,
   onProgress?: (progress: TarProgress) => void,
   signal?: AbortSignal
-): Promise<TarTextMember[]> {
-  // ponytail: .tgz 已在主線程解壓，Worker 端直接解析 tar
+): Promise<void> {
   const lowerName = file.name.toLowerCase();
   if (!lowerName.endsWith('.tar') && !lowerName.endsWith('.tgz') && !lowerName.endsWith('.tar.gz')) {
     throw new Error('只支援 .tar 或 .tgz (.tar.gz) 格式的壓縮檔。');
@@ -139,10 +144,10 @@ export async function readRawdataTextMembers(
     if (typeof DecompressionStream === 'undefined' || !file.stream) {
       throw new Error('目前瀏覽器不支援大型 .tgz 串流解析，請改用最新版 Chrome 或 Edge。');
     }
-    return readStreamMembers(file.stream().pipeThrough(new DecompressionStream('gzip')));
+    await forEachStreamMember(file.stream().pipeThrough(new DecompressionStream('gzip')), onMember, signal);
+    return;
   }
 
-  const members: TarTextMember[] = [];
   let offset = 0;
 
   while (offset + blockSize <= file.size) {
@@ -161,7 +166,7 @@ export async function readRawdataTextMembers(
     }
 
     if (isSafeRawdataTextMember(name)) {
-      members.push({
+      await onMember({
         name,
         text: await readAsText(file.slice(payloadStart, payloadEnd))
       });
@@ -170,6 +175,14 @@ export async function readRawdataTextMembers(
     offset = nextBlockOffset(payloadEnd);
     onProgress?.({ bytesRead: Math.min(offset, file.size), totalBytes: file.size, memberName: name });
   }
+}
 
+export async function readRawdataTextMembers(
+  file: File,
+  onProgress?: (progress: TarProgress) => void,
+  signal?: AbortSignal
+): Promise<TarTextMember[]> {
+  const members: TarTextMember[] = [];
+  await forEachRawdataTextMember(file, (member) => { members.push(member); }, onProgress, signal);
   return members;
 }

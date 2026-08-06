@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAnalysisReport, fitTimeRegression } from './analysis';
+import { buildAnalysisReport, createAnalysisAccumulator, fitTimeRegression } from './analysis';
 import type { ParsedTestRow } from '../types/analysis';
 
 const row = (
@@ -147,5 +147,23 @@ describe('buildAnalysisReport', () => {
     );
 
     expect(report.masterSummary[0].Test_No).toBeUndefined();
+  });
+
+  it('builds the same summary from incrementally released raw rows', () => {
+    const rows = [
+      row('Site_01', 'TD_1', 1, 'READ', 'None', 1),
+      row('Site_02', 'TD_1', 1, 'READ', 'None', 3),
+      row('Site_01', 'TD_2', 2, 'READ', 'None', 10),
+      row('Site_02', 'TD_2', 2, 'READ', 'None', 2)
+    ];
+    const metadata = { product: 'EAG119', process: 'F58', size: '512M', voltage: '1.8' };
+    const accumulator = createAnalysisAccumulator(metadata, 'S1P1');
+    accumulator.add(rows.slice(0, 2));
+    accumulator.add(rows.slice(2));
+
+    expect(accumulator.build().masterSummary).toEqual(
+      buildAnalysisReport(rows, metadata, 'S1P1').masterSummary
+    );
+    expect(accumulator.build().detail).toEqual([]);
   });
 });

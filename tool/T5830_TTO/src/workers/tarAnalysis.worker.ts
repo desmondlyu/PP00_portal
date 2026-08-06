@@ -1,5 +1,5 @@
-import { buildAnalysisReport, mergeAnalysisReports, type AnalysisReport } from '../lib/analysis';
-import { readRawdataTextMembers } from '../lib/tar';
+import { createAnalysisAccumulator, mergeAnalysisReports, type AnalysisAccumulator, type AnalysisReport } from '../lib/analysis';
+import { forEachRawdataTextMember } from '../lib/tar';
 import { parseTestTimeText } from '../lib/testTimeParser';
 import type { WorkerRequest, WorkerResponse } from './protocol';
 
@@ -10,10 +10,7 @@ export async function processWorkerRequest(
   post: (message: WorkerResponse) => void,
   isCancelled: () => boolean
 ): Promise<void> {
-  // ponytail: 按 product+station 分組解析
-  type GroupKey = string; // "product\0station"
-  const rowsByGroup = new Map<GroupKey, import('../types/analysis').ParsedTestRow[]>();
-  const groupMeta = new Map<GroupKey, { product: string; station: string }>();
+  const accumulators = new Map<string, AnalysisAccumulator>();
 
   for (let index = 0; index < request.files.length; index += 1) {
     const file = request.files[index];
@@ -43,21 +40,24 @@ export async function processWorkerRequest(
     const product = request.products[index] || 'Unknown';
     const station = request.stations[index] || 'Unknown';
     const key = `${product}\x00${station}`;
-    if (!groupMeta.has(key)) groupMeta.set(key, { product, station });
+    const accumulator = accumulators.get(key) ?? createAnalysisAccumulator({
+      product, process: 'N/A', size: 'N/A', voltage: 'N/A'
+    }, station);
+    accumulators.set(key, accumulator);
 
     try {
-      const members = await readRawdataTextMembers(file);
-      for (const member of members) {
+      await forEachRawdataTextMember(file, (member) => {
         if (isCancelled()) {
-          post({ type: 'cancelled', jobId: request.jobId });
-          return;
+          throw new DOMException('Analysis cancelled', 'AbortError');
         }
-        const rows = rowsByGroup.get(key) ?? [];
         const parsed = parseTestTimeText(member.text, member.name);
-        rows.push(...(request.analyzeAllTouchdowns ? parsed : parsed.filter((row) => row.touchdown === 'TD_1')));
-        rowsByGroup.set(key, rows);
-      }
+        accumulator.add(request.analyzeAllTouchdowns ? parsed : parsed.filter((row) => row.touchdown === 'TD_1'));
+      });
     } catch (error) {
+      if (isCancelled()) {
+        post({ type: 'cancelled', jobId: request.jobId });
+        return;
+      }
       post({
         type: 'failed',
         jobId: request.jobId,
@@ -79,14 +79,10 @@ export async function processWorkerRequest(
     total: request.files.length
   });
 
-  // 每個 product+station 各自 buildAnalysisReport，注入 station
+  // ponytail: only compact summary data crosses the Worker boundary
   const reports: AnalysisReport[] = [];
-  for (const [key, rows] of rowsByGroup) {
-    const { product, station } = groupMeta.get(key)!;
-    const report = buildAnalysisReport(rows, {
-      product, process: 'N/A', size: 'N/A', voltage: 'N/A'
-    }, station);
-    reports.push(report);
+  for (const [key, accumulator] of accumulators) {
+    reports.push(accumulator.build());
   }
 
   const report = reports.length === 1 ? reports[0] : mergeAnalysisReports(reports);

@@ -42,12 +42,14 @@ export function fitTimeRegression(points: Array<{ bytes: number; seconds: number
   };
 }
 
-export function buildAnalysisReport(
-  rows: ParsedTestRow[],
-  metadata: ProductMetadata = { product: 'N/A', process: 'N/A', size: 'N/A', voltage: 'N/A' },
-  station: string = 'Unknown'
-): AnalysisReport {
-  // ponytail: 用 PRODUCT_METADATA 自動填 process/size/voltage（如果呼叫者沒給）
+type AnalysisAggregation = {
+  perSite: Map<string, number>;
+  stepsByItem: Map<string, Set<number>>;
+  testNumbersByItem: Map<string, Set<number>>;
+  td1MetadataByItem: Map<string, { step: number; sweepInfos: Set<string> }>;
+};
+
+function resolveMetadata(metadata: ProductMetadata) {
   const resolvedMeta = { ...metadata };
   if (resolvedMeta.product !== 'N/A' && resolvedMeta.process === 'N/A') {
     const lookup = getProductMeta(resolvedMeta.product);
@@ -55,39 +57,44 @@ export function buildAnalysisReport(
     resolvedMeta.size = lookup.Size;
     resolvedMeta.voltage = lookup.Voltage;
   }
+  return resolvedMeta;
+}
 
-  const perSite = new Map<string, number>();
-  const stepsByItem = new Map<string, Set<number>>();
-  const testNumbersByItem = new Map<string, Set<number>>();
-  const td1MetadataByItem = new Map<string, { step: number; sweepInfos: Set<string> }>();
-
+function addRows(aggregation: AnalysisAggregation, rows: Iterable<ParsedTestRow>) {
   for (const row of rows) {
     const key = `${row.site}\u0000${row.testItem}\u0000${row.touchdown}`;
-    perSite.set(key, (perSite.get(key) ?? 0) + row.timeSeconds);
+    aggregation.perSite.set(key, (aggregation.perSite.get(key) ?? 0) + row.timeSeconds);
 
-    const steps = stepsByItem.get(row.testItem) ?? new Set<number>();
+    const steps = aggregation.stepsByItem.get(row.testItem) ?? new Set<number>();
     steps.add(row.step);
-    stepsByItem.set(row.testItem, steps);
+    aggregation.stepsByItem.set(row.testItem, steps);
     if (row.testNo !== undefined) {
-      const numbers = testNumbersByItem.get(row.testItem) ?? new Set<number>();
+      const numbers = aggregation.testNumbersByItem.get(row.testItem) ?? new Set<number>();
       numbers.add(row.testNo);
-      testNumbersByItem.set(row.testItem, numbers);
+      aggregation.testNumbersByItem.set(row.testItem, numbers);
     }
     if (row.touchdown === 'TD_1') {
-      const current = td1MetadataByItem.get(row.testItem);
+      const current = aggregation.td1MetadataByItem.get(row.testItem);
       if (current) {
         current.step = Math.min(current.step, row.step);
         current.sweepInfos.add(row.sweepInfo);
       } else {
-        td1MetadataByItem.set(row.testItem, { step: row.step, sweepInfos: new Set([row.sweepInfo]) });
+        aggregation.td1MetadataByItem.set(row.testItem, { step: row.step, sweepInfos: new Set([row.sweepInfo]) });
       }
     }
   }
+}
 
+function buildReport(
+  aggregation: AnalysisAggregation,
+  metadata: ProductMetadata,
+  station: string,
+  detail: ParsedTestRow[]
+): AnalysisReport {
   const perItem = new Map<string, Map<string, number[]>>();
   const touchdownValuesByItem = new Map<string, Map<string, number[]>>();
   const touchdownSiteTimesByItem = new Map<string, TouchdownSiteTimes>();
-  for (const [key, timeSeconds] of perSite) {
+  for (const [key, timeSeconds] of aggregation.perSite) {
     const [site, testItem, touchdown] = key.split('\u0000');
     const touchdowns = perItem.get(testItem) ?? new Map<string, number[]>();
     const values = touchdowns.get(touchdown) ?? [];
@@ -119,7 +126,7 @@ export function buildAnalysisReport(
     return {
       testItem,
       touchdownTimes,
-      mergedCount: stepsByItem.get(testItem)?.size ?? 0,
+      mergedCount: aggregation.stepsByItem.get(testItem)?.size ?? 0,
       totalTime,
       totalRatioPercent: 0
     };
@@ -162,12 +169,12 @@ export function buildAnalysisReport(
       };
     }
     const td1Stats = touchdownStats.TD_1;
-    const td1Metadata = td1MetadataByItem.get(item.testItem);
+    const td1Metadata = aggregation.td1MetadataByItem.get(item.testItem);
     return {
-      Product: resolvedMeta.product,
-      Process: resolvedMeta.process,
-      Size: resolvedMeta.size,
-      Voltage: resolvedMeta.voltage,
+      Product: metadata.product,
+      Process: metadata.process,
+      Size: metadata.size,
+      Voltage: metadata.voltage,
       ...(td1Metadata
         ? {
             Step: td1Metadata.step,
@@ -175,8 +182,8 @@ export function buildAnalysisReport(
             Sweep_Info: [...td1Metadata.sweepInfos].sort().join(' / ')
           }
         : {}),
-      ...(testNumbersByItem.get(item.testItem)?.size === 1
-        ? { Test_No: [...testNumbersByItem.get(item.testItem)!][0] }
+      ...(aggregation.testNumbersByItem.get(item.testItem)?.size === 1
+        ? { Test_No: [...aggregation.testNumbersByItem.get(item.testItem)!][0] }
         : {}),
       Original_Item_Name: originalName,
       Test_Item_Merged: standardizeTestItem(originalName),
@@ -201,7 +208,44 @@ export function buildAnalysisReport(
     };
   });
 
-  return { detail: rows, merge, masterSummary };
+  return { detail, merge, masterSummary };
+}
+
+export type AnalysisAccumulator = {
+  add: (rows: Iterable<ParsedTestRow>) => void;
+  build: () => AnalysisReport;
+};
+
+export function createAnalysisAccumulator(
+  metadata: ProductMetadata = { product: 'N/A', process: 'N/A', size: 'N/A', voltage: 'N/A' },
+  station: string = 'Unknown'
+): AnalysisAccumulator {
+  const aggregation: AnalysisAggregation = {
+    perSite: new Map(),
+    stepsByItem: new Map(),
+    testNumbersByItem: new Map(),
+    td1MetadataByItem: new Map()
+  };
+  const resolvedMetadata = resolveMetadata(metadata);
+  return {
+    add: (rows) => addRows(aggregation, rows),
+    build: () => buildReport(aggregation, resolvedMetadata, station, [])
+  };
+}
+
+export function buildAnalysisReport(
+  rows: ParsedTestRow[],
+  metadata: ProductMetadata = { product: 'N/A', process: 'N/A', size: 'N/A', voltage: 'N/A' },
+  station: string = 'Unknown'
+): AnalysisReport {
+  const aggregation: AnalysisAggregation = {
+    perSite: new Map(),
+    stepsByItem: new Map(),
+    testNumbersByItem: new Map(),
+    td1MetadataByItem: new Map()
+  };
+  addRows(aggregation, rows);
+  return buildReport(aggregation, resolveMetadata(metadata), station, rows);
 }
 
 /** 合併多個產品的報告（多產品匯入時使用） */
