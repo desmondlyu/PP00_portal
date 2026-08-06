@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { AnalysisReport } from '../../lib/analysis';
-import { PRODUCT_METADATA, exportProductMetadata, mergeProductMetadata, type ProductMeta } from '../../lib/productMetadata';
+import { PRODUCT_METADATA, type ProductMeta } from '../../lib/productMetadata';
 import { isEncryptedWorkbookError, readAnalysisWorkbook } from '../../lib/workbook';
 import type { MasterSummaryRow } from '../../types/analysis';
 import type { WorkerResponse } from '../../workers/protocol';
@@ -64,6 +64,22 @@ function buildStationList(files: File[]): string[] {
   return files.map((f) => detectStationForFile(f));
 }
 
+function blankProductMeta(): ProductMeta {
+  return { Process: '', Size: '', Voltage: '' };
+}
+
+function buildProductMetadataList(files: File[], metadataByProduct: Record<string, ProductMeta>) {
+  return files.map((file) => {
+    const product = detectProductForFile(file);
+    const metadata = metadataByProduct[product] ?? PRODUCT_METADATA[product] ?? blankProductMeta();
+    return { product, process: metadata.Process, size: metadata.Size, voltage: metadata.Voltage };
+  });
+}
+
+function hasCompleteMetadata(metadata: ProductMeta | undefined) {
+  return Boolean(metadata?.Process.trim() && metadata.Size.trim() && metadata.Voltage.trim());
+}
+
 function productStationKey(product: string, station: string) {
   return `${product}\u0000${station}`;
 }
@@ -115,12 +131,12 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
   const [analysisImportCollisions, setAnalysisImportCollisions] = useState<AnalysisImportCollision[]>([]);
   const [progress, setProgress] = useState<ProgressInfo | null>(null);
   const [groups, setGroups] = useState<ProductStationGroup[]>([]);
+  const [metadataByProduct, setMetadataByProduct] = useState<Record<string, ProductMeta>>({});
   const [pendingGroupKeys, setPendingGroupKeys] = useState<string[]>([]);
   const [selectedGroupKeys, setSelectedGroupKeys] = useState<string[]>([]);
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [analyzeAllTouchdowns, setAnalyzeAllTouchdowns] = useState(false);
   const workerRef = useRef<Worker>();
-  const metaInputRef = useRef<HTMLInputElement>(null);
   const analysisInputRef = useRef<HTMLInputElement>(null);
   const selectedFiles = files.filter((file) => selectedGroupKeys.includes(
     productStationKey(detectProductForFile(file), detectStationForFile(file))
@@ -144,6 +160,12 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
     setProgress(null);
     const detectedGroups = buildProductStationGroups(tarFiles);
     setGroups(detectedGroups);
+    setMetadataByProduct(Object.fromEntries(
+      [...new Set(detectedGroups.map((group) => group.product))].map((product) => [
+        product,
+        PRODUCT_METADATA[product] ?? blankProductMeta()
+      ])
+    ));
     setPendingGroupKeys(detectedGroups.map((group) => group.key));
     setSelectedGroupKeys([]);
     setShowProductDialog(true);
@@ -197,6 +219,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
       files: selectedFiles,
       products: buildProductList(selectedFiles),
       stations: buildStationList(selectedFiles),
+      metadata: buildProductMetadataList(selectedFiles, metadataByProduct),
       analyzeAllTouchdowns
     });
   }
@@ -237,36 +260,17 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
     }
   }
 
-  const [metaStatus, setMetaStatus] = useState('');
+  const hasIncompleteSelectedMetadata = groups.some((group) =>
+    pendingGroupKeys.includes(group.key) &&
+    !PRODUCT_METADATA[group.product] &&
+    !hasCompleteMetadata(metadataByProduct[group.product])
+  );
 
-  function handleExportMetadata() {
-    const data = exportProductMetadata();
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'PRODUCT_METADATA.json'; a.click();
-    URL.revokeObjectURL(url);
-    setMetaStatus(`已匯出 ${Object.keys(data).length} 個產品`);
-  }
-
-  function handleImportMetadata(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(reader.result as string) as Record<string, ProductMeta>;
-        const count = Object.keys(parsed).length;
-        if (count === 0) { setMetaStatus('檔案內無有效產品資料'); return; }
-        mergeProductMetadata(parsed);
-        setMetaStatus(`已匯入 ${count} 個產品（合併後共 ${Object.keys(PRODUCT_METADATA).length} 個）`);
-      } catch {
-        setMetaStatus('JSON 格式錯誤，請使用匯出格式');
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = '';
+  function updateProductMetadata(product: string, field: keyof ProductMeta, value: string) {
+    setMetadataByProduct((current) => ({
+      ...current,
+      [product]: { ...(current[product] ?? blankProductMeta()), [field]: value }
+    }));
   }
 
   const pct = progress && progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
@@ -341,23 +345,6 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
         </button>
         <input ref={analysisInputRef} aria-label="上傳已分析的資料" type="file" accept=".xlsx" multiple style={{ display: 'none' }} onChange={handleAnalysisImport} />
 
-        {/* 產品屬性資料庫 */}
-        <hr style={{ border: 'none', borderTop: '1px solid rgba(88,202,255,.2)', margin: '20px 0' }} />
-        <span className="upload-step">PRODUCT DATABASE</span>
-        <p className="file-hint">管理產品屬性資料庫（製程 / 容量 / 電壓），可匯出現有清單或匯入新產品。</p>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <button className="secondary-action" type="button" onClick={handleExportMetadata}
-            style={{ fontSize: '0.75em', padding: '8px 16px', fontWeight: 'normal' }}>
-            📤 匯出產品清單 (.json)
-          </button>
-          <button className="secondary-action" type="button"
-            style={{ fontSize: '0.75em', padding: '8px 16px', fontWeight: 'normal' }}
-            onClick={() => metaInputRef.current?.click()}>
-            📥 匯入產品清單 (.json)
-          </button>
-          <input ref={metaInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleImportMetadata} />
-        </div>
-        {metaStatus && <p role="status" style={{ marginTop: 8, fontSize: '0.85em' }}>{metaStatus}</p>}
       </div>
       <dialog className="encrypted-dialog" open={showEncryptedDialog} aria-labelledby="encrypted-dialog-title">
         <p id="encrypted-dialog-title">⚠️ 系統無法分析受保護的 Excel 檔案，請解除加密設定後重新上傳。</p>
@@ -399,7 +386,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
         <table style={{ width: '100%', borderCollapse: 'collapse', margin: '12px 0' }}>
           <thead>
             <tr>
-              {['選擇', '產品', '站點'].map((label) => (
+              {['選擇', '產品', '站點', 'Process', 'Size', 'Voltage'].map((label) => (
                 <th key={label} scope="col" style={{ padding: 8, borderBottom: '1px solid var(--border)', textAlign: 'left' }}>{label}</th>
               ))}
             </tr>
@@ -421,6 +408,20 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
                 </td>
                 <td style={{ padding: 8 }}>{group.product}</td>
                 <td style={{ padding: 8 }}>{group.station}</td>
+                {(['Process', 'Size', 'Voltage'] as const).map((field) => {
+                  const metadata = metadataByProduct[group.product] ?? blankProductMeta();
+                  const isKnownProduct = Boolean(PRODUCT_METADATA[group.product]);
+                  return (
+                    <td key={field} style={{ padding: 8 }}>
+                      <input
+                        aria-label={`${group.product} · ${group.station} ${field}`}
+                        value={metadata[field]}
+                        disabled={isKnownProduct}
+                        onChange={(event) => updateProductMetadata(group.product, field, event.target.value)}
+                      />
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
@@ -429,7 +430,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
           <button
             className="primary-action"
             type="button"
-            disabled={pendingGroupKeys.length === 0}
+            disabled={pendingGroupKeys.length === 0 || hasIncompleteSelectedMetadata}
             onClick={() => {
               setSelectedGroupKeys(pendingGroupKeys);
               setShowProductDialog(false);

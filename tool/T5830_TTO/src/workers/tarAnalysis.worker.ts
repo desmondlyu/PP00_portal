@@ -40,9 +40,10 @@ export async function processWorkerRequest(
     const product = request.products[index] || 'Unknown';
     const station = request.stations[index] || 'Unknown';
     const key = `${product}\x00${station}`;
-    const accumulator = accumulators.get(key) ?? createAnalysisAccumulator({
-      product, process: 'N/A', size: 'N/A', voltage: 'N/A'
-    }, station);
+    const accumulator = accumulators.get(key) ?? createAnalysisAccumulator(
+      request.metadata?.[index] ?? { product, process: 'N/A', size: 'N/A', voltage: 'N/A' },
+      station
+    );
     accumulators.set(key, accumulator);
 
     try {

@@ -60,7 +60,7 @@ describe('PipelinePage', () => {
     } as unknown as Worker;
 
     render(<PipelinePage workerFactory={() => worker} />);
-    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), productFile('EAG119'));
     await confirmProducts(user);
     await user.click(screen.getByRole('button', { name: '開始分析' }));
     await user.click(screen.getByRole('button', { name: '取消分析' }));
@@ -80,7 +80,7 @@ describe('PipelinePage', () => {
     render(<PipelinePage workerFactory={() => worker} />);
     await user.upload(
       screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'),
-      new File(['x'], 'RW_P_D6505985AF08_20_DS00_20260725083033.tar')
+      productStationFile('EAG119', 'DS00')
     );
     await confirmProducts(user);
     await user.click(screen.getByRole('button', { name: '開始分析' }));
@@ -98,7 +98,7 @@ describe('PipelinePage', () => {
     } as unknown as Worker;
 
     render(<PipelinePage workerFactory={() => worker} />);
-    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), productFile('EAG119'));
     expect(screen.getByLabelText('分析所有TD')).not.toBeChecked();
     expect(screen.getByText('分析所有TD可能造成分析時間過長造成Timeout問題，預設只分析TD1')).toBeVisible();
 
@@ -118,7 +118,7 @@ describe('PipelinePage', () => {
     } as unknown as Worker;
 
     render(<PipelinePage workerFactory={() => worker} />);
-    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), productFile('EAG119'));
     await confirmProducts(user);
     await user.click(screen.getByLabelText('分析所有TD'));
     await user.click(screen.getByRole('button', { name: '開始分析' }));
@@ -138,7 +138,7 @@ describe('PipelinePage', () => {
     } as unknown as Worker;
 
     render(<PipelinePage workerFactory={() => worker} onComplete={onComplete} />);
-    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), productFile('EAG119'));
     await confirmProducts(user);
     await user.click(screen.getByRole('button', { name: '開始分析' }));
     act(() => {
@@ -165,7 +165,7 @@ describe('PipelinePage', () => {
     } as unknown as Worker;
 
     render(<PipelinePage workerFactory={() => worker} />);
-    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), productFile('EAG119'));
     await confirmProducts(user);
     await user.click(screen.getByRole('button', { name: '開始分析' }));
     act(() => listeners.error?.(new ErrorEvent('error', { message: 'Failed to fetch' })));
@@ -274,7 +274,7 @@ describe('PipelinePage', () => {
     } as unknown as Worker;
 
     render(<PipelinePage workerFactory={() => worker} />);
-    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), new File(['x'], 'raw.tar'));
+    await user.upload(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), productFile('EAG119'));
     await confirmProducts(user);
     await user.click(screen.getByRole('button', { name: '開始分析' }));
     act(() => listeners.message?.({
@@ -339,6 +339,47 @@ describe('PipelinePage', () => {
     expect(screen.queryByLabelText('EAG119 · Unknown')).not.toBeInTheDocument();
   });
 
+  it('reuses entered metadata for every station of an unknown product', async () => {
+    const user = userEvent.setup();
+    const worker = {
+      postMessage: vi.fn(),
+      terminate: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    } as unknown as Worker;
+    render(<PipelinePage workerFactory={() => worker} />);
+
+    fireEvent.change(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), {
+      target: { files: [productStationFile('NEW123', 'S1P1'), productStationFile('NEW123', 'S2P1')] }
+    });
+
+    expect(screen.getByRole('button', { name: '確認選擇' })).toBeDisabled();
+    await user.type(screen.getByLabelText('NEW123 · S1P1 Process'), 'F99');
+    await user.type(screen.getByLabelText('NEW123 · S1P1 Size'), '1G');
+    await user.type(screen.getByLabelText('NEW123 · S1P1 Voltage'), '1.8');
+
+    expect(screen.getByLabelText('NEW123 · S2P1 Process')).toHaveValue('F99');
+    expect(screen.getByLabelText('NEW123 · S2P1 Size')).toHaveValue('1G');
+    expect(screen.getByLabelText('NEW123 · S2P1 Voltage')).toHaveValue('1.8');
+
+    await confirmProducts(user);
+    await user.click(screen.getByRole('button', { name: '開始分析' }));
+
+    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      metadata: [
+        { product: 'NEW123', process: 'F99', size: '1G', voltage: '1.8' },
+        { product: 'NEW123', process: 'F99', size: '1G', voltage: '1.8' }
+      ]
+    }));
+  });
+
+  it('removes Product Database download and upload controls', () => {
+    render(<PipelinePage />);
+
+    expect(screen.queryByText('PRODUCT DATABASE')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /產品清單/ })).not.toBeInTheDocument();
+  });
+
   it('selects complete Product and Station groups from a table', async () => {
     const user = userEvent.setup();
     const worker = {
@@ -359,7 +400,7 @@ describe('PipelinePage', () => {
 
     expect(screen.getByRole('dialog', { name: '選擇要分析的產品、站點' })).toBeVisible();
     expect(screen.getByRole('heading', { name: '請選擇要分析的產品、站點' })).toBeVisible();
-    expect(screen.getAllByRole('columnheader')).toHaveLength(3);
+    expect(screen.getAllByRole('columnheader')).toHaveLength(6);
     expect(screen.getByLabelText('FAG112 · DS00')).toBeChecked();
     expect(screen.getByLabelText('FAG112 · DS03')).toBeChecked();
 
