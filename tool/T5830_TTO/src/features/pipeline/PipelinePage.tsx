@@ -377,55 +377,57 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
           </div>
         </dialog>
       )}
-      <dialog className="encrypted-dialog" open={showProductDialog} aria-label="選擇要分析的產品、站點">
+      <dialog className="product-selection-dialog" open={showProductDialog} aria-label="選擇要分析的產品、站點">
         <h2 style={{ marginTop: 0 }}>請選擇要分析的產品、站點</h2>
         <div className="encrypted-dialog-actions">
           <button className="secondary-action" type="button" onClick={() => setPendingGroupKeys(groups.map((group) => group.key))}>全選</button>
           <button className="secondary-action" type="button" onClick={() => setPendingGroupKeys([])}>全不選</button>
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', margin: '12px 0' }}>
-          <thead>
-            <tr>
-              {['選擇', '產品', '站點', 'Process', 'Size', 'Voltage'].map((label) => (
-                <th key={label} scope="col" style={{ padding: 8, borderBottom: '1px solid var(--border)', textAlign: 'left' }}>{label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {groups.map((group) => (
-              <tr key={group.key}>
-                <td style={{ padding: 8 }}>
-                  <input
-                    type="checkbox"
-                    aria-label={`${group.product} · ${group.station}`}
-                    checked={pendingGroupKeys.includes(group.key)}
-                    onChange={() => setPendingGroupKeys((current) =>
-                      current.includes(group.key)
-                        ? current.filter((key) => key !== group.key)
-                        : [...current, group.key]
-                    )}
-                  />
-                </td>
-                <td style={{ padding: 8 }}>{group.product}</td>
-                <td style={{ padding: 8 }}>{group.station}</td>
-                {(['Process', 'Size', 'Voltage'] as const).map((field) => {
-                  const metadata = metadataByProduct[group.product] ?? blankProductMeta();
-                  const isKnownProduct = Boolean(PRODUCT_METADATA[group.product]);
-                  return (
-                    <td key={field} style={{ padding: 8 }}>
-                      <input
-                        aria-label={`${group.product} · ${group.station} ${field}`}
-                        value={metadata[field]}
-                        disabled={isKnownProduct}
-                        onChange={(event) => updateProductMetadata(group.product, field, event.target.value)}
-                      />
-                    </td>
-                  );
-                })}
+        <div className="product-selection-table-scroll">
+          <table>
+            <thead>
+              <tr>
+                {['選擇', '產品', '站點', 'Process', 'Size', 'Voltage'].map((label) => (
+                  <th key={label} scope="col">{label}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {groups.map((group) => (
+                <tr key={group.key}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      aria-label={`${group.product} · ${group.station}`}
+                      checked={pendingGroupKeys.includes(group.key)}
+                      onChange={() => setPendingGroupKeys((current) =>
+                        current.includes(group.key)
+                          ? current.filter((key) => key !== group.key)
+                          : [...current, group.key]
+                      )}
+                    />
+                  </td>
+                  <td>{group.product}</td>
+                  <td>{group.station}</td>
+                  {(['Process', 'Size', 'Voltage'] as const).map((field) => {
+                    const metadata = metadataByProduct[group.product] ?? blankProductMeta();
+                    const isKnownProduct = Boolean(PRODUCT_METADATA[group.product]);
+                    return (
+                      <td key={field}>
+                        <input
+                          aria-label={`${group.product} · ${group.station} ${field}`}
+                          value={metadata[field]}
+                          disabled={isKnownProduct}
+                          onChange={(event) => updateProductMetadata(group.product, field, event.target.value)}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div className="encrypted-dialog-actions">
           <button
             className="primary-action"

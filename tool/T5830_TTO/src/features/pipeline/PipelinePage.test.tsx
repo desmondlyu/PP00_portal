@@ -380,6 +380,18 @@ describe('PipelinePage', () => {
     expect(screen.queryByRole('button', { name: /產品清單/ })).not.toBeInTheDocument();
   });
 
+  it('contains product metadata columns in an opaque scrollable selection dialog', () => {
+    render(<PipelinePage />);
+
+    fireEvent.change(screen.getByLabelText('選擇產品資料夾（自動偵測產品名稱）'), {
+      target: { files: [productStationFile('EAG119', 'S1P1')] }
+    });
+
+    const dialog = screen.getByRole('dialog', { name: '選擇要分析的產品、站點' });
+    expect(dialog).toHaveClass('product-selection-dialog');
+    expect(dialog.querySelector('table')?.parentElement).toHaveClass('product-selection-table-scroll');
+  });
+
   it('selects complete Product and Station groups from a table', async () => {
     const user = userEvent.setup();
     const worker = {
