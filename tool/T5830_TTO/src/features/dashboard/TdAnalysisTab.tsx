@@ -138,6 +138,10 @@ function HeatmapTable({ product, items, metric, touchdowns, itemField, selectedC
 function DetailDialog({ selectedCell, onClose }: { selectedCell?: SelectedCell; onClose: () => void }) {
   if (!selectedCell) return null;
   const { item } = selectedCell;
+  const siteTimes = item.siteTimes[selectedCell.touchdown] ?? {};
+  const sites = Object.entries(siteTimes)
+    .filter(([, time]) => selectedCell.metric === 'avg' || selectedCell.metric === 'range' || time === selectedCell.value)
+    .map(([site]) => site.replace('\x00', ' / '));
   const sources = item.sources
     .filter((source) => source.touchdownTimes[selectedCell.touchdown] !== undefined)
     .sort((left, right) => left.Original_Item_Name.localeCompare(right.Original_Item_Name));
@@ -146,14 +150,15 @@ function DetailDialog({ selectedCell, onClose }: { selectedCell?: SelectedCell; 
     0
   );
   return (
-    <dialog className="encrypted-dialog td-detail-dialog" open aria-label="TD 明細" onCancel={(event) => { event.preventDefault(); onClose(); }}>
+    <dialog className="encrypted-dialog td-detail-dialog td-detail-dialog--open" open aria-label="TD 明細" onCancel={(event) => { event.preventDefault(); onClose(); }}>
       <h2 style={{ marginTop: 0 }}>TD 明細</h2>
       <p><strong>Product：</strong>{selectedCell.product}</p>
       <p><strong>Item：</strong>{item.category}</p>
       <p><strong>TD：</strong>{selectedCell.touchdown}</p>
+      <p><strong>Site：</strong>{sites.join('、')}</p>
       <p><strong>{metricLabels[selectedCell.metric]}：</strong>{selectedCell.value.toFixed(2)} 秒</p>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85em' }}>
+      <div className="td-detail-table-scroll">
+        <table style={{ borderCollapse: 'collapse', fontSize: '0.85em' }}>
           <thead>
             <tr>
               {['Mode', 'Operation', 'Original_Item_Name', 'Test_Item_Merged', 'Test_Item', 'TD 秒數'].map((label) => (

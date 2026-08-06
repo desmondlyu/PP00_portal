@@ -95,7 +95,24 @@ input[type="file"], select { width: 100%; color: var(--muted); background: var(-
 .td-metric-toggle { min-height: 0; padding: 9px 14px; color: var(--muted); background: rgba(141, 207, 255, .08); border-radius: 9px; }
 .td-metric-toggle[aria-pressed="true"] { color: var(--ink); background: var(--primary-strong); }
 .td-metric-toggle:hover { color: var(--ink); background: rgba(141, 207, 255, .18); }
-.td-detail-dialog { z-index: 2001; width: min(90vw, 560px); max-width: 560px; }
+.td-detail-dialog {
+  z-index: 2001;
+  width: min(94vw, 1080px);
+  max-width: 1080px;
+  height: min(680px, calc(100dvh - 32px));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.td-detail-dialog--open { animation: td-detail-dialog-in 180ms ease-out; }
+@keyframes td-detail-dialog-in {
+  from { opacity: 0; transform: scale(.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.td-detail-table-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.td-detail-table-scroll table { width: max-content; min-width: 100%; }
+.td-detail-table-scroll th, .td-detail-table-scroll td { white-space: nowrap; }
 [role="tabpanel"] { padding: 22px; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); }

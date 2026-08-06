@@ -129,6 +129,10 @@ describe('TdAnalysisTab', () => {
     expect(detail).toHaveTextContent('4.00 秒');
     expect(detail).toHaveTextContent('6.00 秒');
     expect(detail).toHaveTextContent('TD 合計：10.00 秒');
+    expect(detail).toHaveTextContent('Site：S1P1 / Site_02');
+    expect(detail).toHaveClass('td-detail-dialog--open');
+    expect(detail.querySelector('.td-detail-table-scroll')).toBeVisible();
+    expect(detail.querySelectorAll('th[scope="col"]')).toHaveLength(6);
   });
 
   it('explains that legacy TD statistics cannot be recalculated by category', () => {
