@@ -42,18 +42,7 @@ let _metadata: Record<string, ProductMeta> = {
   EAG142:    { Process: 'F45', Size: '512M', Voltage: '1.8' },
 };
 
-// ponytail: 允許匯入覆蓋，但保留 getter 讓其他模組正常引用
 export const PRODUCT_METADATA: Record<string, ProductMeta> = _metadata;
-
-/** 合併新產品清單（新增 + 覆蓋） */
-export function mergeProductMetadata(incoming: Record<string, ProductMeta>) {
-  Object.assign(_metadata, incoming);
-}
-
-/** 匯出目前完整清單 */
-export function exportProductMetadata(): Record<string, ProductMeta> {
-  return { ..._metadata };
-}
 
 /** Python get_sort_key: F45 < F58, then voltage ascending, then name */
 export function getProductSortKey(name: string): [number, number, string] {

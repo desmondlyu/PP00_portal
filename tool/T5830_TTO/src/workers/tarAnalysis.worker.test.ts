@@ -71,4 +71,26 @@ describe('processWorkerRequest', () => {
     const completed = messages.find((message) => message.type === 'completed');
     expect(completed?.type === 'completed' && completed.report.detail).toEqual([]);
   });
+
+  it('uses metadata supplied for the current analysis job', async () => {
+    const messages: WorkerResponse[] = [];
+
+    await processWorkerRequest(
+      {
+        type: 'start',
+        jobId: 'job-1',
+        files: [validTarFile],
+        products: ['NEW123'],
+        stations: ['S1P1'],
+        metadata: [{ product: 'NEW123', process: 'F99', size: '1G', voltage: '1.8' }]
+      },
+      (message) => messages.push(message),
+      () => false
+    );
+
+    const completed = messages.find((message) => message.type === 'completed');
+    expect(completed?.type === 'completed' && completed.report.masterSummary[0]).toMatchObject({
+      Product: 'NEW123', Process: 'F99', Size: '1G', Voltage: '1.8'
+    });
+  });
 });

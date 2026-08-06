@@ -1,7 +1,7 @@
-import type { AnalysisReport } from '../lib/analysis';
+import type { AnalysisReport, ProductMetadata } from '../lib/analysis';
 
 export type WorkerRequest =
-  | { type: 'start'; jobId: string; files: File[]; products: string[]; stations: string[]; analyzeAllTouchdowns?: boolean }
+  | { type: 'start'; jobId: string; files: File[]; products: string[]; stations: string[]; metadata?: ProductMetadata[]; analyzeAllTouchdowns?: boolean }
   | { type: 'cancel'; jobId: string };
 
 export type WorkerResponse =
