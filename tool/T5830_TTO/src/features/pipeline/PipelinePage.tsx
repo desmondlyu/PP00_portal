@@ -9,6 +9,7 @@ type JobStatus = 'idle' | 'processing' | 'cancelled' | 'completed' | 'failed';
 
 type ProgressPhase = Extract<WorkerResponse, { type: 'progress' }>['phase'];
 type ProgressInfo = { phase: ProgressPhase; completed: number; total: number; fileName?: string };
+type ProductStationGroup = { key: string; product: string; station: string };
 
 type PipelinePageProps = {
   workerFactory?: () => Worker;
@@ -62,6 +63,23 @@ function buildStationList(files: File[]): string[] {
   return files.map((f) => detectStationForFile(f));
 }
 
+function productStationKey(product: string, station: string) {
+  return `${product}\u0000${station}`;
+}
+
+function buildProductStationGroups(files: File[]): ProductStationGroup[] {
+  const groups = new Map<string, ProductStationGroup>();
+  for (const file of files) {
+    const product = detectProductForFile(file);
+    const station = detectStationForFile(file);
+    const key = productStationKey(product, station);
+    groups.set(key, { key, product, station });
+  }
+  return [...groups.values()].sort(
+    (left, right) => left.product.localeCompare(right.product) || left.station.localeCompare(right.station)
+  );
+}
+
 function createWorker() {
   return new Worker(new URL('../../workers/tarAnalysis.worker.ts', import.meta.url), { type: 'module' });
 }
@@ -72,24 +90,26 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
   const [error, setError] = useState('');
   const [showEncryptedDialog, setShowEncryptedDialog] = useState(false);
   const [progress, setProgress] = useState<ProgressInfo | null>(null);
-  const [detectedProducts, setDetectedProducts] = useState<string[]>([]);
-  const [pendingProducts, setPendingProducts] = useState<string[]>([]);
-  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [groups, setGroups] = useState<ProductStationGroup[]>([]);
+  const [pendingGroupKeys, setPendingGroupKeys] = useState<string[]>([]);
+  const [selectedGroupKeys, setSelectedGroupKeys] = useState<string[]>([]);
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [analyzeAllTouchdowns, setAnalyzeAllTouchdowns] = useState(false);
   const workerRef = useRef<Worker>();
   const metaInputRef = useRef<HTMLInputElement>(null);
   const analysisInputRef = useRef<HTMLInputElement>(null);
-  const selectedFiles = files.filter((file) => selectedProducts.includes(detectProductForFile(file)));
+  const selectedFiles = files.filter((file) => selectedGroupKeys.includes(
+    productStationKey(detectProductForFile(file), detectStationForFile(file))
+  ));
 
   function selectFolder(event: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files ?? []);
     const tarFiles = selected.filter((f) => /\.(tar|tgz|tar\.gz)$/i.test(f.name));
     if (tarFiles.length === 0) {
       setFiles([]);
-      setDetectedProducts([]);
-      setPendingProducts([]);
-      setSelectedProducts([]);
+      setGroups([]);
+      setPendingGroupKeys([]);
+      setSelectedGroupKeys([]);
       setShowProductDialog(false);
       setError('找不到 .tgz / .tar 檔案。請上傳包含 rawdata 壓縮檔的產品資料夾。');
       return;
@@ -98,12 +118,10 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
     setFiles(tarFiles);
     setStatus('idle');
     setProgress(null);
-    // 偵測所有產品名
-    const productList = buildProductList(tarFiles);
-    const unique = [...new Set(productList)];
-    setDetectedProducts(unique);
-    setPendingProducts(unique);
-    setSelectedProducts([]);
+    const detectedGroups = buildProductStationGroups(tarFiles);
+    setGroups(detectedGroups);
+    setPendingGroupKeys(detectedGroups.map((group) => group.key));
+    setSelectedGroupKeys([]);
     setShowProductDialog(true);
   }
 
@@ -245,7 +263,7 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
           {files.length
             ? `已選擇 ${selectedFiles.length}/${files.length} 個壓縮檔`
             : '上傳請選擇根目錄，根目錄資料夾包含你要分析的所有產品資料夾。\n範例: 選擇根目錄 ABC；ABC 底下包含 產品1, 產品2，各產品資料夾下包含一份 .TGZ 壓縮檔'}
-          {detectedProducts.length > 0 && ` — 偵測到: ${detectedProducts.join(', ')}`}
+          {groups.length > 0 && ` — 偵測到 ${groups.length} 組產品／站點`}
         </p>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
           <input
@@ -313,34 +331,48 @@ export function PipelinePage({ workerFactory = createWorker, onComplete, onAnaly
           <button className="primary-action" type="button" onClick={() => setShowEncryptedDialog(false)}>關閉</button>
         </div>
       </dialog>
-      <dialog className="encrypted-dialog" open={showProductDialog} aria-label="選擇要分析的產品">
-        <p>選擇要分析的產品</p>
+      <dialog className="encrypted-dialog" open={showProductDialog} aria-label="選擇要分析的產品、站點">
+        <h2 style={{ marginTop: 0 }}>請選擇要分析的產品、站點</h2>
         <div className="encrypted-dialog-actions">
-          <button className="secondary-action" type="button" onClick={() => setPendingProducts(detectedProducts)}>全選</button>
-          <button className="secondary-action" type="button" onClick={() => setPendingProducts([])}>全不選</button>
+          <button className="secondary-action" type="button" onClick={() => setPendingGroupKeys(groups.map((group) => group.key))}>全選</button>
+          <button className="secondary-action" type="button" onClick={() => setPendingGroupKeys([])}>全不選</button>
         </div>
-        {detectedProducts.map((product) => (
-          <label key={product} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              aria-label={product}
-              checked={pendingProducts.includes(product)}
-              onChange={() => setPendingProducts((current) =>
-                current.includes(product)
-                  ? current.filter((value) => value !== product)
-                  : [...current, product]
-              )}
-            />
-            {product}
-          </label>
-        ))}
+        <table style={{ width: '100%', borderCollapse: 'collapse', margin: '12px 0' }}>
+          <thead>
+            <tr>
+              {['選擇', '產品', '站點'].map((label) => (
+                <th key={label} scope="col" style={{ padding: 8, borderBottom: '1px solid var(--border)', textAlign: 'left' }}>{label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((group) => (
+              <tr key={group.key}>
+                <td style={{ padding: 8 }}>
+                  <input
+                    type="checkbox"
+                    aria-label={`${group.product} · ${group.station}`}
+                    checked={pendingGroupKeys.includes(group.key)}
+                    onChange={() => setPendingGroupKeys((current) =>
+                      current.includes(group.key)
+                        ? current.filter((key) => key !== group.key)
+                        : [...current, group.key]
+                    )}
+                  />
+                </td>
+                <td style={{ padding: 8 }}>{group.product}</td>
+                <td style={{ padding: 8 }}>{group.station}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
         <div className="encrypted-dialog-actions">
           <button
             className="primary-action"
             type="button"
-            disabled={pendingProducts.length === 0}
+            disabled={pendingGroupKeys.length === 0}
             onClick={() => {
-              setSelectedProducts(pendingProducts);
+              setSelectedGroupKeys(pendingGroupKeys);
               setShowProductDialog(false);
             }}
           >
