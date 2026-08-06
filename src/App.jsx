@@ -444,6 +444,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
+    { version: 'v1.9.4', date: '2026-08-06', text: '📂 TTO 分析：現在直接選擇包含各產品 .TGZ 的根目錄即可分析，免手動解壓 TAR 與 RAWDATA。', isNew: true },
     { version: 'v1.9.3', date: '2026-08-04', text: '🆕 新增 PP00 Knowledge Agent 機台知識庫，收錄 Keysight X-Series 與 EXR-Series 使用者操作手冊。', isNew: true },
     { version: 'v1.9.2', date: '2026-07-31', text: '🚀 DL to Excel：支援多檔批次匯出下載，降低大檔匯出記憶體不足風險；新增欄位「框選模式」，可快速圈選要匯出的參數。', isNew: true },
     { version: 'v1.9.1', date: '2026-07-28', text: '🛠️ Yield Summary：第一次執行 proxy.bat 會自動檢查 Python，未安裝時可自動安裝，免手動找安裝檔。', isNew: false },
