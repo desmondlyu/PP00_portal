@@ -74,14 +74,14 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('cell', { name: 'UM ERS' })).toBeVisible();
   });
 
-  it('shows only sunbursts in the dashboard overview', () => {
+  it('keeps the overview sections while hiding its relationship tree', () => {
     render(<DashboardPage summaries={summaries} />);
 
     const panel = screen.getByRole('tabpanel');
     expect(within(panel).getByRole('img', { name: 'EAG119 旭日圖' })).toBeVisible();
     expect(within(panel).queryByRole('region', { name: 'EAG119 關聯樹' })).not.toBeInTheDocument();
-    expect(within(panel).queryByRole('region', { name: '跨產品時間結構對比' })).not.toBeInTheDocument();
-    expect(within(panel).queryByRole('region', { name: '時間與次數樞紐分析總表' })).not.toBeInTheDocument();
+    expect(within(panel).getByRole('region', { name: '總時間比較' })).toBeVisible();
+    expect(within(panel).getByRole('region', { name: '時間與次數樞紐分析總表' })).toBeVisible();
   });
 
   it('shows complete analysis export on its own row', () => {

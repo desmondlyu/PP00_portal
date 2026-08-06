@@ -197,7 +197,7 @@ function TabContent({ tab, rows, rawRows, mapping, baseline, optimized, onLoad, 
   onError: (error: string) => void;
   onEncryptedFile: () => void;
 }) {
-  if (tab === '儀表板總覽') return <OverviewTab rawRows={rawRows} mapping={mapping} />;
+  if (tab === '儀表板總覽') return <OverviewTab rows={rows} rawRows={rawRows} mapping={mapping} />;
   if (tab === '總時間比較') return <StackedTimeBars rows={rows} />;
   if (tab === '跨產品明細 (時間)') return <TimeTab rows={rows} />;
   if (tab === '跨產品明細 (次數)') return <CountTab rows={rows} />;
