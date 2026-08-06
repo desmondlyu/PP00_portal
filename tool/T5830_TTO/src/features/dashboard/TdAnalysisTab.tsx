@@ -138,6 +138,13 @@ function HeatmapTable({ product, items, metric, touchdowns, itemField, selectedC
 function DetailDialog({ selectedCell, onClose }: { selectedCell?: SelectedCell; onClose: () => void }) {
   if (!selectedCell) return null;
   const { item } = selectedCell;
+  const sources = item.sources
+    .filter((source) => source.touchdownTimes[selectedCell.touchdown] !== undefined)
+    .sort((left, right) => left.Original_Item_Name.localeCompare(right.Original_Item_Name));
+  const total = sources.reduce(
+    (sum, source) => sum + source.touchdownTimes[selectedCell.touchdown],
+    0
+  );
   return (
     <dialog className="encrypted-dialog td-detail-dialog" open aria-label="TD 明細" onCancel={(event) => { event.preventDefault(); onClose(); }}>
       <h2 style={{ marginTop: 0 }}>TD 明細</h2>
@@ -145,6 +152,35 @@ function DetailDialog({ selectedCell, onClose }: { selectedCell?: SelectedCell; 
       <p><strong>Item：</strong>{item.category}</p>
       <p><strong>TD：</strong>{selectedCell.touchdown}</p>
       <p><strong>{metricLabels[selectedCell.metric]}：</strong>{selectedCell.value.toFixed(2)} 秒</p>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85em' }}>
+          <thead>
+            <tr>
+              {['Mode', 'Operation', 'Original_Item_Name', 'Test_Item_Merged', 'Test_Item', 'TD 秒數'].map((label) => (
+                <th key={label} scope="col" style={{ padding: 6, borderBottom: '1px solid var(--border)', textAlign: 'left' }}>{label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sources.map((source) => (
+              <tr key={[source.Mode, source.Operation, source.Original_Item_Name, source.Test_Item_Merged, source.Test_Item].join('\x00')}>
+                <td style={{ padding: 6 }}>{source.Mode || '未分類'}</td>
+                <td style={{ padding: 6 }}>{source.Operation || '未分類'}</td>
+                <td style={{ padding: 6 }}>{source.Original_Item_Name}</td>
+                <td style={{ padding: 6 }}>{source.Test_Item_Merged}</td>
+                <td style={{ padding: 6 }}>{source.Test_Item || '—'}</td>
+                <td style={{ padding: 6, textAlign: 'right' }}>{source.touchdownTimes[selectedCell.touchdown].toFixed(2)} 秒</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th colSpan={5} scope="row" style={{ padding: 6, textAlign: 'right' }}>TD 合計：</th>
+              <td style={{ padding: 6, textAlign: 'right' }}>{total.toFixed(2)} 秒</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
       <div className="encrypted-dialog-actions">
         <button className="secondary-action" type="button" onClick={onClose}>關閉</button>
       </div>

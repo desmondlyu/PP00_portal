@@ -27,7 +27,12 @@ export type TdDimension = (typeof tdDimensions)[number];
 export type TdAnalysisItem = {
   category: string;
   stats: Record<string, Pick<TouchdownStats, TdMetric>>;
+  sources: TdAnalysisSource[];
 };
+
+export type TdAnalysisSource = Pick<MasterSummaryRow,
+  'Mode' | 'Operation' | 'Original_Item_Name' | 'Test_Item_Merged' | 'Test_Item'
+> & { touchdownTimes: Record<string, number> };
 
 export type TdAnalysisGroup = {
   product: string;
@@ -142,6 +147,7 @@ export function tdAnalysisGroups(rows: MasterSummaryRow[], categoryDimension: Td
     product: string;
     category: string;
     touchdowns: Map<string, Map<string, number>>;
+    sources: Map<string, TdAnalysisSource>;
   };
   const groups = new Map<string, Aggregate>();
 
@@ -152,8 +158,25 @@ export function tdAnalysisGroups(rows: MasterSummaryRow[], categoryDimension: Td
     const aggregate = groups.get(key) ?? {
       product: row.Product,
       category,
-      touchdowns: new Map()
+      touchdowns: new Map(),
+      sources: new Map()
     };
+    const source: TdAnalysisSource = {
+      Mode: row.Mode,
+      Operation: row.Operation,
+      Original_Item_Name: row.Original_Item_Name,
+      Test_Item_Merged: row.Test_Item_Merged,
+      Test_Item: row.Test_Item,
+      touchdownTimes: {}
+    };
+    const sourceKey = [
+      source.Mode,
+      source.Operation,
+      source.Original_Item_Name,
+      source.Test_Item_Merged,
+      source.Test_Item
+    ].join('\x00');
+    const existingSource = aggregate.sources.get(sourceKey) ?? source;
 
     for (const [touchdown, siteTimes] of Object.entries(row.touchdownSiteTimes)) {
       const values = aggregate.touchdowns.get(touchdown) ?? new Map<string, number>();
@@ -162,7 +185,10 @@ export function tdAnalysisGroups(rows: MasterSummaryRow[], categoryDimension: Td
         values.set(siteKey, (values.get(siteKey) ?? 0) + time);
       }
       aggregate.touchdowns.set(touchdown, values);
+      existingSource.touchdownTimes[touchdown] = (existingSource.touchdownTimes[touchdown] ?? 0)
+        + Object.values(siteTimes).reduce((sum, time) => sum + time, 0);
     }
+    aggregate.sources.set(sourceKey, existingSource);
     groups.set(key, aggregate);
   }
 
@@ -177,7 +203,13 @@ export function tdAnalysisGroups(rows: MasterSummaryRow[], categoryDimension: Td
       }])
     );
     const items = byProduct.get(aggregate.product) ?? [];
-    items.push({ category: aggregate.category, stats });
+    items.push({
+      category: aggregate.category,
+      stats,
+      sources: [...aggregate.sources.values()].sort((left, right) =>
+        left.Original_Item_Name.localeCompare(right.Original_Item_Name)
+      )
+    });
     byProduct.set(aggregate.product, items);
   }
 

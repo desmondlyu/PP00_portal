@@ -47,7 +47,22 @@ describe('TD analysis selectors', () => {
         category: 'Read',
         stats: {
           TD_1: { avg: 5, max: 7, min: 3, range: 4 }
-        }
+        },
+        sources: [{
+          Mode: 'Read',
+          Operation: 'Read',
+          Original_Item_Name: 'READ_(M)',
+          Test_Item_Merged: 'READ',
+          Test_Item: 'READ',
+          touchdownTimes: { TD_1: 4 }
+        }, {
+          Mode: 'Read',
+          Operation: 'Read',
+          Original_Item_Name: 'WRITE_(M)',
+          Test_Item_Merged: 'WRITE',
+          Test_Item: 'WRITE',
+          touchdownTimes: { TD_1: 6 }
+        }]
       }]
     }]);
   });
@@ -78,6 +93,18 @@ describe('TD analysis selectors', () => {
     expect(tdAnalysisGroups([
       row({ touchdownSiteTimes: undefined })
     ], 'Test_Item')).toEqual([]);
+  });
+
+  it('combines matching source Items across stations in the dialog detail', () => {
+    const groups = tdAnalysisGroups([
+      row({ Station: 'S1P1', touchdownSiteTimes: { TD_1: { Site_01: 2 } } }),
+      row({ Station: 'S2P1', touchdownSiteTimes: { TD_1: { Site_01: 5 } } })
+    ], 'Mode');
+
+    expect(groups[0].items[0].sources).toMatchObject([{
+      Original_Item_Name: 'READ_(M)',
+      touchdownTimes: { TD_1: 7 }
+    }]);
   });
 
   it('ranks categories by their largest TD value and limits to 20', () => {
