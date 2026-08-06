@@ -233,7 +233,8 @@ function DataTable({
   heatColor,
   filename,
   sheetName,
-  onDownload
+  onDownload,
+  defaultCollapsed = true
 }: {
   title: string;
   headers: string[];
@@ -245,9 +246,9 @@ function DataTable({
   filename: string;
   sheetName: string;
   onDownload?: DownloadHandler;
+  defaultCollapsed?: boolean;
 }) {
-  // ponytail: default collapsed, user expands when needed
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const [tableWidth, setTableWidth] = useState(720);
   const topScrollRef = useRef<HTMLDivElement>(null);
   const bottomScrollRef = useRef<HTMLDivElement>(null);
@@ -347,11 +348,13 @@ function DataTable({
 export function PivotTable({
   rows,
   valueField,
-  onDownload
+  onDownload,
+  defaultCollapsed
 }: {
   rows: MasterSummaryRow[];
   valueField: ValueField;
   onDownload?: DownloadHandler;
+  defaultCollapsed?: boolean;
 }) {
   const data = useMemo(() => {
     const products = buildProducts(rows);
@@ -411,6 +414,7 @@ export function PivotTable({
       filename={valueField === 'Grand_Total_Time' ? 'pivot-total-time.xlsx' : 'pivot-total-count.xlsx'}
       sheetName={valueField === 'Grand_Total_Time' ? 'Pivot_Time' : 'Pivot_Count'}
       onDownload={onDownload}
+      defaultCollapsed={defaultCollapsed}
     />
   );
 }
