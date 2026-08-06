@@ -113,9 +113,15 @@
               <p id="message" class="mt-4 text-sm msg-info"></p>
               <p id="manual-entry-hint" class="mt-1 text-sm hint-text hidden">若未找到符合產品目錄，請先在下方手動輸入 PRODUCT、LOTNO、WAFER ID、站點，再開始分析（PRODUCT 必須以 FAG/EAG/MAG/AAG/KAG/RAG 開頭）。</p>
               <div id="progress-wrap" class="mt-3 hidden">
+                <div id="progress-steps" class="progress-steps" aria-live="polite">
+                  <div class="progress-step" data-progress-phase="extracting"><span class="progress-step-icon">○</span><span>.TGZ 解壓成功</span></div>
+                  <div class="progress-step" data-progress-phase="parsing"><span class="progress-step-icon">○</span><span>.TAR 內容解析成功</span></div>
+                  <div class="progress-step" data-progress-phase="analyzing"><span class="progress-step-icon">○</span><span>分析完成</span></div>
+                </div>
                 <div class="progress-track">
                   <div id="progress-bar" class="progress-fill"></div>
                 </div>
+                <p id="progress-label" class="progress-label"></p>
               </div>
               <div class="mt-5 flex flex-wrap gap-3">
                 <button id="analyze-btn" class="primary-btn px-8 py-3 rounded-xl font-bold" disabled>

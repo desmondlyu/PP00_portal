@@ -83,6 +83,8 @@ const dom = {
   exportBtn: document.getElementById("export-btn"),
   progressWrap: document.getElementById("progress-wrap"),
   progressBar: document.getElementById("progress-bar"),
+  progressSteps: document.getElementById("progress-steps"),
+  progressLabel: document.getElementById("progress-label"),
   stationTabsSection: document.getElementById("station-tabs-section"),
   stationTabs: document.getElementById("station-tabs"),
   floatingStationTabsPanel: document.getElementById("floating-station-tabs-panel"),
@@ -1332,6 +1334,8 @@ async function startAnalysis() {
   dom.analyzeBtn.disabled = true;
   dom.progressWrap.classList.remove("hidden");
   setProgress(0);
+  if (APP.sourceMode === "folder") setTgzProgress("extracting", 0, totalFiles);
+  else clearTgzProgress();
   showMessage("開始解析 TXT 檔案...", "info");
 
   let processed = 0;
@@ -1404,8 +1408,14 @@ async function startAnalysis() {
     if (APP.sourceMode === "folder") {
       station.rawTxtFiles = [];
       for (const file of inputFiles) {
+        setTgzProgress("extracting", processed, totalFiles, file.name);
+        let parsingStarted = false;
         try {
           await window.forEachTgzRawdataTextMember(file, (member) => {
+            if (!parsingStarted) {
+              setTgzProgress("parsing", processed, totalFiles, file.name);
+              parsingStarted = true;
+            }
             processRawText(member.name, member.text);
             station.rawTxtFiles.push(APP.enableRawKeywordAnalysis
               ? new File([member.text], member.name, { type: "text/plain" })
@@ -1433,6 +1443,7 @@ async function startAnalysis() {
   }
 
   const stationsWithStats = getStationNames().filter((stationName) => getProductsInStation(stationName).length > 0);
+  if (APP.sourceMode === "folder") setTgzProgress("analyzing", totalFiles, totalFiles);
   if (!stationsWithStats.length) {
     showMessage("未找到符合格式的 <<< Test Time >>> 記錄。", "error");
     updateAnalyzeState();
@@ -1455,6 +1466,7 @@ async function startAnalysis() {
     `分析完成：共 ${getProducts().length} 產品、${stationsWithStats.length} 站點、${getProducts().reduce((acc, p) => acc + Array.from(p.stations.values()).reduce((s, st) => s + st.stats.length, 0), 0)} 個 Test Item。`,
     "success",
   );
+  if (APP.sourceMode === "folder") setTgzProgress("completed", totalFiles, totalFiles);
   updateAnalyzeState();
 }
 
@@ -1483,6 +1495,7 @@ async function startAnalysisFromXlsx() {
   dom.analyzeBtn.disabled = true;
   dom.progressWrap.classList.remove("hidden");
   setProgress(0);
+  clearTgzProgress();
   showMessage("開始解析 XLSX 檔案...", "info");
 
   let processed = 0;
@@ -3817,6 +3830,37 @@ function sanitizeSheetName(value) {
 
 function setProgress(percent) {
   dom.progressBar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+}
+
+const tgzProgressSteps = [
+  { phase: "extracting", active: ".TGZ 解壓中", done: ".TGZ 解壓成功" },
+  { phase: "parsing", active: ".TAR 內容解析中", done: ".TAR 內容解析成功" },
+  { phase: "analyzing", active: "開始分析", done: "分析完成" },
+];
+
+function setTgzProgress(phase, completed, total, fileName = "") {
+  if (!dom.progressSteps || !dom.progressLabel) return;
+  dom.progressSteps.classList.remove("hidden");
+  const activeIndex = phase === "completed"
+    ? tgzProgressSteps.length
+    : tgzProgressSteps.findIndex((step) => step.phase === phase);
+  for (const [index, step] of tgzProgressSteps.entries()) {
+    const element = dom.progressSteps.querySelector(`[data-progress-phase="${step.phase}"]`);
+    if (!element) continue;
+    const done = index < activeIndex;
+    const active = index === activeIndex;
+    element.classList.toggle("is-done", done);
+    element.classList.toggle("is-active", active);
+    element.querySelector(".progress-step-icon").textContent = done ? "✓" : active ? "●" : "○";
+    element.querySelector("span:last-child").textContent = active ? step.active : step.done;
+  }
+  const label = phase === "completed" ? "分析完成" : phase === "extracting" ? "解壓中" : phase === "parsing" ? "解析中" : "分析中";
+  dom.progressLabel.textContent = `${label} ${completed}/${total}${fileName ? ` — ${fileName}` : ""}`;
+}
+
+function clearTgzProgress() {
+  dom.progressSteps?.classList.add("hidden");
+  if (dom.progressLabel) dom.progressLabel.textContent = "";
 }
 
 function fmt(n) {

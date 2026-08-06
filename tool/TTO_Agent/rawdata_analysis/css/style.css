@@ -1308,6 +1308,36 @@ body.theme-light .progress-track {
   background: #e2e8f0;
 }
 
+.progress-steps {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.45rem;
+}
+
+.progress-step,
+.progress-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.progress-step.is-active {
+  color: #60a5fa;
+  font-weight: 700;
+}
+
+.progress-step.is-done {
+  color: #22c55e;
+}
+
+.progress-step-icon {
+  margin-right: 0.28rem;
+}
+
+.progress-label {
+  margin: 0.45rem 0 0;
+}
+
 .progress-fill {
   width: 0%;
   height: 100%;
