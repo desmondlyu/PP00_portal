@@ -27,6 +27,7 @@
   let rawData = null;
   let processedData = null;
   let transposedData = null;
+  let cpSort = { key: null, direction: 1 };
 
   function initCP() {
     const container = document.getElementById('cp-steps-container');
@@ -158,6 +159,8 @@
 
       if (allRecords.length > 0) {
         rawData = allRecords;
+        // reset CP sort state when new data is loaded
+        cpSort.key = null; cpSort.direction = 1;
         processCPData(rawData);
         renderTable();
         setStatus("SUCCESS", "#10b981");
@@ -249,6 +252,8 @@
         throw new Error("數據格式錯誤，應為 JSON Array");
       }
       rawData = parsed;
+      // reset CP sort state when manually pasted failsafe data is loaded
+      cpSort.key = null; cpSort.direction = 1;
       processCPData(rawData);
       renderTable();
       updateUIState();
@@ -326,6 +331,52 @@
     document.getElementById('data-count-msg').innerText = `${data.length} RECORDS | ${transposedData.rows.length} TRANSPOSED ROWS`;
   }
 
+  // CP sorting helpers
+  function cpValueCompare(aVal, bVal, direction) {
+    const emptyA = aVal === '' || aVal === null || aVal === undefined;
+    const emptyB = bVal === '' || bVal === null || bVal === undefined;
+    if (emptyA && emptyB) return 0;
+    if (emptyA) return 1; // empty values go to bottom
+    if (emptyB) return -1;
+
+    const aNum = Number(aVal);
+    const bNum = Number(bVal);
+    const aIsNum = !isNaN(aNum) && isFinite(aNum);
+    const bIsNum = !isNaN(bNum) && isFinite(bNum);
+    if (aIsNum && bIsNum) {
+      return (aNum - bNum) * direction;
+    }
+
+    const aStr = String(aVal);
+    const bStr = String(bVal);
+    return aStr.localeCompare(bStr, undefined, { numeric: true, sensitivity: 'base' }) * direction;
+  }
+
+  function createHeaderCell(h) {
+    const th = document.createElement('th');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    const symbol = cpSort.key === h ? (cpSort.direction === 1 ? '↑' : '↓') : '↕';
+    btn.innerText = `${h} ${symbol}`;
+    const aria = cpSort.key === h ? (cpSort.direction === 1 ? 'sorted ascending' : 'sorted descending') : 'not sorted';
+    btn.setAttribute('aria-label', `${h} column, ${aria}`);
+    btn.style.background = 'transparent';
+    btn.style.border = 'none';
+    btn.style.color = 'inherit';
+    btn.style.cursor = 'pointer';
+    btn.addEventListener('click', function() {
+      if (cpSort.key === h) {
+        cpSort.direction = -cpSort.direction;
+      } else {
+        cpSort.key = h;
+        cpSort.direction = 1;
+      }
+      renderTable();
+    });
+    th.appendChild(btn);
+    return th;
+  }
+
   function renderTable() {
     const headerRow = document.getElementById('table-headers');
     const rowsBody = document.getElementById('table-rows');
@@ -335,15 +386,19 @@
     if (!transposedData) return;
 
     const baseHeaders = ['step_id', 'wafer_id', 'prod_group', 'lot_id', 'program_id'];
-    baseHeaders.concat(transposedData.params).forEach(h => {
-      const th = document.createElement('th');
-      th.innerText = h;
-      headerRow.appendChild(th);
+    const allHeaders = baseHeaders.concat(transposedData.params);
+    allHeaders.forEach(h => {
+      headerRow.appendChild(createHeaderCell(h));
     });
 
-    const limit = Math.min(transposedData.rows.length, 50);
+    let rowsToRender = transposedData.rows;
+    if (cpSort.key) {
+      rowsToRender = transposedData.rows.slice().sort((a, b) => cpValueCompare(a[cpSort.key], b[cpSort.key], cpSort.direction));
+    }
+
+    const limit = Math.min(rowsToRender.length, 50);
     for (let i = 0; i < limit; i++) {
-      const r = transposedData.rows[i];
+      const r = rowsToRender[i];
       const tr = document.createElement('tr');
       baseHeaders.forEach(h => {
         const td = document.createElement('td');
@@ -353,7 +408,7 @@
       transposedData.params.forEach(p => {
         const td = document.createElement('td');
         td.className = 'font-mono';
-        td.innerText = r[p] !== '' ? r[p].toFixed(4) : '';
+        td.innerText = r[p] !== '' ? (typeof r[p] === 'number' ? r[p].toFixed(4) : r[p]) : '';
         tr.appendChild(td);
       });
       rowsBody.appendChild(tr);
