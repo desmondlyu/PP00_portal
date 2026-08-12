@@ -37,6 +37,23 @@ export default function App() {
   const [activeTool, setActiveTool] = useState(null);
   const [iframeKey, setIframeKey] = useState(0);
 
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+
+    if (activeTool) {
+      html.style.overflow = 'hidden';
+      body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+    };
+  }, [activeTool]);
+
   // 後台管理狀態與驗證邏輯
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
