@@ -9,6 +9,7 @@
   let rawData = null;
   let summaryBase = null;
   let ftSummaryData = null;
+  let ftSort = { key: null, direction: 1 };
 
   // MSS 資料庫映射記憶
   const mssMapping = {};
@@ -31,6 +32,9 @@
 
   function switchTabFT() {
     updateUIState();
+    if (rawData && ftSummaryData) {
+      renderTable();
+    }
   }
 
   function updateUIState() {
@@ -90,6 +94,7 @@
         }
 
         if (rawData.length > 0) {
+          ftSort = { key: null, direction: 1 };
           processFTData(rawData);
           renderTable();
           setStatus("SUCCESS", "#10b981");
@@ -307,6 +312,35 @@
     document.getElementById('data-count-msg').innerText = `${data.length} RECORDS | ${ftSummaryData.length} SUMMARY GROUPS`;
   }
 
+  function getFTSortValue(row, key) {
+    if (key === 'TOP FAILURES (NAME: VALUE)') {
+      return row.topItems.map(item => `${item.name}: ${item.value}`).join(' | ');
+    }
+    return row[key];
+  }
+
+  function compareFTValues(left, right) {
+    const leftValue = getFTSortValue(left, ftSort.key);
+    const rightValue = getFTSortValue(right, ftSort.key);
+    const leftEmpty = leftValue === '' || leftValue === null || leftValue === undefined;
+    const rightEmpty = rightValue === '' || rightValue === null || rightValue === undefined;
+
+    if (leftEmpty || rightEmpty) {
+      if (leftEmpty && rightEmpty) return 0;
+      return leftEmpty ? 1 : -1;
+    }
+
+    const leftNumber = Number.parseFloat(String(leftValue).replace('%', ''));
+    const rightNumber = Number.parseFloat(String(rightValue).replace('%', ''));
+    if (!Number.isNaN(leftNumber) && !Number.isNaN(rightNumber)) {
+      return (leftNumber - rightNumber) * ftSort.direction;
+    }
+    return String(leftValue).localeCompare(String(rightValue), undefined, {
+      numeric: true,
+      sensitivity: 'base'
+    }) * ftSort.direction;
+  }
+
   function renderTable() {
     const headerRow = document.getElementById('table-headers');
     const rowsBody = document.getElementById('table-rows');
@@ -318,11 +352,28 @@
     const baseHeaders = ['PRODUCT', 'LOT_ID', 'STAGE', 'TOTAL', 'PASS', 'YIELD', 'TOP FAILURES (NAME: VALUE)'];
     baseHeaders.forEach(h => {
       const th = document.createElement('th');
-      th.innerText = h;
+      const button = document.createElement('button');
+      const marker = ftSort.key === h
+        ? (ftSort.direction === 1 ? ' ↑' : ' ↓')
+        : ' ↕';
+      button.type = 'button';
+      button.innerText = `${h}${marker}`;
+      button.setAttribute('aria-label', `Sort by ${h}`);
+      button.addEventListener('click', () => {
+        ftSort = ftSort.key === h
+          ? { key: h, direction: ftSort.direction * -1 }
+          : { key: h, direction: 1 };
+        renderTable();
+      });
+      th.appendChild(button);
       headerRow.appendChild(th);
     });
 
-    ftSummaryData.forEach(r => {
+    const rows = ftSort.key
+      ? [...ftSummaryData].sort(compareFTValues)
+      : ftSummaryData;
+
+    rows.forEach(r => {
       const tr = document.createElement('tr');
       ['PRODUCT', 'LOT_ID', 'STAGE', 'TOTAL', 'PASS', 'YIELD'].forEach(h => {
         const td = document.createElement('td');
@@ -389,6 +440,7 @@
         throw new Error("數據格式錯誤，應為 JSON Array");
       }
       rawData = parsed;
+      ftSort = { key: null, direction: 1 };
       processFTData(rawData);
       renderTable();
       updateUIState();
