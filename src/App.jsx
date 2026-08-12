@@ -461,7 +461,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
-    { version: 'v1.9.6', date: '2026-08-12', text: '⚠️ CZ_dataset 重要修正：單邊規格（只有 Max 或只有 Min）的 Pass／Fail 先前判反了，符合規格被判 Fail、超出規格反而 Pass，改規格也不會翻轉結果。現已修正，匯出 Excel 判定公式同步更新，建議重新確認先前分析結論。捲軸也終於拉得動了！', isNew: true },
+    { version: 'v1.9.6', date: '2026-08-12', text: '⚠️ NOR Flash FT 特性系統分析工具修正：單邊規格（只有 Max 或只有 Min）的 Pass／Fail 先前判反了，符合規格被判 Fail、超出規格反而 Pass，改規格也不會翻轉結果。現已修正，匯出 Excel 判定公式同步更新，建議重新確認先前分析結論。捲軸也終於拉得動了！', isNew: true },
     { version: 'v1.9.5', date: '2026-08-12', text: '🐛 CZ_dataset：修正統計總覽捲軸、重設變更後圖表消失，以及規格調整後 Judge 顯示不更新問題。', isNew: true },
     { version: 'v1.9.4', date: '2026-08-06', text: '📂 TTO 分析：現在直接選擇包含各產品 .TGZ 的根目錄即可分析，免手動解壓 TAR 與 RAWDATA。', isNew: true },
     { version: 'v1.9.3', date: '2026-08-04', text: '🆕 新增 PP00 Knowledge Agent 機台知識庫，收錄 Keysight X-Series 與 EXR-Series 使用者操作手冊。', isNew: true },
