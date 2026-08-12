@@ -53,6 +53,9 @@
 
   function switchTabCP() {
     updateUIState();
+    if (rawData && transposedData) {
+      renderTable();
+    }
   }
 
   async function testConnection() {
