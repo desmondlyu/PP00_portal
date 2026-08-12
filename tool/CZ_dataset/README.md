@@ -2,6 +2,10 @@
 
 此工具用來分析 FT 特性資料，提供視覺化、統計化後的數據、圖表，並且適合提供給 JMP 作圖的資料結構
 
+## 🆕 最新更新
+
+🐛 修正 VIL／VIH 規格公式：依 VCC／VIO 與 Unit 正確換算，AC／DC 命名也能正常判定！
+
 ---
 
 ## 📋 功能簡介
@@ -40,4 +44,3 @@
 * 支援將網頁上修改後的數據與規格匯出為 Excel 檔案。
 * 導出的 Compare 工作表內含動態 Excel 巢狀公式（含 `IF`, `ABS`, `OR`, `UPPER` 等），自動動態鏈結到 `DATASHEET_SPEC` 工作表。
 * 開啟導出的 Excel 檔案後，在 Microsoft Excel 中修改規格限制，判定 Verdict 與良率 Ratio 依然會自動隨公式即時重新運算。
-
