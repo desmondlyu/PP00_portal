@@ -184,6 +184,28 @@ th {
   letter-spacing: 0.05em;
 }
 
+th button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+th button:hover {
+  color: #e0e1dd;
+}
+
+th button:focus-visible {
+  outline: 2px solid #8ecae6;
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
 td {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   padding: 8px 12px;
