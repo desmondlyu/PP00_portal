@@ -328,6 +328,18 @@
       background: rgba(255, 255, 255, 0.1);
       border-color: rgba(255, 255, 255, 0.2);
     }
+    .font-zoom-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .font-zoom-label {
+      min-width: 42px;
+      text-align: center;
+      font-size: 0.75rem;
+      color: #8b949e;
+      font-family: monospace;
+    }
     .compare-actions {
       display: flex;
       gap: 8px;
@@ -405,7 +417,11 @@
         <div class="terminal-panel live-panel">
           <div class="panel-header">
             <span>🔴 即時終端機 (LIVE)</span>
-            <button id="btnFontZoom" class="font-zoom-btn" type="button" title="點擊放大 1%；Shift+點擊縮小 1%">🔍 115%</button>
+            <span class="font-zoom-controls">
+              <button id="btnFontZoomDown" class="font-zoom-btn" type="button" title="縮小 1%">🔍−</button>
+              <span id="fontZoomLabel" class="font-zoom-label">115%</span>
+              <button id="btnFontZoomUp" class="font-zoom-btn" type="button" title="放大 1%">🔍＋</button>
+            </span>
           </div>
           <div style="position:relative; background:#04060a; flex-grow:1; display:flex; flex-direction:column;">
             <div class="scanlines"></div>
@@ -465,7 +481,9 @@
     let terminalCursor = document.getElementById('terminalCursor');
     const chkLocalEcho = document.getElementById('chkLocalEcho');
     const btnClear = document.getElementById('btnClear');
-    const btnFontZoom = document.getElementById('btnFontZoom');
+    const btnFontZoomDown = document.getElementById('btnFontZoomDown');
+    const btnFontZoomUp = document.getElementById('btnFontZoomUp');
+    const fontZoomLabel = document.getElementById('fontZoomLabel');
     const baseTerminalFontSize = 0.9;
     let terminalFontScale = 1.15;
 
@@ -479,13 +497,16 @@
       document.querySelectorAll('.terminal-screen').forEach((screen) => {
         screen.style.fontSize = `${size}rem`;
       });
-      btnFontZoom.textContent = `🔍 ${Math.round(terminalFontScale * 100)}%`;
+      fontZoomLabel.textContent = `${Math.round(terminalFontScale * 100)}%`;
     }
 
-    btnFontZoom.addEventListener('click', (event) => {
-      terminalFontScale = Math.max(0.5, Math.min(2, terminalFontScale + (event.shiftKey ? -0.01 : 0.01)));
+    function adjustTerminalFontScale(delta) {
+      terminalFontScale = Math.max(0.5, Math.min(2, terminalFontScale + delta));
       updateTerminalFontSize();
-    });
+    }
+
+    btnFontZoomDown.addEventListener('click', () => adjustTerminalFontScale(-0.01));
+    btnFontZoomUp.addEventListener('click', () => adjustTerminalFontScale(0.01));
     updateTerminalFontSize();
 
     let backspaceEraseState = 0; // 0: normal, 1: got \x08, 2: got \x08 + space
