@@ -470,6 +470,11 @@
     let readLoopPromise = null;
     let receiveBuffer = []; // 接收快取佇列
     let renderingActive = false;
+    let reconnectTimer = null;
+    let reconnectEnabled = false;
+    let reconnecting = false;
+    let knownPort = null;
+    let lastBaudRate = 115200;
     const decoder = new TextDecoder('big5');
 
     const btnConnectCH340 = document.getElementById('btnConnectCH340');
@@ -586,15 +591,65 @@
       writeToTerminal('\n[系統錯誤] 您的瀏覽器不支援 Web Serial API。請使用 Google Chrome、Microsoft Edge 或 Opera 瀏覽器！\n');
     }
 
+    function scheduleReconnect() {
+      if (!reconnectEnabled || reconnectTimer || reconnecting) return;
+      reconnectTimer = setTimeout(async () => {
+        reconnectTimer = null;
+        if (!reconnectEnabled || port || reconnecting) return;
+
+        reconnecting = true;
+        let retry = false;
+        try {
+          const ports = await navigator.serial.getPorts();
+          const reconnectPort = ports.find((candidate) => candidate === knownPort) || ports[0];
+          if (!reconnectPort) {
+              retry = true;
+              return;
+          }
+
+          await reconnectPort.open({ baudRate: lastBaudRate });
+          port = reconnectPort;
+          keepReading = true;
+          updateConnectionStatus(true);
+          writeToTerminal('\n[系統] 已自動重新連接 Programmer。\n');
+          readLoopPromise = startReading();
+        } catch (err) {
+          retry = true;
+        } finally {
+          reconnecting = false;
+          if (retry) scheduleReconnect();
+        }
+      }, 2000);
+    }
+
+    async function handleUnexpectedDisconnect(reason) {
+      if (!reconnectEnabled || !port) return;
+
+      const disconnectedPort = port;
+      keepReading = false;
+      port = null;
+      updateConnectionStatus(false);
+      writeToTerminal(`\n[系統] ${reason}，等待自動重連...\n`);
+
+      try {
+        await disconnectedPort.close();
+      } catch (err) {
+        console.warn('Serial port close after disconnect:', err);
+      }
+      scheduleReconnect();
+    }
+
     // 背景讀取迴圈
     async function startReading() {
       keepReading = true;
+      let readEnded = false;
       while (port && port.readable && keepReading) {
         try {
           reader = port.readable.getReader();
           while (keepReading) {
             const { value, done } = await reader.read();
             if (done) {
+              readEnded = true;
               break;
             }
             if (value) {
@@ -604,6 +659,7 @@
           }
         } catch (err) {
           console.error(err);
+          readEnded = true;
           // 排除因關閉而產生的預期中斷錯誤訊息
           if (keepReading) {
             writeToTerminal(`\n[系統錯誤] 讀取時發生異常: ${err.message}\n`);
@@ -615,6 +671,10 @@
             reader = null;
           }
         }
+      }
+
+      if (readEnded && reconnectEnabled && port) {
+        await handleUnexpectedDisconnect('串口讀取已中斷');
       }
     }
 
@@ -683,6 +743,11 @@
     async function connectPort(filterCH340 = false) {
       if (port) {
         // 斷開連線
+        reconnectEnabled = false;
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
         keepReading = false;
         if (reader) {
           await reader.cancel();
@@ -701,6 +766,7 @@
         }
         updateConnectionStatus(false);
         port = null;
+        knownPort = null;
         writeToTerminal('\n[系統] 串口連線已關閉。\n');
         return;
       }
@@ -719,6 +785,9 @@
         port = await navigator.serial.requestPort(options);
         const baudRate = parseInt(baudRateSelect.value, 10);
         await port.open({ baudRate });
+        knownPort = port;
+        lastBaudRate = baudRate;
+        reconnectEnabled = true;
         updateConnectionStatus(true);
         writeToTerminal(`\n[系統] 成功連接裝置！Baud Rate: ${baudRate}\n`);
         
@@ -736,6 +805,11 @@
 
     btnConnectCH340.addEventListener('click', () => connectPort(true));
     btnBrowseAll.addEventListener('click', () => connectPort(false));
+    navigator.serial.addEventListener('disconnect', (event) => {
+      if (event.port === port) {
+        handleUnexpectedDisconnect('Programmer USB 連線已斷開');
+      }
+    });
 
 
 
