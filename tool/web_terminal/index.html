@@ -247,7 +247,7 @@
       position: relative;
       overflow-y: auto;
       font-family: Consolas, Monaco, "Fira Code", monospace;
-      font-size: 0.9rem;
+      font-size: 1.035rem;
       color: #ffffff;
       font-weight: normal;
       line-height: 1.5;
@@ -312,6 +312,21 @@
       align-items: center;
       border-bottom: 1px solid var(--border-color);
       letter-spacing: 0.5px;
+    }
+    .font-zoom-btn {
+      padding: 2px 8px;
+      font-size: 0.8rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-color);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .font-zoom-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
     }
     .compare-actions {
       display: flex;
@@ -388,7 +403,10 @@
       <div class="terminal-container">
         <!-- Left Panel: Live Terminal (Red theme) -->
         <div class="terminal-panel live-panel">
-          <div class="panel-header">🔴 即時終端機 (LIVE)</div>
+          <div class="panel-header">
+            <span>🔴 即時終端機 (LIVE)</span>
+            <button id="btnFontZoom" class="font-zoom-btn" type="button" title="點擊放大 1%；Shift+點擊縮小 1%">🔍 115%</button>
+          </div>
           <div style="position:relative; background:#04060a; flex-grow:1; display:flex; flex-direction:column;">
             <div class="scanlines"></div>
             <div id="terminalScreen" class="terminal-screen" tabindex="0">--- Web Serial Terminal (v1.0) ---
@@ -447,11 +465,28 @@
     let terminalCursor = document.getElementById('terminalCursor');
     const chkLocalEcho = document.getElementById('chkLocalEcho');
     const btnClear = document.getElementById('btnClear');
+    const btnFontZoom = document.getElementById('btnFontZoom');
+    const baseTerminalFontSize = 0.9;
+    let terminalFontScale = 1.15;
 
     function getTerminalCursor() {
       terminalCursor = document.getElementById('terminalCursor') || terminalScreen.querySelector('.cursor');
       return terminalCursor;
     }
+
+    function updateTerminalFontSize() {
+      const size = baseTerminalFontSize * terminalFontScale;
+      document.querySelectorAll('.terminal-screen').forEach((screen) => {
+        screen.style.fontSize = `${size}rem`;
+      });
+      btnFontZoom.textContent = `🔍 ${Math.round(terminalFontScale * 100)}%`;
+    }
+
+    btnFontZoom.addEventListener('click', (event) => {
+      terminalFontScale = Math.max(0.5, Math.min(2, terminalFontScale + (event.shiftKey ? -0.01 : 0.01)));
+      updateTerminalFontSize();
+    });
+    updateTerminalFontSize();
 
     let backspaceEraseState = 0; // 0: normal, 1: got \x08, 2: got \x08 + space
 
