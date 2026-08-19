@@ -405,6 +405,8 @@
         <div style="display:flex; align-items:center; gap:15px; font-size:0.85rem;">
           <label class="checkbox-label"><input type="checkbox" id="chkLocalEcho"> Local Echo</label>
           <label class="checkbox-label"><input type="checkbox" id="chkAutoScroll" checked> Auto Scroll</label>
+          <label class="checkbox-label"><input type="checkbox" id="chkOfflineMode"> 離線模擬</label>
+          <span id="offlineModeStatus" style="color:#8b949e;">未啟用</span>
           <span style="color:rgba(255,255,255,0.15);">|</span>
           <button id="btnLog" style="padding:4px 10px; font-size:0.85rem; border:1px solid rgba(255,80,80,0.4); border-radius:6px; background:rgba(255,80,80,0.08); color:#ff5f56; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:5px; transition:all 0.2s;">⏺ 錄製 LOG</button>
           <button id="btnClear" class="btn btn-danger" style="padding:4px 8px; font-size:0.85rem; border:none; background:none; color:var(--btn-danger); font-weight:normal;">[清除螢幕]</button>
@@ -455,6 +457,323 @@
     </footer>
   </div>
   <script type="module">
+    const offlineMenu = {
+      key: 'mh_spi_menu',
+      title: 'WRITER Function',
+      children: {
+        r: { key: 'r', label: 'Reload SDRAM after pressing Program button(48M-byte)' },
+        '0': { key: '0', label: 'Read SPI ID' },
+        '1': {
+          key: '1',
+          label: 'Scan Vt',
+          children: {
+            '1': { key: '1', label: 'Fast VT-scan to find abnormal block' },
+            '2': { key: '2', label: 'Fast VT-scan to find abnormal address' },
+            '4': { key: '4', label: 'whole chip VT (up to 128Mbit)' },
+            '5': { key: '5', label: 'scan VT by IO0 ~ 7' },
+            '6': { key: '6', label: 'Margin read to LP56 SDRAM' },
+            '7': { key: '7', label: 'Margin read + print address' },
+            '8': { key: '8', label: 'Check SR VT' }
+          }
+        },
+        '2': { key: '2', label: 'Change Vcc', inputPrompt: '輸入模擬 Vcc 值' },
+        '3': {
+          key: '3',
+          label: 'Program/75/7A',
+          children: {
+            '0': { key: '0', label: 'resume 7A' },
+            '1': { key: '1', label: '1 page pgm' },
+            '2': { key: '2', label: 'Multi page program with SDRAM pattern (first to end page)' },
+            '3': { key: '3', label: 'Multi page program with SDRAM pattern (end to first page)' },
+            '4': { key: '4', label: 'Multi page program with key-in/SDRAM pattern (from start page to stop page)', inputPrompt: '輸入模擬起始／停止頁面' },
+            '5': { key: '5', label: 'SecSi pgm' },
+            '6': { key: '6', label: '(Quad:32h) Single page program with key-in/SDRAM pattern', inputPrompt: '輸入模擬頁面或資料' },
+            '7': { key: '7', label: '(Quad:32h) Multi page pgm with key-in/SDRAM (0->end-page)', inputPrompt: '輸入模擬終止頁面' },
+            '8': { key: '8', label: 'Program disturb test with key-in/SDRAM (64K block erase-program scan 1 by 1)', inputPrompt: '輸入模擬測試參數' },
+            '9': { key: '9', label: '(QPI:02h) Single page program with key-in/SDRAM pattern', inputPrompt: '輸入模擬頁面或資料' },
+            a: { key: 'a', label: 'QPI Multi page program with SDRAM pattern (first to end page)' },
+            b: { key: 'b', label: '1 page pgm with user defined command', inputPrompt: '輸入模擬 command' },
+            c: { key: 'c', label: '(Quad:34h) Single page program(4-byte) with key-in/SDRAM pattern', inputPrompt: '輸入模擬頁面或資料' }
+          }
+        },
+        '4': { key: '4', label: 'Change CLK', inputPrompt: '輸入模擬 CLK 值' },
+        '5': {
+          key: '5',
+          label: 'Erase/75/7A',
+          children: {
+            '0': { key: '0', label: 'resume 7A' },
+            '1': { key: '1', label: '1 chip erase' },
+            '2': { key: '2', label: '64K或自定cmd erase/75(sus)', inputPrompt: '輸入模擬 erase command' },
+            b: { key: 'b', label: 'Erase suspend and read resume check' },
+            '3': { key: '3', label: '1 chip erase (60)' },
+            '4': { key: '4', label: '4K erase / 75 suspend' },
+            '5': { key: '5', label: '64K erase 1 by 1' },
+            '6': { key: '6', label: '32K erase 1 by 1' },
+            '7': { key: '7', label: '4K erase 1 by 1' },
+            '8': { key: '8', label: 'QPI_erase (user key-in cmd) or 1-by-1', inputPrompt: '輸入模擬 erase command' },
+            '9': { key: '9', label: '4K/64K 4-byte (21/DC) erase' },
+            a: { key: 'a', label: 'Erase Suspend/Resume cycling' },
+            c: { key: 'c', label: '64K erase 1 by 1' }
+          }
+        },
+        '6': {
+          key: '6',
+          label: 'SR/ECC/EAR/Range Protect',
+          children: {
+            '1': { key: '1', label: 'Write SR1 only（只寫一組）', inputPrompt: '輸入模擬 SR1 值' },
+            '2': { key: '2', label: 'Write SR1 and SR2（兩組都寫，by 06/50）', inputPrompt: '輸入模擬 SR1/SR2 值' },
+            '3': { key: '3', label: 'Write SR3（只寫一組）', inputPrompt: '輸入模擬 SR3 值' },
+            '4': { key: '4', label: 'only send 0xFF' },
+            '5': { key: '5', label: 'Write/Read EAR (by C5/C8)', inputPrompt: '輸入模擬 EAR 值' },
+            '7': { key: '7', label: 'Just send 6699 reset' },
+            '9': { key: '9', label: 'write/read ECC', inputPrompt: '輸入模擬 ECC 值' },
+            a: { key: 'a', label: 'write SR1', inputPrompt: '輸入模擬 SR1 值' },
+            b: { key: 'b', label: 'Global Lock/Unlock (98h)' },
+            c: { key: 'c', label: 'Auto Range Protection (WPS/CMP/BP)' },
+            d: { key: 'd', label: 'Memory Protection validation (WPS/CMP/BP)' }
+          }
+        },
+        '7': {
+          key: '7',
+          label: 'Read array',
+          children: {
+            '1': { key: '1', label: 'Read single page and checksum', inputPrompt: '輸入模擬 address' },
+            '3': { key: '3', label: 'Read block checksum 1 by 1' },
+            '4': {
+              key: '4',
+              label: 'chip checksum',
+              children: {
+                '2': { key: '2', label: 'Random byte length to read cksum', inputPrompt: '輸入模擬 byte length' }
+              }
+            },
+            '5': { key: '5', label: 'read whole chip to SDRAM' },
+            '6': {
+              key: '6',
+              label: 'DTR Read single page and checksum',
+              children: {
+                '2': { key: '2', label: 'DTR: 依序 read cksum', inputPrompt: '輸入模擬 address' }
+              }
+            },
+            '7': { key: '7', label: 'Read SFDP and checksum' },
+            '8': { key: '8', label: '萬用程式 Read single page and checksum (03 + 1/2/3/4 addr byte)', inputPrompt: '輸入模擬 address byte 數' },
+            a: { key: 'a', label: '1cmd + 1byte read', inputPrompt: '輸入模擬 command' },
+            b: { key: 'b', label: 'Read single page 4-byte addr, 0C', inputPrompt: '輸入模擬 address' },
+            d: { key: 'd', label: 'Calculate Checksum(9Dh)' },
+            e: { key: 'e', label: 'Read Checksum (9Ch)' }
+          }
+        },
+        '8': {
+          key: '8',
+          label: 'Cycling',
+          children: {
+            '1': { key: '1', label: 'Block erase + program cycling with SDRAM pattern', inputPrompt: '輸入模擬 cycle count' },
+            '2': { key: '2', label: 'sector erase + program cycling with SDRAM pattern', inputPrompt: '輸入模擬 cycle count' },
+            '3': {
+              key: '3',
+              label: 'chip checksum cycling by 0Bh / 0B / 03',
+              children: {
+                '1': { key: '1', label: 'Random read cksum(預設)' },
+                '2': { key: '2', label: '依序 read cksum' },
+                '3': { key: '3', label: 'Sequence read cksum for user input address', inputPrompt: '輸入模擬 address' }
+              }
+            },
+            '5': { key: '5', label: 'chip erase cycling', inputPrompt: '輸入模擬 cycle count' },
+            '6': { key: '6', label: '1 page pgm', inputPrompt: '輸入模擬頁面' },
+            '7': { key: '7', label: 'QPI-0C cycling (只在Wrap Length內cycling)', inputPrompt: '輸入模擬 wrap length' },
+            '8': { key: '8', label: 'Parallel 自選sector(128K) erase+program CB/CBB cycling', inputPrompt: '輸入模擬 sector' },
+            a: {
+              key: 'a',
+              label: 'chip checksum cycling by 0Bh',
+              children: {
+                '2': { key: '2', label: '依序 read 1 page', inputPrompt: '輸入模擬 address' }
+              }
+            },
+            c: { key: 'c', label: '32KB Block erase + program cycling with SDRAM pattern', inputPrompt: '輸入模擬 cycle count' }
+          }
+        },
+        '9': {
+          key: '9',
+          label: 'Dual read',
+          children: {
+            '1': { key: '1', label: 'Dual I/O read single page and checksum', inputPrompt: '輸入模擬 address' },
+            '2': { key: '2', label: 'Dual read single page and checksum', inputPrompt: '輸入模擬 address' },
+            '3': { key: '3', label: '(BD) (DTR) Dual read single page and checksum', inputPrompt: '輸入模擬 address' },
+            '4': { key: '4', label: 'Dual read all Chip to SDRAM' }
+          }
+        },
+        b: {
+          key: 'b',
+          label: 'Quad read/ wrap(77)',
+          children: {
+            '0': { key: '0', label: '77' },
+            '1': { key: '1', label: 'EB: Read single page', inputPrompt: '輸入模擬 address' },
+            '2': { key: '2', label: 'EB: Verify whole chip with SDRAM/Key-in', inputPrompt: '輸入模擬驗證參數' },
+            '3': { key: '3', label: '6B: Read single page', inputPrompt: '輸入模擬 address' },
+            '4': { key: '4', label: '(Quad-I/O)ED: Read single page', inputPrompt: '輸入模擬 address' },
+            '5': { key: '5', label: '0x94 Qual Read ID' },
+            '6': { key: '6', label: 'EB: Read all Chip to SDRAM' },
+            '7': { key: '7', label: 'EB: Cycling with SDRAM/Key-in', inputPrompt: '輸入模擬 cycle count' },
+            '8': { key: '8', label: 'EB: Cycling with SDRAM/Key-in', inputPrompt: '輸入模擬 cycle count' },
+            a: { key: 'a', label: 'EB: Scan Vcc after EB bypass mode with 38+06+C5+data+C0+00', inputPrompt: '輸入模擬 Vcc 範圍' },
+            '9': { key: '9', label: 'EB: Fast Read Quad with Read Command Bypass Mode' },
+            c: { key: 'c', label: 'QPI-0C: Read single page', inputPrompt: '輸入模擬 address' },
+            d: { key: 'd', label: 'QPI-0C: Verify whole chip with SDRAM' },
+            e: { key: 'e', label: 'QPI-ED: Read single page', inputPrompt: '輸入模擬 address' },
+            f: { key: 'f', label: 'QPI-FF: 38+FF' },
+            g: { key: 'g', label: 'QPI+66-99+(QPI/SPI)ID for Peinan' },
+            h: { key: 'h', label: 'QPI+66+QPI_ID+99+(SPI/QPI)ID for Peinan' }
+          }
+        },
+        g: {
+          key: 'g',
+          label: 'FA special',
+          children: {
+            '1': { key: '1', label: 'Multi page program with SDRAM pattern (from start page to stop page)', inputPrompt: '輸入模擬起始／停止頁面' },
+            '2': { key: '2', label: 'erase + show SR' },
+            '3': { key: '3', label: '1 page + double program (without read)' },
+            '4': { key: '4', label: 'SEMCO & SEC Mobile fail' },
+            '5': { key: '5', label: 'Parallel flash Test mode', inputPrompt: '輸入模擬 test mode' },
+            '6': { key: '6', label: 'Erase + every 05/SR' },
+            '7': { key: '7', label: 'Deep power down(B9h)電流' },
+            '8': { key: '8', label: 'program + 50ns tSHSL', inputPrompt: '輸入模擬 program 參數' },
+            '9': { key: '9', label: '4K+Erase+pgm+cycling', inputPrompt: '輸入模擬 cycle count' },
+            a: { key: 'a', label: '4K+Erase+pgm+cycling', inputPrompt: '輸入模擬 cycle count' },
+            b: { key: 'b', label: 'Q64FV+ Landi POS fail' },
+            c: { key: 'c', label: 'Q256FV+ Asus 1 to 0 fail' }
+          }
+        },
+        h: {
+          key: 'h',
+          label: 'Test Mode',
+          children: {
+            '0': { key: '0', label: 'add cmd before chip erase+ poll/timeout', inputPrompt: '輸入模擬 command' },
+            '1': { key: '1', label: 'Measure main cell current' },
+            '2': { key: '2', label: 'Leaky Row/all-Row current (128/256)' },
+            '3': { key: '3', label: 'BC, Skip Pre-P,ER,Pos-P,Re-F' },
+            '4': { key: '4', label: 'Option bits recall+read' },
+            '5': { key: '5', label: 'Option bits Erase+Program' },
+            '6': { key: '6', label: 'Status Register Unlock' },
+            '7': {
+              key: '7',
+              label: 'Stress',
+              children: {
+                '0': { key: '0', label: 'Well Stress(Main+IBLK+RBLK)' },
+                '1': { key: '1', label: 'Well Stress(Main+IBLK)' },
+                '2': { key: '2', label: 'Positive Gate Stress' },
+                '3': { key: '3', label: 'Positive Gate Stress(Even/Odd WL)' },
+                '4': { key: '4', label: 'Negative Gate Stress w/Int. Time', inputPrompt: '輸入模擬時間' },
+                '5': { key: '5', label: 'Negative Gate Stress w/Ext. Time', inputPrompt: '輸入模擬時間' },
+                '6': { key: '6', label: 'Negative Gate Stress for IBLK' },
+                '7': { key: '7', label: 'Drain Stress(Main+red.)' },
+                '8': { key: '8', label: 'Drain Stress or Leaky Col(Main)' },
+                '9': { key: '9', label: 'Positive/Negative Gate Stress Auto EFA item' }
+              }
+            },
+            '8': { key: '8', label: 'One Pulse (erase / program)' },
+            '9': {
+              key: '9',
+              label: 'CAM bit read/erase/pgm',
+              children: {
+                '1': { key: '1', label: 'CAM bit read for Fuse cells' },
+                '3': { key: '3', label: 'CAM bit Program' },
+                '4': { key: '4', label: 'CAM bit erase verify (new)' },
+                '5': { key: '5', label: 'CAM bit program verify (new)' }
+              }
+            },
+            a: { key: 'a', label: 'Single BL leaky Column' },
+            b: { key: 'b', label: 'EV/PV (Verify Opt cell), add 不斷電 item' },
+            c: { key: 'c', label: 'Recall all Fuse(不斷電)' },
+            e: { key: 'e', label: '1pulse bit-by-bit post PGM' },
+            f: { key: 'f', label: '[F58S] Opt bits Read+Erase+Pgm' },
+            g: { key: 'g', label: 'F58S erase mini' },
+            i: { key: 'i', label: 'Verify OPT[31:0] & SR' },
+            k: { key: 'k', label: '[1A,8C] Opt bits Erase' },
+            l: { key: 'l', label: '[1A,8C] Opt bits Program' },
+            m: { key: 'm', label: '[EAG077 stack die] Option bits Erase+Program' }
+          }
+        },
+        i: { key: 'i', label: '加註解(add mark)', inputPrompt: '輸入模擬註解' },
+        j: {
+          key: 'j',
+          label: 'Test Mode(客製)',
+          children: {
+            '1': { key: '1', label: '58nm一次掃4個block(0-3)Vt' },
+            '2': { key: '2', label: 'Skip mode+Vt一次掃2個block(自訂)' },
+            '3': { key: '3', label: 'Leaky Row/all-Row current for SMIC' },
+            '4': { key: '4', label: 'Read/Erase/Program (whole chip)' },
+            '5': { key: '5', label: 'for 金綾: Option bits Erase+Program' },
+            '6': { key: '6', label: 'For素惠: Option bits Erase+Program' },
+            '7': { key: '7', label: 'Option bits recall+read (Auto)' },
+            d: { key: 'd', label: 'Canon 4sector cycling', inputPrompt: '輸入模擬 cycle count' },
+            e: { key: 'e', label: 'Erase Suspend/Resume cycling', inputPrompt: '輸入模擬 cycle count' },
+            '8': { key: '8', label: 'WL to BL leakage stress' },
+            '9': { key: '9', label: 'Narrow PGM Vt' },
+            a: { key: 'a', label: 'ECC bit read' },
+            b: { key: 'b', label: 'EMMI' },
+            c: { key: 'c', label: 'VT / PP / BE' }
+          }
+        },
+        l: { key: 'l', label: '選擇 Die 0/1', inputPrompt: '輸入模擬 Die 編號' },
+        v: { key: 'v', label: 'Auto EFA Flow' },
+        s: { key: 's', label: 'Seci' },
+        x: {
+          key: 'x',
+          label: 'Buffer Mode',
+          children: {
+            '2': { key: '2', label: 'Buffer Write(82h)', inputPrompt: '輸入模擬 buffer data' },
+            '3': { key: '3', label: 'Buffer Load(8Bh)', inputPrompt: '輸入模擬 buffer address' },
+            '4': { key: '4', label: 'buffer program 8Ah', inputPrompt: '輸入模擬 buffer data' }
+          }
+        },
+        t: {
+          key: 't',
+          label: 'Advanced Protect/Password',
+          children: {
+            '2': { key: '2', label: 'Individual Block/Sector Un-lock(39h)', inputPrompt: '輸入模擬 block/sector' },
+            '3': { key: '3', label: 'Read Block/Sector Lock(3Dh)', inputPrompt: '輸入模擬 block/sector' },
+            '4': { key: '4', label: 'Global Block/Sector Lock(7Eh)' },
+            '5': { key: '5', label: 'Global Block/Sector Un-Lock(98h)' },
+            '6': { key: '6', label: 'set/write volatile status register(E1h)', inputPrompt: '輸入模擬 register data' },
+            '7': { key: '7', label: 'Read volatile status register(E0h)' },
+            '8': { key: '8', label: 'Clear non-volatile status register(E4)' },
+            '9': { key: '9', label: 'set/write non-volatile status register(E3h)', inputPrompt: '輸入模擬 register data' },
+            b: { key: 'b', label: 'write LR register(2Ch)', inputPrompt: '輸入模擬 LR data' },
+            c: { key: 'c', label: 'Read LR register(45h)' },
+            d: { key: 'd', label: 'Read password(27h)' },
+            e: { key: 'e', label: 'write password(28h)', inputPrompt: '輸入模擬 password' },
+            f: { key: 'f', label: 'unlock password(29h)', inputPrompt: '輸入模擬 password' }
+          }
+        }
+      }
+    };
+    let offlineMode = false;
+    let offlineMenuStack = [];
+    let offlineCurrentMenu = offlineMenu;
+    let offlineInput = '';
+    let offlineInputPrompt = null;
+
+    function getOfflineMenuItems(menu) {
+      return Object.values(menu.children ?? {});
+    }
+
+    function isOfflineLeaf(item) {
+      return !item.children || Object.keys(item.children).length === 0;
+    }
+
+    function formatOfflineMenu(menu) {
+      const lines = [`\n[OFFLINE] ${menu.title ?? menu.label ?? menu.key}`];
+      for (const item of getOfflineMenuItems(menu)) {
+        lines.push(`(${item.key}) ${item.label}`);
+      }
+      if (menu === offlineMenu) {
+        lines.push('(q) exit tool');
+      } else {
+        lines.push('(q) 返回上一層');
+      }
+      lines.push('> ');
+      return lines.join('\n');
+    }
+
     let port = null;
     let reader = null;
     let keepReading = true;
@@ -483,6 +802,8 @@
     const baudRateSelect = document.getElementById('baudRateSelect');
     const terminalScreen = document.getElementById('terminalScreen');
     const chkAutoScroll = document.getElementById('chkAutoScroll');
+    const chkOfflineMode = document.getElementById('chkOfflineMode');
+    const offlineModeStatus = document.getElementById('offlineModeStatus');
     let terminalCursor = document.getElementById('terminalCursor');
     const chkLocalEcho = document.getElementById('chkLocalEcho');
     const btnClear = document.getElementById('btnClear');
@@ -583,6 +904,129 @@
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
     }
+
+    function updateOfflineModeStatus() {
+      offlineModeStatus.textContent = offlineMode ? 'OFFLINE：不執行硬體' : '未啟用';
+      offlineModeStatus.style.color = offlineMode ? '#55e6a5' : '#8b949e';
+    }
+
+    function resetOfflineMenu() {
+      offlineMenuStack = [];
+      offlineCurrentMenu = offlineMenu;
+      offlineInput = '';
+      offlineInputPrompt = null;
+    }
+
+    function renderOfflineMenu() {
+      writeToTerminal(formatOfflineMenu(offlineCurrentMenu));
+    }
+
+    function normalizeOfflineKey(value) {
+      return value.length === 1 ? value.toLowerCase() : value;
+    }
+
+    function showOfflineSimulation(item, parameter = '') {
+      const detail = parameter ? `；參數：${parameter}` : '';
+      writeToTerminal(
+        `\n[OFFLINE] 已選取 (${item.key}) ${item.label}${detail}\n` +
+        '[OFFLINE] 僅模擬選單與輸入，未執行任何硬體命令。\n'
+      );
+      renderOfflineMenu();
+    }
+
+    function handleOfflineKey(event) {
+      const key = normalizeOfflineKey(event.key);
+
+      if (event.key === 'Escape' || key === 'q') {
+        event.preventDefault();
+        if (offlineInputPrompt !== null) {
+          offlineInput = '';
+          offlineInputPrompt = null;
+          writeToTerminal('\n[OFFLINE] 已取消參數輸入。\n');
+          renderOfflineMenu();
+          return true;
+        }
+        if (offlineMenuStack.length > 0) {
+          offlineCurrentMenu = offlineMenuStack.pop();
+          renderOfflineMenu();
+        } else {
+          writeToTerminal('\n[OFFLINE] 已返回 mh_spi_menu。\n');
+          renderOfflineMenu();
+        }
+        return true;
+      }
+
+      if (offlineInputPrompt !== null) {
+        if (event.key === 'Backspace') {
+          event.preventDefault();
+          offlineInput = offlineInput.slice(0, -1);
+          return true;
+        }
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          const parameter = offlineInput.trim();
+          if (!parameter) {
+            writeToTerminal('\n[OFFLINE 錯誤] 參數不可為空。\n');
+            return true;
+          }
+          const item = offlineCurrentMenu.children[offlineInputPrompt];
+          offlineInput = '';
+          offlineInputPrompt = null;
+          showOfflineSimulation(item, parameter);
+          return true;
+        }
+        if (event.key.length === 1) {
+          event.preventDefault();
+          offlineInput += event.key;
+          writeToTerminal(event.key);
+          return true;
+        }
+        return true;
+      }
+
+      if (event.key.length !== 1) return false;
+
+      const item = offlineCurrentMenu.children?.[key];
+      if (!item) {
+        event.preventDefault();
+        writeToTerminal(`\n[OFFLINE 錯誤] 無效選項：${event.key}\n`);
+        renderOfflineMenu();
+        return true;
+      }
+
+      event.preventDefault();
+      if (!isOfflineLeaf(item)) {
+        offlineMenuStack.push(offlineCurrentMenu);
+        offlineCurrentMenu = item;
+        renderOfflineMenu();
+      } else if (item.inputPrompt) {
+        offlineInputPrompt = item.key;
+        writeToTerminal(`\n[OFFLINE] ${item.inputPrompt}\n> `);
+      } else {
+        showOfflineSimulation(item);
+      }
+      return true;
+    }
+
+    chkOfflineMode.addEventListener('change', () => {
+      if (chkOfflineMode.checked && port) {
+        chkOfflineMode.checked = false;
+        writeToTerminal('\n[OFFLINE] 請先斷開 Writer，再啟用離線模擬。\n');
+        return;
+      }
+
+      offlineMode = chkOfflineMode.checked;
+      resetOfflineMenu();
+      updateOfflineModeStatus();
+      if (offlineMode) {
+        writeToTerminal('\n[OFFLINE] 已啟用離線模擬；不會連接或寫入 Writer。\n');
+        renderOfflineMenu();
+      } else {
+        writeToTerminal('\n[OFFLINE] 已關閉，恢復即時終端機輸入。\n');
+      }
+    });
+
+    updateOfflineModeStatus();
 
     // 檢查瀏覽器相容性
     if (!('serial' in navigator)) {
@@ -741,6 +1185,11 @@
 
     // 取得連接埠
     async function connectPort(filterCH340 = false) {
+      if (offlineMode) {
+        writeToTerminal('\n[OFFLINE] 請先關閉離線模擬，再連接 Writer。\n');
+        return;
+      }
+
       if (port) {
         // 斷開連線
         reconnectEnabled = false;
@@ -1084,6 +1533,10 @@
 
     // 監聽終端機鍵盤事件
     terminalScreen.addEventListener('keydown', async (event) => {
+      if (offlineMode && handleOfflineKey(event)) {
+        return;
+      }
+
       if (!port || !port.writable) return;
 
       // 阻止瀏覽器預設按鍵行為
