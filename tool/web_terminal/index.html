@@ -405,8 +405,7 @@
         <div style="display:flex; align-items:center; gap:15px; font-size:0.85rem;">
           <label class="checkbox-label"><input type="checkbox" id="chkLocalEcho"> Local Echo</label>
           <label class="checkbox-label"><input type="checkbox" id="chkAutoScroll" checked> Auto Scroll</label>
-          <label class="checkbox-label"><input type="checkbox" id="chkOfflineMode"> 離線模擬</label>
-          <span id="offlineModeStatus" style="color:#8b949e;">未啟用</span>
+          <button id="btnOfflineMode" class="btn" type="button" style="padding:4px 10px; font-size:0.85rem;">🖥️ 啟動離線選單</button>
           <span style="color:rgba(255,255,255,0.15);">|</span>
           <button id="btnLog" style="padding:4px 10px; font-size:0.85rem; border:1px solid rgba(255,80,80,0.4); border-radius:6px; background:rgba(255,80,80,0.08); color:#ff5f56; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:5px; transition:all 0.2s;">⏺ 錄製 LOG</button>
           <button id="btnClear" class="btn btn-danger" style="padding:4px 8px; font-size:0.85rem; border:none; background:none; color:var(--btn-danger); font-weight:normal;">[清除螢幕]</button>
@@ -802,8 +801,7 @@
     const baudRateSelect = document.getElementById('baudRateSelect');
     const terminalScreen = document.getElementById('terminalScreen');
     const chkAutoScroll = document.getElementById('chkAutoScroll');
-    const chkOfflineMode = document.getElementById('chkOfflineMode');
-    const offlineModeStatus = document.getElementById('offlineModeStatus');
+    const btnOfflineMode = document.getElementById('btnOfflineMode');
     let terminalCursor = document.getElementById('terminalCursor');
     const chkLocalEcho = document.getElementById('chkLocalEcho');
     const btnClear = document.getElementById('btnClear');
@@ -906,8 +904,10 @@
     }
 
     function updateOfflineModeStatus() {
-      offlineModeStatus.textContent = offlineMode ? 'OFFLINE：不執行硬體' : '未啟用';
-      offlineModeStatus.style.color = offlineMode ? '#55e6a5' : '#8b949e';
+      btnOfflineMode.textContent = offlineMode ? '⏹️ 退出離線選單' : '🖥️ 啟動離線選單';
+      btnOfflineMode.classList.toggle('btn-primary', !offlineMode);
+      btnOfflineMode.classList.toggle('btn-danger', offlineMode);
+      btnOfflineMode.title = offlineMode ? '退出離線模擬模式' : '啟動離線 Programmer 選單';
     }
 
     function resetOfflineMenu() {
@@ -1008,14 +1008,13 @@
       return true;
     }
 
-    chkOfflineMode.addEventListener('change', () => {
-      if (chkOfflineMode.checked && port) {
-        chkOfflineMode.checked = false;
+    btnOfflineMode.addEventListener('click', () => {
+      if (!offlineMode && port) {
         writeToTerminal('\n[OFFLINE] 請先斷開 Writer，再啟用離線模擬。\n');
         return;
       }
 
-      offlineMode = chkOfflineMode.checked;
+      offlineMode = !offlineMode;
       resetOfflineMenu();
       updateOfflineModeStatus();
       if (offlineMode) {
