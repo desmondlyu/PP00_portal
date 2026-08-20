@@ -282,6 +282,25 @@
       transition: all 0.3s ease;
       background: #04060a;
     }
+    .compare-panel {
+      flex: 0 0 42%;
+    }
+    .compare-panel.collapsed {
+      flex-basis: 42px;
+    }
+    .compare-panel.collapsed .compare-title,
+    .compare-panel.collapsed .compare-actions,
+    .compare-panel.collapsed > div:not(.panel-header) {
+      display: none;
+    }
+    .compare-panel.collapsed .panel-header {
+      justify-content: center;
+      padding: 8px 4px;
+      min-height: 100%;
+    }
+    .compare-panel:not(.collapsed) #btnCompareCollapsedToggle {
+      display: none;
+    }
     /* 🔴 左側紅色框 */
     .live-panel {
       border: 2px solid rgba(255, 95, 86, 0.4);
@@ -434,13 +453,15 @@
         </div>
 
         <!-- Right Panel: Frozen Compare Screen (Green theme) -->
-        <div class="terminal-panel compare-panel">
+        <div id="comparePanel" class="terminal-panel compare-panel collapsed">
           <div class="panel-header">
-            <span>🟢 凍結比對區 (COMPARE)</span>
+            <span class="compare-title">🟢 凍結比對區 (COMPARE)</span>
             <div class="compare-actions">
+              <button id="btnCompareToggle" class="panel-btn" type="button" aria-expanded="false" title="展開右側比對區">◀ 展開</button>
               <button id="btnFreeze" class="panel-btn">❄️ 凍結目前輸出</button>
               <button id="btnCompareClear" class="panel-btn">🧹 清除</button>
             </div>
+            <button id="btnCompareCollapsedToggle" class="panel-btn" type="button" aria-expanded="false" title="展開右側比對區">◀</button>
           </div>
           <div style="position:relative; background:#04060a; flex-grow:1; display:flex; flex-direction:column;">
             <div class="scanlines"></div>
@@ -456,298 +477,152 @@
     </footer>
   </div>
   <script type="module">
-    const offlineMenu = {
-      key: 'mh_spi_menu',
-      title: 'WRITER Function',
-      children: {
-        r: { key: 'r', label: 'Reload SDRAM after pressing Program button(48M-byte)' },
-        '0': { key: '0', label: 'Read SPI ID' },
-        '1': {
-          key: '1',
-          label: 'Scan Vt',
-          children: {
-            '1': { key: '1', label: 'Fast VT-scan to find abnormal block' },
-            '2': { key: '2', label: 'Fast VT-scan to find abnormal address' },
-            '4': { key: '4', label: 'whole chip VT (up to 128Mbit)' },
-            '5': { key: '5', label: 'scan VT by IO0 ~ 7' },
-            '6': { key: '6', label: 'Margin read to LP56 SDRAM' },
-            '7': { key: '7', label: 'Margin read + print address' },
-            '8': { key: '8', label: 'Check SR VT' }
-          }
-        },
-        '2': { key: '2', label: 'Change Vcc', inputPrompt: '輸入模擬 Vcc 值' },
-        '3': {
-          key: '3',
-          label: 'Program/75/7A',
-          children: {
-            '0': { key: '0', label: 'resume 7A' },
-            '1': { key: '1', label: '1 page pgm' },
-            '2': { key: '2', label: 'Multi page program with SDRAM pattern (first to end page)' },
-            '3': { key: '3', label: 'Multi page program with SDRAM pattern (end to first page)' },
-            '4': { key: '4', label: 'Multi page program with key-in/SDRAM pattern (from start page to stop page)', inputPrompt: '輸入模擬起始／停止頁面' },
-            '5': { key: '5', label: 'SecSi pgm' },
-            '6': { key: '6', label: '(Quad:32h) Single page program with key-in/SDRAM pattern', inputPrompt: '輸入模擬頁面或資料' },
-            '7': { key: '7', label: '(Quad:32h) Multi page pgm with key-in/SDRAM (0->end-page)', inputPrompt: '輸入模擬終止頁面' },
-            '8': { key: '8', label: 'Program disturb test with key-in/SDRAM (64K block erase-program scan 1 by 1)', inputPrompt: '輸入模擬測試參數' },
-            '9': { key: '9', label: '(QPI:02h) Single page program with key-in/SDRAM pattern', inputPrompt: '輸入模擬頁面或資料' },
-            a: { key: 'a', label: 'QPI Multi page program with SDRAM pattern (first to end page)' },
-            b: { key: 'b', label: '1 page pgm with user defined command', inputPrompt: '輸入模擬 command' },
-            c: { key: 'c', label: '(Quad:34h) Single page program(4-byte) with key-in/SDRAM pattern', inputPrompt: '輸入模擬頁面或資料' }
-          }
-        },
-        '4': { key: '4', label: 'Change CLK', inputPrompt: '輸入模擬 CLK 值' },
-        '5': {
-          key: '5',
-          label: 'Erase/75/7A',
-          children: {
-            '0': { key: '0', label: 'resume 7A' },
-            '1': { key: '1', label: '1 chip erase' },
-            '2': { key: '2', label: '64K或自定cmd erase/75(sus)', inputPrompt: '輸入模擬 erase command' },
-            b: { key: 'b', label: 'Erase suspend and read resume check' },
-            '3': { key: '3', label: '1 chip erase (60)' },
-            '4': { key: '4', label: '4K erase / 75 suspend' },
-            '5': { key: '5', label: '64K erase 1 by 1' },
-            '6': { key: '6', label: '32K erase 1 by 1' },
-            '7': { key: '7', label: '4K erase 1 by 1' },
-            '8': { key: '8', label: 'QPI_erase (user key-in cmd) or 1-by-1', inputPrompt: '輸入模擬 erase command' },
-            '9': { key: '9', label: '4K/64K 4-byte (21/DC) erase' },
-            a: { key: 'a', label: 'Erase Suspend/Resume cycling' },
-            c: { key: 'c', label: '64K erase 1 by 1' }
-          }
-        },
-        '6': {
-          key: '6',
-          label: 'SR/ECC/EAR/Range Protect',
-          children: {
-            '1': { key: '1', label: 'Write SR1 only（只寫一組）', inputPrompt: '輸入模擬 SR1 值' },
-            '2': { key: '2', label: 'Write SR1 and SR2（兩組都寫，by 06/50）', inputPrompt: '輸入模擬 SR1/SR2 值' },
-            '3': { key: '3', label: 'Write SR3（只寫一組）', inputPrompt: '輸入模擬 SR3 值' },
-            '4': { key: '4', label: 'only send 0xFF' },
-            '5': { key: '5', label: 'Write/Read EAR (by C5/C8)', inputPrompt: '輸入模擬 EAR 值' },
-            '7': { key: '7', label: 'Just send 6699 reset' },
-            '9': { key: '9', label: 'write/read ECC', inputPrompt: '輸入模擬 ECC 值' },
-            a: { key: 'a', label: 'write SR1', inputPrompt: '輸入模擬 SR1 值' },
-            b: { key: 'b', label: 'Global Lock/Unlock (98h)' },
-            c: { key: 'c', label: 'Auto Range Protection (WPS/CMP/BP)' },
-            d: { key: 'd', label: 'Memory Protection validation (WPS/CMP/BP)' }
-          }
-        },
-        '7': {
-          key: '7',
-          label: 'Read array',
-          children: {
-            '1': { key: '1', label: 'Read single page and checksum', inputPrompt: '輸入模擬 address' },
-            '3': { key: '3', label: 'Read block checksum 1 by 1' },
-            '4': {
-              key: '4',
-              label: 'chip checksum',
-              children: {
-                '2': { key: '2', label: 'Random byte length to read cksum', inputPrompt: '輸入模擬 byte length' }
+    // C-derived printf flow data; output tuples are ["o", text], input tuples are ["i", type].
+    const offlineMenu = {"key":"mh_spi_menu","menuOutputs":["\n","\n      SPI Flash Test Program , PN10 陳敏修(M.H.),    PP/PT/PQ ","\n ******************************************************************** \n","\n(r) Reload SDRAM after pressing Program button(48M-byte)       ","\n(0) Read SPI ID                  (1) Scan Vt                   ","\n(2) Change Vcc                   (3) Program/75/7A             ","\n(4) 改變CLK(最大100MHz)          (5) Erase/75/7A               ","\n(6) SR/ECC/EAR/Range Protect     (7) Read array\t\t\t       ","\n(8) Cycling                      (9) Dual read                 ","\n(a) Scan Vcc                     (b) Quad read/ wrap(77)       ","\n(c) Change sda_delay             (d) QPI read ID,array,FF      ","\n(e) read LP56-SDRAM              (f) POR-Vcc curve             ","\n(g) FA special                   (h) Test Mode                 ","\n(i) 加註解(add mark)             (j) Test Mode(客製)            ","\n(k) 亂數計時器開關               (l) 選擇Die 0/1                 ","\n(Z) 感謝狀                       (v) Auto EFA Flow              ","\n(p) Auto RMA Initial Flow        (t) Advanced Protect/Password ","\n(q) exit tool                    (x) Buffer Mode               ","\n                                  \t\t\t\t\t\t\t   ","\n **************************************************************"],"children":{"r":{"key":"r","steps":[]},"0":{"key":"0","steps":[["o","\n (90) MID = , DID = "],["o","\n(AC:下die) (9F) MID = , JID = "],["o","\n(AD:上die) (9F) MID = , JID = "],["o","\n (AB) DID = "],["o","\n (05) SR1 = "],["o","\n (35) SR2 = "],["o","\n (15) SR3 = "],["o","\n (C8) EAR = "],["o","\n (25) ECC = "],["o","\n ----------------------------"],["o","\n Unique ID:"],["o","\n (4B) UID= , , , , , , , "],["o","\n ----------------------------"],["o","\n Dual read:"],["o","\n (92) MID = , DID = "],["o","\n ----------------------------"],["o","\n Qual read:"],["o","\n (94) MID = , DID = "],["i","pause"]]},"1":{"key":"1","steps":[["o","\n*** 0.13產品(GAGxxx)不可於LP56掃VT,進mode不同,會燒毀 ***\n"],["o","\n 要繼續掃VT嗎 ?\n"],["i","confirm"],["o","\n Please select:  "],["o","\n(1) Fast VT-scan to find abnormal block            :"],["o","\n(2) Fast VT-scan to find abnormal address          :"],["o","\n(3) scan VT by user defined (Max= 64M-bit)/read cmd:"],["o","\n(4) scan VT for whole chip  (Max=128M-bit)         :"],["o","\n(5) scan VT by IO:0 ~ 7     (Max= 64M-bit)         :"],["o","\n(6) (1-cut) Margin read to LP56 SDRAM(bin file)    :"],["o","\n(7) (1-cut) Margin read + show address(聰閔)       :"],["o","\n(8) Check SR VT                                    :"],["o","\n(9) bit by bit scan VT by user defined (YY)        :"],["i","select"],["o","\n Please input TVPPEr command (default=0xEC) (ex: 7C(58nm) + enter) : \n "],["i","hex"],["o","\n Input Ratio(1/1 or 2/1) cmd (預設=NO=enter) (ex: C9 + enter) ? \n "],["i","hex"],["o","\n Input Ratio(4/1) command (預設=NO=enter) (ex: 24 + enter) ? \n "],["i","hex"],["o","\n Input TMGDCell cmd (預設=NO=enter) (ex: 2E(58nm) + enter) ? \n "],["i","hex"],["o","\n Input TMGDCell cmd (預設=NO=enter) (ex: 2F(58nm) + enter) ? \n "],["i","hex"],["o","\n Input Ref-cell gate volt(x10mV) (default=4.5V) (ex: 270(xW) + enter) : \n "],["i","dec"],["o","\n Input 1st-cut Vg(x10mV) (default=4.2V) (ex: 420 + enter) : \n "],["i","dec"],["o","\n Input 2nd-cut Vg(x10mV) (default=4.8V) (ex: 480 + enter) : \n "],["i","dec"],["o","\n To use default CLK (10MHz) ? (ex: enter = 10MHz, number(1~F)=NO) \n "],["i","hex"],["o","\n\n ***** Ref-cell gate voltage ( x 10mV) too high,  abort ! ******"],["i","pause"]]},"2":{"key":"2","steps":[["o","\n Select (Vih  等於Vcc): (1)3.3V, (2)1.8V, (3)user defined, (4)Vcc scan ID: "],["o","\n Select (Vih不等於Vcc): (5)自訂Vcc及Vih: "],["o","\n"],["i","select"],["o","\n Your choice = 3.3V  \n"],["i","confirm"],["o","\n Your choice = 1.8V  \n"],["i","confirm"],["o","\n Please input Vcc (Vio=Vcc)(ex: 330 = 3.3V + enter) : \n "],["i","dec"],["o","\n You input Vcc (Vio)=  (x10mV)\n"],["i","confirm"],["o","\n (Read JID) Scan Vcc(Vio) from 1.5V to 3.6V step 0.1V \n"],["i","confirm"],["o","\n (9F) MID = , JID = ,  Vcc="],["i","pause"]]},"3":{"key":"3","steps":[["o","\n To use 預設 CLK (10MHz) ? (ex: enter = 10MHz, number(1~F)=NO) \n "],["i","hex"],["o","\n 是否要降頻run program? 預設25MHz(ex: enter=是; 數字1~F=否): "],["i","hex"],["o","\n Please select:  "],["o","\n(0) Resume (7A)                                              : "],["o","\n(1) Single page program with key-in/SDRAM  pattern/75(sus)   : "],["o","\n(2) Multi page pgm with key-in/SDRAM pattern (0 -> end-page) : "],["o","\n(3) Multi page pgm with SDRAM pattern (end -> 0-page)        : "],["o","\n(4) Multi page pgm with Key-in/SDRAM pattern (start -> stop) : "],["o","\n(5) Security register program (erase+read)                   : "],["o","\n(6) (Quad:32h) Single page program with key-in/SDRAM  pattern: "],["o","\n(7) (Quad:32h) Multi page pgm with key-in/SDRAM (0->end-page): "],["o","\n(8) Program disturb test with key-in/SDRAM                   : "],["o","\n(9) (QPI:02h) Single page program with key-in/SDRAM  pattern : "],["o","\n(A) (QPI:02h) Multi page program with key-in/SDRAM  pattern  : "],["o","\n(B) (user cmd) Page program with key-in/SDRAM (ex:12)        : "],["o","\n(C) (Quad:34h) Single page pgm(4B) with key-in/SDRAM  pattern: "],["o","\n"],["i","select"]],"selectBranches":{"19":{"0":{"key":"0","steps":[["o","\n To send a resume command(7A) ? "],["i","confirm"],["o","\n\n ----   send 7A + 1sec ok  ----"],["i","pause"]]},"1":{"key":"1","steps":[["o","\n Please input program command(Default=02h) (ex: 02 + enter) : "],["i","hex"],["o","\n Please input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n How many bytes to program(Max=256=default) (ex: 256 + enter) : "],["i","dec"],["o","\n要作Program suspend(75)嗎? (1) No(預設), (2) Yes:"],["i","hex"],["o","\nProgram幾us後,發75 suspend(預設=3us) ?"],["i","dec"],["o","\n Please select data from  (1) user key-in, (2) SDRAM : "],["i","select"],["o","\n Please input data pattern (ex: 55AA + enter) : "],["i","hex"],["o","\n *** To use SDRAM data can not be from Odd address() ***"],["o","\n Please Re-input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n To program  bytes to Addr() with data()"],["o","\n To program  bytes to Addr() with data from SDRAM"],["o","\n + 75 suspend at  us."],["i","confirm"],["o","\n ---  Program suspend ok  ----"],["o","\n -----------------------------------------------------\n"],["o","\n"],["o","\n"],["o"," : "],["o","  "],["o","\n -----------------------------------------------------"],["o","\n Page checksum = , (all page FF = )"],["o","\n program  bytes to (Addr=), time =  usec. ( < 3 ms )"],["i","pause"]]},"2":{"key":"2","steps":[["o","\n Please erase before program (請先自行erase flash) !!!\n "],["i","confirm"],["o","\n Please select data from  (1) user key-in, (2) SDRAM : "],["i","select"],["o","\n Input data pattern(共4碼) (ex: 55AA + enter) : "],["i","hex"],["o","\n How many pages to program ? (All chip=  pages) (ex: 00+enter): "],["i","dec"],["o","\n How many bytes to pgm each page (Max=256)(ex:256+enter): "],["i","dec"],["o","\n Show page program time? (預設=秀時間)(ex: enter=預設, number(1~F)=NO) : "],["i","hex"],["o","\n Use time-out(bypass 05/SR) ? (預設=不使用time-out) (ex:enter=預設,3= 3ms) : "],["i","dec"],["o","\n Program  pages with 05/SR-polling"],["o","\n Program  pages with time-out=  ms"],["o","\n Program  byte for each page"],["i","confirm"],["o","\n"],["o","\n"],["o","\n Page program is on going, please wait.... \n   "],["o","\nPage program (Addr=), time =  usec. ( < 3 ms )"],["o","\n Data vefiry fail.(SPI=, Key-in=) ****"],["i","pause"]]},"3":{"key":"3","steps":[["o","\n Please erase before program !!!\n   "],["i","confirm"],["o","\n (end->0) How many pages to program  ? (All chip=  pages) (ex: 00 + enter) :  \n "],["i","dec"],["o","\n Show per page program time? (default=yes)(ex: enter=yes, number(1~F)=NO) :   "],["i","hex"],["o","\n To use time-out(bypass 05/SR) ? (default=no) (ex: enter=no,  3 = 3ms) :   "],["i","dec"],["o","\n"],["o","\n"],["i","confirm"],["o","\n"],["o","\n"],["i","pause"]]},"4":{"key":"4","steps":[["o","\n Please erase before program !!!\n   "],["i","confirm"],["o","\n Input START-program address ? (Max=  ) (ex: 010000 + enter) :   "],["i","hex"],["o","\n Input STOP-program address ? (Max=  ) (ex: 010000 + enter) :   "],["i","hex"],["o","\n Select data from  (1) user key-in, (2) SDRAM :   "],["i","select"],["o","\n Input data pattern(共4碼) (ex: 55AA + enter) :   "],["i","hex"],["o","\n Show per page program time? (default=yes)(ex: enter=yes, number(1~F)=NO) :   "],["i","hex"],["o","\n To use time-out(bypass 05/SR) ? (default=no) (ex: enter=no,  3 = 3ms) :   "],["i","dec"],["o","\n Verify data after each page program? (default=no) (ex: enter=no, 2=yes) :   "],["i","hex"],["o","\n Page-by-page pgm from  to  with  pattern.\n   "],["o","\n Page-by-page pgm from  to  with SDRAM pattern.\n   "],["o","\n + this is >=256Mb and 使用4-byte mode"],["o","\n + this is >=256Mb and 不使用4-byte mode"],["o","\n + Verify each page after program"],["i","confirm"],["o","\n --- enter 4 byte mode\t---"],["o","\n (Start->Stop) program (Addr=), t=  us. (< 3 ms)"],["o","\n Verify fail.(Addr=, SPI=, Key-in=) ***"],["o","\n --- exit 4 byte mode\t---"],["i","pause"]]},"5":{"key":"5","steps":[["o","\n Input Security-register Address (ex: 001000 + enter) :   "],["i","hex"],["o","\n -------------Security data---------------------------\n"],["o","\n"],["o","\n"],["o"," : "],["o","  "],["o","\n -----------------------------------------------------"],["o","\n Security Page sum = , (all page FF should be = )"],["o","\n Security-register erase ?(y=erase, n=準備Program)"],["i","confirm"],["o","\n Security-register Erase is on going, please wait ...\n"],["o","\n\n Security() erase ok, time =  msec."],["o","\n Security() sum = , (all FF should be = )"],["o","\n Input Secsi Address (ex: 001000 + enter) : "],["i","hex"],["o","\n How many bytes to program(Max=256=default) (ex: 256 + enter) : "],["i","dec"],["o","\n Please select data from  (1) user key-in, (2) SDRAM : "],["i","select"],["o","\n Please input data pattern (ex: 55AA + enter) : "],["i","hex"],["o","\n *** To use SDRAM data can not be from Odd address() ***"],["o","\n Please Re-input Address (ex: 001000 + enter) :   "],["i","hex"],["o","\n program  bytes to Secsi-Addr() with data()"],["o","\n program  bytes to Secsi-Addr() with data from SDRAM"],["i","confirm"],["o","\n -------------Security data---------------------------\n"],["o","\n"],["o","\n"],["o"," : "],["o","  "],["o","\n -----------------------------------------------------"],["o","\n Security Page sum = , (all page FF should be = )"],["o","\n Security program ok(Addr=), time =  usec"],["i","pause"]]},"6":{"key":"6","steps":[["o","\n Please input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n How many bytes to Quad-program(Max=256=預設)(ex:256+enter): "],["i","dec"],["o","\n Please select data from  (1) user key-in, (2) SDRAM : "],["i","select"],["o","\n Please input data pattern (ex: 55AA + enter) : "],["i","hex"],["o","\n *** To use SDRAM data can not be from Odd address() ***"],["o","\n Please Re-input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n Quad program  bytes to Addr() with data()"],["o","\n Quad program  bytes to Addr() with data from SDRAM"],["i","confirm"],["o","\n -----------------------------------------------------\n"],["o","\n"],["o","\n"],["o"," : "],["o","  "],["o","\n -----------------------------------------------------"],["o","\n Page checksum = , (all page FF = )"],["o","\n Quad-pgm  bytes to (Addr=), time =  usec. (<3 ms )"],["i","pause"]]},"7":{"key":"7","steps":[["o","\n Please erase before program (請先自行erase flash) !!!\n "],["i","confirm"],["o","\n Please select data from  (1) user key-in, (2) SDRAM : "],["i","select"],["o","\n Input data pattern(共4碼) (ex: 55AA + enter) : "],["i","hex"],["o","\n How many pages to Quad-program? (All chip=  pages)(ex:3+enter): "],["i","dec"],["o","\n Show page program time? (預設=秀時間)(ex: enter=預設, number(1~F)=NO) : "],["i","hex"],["o","\n Use time-out(bypass 05/SR)? (預設=不使用time-out) (ex: enter=預設, 3=3ms) : "],["i","dec"],["o","\n Quad-Program  pages with 05/SR-polling"],["o","\n Quad-Program  pages with time-out=  ms"],["i","confirm"],["o","\n"],["o","\n"],["o","\n (Quad:32h) Page program is on going, wait.... \n "],["o","\nQuad-Page program (Addr=), time =  usec. (<3ms)"],["o","\n Data vefiry fail.(SPI=, Key-in=) ***"],["i","pause"]]},"8":{"key":"8","steps":[["o","\n *** 建議預先寫入All 00 ***"],["i","confirm"],["o","\n Select data from (1) user key-in(預設), (2) SDRAM : "],["i","select"],["o","\n Input data pattern (ex: 55AA + enter) : "],["i","hex"],["o","\n Input start block Address (預設=0):\n"],["i","hex"],["o","\n *** To use SDRAM data can not be from Odd address() ***"],["o","\n Please Re-input Address (ex: 001000 + enter) :   "],["i","hex"],["o","\n選擇測試Range: (1) 8Mb, (2) 16Mb, (3) 32Mb, (4) All :\n "],["i","select"],["o","\n 請輸入要比對值(預設=00),(ex:FF+enter):\n"],["i","hex"],["o","\nHow many cycles to test program-disturb(1by1)? (ex:10+enter):\n"],["i","dec"],["o","\n Use 預設CLK (10MHz)? (ex: enter=10MHz, 數字(1~F)=NO) \n"],["i","hex"],["o","\n (MHz) 64K Program disturb scan (1-by-1)"],["o","\n 要比對值=, run-cycle="],["o","\n Range= - "],["o","\n To program with key-in data()"],["o","\n To program with data from LP56-SDRAM"],["i","confirm"],["o","\n 64K Program disturb scan 1-by-1 is on going....\n"],["o","\n\n(mhi=) 64K() erase ok, time=  msec."],["o","\n Data vefiry fail.(SPI=, Key-in=) ***"],["i","pause"]]},"9":{"key":"9","steps":[["o","\n Please input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n How many bytes to Quad-program(Max=256=預設)(ex:256+enter): "],["i","dec"],["o","\n Please select data from  (1) user key-in, (2) SDRAM : "],["i","select"],["o","\n Please input data pattern (ex: 55AA + enter) : "],["i","hex"],["o","\n *** To use SDRAM data can not be from Odd address() ***"],["o","\n Please Re-input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n Quad program  bytes to Addr() with data()"],["o","\n Quad program  bytes to Addr() with data from SDRAM"],["i","confirm"],["o","\nPage program (Addr=), time =  usec. "],["o","\n -----------------------------------------------------\n"],["o","\n"],["o","\n"],["o"," : "],["o","  "],["o","\n -----------------------------------------------------"],["o","\n Page checksum = , (all page FF = )"],["o","\n Quad-pgm  bytes to (Addr=), time =  usec. (<3 ms )"],["i","pause"]]},"a":{"key":"a","steps":[["o","\n Please erase before QPI-program (請先自行erase flash) !!!\n "],["i","confirm"],["o","\n Please select data from  (1) user key-in, (2) SDRAM : "],["i","select"],["o","\n Input data pattern(共4碼) (ex: 55AA + enter) : "],["i","hex"],["o","\n How many pages to program ? (All chip=  pages) (ex: 00+enter): "],["i","dec"],["o","\n Show QPI-page program time? (預設=秀時間)(ex: enter=預設, number(1~F)=NO) : "],["i","hex"],["o","\n Use time-out(bypass 05/SR) ? (預設=不使用time-out) (ex:enter=預設,3= 3ms) : "],["i","dec"],["o","\n QPI-Program  pages with 05/SR-polling"],["o","\n QPI-Program  pages with time-out=  ms"],["i","confirm"],["o","\n"],["o","\n"],["o","\n QPI-Page program is on going, please wait.... \n   "],["o","\nQPI-Page program (Addr=), time =  usec. ( < 3 ms )"],["o","\n Data vefiry fail.(SPI=, Key-in=) ***"],["i","pause"]]},"b":{"key":"b","steps":[["o","\n (0)1 page pgm with user defined command differnt byte length "],["o","\n (1)1 page pgm with user defined command differnt byte length record each Tpp"],["i","dec"],["o","\n Input program command (ex: 02 + enter) : "],["i","hex"],["o","\n Input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n How many Address byte (ex: 3 + enter) : "],["i","dec"],["o","\n How many bytes to pgm at a time(256=default) (ex: 256 + enter) : "],["i","dec"],["o","\n How many times to pgm sequentially (ex: 1 + enter) : "],["i","dec"],["o","\n Select data from  (1) user key-in, (2) SDRAM : "],["i","select"],["o","\n Please input data pattern (ex: 55AA + enter) : "],["i","hex"],["o","\n *** To use SDRAM data can not be from Odd address() ***"],["o","\n Please Re-input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n  To program  bytes to Addr() with data()"],["o","\n  To program  bytes to Addr() with data from SDRAM"],["o","\n + Cycle(mh_temp2)=  "],["i","confirm"],["o","\n (03 read)-------------------------------------------------\n"],["o","\n"],["o","\n"],["o"," : "],["o","  "],["o","\n -----------------------------------------------------"],["o","\n Page checksum = , (all page FF = )"],["o","\n program  bytes to (Addr=), time =  usec. ( < 3 ms )"],["o","\n Input program command (ex: 02 + enter) : "],["i","hex"],["o","\n Input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n How many Address byte (ex: 3 + enter) : "],["i","dec"],["o","\n How many bytes to pgm at a time(256=default) (ex: 256 + enter) : "],["i","dec"],["o","\n How many times to pgm sequentially (ex: 1 + enter) : "],["i","dec"],["o","\n How many times to print information (ex: 1 + enter) : "],["i","dec"],["o","\n Show 1 page data information? (0=show, 1=不show def=0)"],["i","dec"],["o","\n Select data from  (1) user key-in, (2) SDRAM : "],["i","select"],["o","\n Please input data pattern (ex: 55AA + enter) : "],["i","hex"],["o","\n *** To use SDRAM data can not be from Odd address() ***"],["o","\n Please Re-input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n  To program  bytes to Addr() with data()"],["o","\n  To program  bytes to Addr() with data from SDRAM"],["o","\n + Cycle(mh_temp2)=  "],["o","\n  times cycling print information"],["i","confirm"],["o","\n (03 read)-------------------------------------------------\n"],["o","\n"],["o","\n"],["o"," : "],["o","  "],["o","\n -----------------------------------------------------"],["o","\n Page checksum = , (all page FF = )"],["o","\n i= program  bytes to (Addr=), time =  usec. ( < 3 ms )"],["i","pause"]]},"c":{"key":"c","steps":[["o","\n Input Addr(4-byte) (ex: 00001000 + enter) :   "],["i","hex"],["o","\n How many bytes to Quad-program(Max=256=預設)(ex:256+enter): "],["i","dec"],["o","\n Please select data from  (1) user key-in, (2) SDRAM : "],["i","select"],["o","\n Please input data pattern (ex: 55AA + enter) : "],["i","hex"],["o","\n *** To use SDRAM data can not be from Odd address() ***"],["o","\n Please Re-input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n Quad program  bytes to Addr() with data()"],["o","\n Quad program  bytes to Addr() with data from SDRAM"],["i","confirm"],["o","\n Quad-pgm  bytes to (Addr=), time =  usec. (<3 ms )"],["i","pause"]]}}}},"4":{"key":"4","steps":[["o","\n選擇CLK: (0) 100MHz, (1) 50MHz, (2) 33MHz, (3) 25MHz, (4)自定頻率:\n "],["o","\n選擇CLK: (1) 75MHz, (2) 25MHz, (3) 3 MHz, (4)自定頻率 : \n "],["i","select"],["o","\n Your choice = 100 MHz  \n"],["o","\n *** 使用100MHz, 須設定Vcc大於2V *** \n"],["i","confirm"],["o","\n Your choice = 50 MHz  \n"],["o","\n Your choice = 75 MHz  \n"],["i","confirm"],["o","\n Your choice = 33 MHz  \n"],["o","\n Your choice = 25 MHz  \n"],["i","confirm"],["o","\n Your choice = 25 MHz  \n"],["o","\n Your choice = 3 MHz  \n"],["i","confirm"],["o","\n Input CLK divider (100MHz/(N+1)), N=0,1,2,3..) (ex:(4MHz: N=24) 24 + enter) :   \n "],["o","\n Input CLK divider (75MHz/(N+1)), N=0,1,2,3..) (ex:(38MHz: N=1) 1 + enter) :   \n "],["i","dec"],["o","\n You set CLK=  MHz. \n"],["o","\n You set CLK=  MHz. \n"],["i","confirm"],["i","pause"]]},"5":{"key":"5","steps":[["o","\n To use 預設 CLK (10MHz) ? (ex: enter = 10MHz, number(1~F)=NO) \n "],["i","hex"],["o","\n 是否要降頻run erase? 預設25MHz(ex: enter=是; 數字1~F=否): "],["i","hex"],["o","\nSelect (1)不預先寫入Data(預設), (2)要預先寫入Data: \n "],["i","select"],["o","\n Please select data from  (1) user key-in, (2) SDRAM :   "],["i","select"],["o","\n Input data pattern(共4碼) (ex: 55AA + enter) :   "],["i","hex"],["o","\n How many pages to program ? (All chip=  pages) (ex: 00 + enter) :   "],["o","\n Show page program time? (預設=秀時間)(ex: enter=預設, number(1~F)=NO) :   "],["o","\n Use time-out(bypass 05/SR) ? (預設=不使用time-out) (ex: enter=預設,  3 = 3ms) :   "],["o","\n Program  pages with 05/SR-polling"],["o","\n Program  pages with time-out=  ms"],["i","confirm"],["o","\n"],["o","\n"],["o","\n Page program is on going, please wait.... \n   "],["o","\n Page program (Addr=), time =  usec. ( < 3 ms )"],["o","\n (依序)Chip checksum= , (all FF should be = )"],["o","\n"],["i","pause"]]},"6":{"key":"6","steps":[["o","\n Please select:  "],["o","\n(1) Write SR1 only    (只寫一組)           :    "],["o","\n(2) Write SR1 and SR2 (兩組都寫)(by 06/50) :    "],["o","\n(3) Write SR3         (只寫一組)           :    "],["o","\n(4) Just send 0xFF    (只做Reset)          :    "],["o","\n(5) Write/Read EAR    (by C5/C8)           :    "],["o","\n(6) Read EAR          (by C8   )           :    "],["o","\n(7) Just send 6699    (Reset)              :    "],["o","\n(8) Read/Write 一組SR (自設command)        :    "],["o","\n(9) Read/Write ECC                   :    "],["o","\n(A) Write SR2 only    (只寫一組)           :    "],["o","\n(B) Global Lock/Unlock (98h)               :    "],["o","\n(C) Auto Range Protect (CMP optional)      :    "],["o","\n(D) Range Protection (WPS/CMP/BP optional)      :    "],["o","\n"],["i","select"],["o","\n Please input SR1 (ex: 04 + enter) : "],["i","hex"],["o","\n After Write SR :(0)05 polling(def)  "],["o","\n                 (1)wait time+斷電 : "],["i","dec"],["o","\n Input wait time(us) (ex: 10+enter): "],["i","dec"],["o","\n\n You input SR1 =  "],["o","\n + After Write SR : 05 polling(def)"],["o","\n + After Write SR : wait time  us + 斷電"],["i","confirm"],["o","\n\n Write SR1-only ok, t= msec.(< 10 ms)(t=1.8us X )"],["o","\n\n Write SR1-only ok, t= usec."],["o","\n\n Write SR1-only, wait time  us + power down."],["i","pause"]]},"7":{"key":"7","steps":[["o","\n Please select:  "],["o","\n(1) Read single page and cksum(0B/03/13):"],["o","\n(2) Read block(64K) checksum 1 by 1   :  "],["o","\n(3) Read sector(4K) checksum 1 by 1   : *"],["o","\n(4) Read Chip checksum                :  "],["o","\n(5) Read all Chip to SDRAM(0B/03)(依序): "],["o","\n(6) DTR Read page/chip and cksum(0D)  :  "],["o","\n(7) Read SFDP (5A)                    :  "],["o","\n(8) 1-cmd + addr(0~4)+ read (萬用程式):  "],["o","\n(9) Any single command (ex:B9)        :  "],["o","\n(a) 1-cmd + 1-byte read               :  "],["o","\n(b) 4-byte Read single page(0C)       :  "],["o","\n(c) 與LP56 DRAM 比對(0B/03)(亂數)     : "],["o","\n(d) Calculate Checksum(9Dh)    :  "],["o","\n(e) Read Checksum (9Ch)        :  "],["o","\n"],["i","select"],["o","\n 要改變read command嗎(預設=0B)? (y) YES, (n) no : "],["i","confirm"],["o","\n Input read command (ex: 03 + enter) : "],["i","hex"],["o","\n 要送8 dummy? (y)Yes, (no) no : (default=no)"],["i","confirm"],["o","\n\n Read-command =  "],["o","\n 發送8 dummy"],["o","\n Input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n\n You input Address =  "],["o","\nInput spisize (預設256 for 4B mode)(1 for 3B mode)(ex:256+enter) : "],["i","dec"],["o","\n\n You input spisize =  "],["i","confirm"],["o","\n -----------------------------------------------------\n"],["o","\n"],["o","\n"],["o"," : "],["o","  "],["o","\n -----------------------------------------------------\n"],["o","\n Page sum = , (all page FF should be = )"],["i","pause"]]},"8":{"key":"8","steps":[["o","\n To use 預設 CLK (10MHz) ? (ex: enter = 10MHz, number(1~F)=NO) \n "],["i","hex"],["o","\n 是否要降頻run cycling? 預設25MHz(ex: enter=是; 數字1~F=否): "],["i","hex"],["o","\n Please select:  "],["o","\n(1) Block(64K) erase+ pgm(CB/CBB) cycling wi/LP56-RAM(3B/4B): "],["o","\n(2) sector(4K) erase+ pgm(CB/CBB) cycling wi/LP56-RAM(3B/4B): "],["o","\n(3) Read chip-checksum cycling (by 0B / 03): "],["o","\n(4) Read chip-checksum cycling (by user defined-cmd): *   "],["o","\n(5) chip-erase/program cycling :  "],["o","\n(6) 1-Page-program cycling / 2-page pgm cycling(宏益) :   "],["o","\n(7) QPI-0C cycling (只在Wrap Length內cycling) :   "],["o","\n(8) Parallel自選sec(128K) erase+program CB/CBB cycling+ Vt: "],["o","\n(9) Random length program (whole-chip) cycling :  "],["o","\n(a) Parallel-256Mb, Read chip-checksum cycling (by 0Bh):    "],["o","\n(b) UID + Power-ON-OFF cycling(宏益) :   "],["o","\n(c) Block(32K) erase+ pgm(CB/CBB) cycling wi/LP56-RAM(3B/4B): "],["o","\n(d) Write SR1 cycling 0x00->0xFC "],["o","\n"],["i","select"],["o","\n How many cycles to erase-program ?  (ex: 100 + enter) :   "],["i","dec"],["o","\n"],["o","\n"],["o","\n 輸入欲cycling的Block位址 (ex:+enter; 數字1~F=Exit)(enter=自動加Addr) : \n "],["o","\n 輸入欲cycling的Block位址 (ex:+enter; 數字1~F=Exit)(enter=自動加Addr) : \n "],["i","hex"],["o","\n your input Block位址 = "],["o","\n Please input Block-Address ? (ex: 010000 + enter) :   "],["i","hex"],["o","\n How many cycles to Show time (default=1) ?  (ex: 100 + enter) :   "],["i","dec"],["o","\n Select (1)要加做program, (2)不加做program, (default=1) :   "],["i","dec"],["o","\n Select (1)要加做Reverse-program, (2)不加做Reverse-program, (default=2) : "],["i","dec"],["o","\n Select (1)遇fail就跳出(預設), (2)遇fail不跳出 : "],["i","dec"],["o","\n Select:"],["o","\n (1) erase 1 block then program 1 block:"],["o","\n (2) 先erase所有指定的block, 再program所有指定的block:"],["o","\n "],["i","dec"],["o","\n Select:"],["o","\n (1)不檢查非cycling block是否0變1(預設):"],["o","\n (2)要檢查非cycling block是否0變1      :"],["o","\n "],["i","dec"],["o","\n"],["o","\n (MHz)To erase-program cycle= "],["o","\n +every  cycle to show time "],["o","\n +要加做program (ex: checkboard) "],["o","\n +不加做program "],["o","\n +要加做Reverse-program (ex: checkboard-bar) "],["o","\n +不加做Reverse-program "],["o","\n +遇fail就跳出 "],["o","\n +遇fail不跳出 "],["o","\n +以下為欲cycling 的 Block Address:"],["o","\n Address  =  "],["o","\n +不檢查非cycling block是否0變1"],["o","\n +要檢查非cycling block是否0變1"],["o","\n +使用 4-byte mode"],["o","\n +使用 3-byte mode"],["i","confirm"],["o","\n 64K-Erase is on going ....."],["o","\n j=, Block erase OK (Addr=), t=  msec. "],["o","\n j=, Block erase OK (Addr=), t=  msec. "],["o","\n j=, block(), checksum = , (all FF should= ) ****"],["o","\n j=, block(), checksum = , (all FF should= ) ****"],["o","\n 按any Key繼續cycling "],["i","pause"]]},"9":{"key":"9","steps":[["o","\n Please select:  "],["o","\n(1) (BB) Dual I/O read single page and checksum : "],["o","\n(2) (3B) Dual read single page and checksum : "],["o","\n(3) (BD) (DTR) Dual read single page and checksum : "],["o","\n(4) (3B) Dual read all Chip to SDRAM : "],["i","select"],["o","\n Please input Address (ex: 001000 + enter) :   "],["i","hex"],["o","\n\n You input Address =  "],["o","\n Duad I/O read (BB) :"],["o","\n -----------------------------------------------------\n"],["o","\n"],["o","\n"],["o"," : "],["o","  "],["o","\n -----------------------------------------------------\n"],["o","\n (BB) Page checksum = , (all FF should be = )"],["i","pause"]]},"a":{"key":"a","steps":[["o","\n Please select:  "],["o","\n(1) Vcc scan for Erase  :     "],["o","\n(2) Vcc scan for Program (incleded 64K-erase)  : *    "],["o","\n(3) Vcc scan for Read ID  :     "],["o","\n(4) Vcc scan for Read chip checksum  :  "],["o","\n"],["i","select"],["o","\n Please select:  "],["o","\n(1) Vcc scan for Chip Erase  :     "],["o","\n(2) Vcc scan for single 64K-Erase  :     "],["o","\n(3) Vcc scan for single 32K-Erase  :     "],["o","\n(4) Vcc scan for single  4K-Erase  :     "],["o","\n(5) Vcc scan for 64K-Erase 1-by-1  :     "],["o","\n(6) Vcc scan for 32K-Erase 1-by-1  :     "],["o","\n(7) Vcc scan for  4K-Erase 1-by-1  :     "],["o","\n"],["i","select"],["o","\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],["i","dec"],["o","\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],["i","dec"],["o","\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],["i","dec"],["o","\n\n Chip erase with Vcc (x10mV) from  to , step= "],["i","confirm"],["o","\n Erase is on going, please wait ...\n"],["o","\n Vcc=, Chip erase ok, time =  msec."],["o","\n Vcc=, Chip erase ok, time =  msec."],["o","\n Input 64K block address (default=0) (ex: 010000 + enter) :   "],["i","hex"],["o","\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],["i","dec"],["o","\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],["i","dec"],["o","\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],["i","dec"],["o","\n\n 64K block() erase with Vcc (x10mV) from  to , step= "],["i","confirm"],["o","\n Erase is on going, please wait ...\n"],["o","\n Vcc=, 64K block() erase ok, time =  msec."],["o","\n Vcc=, 64K block() checksum = , (all FF should be = ) ********"],["o","\n Vcc=, 64K block() erase ok, time =  msec."],["o","\n Vcc=, 64K block() checksum = , (all FF should be = ) ********"],["o","\n Input 32K half address (default=0) (ex: 008000 + enter) :   "],["i","hex"],["o","\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],["i","dec"],["o","\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],["i","dec"],["o","\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],["i","dec"],["o","\n\n 32K half() erase with Vcc (x10mV) from  to , step= "],["i","confirm"],["o","\n Erase is on going, please wait ...\n"],["o","\n Vcc=, 32K half() erase ok, time =  msec."],["o","\n Vcc=, 32K half() checksum = , (all FF should be = )"],["o","\n Vcc=, 32K half() erase ok, time =  msec."],["o","\n Vcc=, 32K half() checksum = , (all FF should be = ) ********"],["o","\n Input 4K sector address (default=0) (ex: 001000 + enter) :   "],["i","hex"],["o","\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],["i","dec"],["o","\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],["i","dec"],["o","\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],["i","dec"],["o","\n\n 4K sector() erase with Vcc (x10mV) from  to , step= "],["i","confirm"],["o","\n Erase is on going, please wait ...\n"],["o","\n Vcc=, 4K sector() erase ok, time =  msec."],["o","\n Vcc=, 4K sector() checksum = , (all FF should be = ) ********"],["o","\n Vcc=, 4K sector() erase ok, time =  msec."],["o","\n Vcc=, 4K sector() checksum = , (all FF should be = ) ********"],["o","\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],["i","dec"],["o","\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],["i","dec"],["o","\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],["i","dec"],["o","\n\n 64K erase 1-by-1 with Vcc (x10mV) from  to , step= "],["i","confirm"],["o","\n Erase is on going, please wait ...\n"],["o","\n Vcc=, 64K block() erase ok, time =  msec."],["o","\n Vcc=, 64K block() checksum = , (all FF should be = ) ********"],["o","\n Vcc=, 64K block() erase ok, time =  msec."],["o","\n Vcc=, 64K block() checksum = , (all FF should be = ) ********"],["o","\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],["i","dec"],["o","\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],["i","dec"],["o","\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],["i","dec"],["o","\n\n 32K erase 1-by-1 with Vcc (x10mV) from  to , step= "],["i","confirm"],["o","\n Erase is on going, please wait ...\n"],["o","\n Vcc=, 32K half() erase ok, time =  msec."],["o","\n Vcc=, 32K half() checksum = , (all FF should be = ) ********"],["o","\n Vcc=, 32K half() erase ok, time =  msec."],["o","\n Vcc=, 32K half() checksum = , (all FF should be = ) ********"],["o","\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],["i","dec"],["o","\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],["i","dec"],["o","\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],["i","dec"],["o","\n\n 4K erase 1-by-1 with Vcc (x10mV) from  to , step= "],["i","confirm"],["o","\n Erase is on going, please wait ...\n"],["o","\n Vcc=, 4K sector() erase ok, time =  msec."],["o","\n Vcc=, 4K sector() checksum = , (all FF should be = ) ********"],["o","\n Vcc=, 4K sector() erase ok, time =  msec."],["o","\n Vcc=, 4K sector() checksum = , (all FF should be = ) ********"],["o","\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],["i","dec"],["o","\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],["i","dec"],["o","\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],["i","dec"],["o","\n\n Read ID with Vcc (x10mV) from  to , step= "],["i","confirm"],["o","\n Read ID is on going, please wait ...\n"],["o","\n Vcc=, (90) MID = , DID = "],["o","\n Vcc=, (9F) MID = , JID = "],["o","\n Vcc=, (AB) DID = "],["o","\n ----------------------------"],["o","\n Dual read:"],["o","\n Vcc=, (92) MID = , DID = "],["o","\n ----------------------------"],["o","\n Qual read:"],["o","\n Vcc=, (94) MID = , DID = "],["o","\n Vcc=, (90) MID = , DID = "],["o","\n Vcc=, (9F) MID = , JID = "],["o","\n Vcc=, (AB) DID = "],["o","\n ----------------------------"],["o","\n Dual read:"],["o","\n Vcc=, (92) MID = , DID = "],["o","\n ----------------------------"],["o","\n Qual read:"],["o","\n Vcc=, (94) MID = , DID = "],["o","\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],["i","dec"],["o","\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],["i","dec"],["o","\n Input Vcc step ? (x10mV)(default=0.3V) (ex: (0.3V=) 30 + enter) :   "],["i","dec"],["o","\nSelect read command: (1) 03h, (2) 0Bh, (3) 3Bh :  "],["i","select"],["o","\n\n (03)Read chip cksum with Vcc from  to , step=(x10mV) "],["o","\n\n (0B)Read chip cksum with Vcc from  to , step=(x10mV) "],["o","\n\n (3B)Read chip cksum with Vcc from  to , step=(x10mV) "],["i","confirm"],["o","\n Read chip checksum is on going, please wait ...\n"],["o","\n(03)(Vcc=) Chip cksum= , (all FF= ) ****"],["o","\n(03)(Vcc=) Chip cksum= , (all FF= ) "],["o","\n(0B)(Vcc=) Chip cksum= , (all FF= ) ****"],["o","\n(0B)(Vcc=) Chip cksum= , (all FF= ) "],["o","\n(3B)(Vcc=) Chip cksum= , (all FF= ) ****"],["o","\n(3B)(Vcc=) Chip cksum= , (all FF= ) "],["o","\n(03)(Vcc=) Chip cksum= , (all FF= ) ****"],["o","\n(03)(Vcc=) Chip cksum= , (all FF= ) "],["o","\n(0B)(Vcc=) Chip cksum= , (all FF= ) ****"],["o","\n(0B)(Vcc=) Chip cksum= , (all FF= ) "],["o","\n(3B)(Vcc=) Chip cksum= , (all FF= ) ****"],["o","\n(3B)(Vcc=) Chip cksum= , (all FF= ) "],["i","pause"]]},"b":{"key":"b","steps":[["o","\n Please select:  "],["o","\n(0) (set wrap)77                                     :"],["o","\n(1) (Quad-I/O)EB: Read single page                   :"],["o","\n(2) (Quad-I/O)EB: Verify whole chip with SDRAM/Key-in:"],["o","\n(3) (Quad) 6B: Read single page                      :"],["o","\n(4) (DTR)(Quad-I/O)ED: Read single page              :"],["o","\n(5) (0x94): Quad Read ID                             :"],["o","\n(6) (Quad-I/O)EB: Read all Chip to SDRAM             :"],["o","\n(7) (Quad-I/O)EB: Cycling with SDRAM/Key-in          :"],["o","\n(8) (Quad-I/O)EB: Cycling with address=2             :"],["o","\n(9) (Quad-I/O)EB: Fast Read Quad with read bypass mode"],["o","\n(a) (Quad-I/O)EB: Fast Read Quad with read bypass mode with WEAR"],["o","\n"],["i","select"],["o","\n請輸入set burst with wrap cmd (ex:77 + enter) :   "],["i","hex"],["o","\n\n You input wrap cmd =  "],["o","\n請輸入dummy address (ex:112233 + enter) :   "],["i","hex"],["o","\n\n You input dummy Addr =  "],["o","\n選擇Wrap bits(W7-0):"],["o","\n(1) (W7-0)=0x00 (wrap 8  bytes)   :"],["o","\n(2) (W7-0)=0x20 (wrap 16 bytes)   :"],["o","\n(3) (W7-0)=0x40 (wrap 32 bytes)   :"],["o","\n(4) (W7-0)=0x60 (wrap 64 bytes)   :"],["o","\n(5) (W7-0)=0x01 (exit wrap around):"],["o","\n(6) (W7-0)=自行輸入               :"],["i","select"],["o","\n請輸入(W7-0) (ex:10 + enter) :   "],["i","hex"],["o","\n\n You input (W7-0) =  "],["o","\n You will send:   "],["o","\n Wrap cmd   = "],["o","\n Dummy addr = "],["o","\n (W7-0)     = "],["o","\n Wrap byte  = "],["i","confirm"],["o","\n Send  +  +  ok."],["i","pause"]]},"c":{"key":"c","steps":[["o","\n選擇 system-CLK delay: (1) 2-CK, (2) 3-CK, (3) 4-CK, (4)自定delay:\n "],["i","select"],["o","\n Your choice = delay 2-CK  \n"],["i","confirm"],["o","\n Your choice = delay 3-CK  \n"],["i","confirm"],["o","\n Your choice = delay 4-CK  \n"],["i","confirm"],["o","\n Input delay CLK  (ex: 5 + enter) :   \n "],["i","hex"],["o","\n You set delay CLK=  CK. \n"],["i","confirm"],["i","pause"]]},"d":{"key":"d","steps":[["o","\n Please select:  "],["o","\n(0) QPI-90-9F: Read ID, SR  :    "],["o","\n(1) QPI-0B: Read single page:    "],["o","\n(2) QPI-0C: Read single page:    "],["o","\n(3) QPI-0C: Verify whole chip with SDRAM/Key-in:     "],["o","\n(4) QPI-0B: Verify whole chip with SDRAM/Key-in:     "],["o","\n(5) (DTR) QPI-ED: Read single page:    "],["o","\n(6) QPI-FF: send 0x38 + 0xFF:    "],["o","\n(7) QPI+66-99+(SPI/QPI)ID for Peinan           :    "],["o","\n(8) QPI+66+QPI_ID+99+(SPI/QPI)ID for Peinan    :    "],["o","\n(9) QPI+06+C5+01+05 read data    :    "],["o","\n"],["i","select"],["o","\n (QPI-90) MID = , DID = "],["o","\n(QPI-9F) MID = , JID = "],["o","\n (QPI-AB) DID = "],["o","\n (QPI-05) SR1 = "],["o","\n (QPI-35) SR2 = "],["o","\n (QPI-94) MID = , DID = "],["o","\n 額外的 0 ~ 15 bytes:  "],["o"," "],["o","\n 額外的16 ~ 31 bytes:  "],["o"," "],["o","\n"],["i","pause"]]},"e":{"key":"e","steps":[["o","\n Please input Address (ex: 001000 + enter) :   "],["i","hex"],["o","\n -----------------------------------------------------\n"],["o","\n LP-56 SDRAM data :\n"],["o","\n"],["o","  "],["o","\n -----------------------------------------------------\n"],["i","pause"]]},"f":{"key":"f","steps":[["o","\n**** 請搭配使用POR測試板 ******"],["o","\n*                             *"],["o","\n*    J4 connect to down       *"],["o","\n*    S2-8 set to OFF          *"],["o","\n*    J3 connect to VD         *"],["o","\n*    J2 connect to VD         *"],["o","\n*******************************\n"],["o","\n Please select:  "],["o","\n(1) tVSL measure (POR to 1st 05h):  "],["o","\n(2) tVSL measure (POR to 1st-read (0Bh)):  "],["o","\n(3) tVSL measure (POR to 1st 06+05h):  "],["o","\n(4) tVSL measure (POR to 1st-write (06+02+05+0Bh)):  "],["o","\n(5) Vcc dip for POR (1V->3.3V) : "],["o","\n(6) Vcc slew for POR (36ns->23ms) : "],["o","\n(7) Erase power-down scan : "],["o","\n(8) Program power-down scan(Hitachi): "],["o","\n(9) Write-SR power-down scan : "],["o","\n(A) 手動單點測試POR : "],["o","\n(B) Low Vcc protection Margin(Hitachi): "],["o","\n(C) 32K-erase power-dip scan 1by1 (CC01): "],["o","\n"],["i","select"],["o","\n Input start time (us)(預設=3us):\n"],["i","dec"],["o","\n Input stop time (us)(預設=20us):\n"],["i","dec"],["o","\n Use 預設CLK (10MHz)? (ex: enter=10MHz, 數字(1~F)=NO) \n "],["i","hex"],["o","\n 請輸入預期的SR值(預設=00),(ex:04+enter):\n"],["i","hex"],["o","\n (MHz) POR to 1st-read-SR (預期的SR值=)"],["i","confirm"],["o","\n tVSL measure (POR to 1st 05h) is on going\n"],["o","\n Turn ON flash Vcc ok"],["o","\n Turn OFF flash Vcc OK."],["o","\n set CS,CK,WP,DI,HD,DO as in-pin ok"],["o","\n Turn ON flash Vcc ok for 05"],["i","pause"]]},"g":{"key":"g","steps":[["o","\n FA special has been removed."],["i","pause"]]},"h":{"key":"h","steps":[["o","\n*** 0.13產品(GAGxxx)不可於LP56進Test-mode,會燒毀 ***\n"],["o","\n 要繼續嗎 ?\n"],["i","confirm"],["o","\n (請用小寫字母) Please select:  "],["o","\n (0) add cmd before chip erase+ poll/timeout[楊金綾] : "],["o","\n (1) Measure main cell current [編號:23]      : "],["o","\n (2) Leaky Row/all-Row current [編號:20/21]   : "],["o","\n (3) BC, Skip Pre-P,ER,Pos-P,Re-F  [編號:39]      : "],["o","\n (4) Option bits recall+read   [編號:10.1/9]  : "],["o","\n (5) Option bits Erase+Program [編號:6/7]     : "],["o","\n (6) Status Register Unlock    [編號:56]      : "],["o","\n (7) Stress Mode               [編號:52/26/27]: "],["o","\n (8) One pulse Mode(Array/RBLK)[編號:15/19]   : "],["o","\n (9) CAM bit read/erase/pgm    [編號:35/31/32]: "],["o","\n (a) Single BL leaky Column    [編號:47/51]   : "],["o","\n (b) EV/PV (Verify Opt cell)   [編號:11 ]     : "],["o","\n (c) Recall all Fuse(不斷電)   [編號:10 ]     : "],["o","\n (d) Measure VPPI              [編號:24/25]   : "],["o","\n (e) 1pulse bit-by-bit post PGM[編號:18.1]   : "],["o","\n (f) [F58S] Opt bits Read+Erase+Pgm  [編號:6/7(巫育麟)] : "],["o","\n (g) [F58S] Option bits Erase        [編號:6/7(巫育麟)] : "],["o","\n (h) [F58S] CAM bit read/erase/pgm   [編號:35/31/32(巫育麟)]: "],["o","\n (i) Verify OPT[31:0] & SR           [編號:11(瑋琦)]: "],["o","\n (j) [1A,8C] Opt bits Read       [編號:10/7.3(彭姊)] : "],["o","\n (k) [1A,8C] Option bits Erase   [編號:10/7.3(彭姊)] : "],["o","\n (l) [1A,8C] Option bits Program [編號:10/7.3(彭姊)] : "],["o","\n (m) [EAG077 stack die] Option bits Erase+Program    : "],["o","\n (n) [AAG095 IBLK] Option bits Erase+Program    : "],["o","\n"],["i","select"],["o","\n add command before chip erase ? (ex: CC) (ex: 空白+enter= 不加cmd) : "],["i","hex"],["o","\n Use time-out(bypass 05/SR) ? (預設=不使用time-out) (ex:enter=預設,3= 3ms) : "],["i","dec"],["o","\n Chip erase with 05/SR-polling"],["o","\n Chip erase with time-out=  ms"],["o","\n 使用預設CLK (20MHz) ? (ex: enter = 20MHz, 數字(1~F)=NO) : "],["i","hex"],["o","\n (MHz) To add  before chip-erase "],["o","\n (MHz) No add cmd before chip-erase "],["i","confirm"],["o","\n"],["o","\n Chip Erase is on going, wait ...\n"],["o","\n chip erase ok, time =  msec."],["o","\n chip erase ok, time =  usec."],["o","\n mhi=, wait time =  ms X  =  ms, still not ready"],["i","pause"]]},"i":{"key":"i","steps":[["o","\nSelect (1)加入註解(add mark), (2)取消註解(remove mark): \n "],["i","select"],["o","\n Input your mark(最多30字元):"],["o","\n 取消註解(remove mark) OK"],["i","pause"]]},"j":{"key":"j","steps":[["o","\n Please select:  "],["o","\n(1) 58nm一次掃4個block(0-3) Vt       [提案:2012.7.13巫育麟-Run 100顆 Vt]: "],["o","\n(2) Skip mode+Vt一次掃2個block(自訂) [提案:2012.7.12游俊昇-Well觀察    ]: "],["o","\n(3) Leaky-ALL/Row for SMIC           [提案:2012.7.19邱彥儒-MAG041 Leak ]: "],["o","\n(4) Read/Erase/Program (whole chip)  [提案:2012.10.29彭月鶯-RAG039(64FW)]: "],["o","\n(5) For金綾: Option bits Erase+Program: "],["o","\n(6) For素惠: Option bits Erase+Program [Pegatron 3 byte issue]: "],["o","\n(7) Option bits recall+read [Auto]: "],["o","\n(8) WL to BL leakage stress [AAG079]: "],["o","\n(9) Narrow PGM Vt [F58S]: "],["o","\n(a) ECC bit read: "],["o","\n(b) EMMI [EAG077]: "],["o","\n(c) SR cycling: "],["o","\n(d) Canon 4sector cycling"],["o","\n(e) erase + 6699h"],["o","\n(f) (SPI)(DTR)EDh read one page"],["o","\n"],["i","select"],["o","\n SR cycling Start, it will re-write SR to 00/00/00 "],["o","\n SR1 need cycling? "],["i","confirm"],["o","\n Please key in SR1 cycling value: "],["i","dec"],["o","\n SR2 need cycling? "],["i","confirm"],["o","\n Please key in SR2 cycling value: "],["i","dec"],["o","\n SR3 need cycling? "],["o","\n Please key in SR3 cycling value: "],["i","dec"],["o","\n How many SR cycling? "],["i","dec"],["o","\n "],["i","confirm"],["i","pause"]]},"k":{"key":"k","steps":[["o","\n Please select:  "],["o","\n(1) 固定時間長度(R1 only) : "],["o","\n(2) 亂數時間長度(R2 only) : "],["o","\n(3) 固定R1 + 亂數R2       : "],["i","select"],["o","\n Input Relay1步階時間長度1(ms)(預設=100 ms=enter) (ex:200+enter) : \n "],["i","dec"],["o","\n Input Relay1步階時間長度2(ms)(預設=1000 ms=enter) (ex:200+enter) : \n "],["i","dec"],["o","\n Input Relay1步階時間間距(ms)(預設=100 ms=enter) (ex:200+enter) : \n "],["i","dec"],["o","\n Input Relay2起始時間長度(ms)(預設=1000 ms=enter) (ex:2000+enter) : \n "],["i","dec"],["o","\n Input Relay2結束時間長度(ms)(預設=5000 ms=enter) (ex:2000+enter) : \n "],["i","dec"],["o","\n Input Relay1步階時間長度1(ms)(預設=100 ms=enter) (ex:200+enter) : \n "],["i","dec"],["o","\n Input Relay1步階時間長度2(ms)(預設=1000 ms=enter) (ex:200+enter) : \n "],["i","dec"],["o","\n Input Relay1步階時間間距(ms)(預設=100 ms=enter) (ex:200+enter) : \n "],["i","dec"],["o","\n Input Relay2起始時間長度(ms)(預設=1000 ms=enter) (ex:2000+enter) : \n "],["i","dec"],["o","\n Input Relay2結束時間長度(ms)(預設=5000 ms=enter) (ex:2000+enter) : \n "],["i","dec"]]},"l":{"key":"l","steps":[["o","\n Input Die-ID [ex:0=die_0(C2-00h), 1=die_1(C2-01h)], 2=die_2(C2-02h), 3=die_3(C2-03h) : "],["i","hex"],["o","\n\n You choose die_0(C2-00h)"],["o","\n\n You choose die_1(C2-01h)"],["o","\n\n You choose die_2(C2-02h)"],["o","\n\n You choose die_3(C2-03h)"],["o","\n\n You choose unknow die ! (mh_c1=)"],["i","confirm"],["o","\n\n choose die_0(C2-00h) ok, time =  us"],["o","\n\n choose die_1(C2-01h) ok, time =  us"],["o","\n\n choose die_2(C2-02h) ok, time =  us"],["o","\n\n choose die_3(C2-03h) ok, time =  us"],["o","\n\n Unknow die(C2-h) ok, time =  us"],["i","pause"]]},"v":{"key":"v","steps":[["o","\n Auto EFA flow has been removed."],["i","pause"]]},"p":{"key":"p","steps":[["o","\n Check lot ID, X/Y and slow  "],["o","\n "],["o","\n\n Auto RMA Initial flow(skip VT)  "],["o","\n "],["o","\n Input stack die (ex: 0 + enter) : "],["o","\n Input stack die (1)Die-0, (2)Die-1, (3)Die-2, (4)Die-3: \n"],["i","dec"],["o","\n stack die= "],["o","\n Input RMA sample no. (ex: 0 + enter) : "],["i","dec"],["o","\n "],["o","\n ######################################## "],["o","\n The RMA sample#  testing will start... "],["o","\n ######################################## "],["i","confirm"],["o","\n"],["o","\n @BEGIN@"],["o","\n -----------------------------------------------------"],["o","\n (90) MID = , DID = "],["o","\n -----------------------------------------------------"],["o","\n Dual read:"],["o","\n (92) MID = , DID = "],["o","\n -----------------------------------------------------"],["o","\n Qual read:"],["o","\n @READMIDSR@"],["o","\n -----------------------------------------------------"],["o","\n (90) MID = , DID = , (92) MID = , DID = , (94) MID = , DID = "],["o","\n (9F) MID = , JID = "],["o","\n (05) SR1 = , (35) SR2 = , (15) SR3 = "],["o","\n -----------------------------------------------------"],["o","\n @READMIDSR_END@"],["o","\n"],["o","\n @READUID@"],["o","\n SPI UID(4B) :"],["o","\n @READSFDP@"],["o","\n SPI SFDP(5A) :"],["o","\n -----------------------------------------------------\n"],["o","\n"],["o","\n"],["o"," "],["o"," "],["o","\n -----------------------------------------------------"],["o","kk_value="],["o","\n UID[3]=(h), UID[4]=(h) )"],["o","\n -----------------------------------------------------"],["o","\n Lot ID: 00  Slot:   Location: (,),  "],["o","\n -----------------------------------------------------"],["o","\n --> ERROR !!! no product code "],["o","in to AAG095"],["o","in to FAG095"],["o","\n"],["o","\n @READOPTIONBITS@"],["o","\n Option bits : "],["o","\n -----------------------------------------------------"],["o","OPT_ADDR=0x"],["o","\n OPT1:    "],["o","\n OPT2:    "],["o","\n OPT3:    "],["o","\n IFR1:    "],["o","\n IFR2:    "],["o","\n IFR3:    "],["o","\n IFR4:    "],["o","\n UID1:    "],["o","\n UID2:    "],["o","\n OPT1: "],["o","\n OPT2: "],["o","\n IFR1: "],["o","\n IFR2: "],["o","\n IFR3: "],["o","\n IFR4: "],["o","\n UID1: "],["o","\n UID2: "],["o","   "],["o","\n OPT1: "],["o","\n OPT2: "],["o","\n OPT3: "],["o","\n IFR1: "],["o","\n IFR2: "],["o","\n IFR3: "],["o","\n UID1: "],["o","\n UID2: "],["o","   "],["o","\n OPT1: "],["o","\n OPT2: "],["o","\n OPT3: "],["o","\n IFR1: "],["o","\n IFR2: "],["o","\n IFR3: "],["o","\n UID1: "],["o","\n UID2: "],["o","   "],["o","\n Recall, TIFR0r, TIFR4r, TIFR3r: [31:24], [23:16], [15:8], [7:0]"],["o","\n -----------------------------------------------------------------"],["o","\n 1F,  ,  ,  :[OPT ]   "],["o","\n 1F,  ,CB,CA:[OPT2]   "],["o","\n 1F,E1,  ,  :[IFR1]   "],["o","\n 1F,E1,  ,CA:[IFR2]   "],["o","\n 1F,E1,CB,  :[IFR3]   "],["o","\n 1F,E1,CB,CA:[IFR4]   "],["o","\n 1F,  ,  ,CA:[UID1]   "],["o","\n 1F,  ,CB,  :[UID2]   "],["o","\n Recall, TIFR0r, TIFR4r, TIFR3r: [31:24], [23:16], [15:8], [7:0]"],["o","\n -----------------------------------------------------------------"],["o","\n 1F,  ,  ,  :[OPT1]   "],["o","\n 1F,  ,CB,CA:[OPT2]   "],["o","\n 1F,E1,  ,  :[OPT3]   "],["o","\n 1F,E1,  ,CA:[IFR1]   "],["o","\n 1F,E1,CB,  :[IFR2]   "],["o","\n 1F,E1,CB,CA:[IFR3]   "],["o","\n 1F,  ,  ,CA:[UID1]   "],["o","\n 1F,  ,CB,  :[UID2]   "],["o"," "],["o","1"],["o","0"],["o",", "],["o"," (, , , )"],["o","\n -----------------------------------------------------"],["o","\n"],["o","\n @REPAIRINFORMATIONR@"],["o","\n Repair information : "],["o","\n -----------------------------------------------------"],["o","\n CAM_Addr[], IO=, BL=0x("],["o","1"],["o","0"],["o","), ****** Repaired ******"],["o","\n -----------------------------------------------------"],["o","\n"],["o","\n @REPAIRINFORMATIONR@"],["o","\n Repair information : "],["o","\n -----------------------------------------------------"],["o","\n CAM_Addr[], IO=, BL=0x, ****** Repaired ******"],["o","\n CAM_Addr[], IO=, BL=0x, A8=, ****** Repaired ******"],["o","\n CAM_Addr[], IO=, BL=0x("],["o","1"],["o","0"],["o","), ****** Repaired ******"],["o","\n CAM_Addr[], IO=, BL=0x, ****** Repaired ******"],["o","\n CAM_Addr[], IO=, BL=0x, A8=, ****** Repaired ******"],["o","\n CAM_Addr[], IO=, BL=0x("],["o","1"],["o","0"],["o","), ****** Repaired ******"],["o","\n -----------------------------------------------------"],["o","\n"],["o","\n @REPAIRINFORMATIONR@"],["o","\n Repair information : "],["o","\n -----------------------------------------------------"],["o","\n CAM_Addr[], IO=, BL=0x, ****** Repaired ******"],["o","\n CAM_Addr[], IO=, BL=0x("],["o","1"],["o","0"],["o","), ****** Repaired ******"],["o","\n Addr=,[15..0]=[ "],["o","1"],["o","0"],["o"," , "],["o","1"],["o","0"],["o"," ](, )"],["o"," ****** Repaired ******"],["o","\n -----------------------------------------------------"],["o","\n -----------------------------------------------------------------"],["o","\n 1F,  ,  ,  ,CA: "],["o","\n 1F,  ,  ,CB,  : "],["o","\n 1F,  ,  ,CB,CA: "],["o","\n 1F,  ,E1,  ,  : "],["o","\n 1F,  ,E1,  ,CA: "],["o","\n 1F,1A,  ,  ,CA: "],["o","\n 1F,1A,  ,CB,  : "],["o","\n 1F,1A,  ,CB,CA: "],["o","\n 1F,1A,E1,  ,  : "],["o","\n 1F,1A,E1,  ,CA: "],["o"," "],["o","1"],["o","0"],["o",", "],["o"," (, , , )"],["o","\n"],["o","\n @REPAIRINFORMATIONR@"],["o","\n Repair information : "],["o","\n -----------------------------------------------------"],["o","\n CAM_Addr[], IO=, BL=0x, ****** Repaired ******"],["o","\n CAM_Addr[], IO=, BL=0x("],["o","1"],["o","0"],["o","), ****** Repaired ******"],["o","\n -----------------------------------------------------"],["o","\n CAM_count="],["o","\n RAA_CN="],["o","\n RAA_CN="],["o","\n Enable_CAMB="],["o","\n Enable_CAMB="],["o","\n ADD=, "],["o","\n ADD=, "],["o","\n ADD=, "],["o","\n"],["o","\n @REPAIRINFORMATIONR@"],["o","\n Repair information : "],["o","\n -----------------------------------------------------"],["o","\n CAM_Addr[], IO=, BL=0x, ****** Repaired ******"],["o","\n CAM_Addr[], IO=, BL=0x("],["o","1"],["o","0"],["o","), ****** Repaired ******"],["o","\n CAM_Addr[], IO=, BL=0x, ****** Repaired ******"],["o","\n CAM_Addr[], IO=, BL=0x("],["o","1"],["o","0"],["o","), ****** Repaired ******"],["o","\n -----------------------------------------------------"],["o","\n\n ***** Ref-cell gate voltage ( x 10mV) too high,  abort ! ******"],["i","pause"]]},"q":{"key":"q","steps":[["o","\n\n please select again \n\n"],["o","\n\n exit tool \n\n"],["i","confirm"]]},"t":{"key":"t","steps":[["o","\n Please select:  "],["o","\n  **********Induvial protection**********"],["o","\n(1) Individual Block/Sector Lock(36h)"],["o","\n(2) Individual Block/Sector Un-lock(39h)"],["o","\n(3) Read Volatile Block/Sector Lock Bit(3Dh)"],["o","\n(4) Global Block/Sector Lock(7Eh)"],["o","\n(5) Global Block/Sector Un-Lock(98h)"],["o","\n"],["o","\n  **********Advanced VL/NV**********"],["o","\n -----VOLATILE STATUS-----"],["o","\n(6) Set/Write Volatile Status Register(E1h)"],["o","\n(7) Read Volatile Status Register(E0h)"],["o","\n"],["o","\n -----NON-VOLATILE STATUS-----"],["o","\n(8) Clear non-Volatile Status Register(E4h)"],["o","\n(9) Set /Write non-Volatile Status Register(E3h)"],["o","\n(a) Read non-Volatile Status Register(E2h)"],["o","\n"],["o","\n **********Password mode**********"],["o","\n(b) Write Non-Volatile Lock Status Register(LR) (2Ch)"],["o","\n(c) Read Non-Volatile Lock Status Register(LR) (45h)"],["o","\n(d) Password read (27h)"],["o","\n(e) Password write (28h)"],["o","\n(f) Password unlock (29h)"],["o","\n"],["i","select"],["o","\n 要改變command嗎(預設=36h)? (y) YES, (n) no : "],["i","confirm"],["o","\n Input command (ex: 03 + enter) : "],["i","hex"],["o","\n\n command =  "],["o","\n Input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n\n You input Address =  "],["i","confirm"],["o","\n -----------------------------------------------------\n"],["o","\n Individual Block/Sector Lock was done"],["i","pause"]]},"x":{"key":"x","steps":[["o","\n Please select:  "],["o","\n(1) Read Buffer(83h)"],["o","\n(2) Write Buffer(82h)"],["o","\n(3) Load Buffer(8Bh)"],["o","\n(4) Program Buffer(8Ah)"],["o","\n(5) Clear Buffer(81h)"],["o","\n"],["i","select"],["o","\n 要改變read command嗎(預設=83)? (y) YES, (n) no : "],["i","confirm"],["o","\n Input read command (ex: 03 + enter) : "],["i","hex"],["o","\n\n Read-command =  "],["o","\n 發送8 dummy"],["o","\n Input Address (ex: 001000 + enter) : "],["i","hex"],["o","\n\n You input Address =  "],["o","\nInput spisize (預設256 for 4B mode)(1 for 3B mode)(ex:256+enter) : "],["i","dec"],["o","\n\n You input spisize =  "],["i","confirm"],["o","\n -----------------------------------------------------\n"],["o","\n"],["o","\n"],["o"," : "],["o","  "],["o","\n -----------------------------------------------------\n"],["o","\n Page sum = , (all page FF should be = )"],["i","pause"]]},"s":{"key":"s","steps":[["o","\n mh_t1="],["o","\n mh_t2="],["o","\n input yy (ex: 13 + enter) :   "],["i","dec"],["o","\n input mm (ex: 01 + enter) :   "],["i","dec"],["o","\n input dd (ex: 31 + enter) :   "],["i","dec"],["o","\n\n *** 此機台尚未註冊,請聯絡PN10 KEN *** "],["o","\n\n *** 此機台超過期限,請聯絡PN10 KEN *** "],["o","\n\n *** 此機台尚未註冊+超過期限,請聯絡PN10 KEN *** "],["o","\n\n *** 此為黑名單機台,請聯絡PN10 KEN *** "],["i","pause"]]},"z":{"key":"z","steps":[["o","\n\n"],["o","\n ########################################################\n"],["o","\n #   感謝下列好友不吝提出需求與指導,使本程式日益茁壯.   #\n"],["o","\n #   尚祈舊雨新知繼續提出需求與指導,感激不盡!           #\n"],["o","\n ########################################################\n"],["o","\n\n"],["o","\n PP14吳政修   PP14王宏益   PP14陳瑋琦   PP12呂忠融   PP12彭月鶯   PP13林志君\n"],["o","\n PP13連世璋   PP14廖志耀   PP13凌雲飛   PP10梁福榮   PP10鄧國士   PP13巫育麟\n"],["o","\n PP11游俊昇   PP11黃俊堯   PP11邱彥儒   PP11陳銘旭   PP11吳尚融   PP10王富滄\n"],["o","\n PM22蘇仁福                                                                 \n"],["o","\n PN10Ken      PN10林仕庭   PN10羅素惠   PN10羅燕松                          \n"],["o","\n Z220吳依亭   Z220費雯麗   Z220劉  鎮                                       \n"],["i","pause"]]}}}
+    offlineMenu.children.a.steps = [
+      ["o", "\n Please select: "],
+      ["o", "\n(1) Vcc scan for Erase  :     "],
+      ["o", "\n(2) Vcc scan for Program (incleded 64K-erase)  : *    "],
+      ["o", "\n(3) Vcc scan for Read ID  :     "],
+      ["o", "\n(4) Vcc scan for Read chip checksum  :  "],
+      ["o", "\n"],
+      ["i", "select"]
+    ];
+    offlineMenu.children.a.selectBranches = {
+      6: {
+        "1": {
+          key: "a.1",
+          steps: [
+            ["o", "\n Please select: "],
+            ["o", "\n(1) Vcc scan for Chip Erase  :     "],
+            ["o", "\n(2) Vcc scan for single 64K-Erase  :     "],
+            ["o", "\n(3) Vcc scan for single 32K-Erase  :     "],
+            ["o", "\n(4) Vcc scan for single  4K-Erase  :     "],
+            ["o", "\n(5) Vcc scan for 64K-Erase 1-by-1  :     "],
+            ["o", "\n(6) Vcc scan for 32K-Erase 1-by-1  :     "],
+            ["o", "\n(7) Vcc scan for  4K-Erase 1-by-1  :     "],
+            ["o", "\n"],
+            ["i", "select"]
+          ],
+          selectBranches: {
+            9: {
+              "1": {
+                key: "a.1.1",
+                steps: [
+                  ["o", "\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],
+                  ["i", "dec"],
+                  ["o", "\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],
+                  ["i", "dec"],
+                  ["o", "\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],
+                  ["i", "dec"],
+                  ["o", "\n Chip erase with Vcc (x10mV) from  to , step= "],
+                  ["i", "confirm"],
+                  ["o", "\n Erase is on going, please wait ...\n"],
+                  ["i", "pause"]
+                ]
               }
-            },
-            '5': { key: '5', label: 'read whole chip to SDRAM' },
-            '6': {
-              key: '6',
-              label: 'DTR Read single page and checksum',
-              children: {
-                '2': { key: '2', label: 'DTR: 依序 read cksum', inputPrompt: '輸入模擬 address' }
-              }
-            },
-            '7': { key: '7', label: 'Read SFDP and checksum' },
-            '8': { key: '8', label: '萬用程式 Read single page and checksum (03 + 1/2/3/4 addr byte)', inputPrompt: '輸入模擬 address byte 數' },
-            a: { key: 'a', label: '1cmd + 1byte read', inputPrompt: '輸入模擬 command' },
-            b: { key: 'b', label: 'Read single page 4-byte addr, 0C', inputPrompt: '輸入模擬 address' },
-            d: { key: 'd', label: 'Calculate Checksum(9Dh)' },
-            e: { key: 'e', label: 'Read Checksum (9Ch)' }
+            }
           }
         },
-        '8': {
-          key: '8',
-          label: 'Cycling',
-          children: {
-            '1': { key: '1', label: 'Block erase + program cycling with SDRAM pattern', inputPrompt: '輸入模擬 cycle count' },
-            '2': { key: '2', label: 'sector erase + program cycling with SDRAM pattern', inputPrompt: '輸入模擬 cycle count' },
-            '3': {
-              key: '3',
-              label: 'chip checksum cycling by 0Bh / 0B / 03',
-              children: {
-                '1': { key: '1', label: 'Random read cksum(預設)' },
-                '2': { key: '2', label: '依序 read cksum' },
-                '3': { key: '3', label: 'Sequence read cksum for user input address', inputPrompt: '輸入模擬 address' }
-              }
-            },
-            '5': { key: '5', label: 'chip erase cycling', inputPrompt: '輸入模擬 cycle count' },
-            '6': { key: '6', label: '1 page pgm', inputPrompt: '輸入模擬頁面' },
-            '7': { key: '7', label: 'QPI-0C cycling (只在Wrap Length內cycling)', inputPrompt: '輸入模擬 wrap length' },
-            '8': { key: '8', label: 'Parallel 自選sector(128K) erase+program CB/CBB cycling', inputPrompt: '輸入模擬 sector' },
-            a: {
-              key: 'a',
-              label: 'chip checksum cycling by 0Bh',
-              children: {
-                '2': { key: '2', label: '依序 read 1 page', inputPrompt: '輸入模擬 address' }
-              }
-            },
-            c: { key: 'c', label: '32KB Block erase + program cycling with SDRAM pattern', inputPrompt: '輸入模擬 cycle count' }
-          }
+        "2": {
+          key: "a.2",
+          steps: [
+            ["o", "\n Input 64K block address (default=0) (ex: 010000 + enter) :   "],
+            ["i", "hex"],
+            ["o", "\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],
+            ["i", "dec"],
+            ["o", "\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],
+            ["i", "dec"],
+            ["o", "\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],
+            ["i", "dec"],
+            ["o", "\n 64K block() erase with Vcc (x10mV) from  to , step= "],
+            ["i", "confirm"],
+            ["o", "\n Erase is on going, please wait ...\n"],
+            ["i", "pause"]
+          ]
         },
-        '9': {
-          key: '9',
-          label: 'Dual read',
-          children: {
-            '1': { key: '1', label: 'Dual I/O read single page and checksum', inputPrompt: '輸入模擬 address' },
-            '2': { key: '2', label: 'Dual read single page and checksum', inputPrompt: '輸入模擬 address' },
-            '3': { key: '3', label: '(BD) (DTR) Dual read single page and checksum', inputPrompt: '輸入模擬 address' },
-            '4': { key: '4', label: 'Dual read all Chip to SDRAM' }
-          }
+        "3": {
+          key: "a.3",
+          steps: [
+            ["o", "\n Input 32K half address (default=0) (ex: 008000 + enter) :   "],
+            ["i", "hex"],
+            ["o", "\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],
+            ["i", "dec"],
+            ["o", "\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],
+            ["i", "dec"],
+            ["o", "\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],
+            ["i", "dec"],
+            ["o", "\n 32K half() erase with Vcc (x10mV) from  to , step= "],
+            ["i", "confirm"],
+            ["o", "\n Erase is on going, please wait ...\n"],
+            ["i", "pause"]
+          ]
         },
-        b: {
-          key: 'b',
-          label: 'Quad read/ wrap(77)',
-          children: {
-            '0': { key: '0', label: '77' },
-            '1': { key: '1', label: 'EB: Read single page', inputPrompt: '輸入模擬 address' },
-            '2': { key: '2', label: 'EB: Verify whole chip with SDRAM/Key-in', inputPrompt: '輸入模擬驗證參數' },
-            '3': { key: '3', label: '6B: Read single page', inputPrompt: '輸入模擬 address' },
-            '4': { key: '4', label: '(Quad-I/O)ED: Read single page', inputPrompt: '輸入模擬 address' },
-            '5': { key: '5', label: '0x94 Qual Read ID' },
-            '6': { key: '6', label: 'EB: Read all Chip to SDRAM' },
-            '7': { key: '7', label: 'EB: Cycling with SDRAM/Key-in', inputPrompt: '輸入模擬 cycle count' },
-            '8': { key: '8', label: 'EB: Cycling with SDRAM/Key-in', inputPrompt: '輸入模擬 cycle count' },
-            a: { key: 'a', label: 'EB: Scan Vcc after EB bypass mode with 38+06+C5+data+C0+00', inputPrompt: '輸入模擬 Vcc 範圍' },
-            '9': { key: '9', label: 'EB: Fast Read Quad with Read Command Bypass Mode' },
-            c: { key: 'c', label: 'QPI-0C: Read single page', inputPrompt: '輸入模擬 address' },
-            d: { key: 'd', label: 'QPI-0C: Verify whole chip with SDRAM' },
-            e: { key: 'e', label: 'QPI-ED: Read single page', inputPrompt: '輸入模擬 address' },
-            f: { key: 'f', label: 'QPI-FF: 38+FF' },
-            g: { key: 'g', label: 'QPI+66-99+(QPI/SPI)ID for Peinan' },
-            h: { key: 'h', label: 'QPI+66+QPI_ID+99+(SPI/QPI)ID for Peinan' }
-          }
-        },
-        g: {
-          key: 'g',
-          label: 'FA special',
-          children: {
-            '1': { key: '1', label: 'Multi page program with SDRAM pattern (from start page to stop page)', inputPrompt: '輸入模擬起始／停止頁面' },
-            '2': { key: '2', label: 'erase + show SR' },
-            '3': { key: '3', label: '1 page + double program (without read)' },
-            '4': { key: '4', label: 'SEMCO & SEC Mobile fail' },
-            '5': { key: '5', label: 'Parallel flash Test mode', inputPrompt: '輸入模擬 test mode' },
-            '6': { key: '6', label: 'Erase + every 05/SR' },
-            '7': { key: '7', label: 'Deep power down(B9h)電流' },
-            '8': { key: '8', label: 'program + 50ns tSHSL', inputPrompt: '輸入模擬 program 參數' },
-            '9': { key: '9', label: '4K+Erase+pgm+cycling', inputPrompt: '輸入模擬 cycle count' },
-            a: { key: 'a', label: '4K+Erase+pgm+cycling', inputPrompt: '輸入模擬 cycle count' },
-            b: { key: 'b', label: 'Q64FV+ Landi POS fail' },
-            c: { key: 'c', label: 'Q256FV+ Asus 1 to 0 fail' }
-          }
-        },
-        h: {
-          key: 'h',
-          label: 'Test Mode',
-          children: {
-            '0': { key: '0', label: 'add cmd before chip erase+ poll/timeout', inputPrompt: '輸入模擬 command' },
-            '1': { key: '1', label: 'Measure main cell current' },
-            '2': { key: '2', label: 'Leaky Row/all-Row current (128/256)' },
-            '3': { key: '3', label: 'BC, Skip Pre-P,ER,Pos-P,Re-F' },
-            '4': { key: '4', label: 'Option bits recall+read' },
-            '5': { key: '5', label: 'Option bits Erase+Program' },
-            '6': { key: '6', label: 'Status Register Unlock' },
-            '7': {
-              key: '7',
-              label: 'Stress',
-              children: {
-                '0': { key: '0', label: 'Well Stress(Main+IBLK+RBLK)' },
-                '1': { key: '1', label: 'Well Stress(Main+IBLK)' },
-                '2': { key: '2', label: 'Positive Gate Stress' },
-                '3': { key: '3', label: 'Positive Gate Stress(Even/Odd WL)' },
-                '4': { key: '4', label: 'Negative Gate Stress w/Int. Time', inputPrompt: '輸入模擬時間' },
-                '5': { key: '5', label: 'Negative Gate Stress w/Ext. Time', inputPrompt: '輸入模擬時間' },
-                '6': { key: '6', label: 'Negative Gate Stress for IBLK' },
-                '7': { key: '7', label: 'Drain Stress(Main+red.)' },
-                '8': { key: '8', label: 'Drain Stress or Leaky Col(Main)' },
-                '9': { key: '9', label: 'Positive/Negative Gate Stress Auto EFA item' }
-              }
-            },
-            '8': { key: '8', label: 'One Pulse (erase / program)' },
-            '9': {
-              key: '9',
-              label: 'CAM bit read/erase/pgm',
-              children: {
-                '1': { key: '1', label: 'CAM bit read for Fuse cells' },
-                '3': { key: '3', label: 'CAM bit Program' },
-                '4': { key: '4', label: 'CAM bit erase verify (new)' },
-                '5': { key: '5', label: 'CAM bit program verify (new)' }
-              }
-            },
-            a: { key: 'a', label: 'Single BL leaky Column' },
-            b: { key: 'b', label: 'EV/PV (Verify Opt cell), add 不斷電 item' },
-            c: { key: 'c', label: 'Recall all Fuse(不斷電)' },
-            e: { key: 'e', label: '1pulse bit-by-bit post PGM' },
-            f: { key: 'f', label: '[F58S] Opt bits Read+Erase+Pgm' },
-            g: { key: 'g', label: 'F58S erase mini' },
-            i: { key: 'i', label: 'Verify OPT[31:0] & SR' },
-            k: { key: 'k', label: '[1A,8C] Opt bits Erase' },
-            l: { key: 'l', label: '[1A,8C] Opt bits Program' },
-            m: { key: 'm', label: '[EAG077 stack die] Option bits Erase+Program' }
-          }
-        },
-        i: { key: 'i', label: '加註解(add mark)', inputPrompt: '輸入模擬註解' },
-        j: {
-          key: 'j',
-          label: 'Test Mode(客製)',
-          children: {
-            '1': { key: '1', label: '58nm一次掃4個block(0-3)Vt' },
-            '2': { key: '2', label: 'Skip mode+Vt一次掃2個block(自訂)' },
-            '3': { key: '3', label: 'Leaky Row/all-Row current for SMIC' },
-            '4': { key: '4', label: 'Read/Erase/Program (whole chip)' },
-            '5': { key: '5', label: 'for 金綾: Option bits Erase+Program' },
-            '6': { key: '6', label: 'For素惠: Option bits Erase+Program' },
-            '7': { key: '7', label: 'Option bits recall+read (Auto)' },
-            d: { key: 'd', label: 'Canon 4sector cycling', inputPrompt: '輸入模擬 cycle count' },
-            e: { key: 'e', label: 'Erase Suspend/Resume cycling', inputPrompt: '輸入模擬 cycle count' },
-            '8': { key: '8', label: 'WL to BL leakage stress' },
-            '9': { key: '9', label: 'Narrow PGM Vt' },
-            a: { key: 'a', label: 'ECC bit read' },
-            b: { key: 'b', label: 'EMMI' },
-            c: { key: 'c', label: 'VT / PP / BE' }
-          }
-        },
-        l: { key: 'l', label: '選擇 Die 0/1', inputPrompt: '輸入模擬 Die 編號' },
-        v: { key: 'v', label: 'Auto EFA Flow' },
-        s: { key: 's', label: 'Seci' },
-        x: {
-          key: 'x',
-          label: 'Buffer Mode',
-          children: {
-            '2': { key: '2', label: 'Buffer Write(82h)', inputPrompt: '輸入模擬 buffer data' },
-            '3': { key: '3', label: 'Buffer Load(8Bh)', inputPrompt: '輸入模擬 buffer address' },
-            '4': { key: '4', label: 'buffer program 8Ah', inputPrompt: '輸入模擬 buffer data' }
-          }
-        },
-        t: {
-          key: 't',
-          label: 'Advanced Protect/Password',
-          children: {
-            '2': { key: '2', label: 'Individual Block/Sector Un-lock(39h)', inputPrompt: '輸入模擬 block/sector' },
-            '3': { key: '3', label: 'Read Block/Sector Lock(3Dh)', inputPrompt: '輸入模擬 block/sector' },
-            '4': { key: '4', label: 'Global Block/Sector Lock(7Eh)' },
-            '5': { key: '5', label: 'Global Block/Sector Un-Lock(98h)' },
-            '6': { key: '6', label: 'set/write volatile status register(E1h)', inputPrompt: '輸入模擬 register data' },
-            '7': { key: '7', label: 'Read volatile status register(E0h)' },
-            '8': { key: '8', label: 'Clear non-volatile status register(E4)' },
-            '9': { key: '9', label: 'set/write non-volatile status register(E3h)', inputPrompt: '輸入模擬 register data' },
-            b: { key: 'b', label: 'write LR register(2Ch)', inputPrompt: '輸入模擬 LR data' },
-            c: { key: 'c', label: 'Read LR register(45h)' },
-            d: { key: 'd', label: 'Read password(27h)' },
-            e: { key: 'e', label: 'write password(28h)', inputPrompt: '輸入模擬 password' },
-            f: { key: 'f', label: 'unlock password(29h)', inputPrompt: '輸入模擬 password' }
-          }
+        "4": {
+          key: "a.4",
+          steps: [
+            ["o", "\n Input 4K sector address (default=0) (ex: 001000 + enter) :   "],
+            ["i", "hex"],
+            ["o", "\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],
+            ["i", "dec"],
+            ["o", "\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],
+            ["i", "dec"],
+            ["o", "\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],
+            ["i", "dec"],
+            ["o", "\n 4K sector() erase with Vcc (x10mV) from  to , step= "],
+            ["i", "confirm"],
+            ["o", "\n Erase is on going, please wait ...\n"],
+            ["i", "pause"]
+          ]
         }
       }
     };
+    const vccEraseCases = offlineMenu.children.a.selectBranches[6]["1"].selectBranches[9];
+    for (const [key, prompt] of [
+      ["2", "\n Input 64K block address (default=0) (ex: 010000 + enter) :   "],
+      ["3", "\n Input 32K half address (default=0) (ex: 008000 + enter) :   "],
+      ["4", "\n Input 4K sector address (default=0) (ex: 001000 + enter) :   "]
+    ]) {
+      vccEraseCases[key] = {
+        key: `a.1.${key}`,
+        steps: [
+          ["o", prompt],
+          ["i", "hex"],
+          ["o", "\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],
+          ["i", "dec"],
+          ["o", "\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],
+          ["i", "dec"],
+          ["o", "\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],
+          ["i", "dec"],
+          ["o", "\n Vcc erase with address() from  to , step= "],
+          ["i", "confirm"],
+          ["o", "\n Erase is on going, please wait ...\n"],
+          ["i", "pause"]
+        ]
+      };
+    }
+    for (const key of ["5", "6", "7"]) {
+      vccEraseCases[key] = {
+        key: `a.1.${key}`,
+        steps: [
+          ["o", "\n Input START Vcc ? (x10mV)(default=2.7V) (ex: (2.7V=) 270 + enter) :   "],
+          ["i", "dec"],
+          ["o", "\n Input STOP Vcc  ? (x10mV)(default=3.6V) (ex: (3.6V=) 360 + enter) :   "],
+          ["i", "dec"],
+          ["o", "\n Input Vcc step ? (x10mV)(default=0.1V) (ex: (0.1V=) 10 + enter) :   "],
+          ["i", "dec"],
+          ["o", "\n Vcc erase 1-by-1 with Vcc (x10mV) from  to , step= "],
+          ["i", "confirm"],
+          ["o", "\n Erase is on going, please wait ...\n"],
+          ["i", "pause"]
+        ]
+      };
+    }
+
     let offlineMode = false;
-    let offlineMenuStack = [];
     let offlineCurrentMenu = offlineMenu;
+    let offlineActiveItem = null;
+    let offlineStepIndex = 0;
     let offlineInput = '';
     let offlineInputPrompt = null;
 
@@ -755,22 +630,8 @@
       return Object.values(menu.children ?? {});
     }
 
-    function isOfflineLeaf(item) {
-      return !item.children || Object.keys(item.children).length === 0;
-    }
-
     function formatOfflineMenu(menu) {
-      const lines = [`\n[OFFLINE] ${menu.title ?? menu.label ?? menu.key}`];
-      for (const item of getOfflineMenuItems(menu)) {
-        lines.push(`(${item.key}) ${item.label}`);
-      }
-      if (menu === offlineMenu) {
-        lines.push('(q) exit tool');
-      } else {
-        lines.push('(q) 返回上一層');
-      }
-      lines.push('> ');
-      return lines.join('\n');
+      return `\n${(menu.menuOutputs ?? []).join('')}`;
     }
 
     let port = null;
@@ -911,8 +772,9 @@
     }
 
     function resetOfflineMenu() {
-      offlineMenuStack = [];
       offlineCurrentMenu = offlineMenu;
+      offlineActiveItem = null;
+      offlineStepIndex = 0;
       offlineInput = '';
       offlineInputPrompt = null;
     }
@@ -921,42 +783,73 @@
       writeToTerminal(formatOfflineMenu(offlineCurrentMenu));
     }
 
+    function renderOfflineStep() {
+      if (!offlineActiveItem) {
+        renderOfflineMenu();
+        return;
+      }
+
+      const steps = offlineActiveItem.steps ?? [];
+      while (steps[offlineStepIndex]?.[0] === 'o') {
+        writeToTerminal(steps[offlineStepIndex][1]);
+        offlineStepIndex += 1;
+      }
+      if (offlineStepIndex >= steps.length) {
+        finishOfflineFlow();
+        return;
+      }
+
+      const step = steps[offlineStepIndex];
+      offlineInputPrompt = step[1];
+    }
+
+    function finishOfflineFlow() {
+      const item = offlineActiveItem;
+      if (!item) return;
+
+      resetOfflineMenu();
+      renderOfflineMenu();
+    }
+
+    function cancelOfflineFlow() {
+      resetOfflineMenu();
+      renderOfflineMenu();
+    }
+
     function normalizeOfflineKey(value) {
       return value.length === 1 ? value.toLowerCase() : value;
     }
 
-    function showOfflineSimulation(item, parameter = '') {
-      const detail = parameter ? `；參數：${parameter}` : '';
-      writeToTerminal(
-        `\n[OFFLINE] 已選取 (${item.key}) ${item.label}${detail}\n` +
-        '[OFFLINE] 僅模擬選單與輸入，未執行任何硬體命令。\n'
-      );
-      renderOfflineMenu();
+    function startOfflineFlow(item) {
+      offlineActiveItem = item;
+      offlineStepIndex = 0;
+      offlineInput = '';
+      renderOfflineStep();
     }
 
     function handleOfflineKey(event) {
       const key = normalizeOfflineKey(event.key);
 
-      if (event.key === 'Escape' || key === 'q') {
+      if (event.key === 'Escape') {
         event.preventDefault();
-        if (offlineInputPrompt !== null) {
-          offlineInput = '';
-          offlineInputPrompt = null;
-          writeToTerminal('\n[OFFLINE] 已取消參數輸入。\n');
-          renderOfflineMenu();
-          return true;
-        }
-        if (offlineMenuStack.length > 0) {
-          offlineCurrentMenu = offlineMenuStack.pop();
-          renderOfflineMenu();
-        } else {
-          writeToTerminal('\n[OFFLINE] 已返回 mh_spi_menu。\n');
-          renderOfflineMenu();
-        }
+        cancelOfflineFlow();
         return true;
       }
 
-      if (offlineInputPrompt !== null) {
+      if (key === 'q' && !offlineActiveItem) {
+        event.preventDefault();
+        cancelOfflineFlow();
+        return true;
+      }
+
+      if (offlineActiveItem && offlineInputPrompt !== null) {
+        const step = offlineActiveItem.steps[offlineStepIndex];
+        const stepKind = step[1];
+        if (stepKind === 'pause' && event.key !== 'Backspace' && event.key !== 'Escape') {
+          event.preventDefault();
+          finishOfflineFlow();
+          return true;
+        }
         if (event.key === 'Backspace') {
           event.preventDefault();
           offlineInput = offlineInput.slice(0, -1);
@@ -964,19 +857,38 @@
         }
         if (event.key === 'Enter') {
           event.preventDefault();
-          const parameter = offlineInput.trim();
-          if (!parameter) {
-            writeToTerminal('\n[OFFLINE 錯誤] 參數不可為空。\n');
+          const parameter = offlineInput.trim()
+            || (stepKind === 'confirm' ? 'y' : '');
+          if (stepKind === 'confirm' && !/^[yn]$/i.test(parameter)) {
             return true;
           }
-          const item = offlineCurrentMenu.children[offlineInputPrompt];
+          if (stepKind === 'dec' && parameter && !/^\d+$/.test(parameter)) {
+            return true;
+          }
+          if (stepKind === 'hex' && parameter && !/^[0-9a-f]+$/i.test(parameter)) {
+            return true;
+          }
           offlineInput = '';
           offlineInputPrompt = null;
-          showOfflineSimulation(item, parameter);
+          if (stepKind === 'confirm' && parameter.toLowerCase() === 'n') {
+            cancelOfflineFlow();
+            return true;
+          }
+          if (stepKind === 'select') {
+            const branch = offlineActiveItem.selectBranches?.[offlineStepIndex]?.[parameter.toLowerCase()];
+            if (branch) {
+              startOfflineFlow(branch);
+              return true;
+            }
+          }
+          offlineStepIndex += 1;
+          renderOfflineStep();
           return true;
         }
         if (event.key.length === 1) {
           event.preventDefault();
+          if (stepKind === 'confirm' && !/^[yn]$/i.test(event.key)) return true;
+          if (stepKind === 'select' && event.key.length !== 1) return true;
           offlineInput += event.key;
           writeToTerminal(event.key);
           return true;
@@ -989,21 +901,15 @@
       const item = offlineCurrentMenu.children?.[key];
       if (!item) {
         event.preventDefault();
-        writeToTerminal(`\n[OFFLINE 錯誤] 無效選項：${event.key}\n`);
-        renderOfflineMenu();
         return true;
       }
 
       event.preventDefault();
-      if (!isOfflineLeaf(item)) {
-        offlineMenuStack.push(offlineCurrentMenu);
-        offlineCurrentMenu = item;
+      if (item.key === 'q') {
+        resetOfflineMenu();
         renderOfflineMenu();
-      } else if (item.inputPrompt) {
-        offlineInputPrompt = item.key;
-        writeToTerminal(`\n[OFFLINE] ${item.inputPrompt}\n> `);
       } else {
-        showOfflineSimulation(item);
+        startOfflineFlow(item);
       }
       return true;
     }
@@ -1020,8 +926,14 @@
       if (offlineMode) {
         writeToTerminal('\n[OFFLINE] 已啟用離線模擬；不會連接或寫入 Writer。\n');
         renderOfflineMenu();
+        terminalScreen.focus();
       } else {
-        writeToTerminal('\n[OFFLINE] 已關閉，恢復即時終端機輸入。\n');
+        const cursor = getTerminalCursor();
+        if (cursor) {
+          while (cursor.previousSibling) terminalScreen.removeChild(cursor.previousSibling);
+          while (cursor.nextSibling) terminalScreen.removeChild(cursor.nextSibling);
+          terminalScreen.scrollTop = 0;
+        }
       }
     });
 
@@ -1510,7 +1422,28 @@
     // ══════════════════════════════════════════════
     const btnFreeze = document.getElementById('btnFreeze');
     const btnCompareClear = document.getElementById('btnCompareClear');
+    const comparePanel = document.getElementById('comparePanel');
+    const btnCompareToggle = document.getElementById('btnCompareToggle');
+    const btnCompareCollapsedToggle = document.getElementById('btnCompareCollapsedToggle');
     const compareScreen = document.getElementById('compareScreen');
+
+    function setComparePanelExpanded(expanded) {
+      comparePanel.classList.toggle('collapsed', !expanded);
+      btnCompareToggle.setAttribute('aria-expanded', String(expanded));
+      btnCompareCollapsedToggle.setAttribute('aria-expanded', String(expanded));
+      btnCompareToggle.textContent = expanded ? '▶ 收合' : '◀ 展開';
+      btnCompareCollapsedToggle.textContent = expanded ? '▶' : '◀';
+      btnCompareToggle.title = expanded ? '收合右側比對區' : '展開右側比對區';
+      btnCompareCollapsedToggle.title = expanded ? '收合右側比對區' : '展開右側比對區';
+    }
+
+    btnCompareToggle.addEventListener('click', () => {
+      setComparePanelExpanded(comparePanel.classList.contains('collapsed'));
+    });
+    btnCompareCollapsedToggle.addEventListener('click', () => {
+      setComparePanelExpanded(true);
+    });
+    setComparePanelExpanded(false);
 
     btnFreeze.addEventListener('click', () => {
       // 複製左側內容
