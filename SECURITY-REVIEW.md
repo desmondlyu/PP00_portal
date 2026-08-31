@@ -4,6 +4,7 @@
 > 審查範圍：`C:\D_BACKUP\AI_Project\web_app` 及其子專案
 > 審查方式：本機原始碼唯讀審查，未連線 GitHub、Render、Supabase 或其他外部服務
 > 敏感資訊處理：所有 Token、Key、專案 URL 與內部端點均已遮罩
+> 修復狀態更新：2026-08-31，完成本機 Agent／Skill／MCP 檔案的 Git 索引清理與忽略規則強化
 
 ## 結論
 
@@ -17,6 +18,24 @@
 
 GitHub Pages、React 狀態、localStorage、隱藏按鈕、offline/pending 標記與 CORS 都不是可靠的認證或授權邊界。所有敏感操作必須由 Render、Supabase RLS 或其他後端控制點重新驗證。
 
+## 2026-08-31 Repo 清理狀態
+
+本次只移除 Git 追蹤，不刪除本機 Agent 設定與規格文件：
+
+| 項目 | Repo | 結果 |
+|---|---|---|
+| `.agents`、`.gemini`、MCP／Skill／Agent instruction | 全部主要 repo | 目前索引未追蹤；新增精準 ignore，降低後續誤上傳風險 |
+| `docs/superpowers/` | `PP00_Portal`、`web_terminal`、`WRITER_macro` | 已使用 `git rm --cached` 從索引移除，本機副本保留 |
+| Agent ignore 規則 | `AutoDongle`、`DL_to_Excel`、`JB_booking`、`PP00_Portal`、`web_terminal`、`WRITER_macro` | 已加入 `.agents`、`.gemini`、`.copilot`、`.claude`、`.cursor`、`.superpowers`、`.codebase-memory`、MCP、`SKILL.md` 等規則 |
+| 白名單 repo | `CP_DL_Analysis`、`CZ_dataset` | 原有 `.gitignore` 已預設拒絕所有非白名單檔案，不需重複修改 |
+| `.github` 規則 | `JB_booking`、`PP00_Portal` | 不再整包忽略 `.github`；只忽略 instructions、prompts、skills 與 Copilot instruction，保留正式 workflows 可追蹤 |
+
+**仍需注意**
+
+- F-05 的 `npx @playwright/mcp@latest` 仍存在於本機設定，repo ignore 只能避免上傳，不能消除本機供應鏈風險。
+- F-10 的 Context7 API Key 仍需輪替並改用秘密注入；ignore 只能封鎖新的誤提交。
+- Git 歷史曾包含 `JB_booking\.github\instructions\...\SKILL.md` 與 `PP00_Portal\.github\skills\...\SKILL.md`。本次未改寫歷史，避免破壞既有 clone 與分支；若需從所有舊 commit 清除，必須另行評估 history rewrite 與 force-push 風險。
+
 ## 風險摘要
 
 | # | Severity | File | Lines | Vulnerability | Confidence |
@@ -25,12 +44,12 @@ GitHub Pages、React 狀態、localStorage、隱藏按鈕、offline/pending 標�
 | 2 | 🟠 HIGH | `JB_booking\supabase\schema.sql`、`JB_booking\static\js\app.js` 及 Portal 複本 | `schema.sql:19,24-29`; `app.js:155-165,319,414-446` | Supabase RLS 對 `anon` 使用 `using(true)`／`with check(true)`，可直接讀取、建立、竄改、刪除所有預約 | 10/10 |
 | 3 | 🟠 HIGH | `JB_booking\static\js\app.js`、`PP00_Portal\src\App.jsx` | `app.js:319,339,420,1060-1062`; `App.jsx:888-893` | 可持久化 DOM XSS：匿名寫入的姓名／單位直接進入 `innerHTML`，同源未 sandbox iframe 可擴大到 Portal session | 9/10 |
 | 4 | 🟠 HIGH | `TTO_Agent\rawdata_analysis\index.html`、Portal 複本及 `.bak` | `index.html:7-9,334-336`; Portal `:7-9,373-374` | Rawdata 工具執行無 SRI、可變版本的第三方 CDN 腳本；供應鏈遭串改時可竊取上傳資料與分析結果 | 9/10 |
-| 5 | 🟠 HIGH | `.gemini\settings.json` | `36-43` | `npx @playwright/mcp@latest` 每次執行可變套件且開放全部工具；套件污染可導致本機任意程式碼執行 | 10/10 |
+| 5 | 🟠 HIGH | `.gemini\settings.json` | `36-43` | 本機 `npx @playwright/mcp@latest` 每次執行可變套件且開放全部工具；repo 誤上傳路徑已封鎖，本機供應鏈風險仍存在 | 10/10 |
 | 6 | 🟡 MEDIUM | `AutoDongle\backend_main.py`、`autolog_dongles\auto_summary.py` 及 Portal 複本 | `backend_main.py:23,54-60`; `auto_summary.py:89-91` | 公開 Render 並行請求使用秒級可預測共用暫存檔名，可能讓不同使用者收到彼此 Excel | 8/10 |
 | 7 | 🟡 MEDIUM | `Yield_Summary\js\ft_tool.js` 及 Portal 複本 | `158,291-292,327,373`; Portal `167,304-305,386,432` | 匯入 Excel／JSON 的 `ITEM_NAME` 未跳脫即寫入 `innerHTML`，可形成檔案型 DOM XSS | 9/10 |
 | 8 | 🟡 MEDIUM | `PP00_Portal\src\App.jsx`、`index.html` | `App.jsx:257-433,487-508,620,685,888-893`; `index.html:165-166` | offline／pending 僅為前端狀態；直接瀏覽固定工具路徑即可繞過停用規則 | 10/10 |
 | 9 | 🟡 MEDIUM | `PP00_Portal\tool\Eng_AutoReport\render.yaml`、`requirements.txt` | `render.yaml:6,8`; `requirements.txt:9` | Render 自動部署搭配無上限 `flask-cors>=4.0.0`，重建時存在依賴供應鏈漂移風險 | 9/10 |
-| 10 | 🟡 MEDIUM | `.agents\mcp_config.json`、`.gemini\settings.json` | `mcp_config.json:7`; `settings.json:50` | 工作區殘留非 placeholder 的 Context7 API Key；若資料夾被同步、備份或上傳可遭濫用 | 10/10 |
+| 10 | 🟡 MEDIUM | `.agents\mcp_config.json`、`.gemini\settings.json` | `mcp_config.json:7`; `settings.json:50` | 工作區殘留非 placeholder 的 Context7 API Key；Git 誤提交路徑已封鎖，但 Key 輪替與秘密注入尚未完成 | 10/10 |
 
 ## 已確認風險
 
@@ -185,6 +204,8 @@ CDN、套件發布帳號、DNS 或 mutable tag 遭污染後，瀏覽器會以網
 
 **嚴重度：HIGH｜信心：10/10**
 
+**修復狀態：部分緩解。** `.gemini`、MCP 設定與常見 Agent 目錄已加入各 repo ignore，避免新版本誤提交；本機設定與 `@latest` 執行方式尚未變更。
+
 受影響位置：
 
 - `.gemini\settings.json:36-43`
@@ -319,6 +340,8 @@ Render 使用 `pip install -r requirements.txt`，但 `flask-cors>=4.0.0` 沒有
 
 **嚴重度：MEDIUM｜信心：10/10**
 
+**修復狀態：部分緩解。** `.agents`、`.gemini` 與 `mcp*.json` 已加入各 repo ignore，目前主要 repo 索引沒有追蹤這兩個設定檔；Key 本身仍需輪替。
+
 受影響位置：
 
 - `.agents\mcp_config.json:7`
@@ -356,7 +379,7 @@ Render 使用 `pip install -r requirements.txt`，但 `flask-cors>=4.0.0` 沒有
 | 類型 | 狀態 | 位置 | 評估 |
 |---|---|---|---|
 | WEC Token | 非 placeholder，已遮罩 | Yield Summary CP／FT JavaScript 及複本 | 應視為已外洩並立即輪替 |
-| Context7 API Key | 非 placeholder，已遮罩 | `.agents\mcp_config.json`、`.gemini\settings.json` | 建議輪替並移出檔案 |
+| Context7 API Key | 非 placeholder，已遮罩 | `.agents\mcp_config.json`、`.gemini\settings.json` | Repo 誤提交路徑已封鎖；仍需輪替並改用秘密注入 |
 | JB Supabase JWT | `role=anon`，已遮罩 | JB Booking 前端設定 | Key 可公開，但 RLS 全開使其具高風險權限 |
 | Portal Supabase JWT | `role=anon`，已遮罩 | `.env.local` 與 compiled `index.html` | 安全性完全依賴資料庫 RLS |
 | Render API 端點 | 已遮罩 | AutoDongle、Eng AutoReport 前端 | 可從前端取得並直接重放 request |
@@ -397,8 +420,9 @@ Render 使用 `pip install -r requirements.txt`，但 `flask-cors>=4.0.0` 沒有
 5. **安全回應標頭**
    - CSP、HSTS、`frame-ancestors`、Referrer-Policy、Permissions-Policy。
 6. **部署內容**
-   - `.worktrees`、`.env.local`、`.bak`、開發版與本機設定是否被部署或打包。
+   - 驗證 `.worktrees`、`.env.local`、`.bak`、Agent／MCP 設定與開發版未被部署或打包。
    - 是否發布 source map。
+   - 若遠端歷史需完全移除舊 `SKILL.md`，另行規劃 history rewrite、備份、force-push 與所有 clone 重新同步。
 
 ## 建議處理順序
 
@@ -428,3 +452,4 @@ Render 使用 `pip install -r requirements.txt`，但 `flask-cors>=4.0.0` 沒有
 - 本次沒有對線上服務發送 request，因此未驗證實際部署是否有額外 WAF、Access Gateway、平台端 RLS 或安全標頭。
 - 行號依 2026-08-31 本機工作區內容記錄；後續修改可能使行號位移。
 - 報告僅記錄已確認或高信心風險，不包含純風格問題與無法形成攻擊路徑的最佳實務建議。
+- 本次只清理目前 Git 索引並新增 ignore，未改寫既有 Git 歷史。
