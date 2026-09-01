@@ -79,12 +79,26 @@
             data.find(
               (row) => String(row.specRowIdx) === String(specRowIdx)
             ) || target;
+          const specByRowIdx = new Map(
+            specs.map((spec) => [String(spec.rowIdx), spec])
+          );
+          const targetItem = String(target.item ?? "");
+          const targetDescription = String(target.description ?? "");
           const linkedIds = new Set(
             Array.from(
               getLinkedSpecRowIds
                 ? getLinkedSpecRowIds(target, data)
                 : [String(target.rowIdx)]
-            ).map(String)
+            )
+              .map(String)
+              .filter((rowIdx) => {
+                const linkedSpec = specByRowIdx.get(rowIdx);
+                return (
+                  linkedSpec &&
+                  String(linkedSpec.item ?? "") === targetItem &&
+                  String(linkedSpec.description ?? "") === targetDescription
+                );
+              })
           );
           const rawField = `raw${field[0].toUpperCase()}${field.slice(1)}`;
           const parsedByRowIdx = new Map();
