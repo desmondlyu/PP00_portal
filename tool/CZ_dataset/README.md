@@ -18,6 +18,7 @@
 ### 2. 統計總覽面板 (Summary)
 * **A. Out of Datasheet Spec (失效項目)**：自動彙總實測值或典型值判定為 `Fail` 的所有項目、測試電壓與溫度條件，便於快速定位失效點。
 * **B. Pass but Spec is Marginal (邊際裕度不足)**：自動篩選出判定為 `Pass` 但量測值與規格極為接近的項目（邊際裕度小於 15%，即實測與規格比值 < 1.15），方便工程師提早預防潛在的良率風險。
+* **C. Recommended Specs (建議規格)**：顯示目前規格與原始規格的差異，協助檢視放寬或收緊規格的影響。
 
 ### 3. 數據編輯表格 (Data Grid)
 * **高密度分頁表格**：以高清晰度網格展示所有彙整後的測試數據與規格限。
@@ -44,3 +45,4 @@
 * 支援將網頁上修改後的數據與規格匯出為 Excel 檔案。
 * 導出的 Compare 工作表內含動態 Excel 巢狀公式（含 `IF`, `ABS`, `OR`, `UPPER` 等），自動動態鏈結到 `DATASHEET_SPEC` 工作表。
 * 開啟導出的 Excel 檔案後，在 Microsoft Excel 中修改規格限制，判定 Verdict 與良率 Ratio 依然會自動隨公式即時重新運算。
+* **重新套用規格**：點擊「匯入 DATASHEET_SPEC」可載入先前匯出的無損 Excel，只更新目前資料的 `Min`、`Typ`、`Max`，並自動重算 Ratio、Judge、Typ_Judge 與 Summary A/B/C。系統以 `Item`、`Description`、`4Byte_Alignment`、`Group`、`Dummy_Rd` 五個欄位比對；空白規格代表無規格，未匹配或無效規格會保留原值並提示。
