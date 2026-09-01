@@ -6,7 +6,136 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CZ Dataset — 半導體特性測試資料自動分析與即時視覺化平台</title>
     <meta name="description" content="CZ Dataset 是一個專為半導體工程師設計的特性資料（Characterization Data）轉換、統計彙整、規格判定與即時交互式圖表分析的網頁工具。支援 100% 瀏覽器端安全運算。" />
-    <script src="spec-sync.js"></script>
+    <script>
+      (() => {
+        const fields = new Set(["min", "typ", "max"]);
+        const invalidSpecMessage = "規格必須是數字、空白或有效的 VCC/VIO 公式";
+
+        function parseRawSpecValue(rawValue, row) {
+          const raw = String(rawValue ?? "").trim();
+          if (raw === "") return { valid: true, raw: null, value: null };
+          const numeric = Number(raw);
+          if (Number.isFinite(numeric)) return { valid: true, raw, value: numeric };
+
+          const expression = raw.toUpperCase().replace(/\s+/g, "");
+          if (!expression.includes("VCC") && !expression.includes("VIO")) {
+            return { valid: false, raw, value: null, message: invalidSpecMessage };
+          }
+
+          const vcc = Number.parseFloat(row?.vcc);
+          const vio = Number.parseFloat(row?.vio);
+          if (expression.includes("VCC") && !Number.isFinite(vcc)) {
+            return { valid: false, raw, value: null, message: invalidSpecMessage };
+          }
+          if (expression.includes("VIO") && !Number.isFinite(vio)) {
+            return { valid: false, raw, value: null, message: invalidSpecMessage };
+          }
+
+          const substituted = expression
+            .replace(/VCC/g, String(vcc))
+            .replace(/VIO/g, String(vio));
+          if (!/^[0-9.+\-*/()]+$/.test(substituted)) {
+            return { valid: false, raw, value: null, message: invalidSpecMessage };
+          }
+
+          try {
+            const value = Function(
+              '"use strict"; return (' + substituted + ")"
+            )();
+            return Number.isFinite(value)
+              ? { valid: true, raw, value: Number(value.toFixed(12)) }
+              : { valid: false, raw, value: null, message: invalidSpecMessage };
+          } catch {
+            return { valid: false, raw, value: null, message: invalidSpecMessage };
+          }
+        }
+
+        function applySpecEdit({
+          specs,
+          data,
+          specRowIdx,
+          field,
+          rawValue,
+          getLinkedSpecRowIds,
+          recalculateRow,
+        }) {
+          if (!fields.has(field)) {
+            throw new Error(`Unsupported spec field: ${field}`);
+          }
+
+          const target = specs.find(
+            (spec) => String(spec.rowIdx) === String(specRowIdx)
+          );
+          if (!target) {
+            return {
+              specs,
+              data,
+              changed: false,
+              error: "找不到對應的規格列",
+            };
+          }
+
+          const context =
+            data.find(
+              (row) => String(row.specRowIdx) === String(specRowIdx)
+            ) || target;
+          const linkedIds = new Set(
+            Array.from(
+              getLinkedSpecRowIds
+                ? getLinkedSpecRowIds(target, data)
+                : [String(target.rowIdx)]
+            ).map(String)
+          );
+          const rawField = `raw${field[0].toUpperCase()}${field.slice(1)}`;
+          const parsedByRowIdx = new Map();
+
+          for (const spec of specs) {
+            if (!linkedIds.has(String(spec.rowIdx))) continue;
+            const specContext =
+              data.find(
+                (row) => String(row.specRowIdx) === String(spec.rowIdx)
+              ) || context;
+            const parsed = parseRawSpecValue(rawValue, specContext);
+            if (!parsed.valid) {
+              return {
+                specs,
+                data,
+                changed: false,
+                error: parsed.message || "規格格式無效",
+              };
+            }
+            parsedByRowIdx.set(String(spec.rowIdx), parsed);
+          }
+
+          const nextSpecs = specs.map((spec) => {
+            if (!linkedIds.has(String(spec.rowIdx))) return spec;
+            const parsed = parsedByRowIdx.get(String(spec.rowIdx));
+            return {
+              ...spec,
+              [field]: parsed.value,
+              [rawField]: parsed.raw,
+            };
+          });
+          const nextSpecByRowIdx = new Map(
+            nextSpecs.map((spec) => [String(spec.rowIdx), spec])
+          );
+          const nextData = data.map((row) => {
+            const spec = nextSpecByRowIdx.get(String(row.specRowIdx));
+            if (!spec || !linkedIds.has(String(row.specRowIdx))) return row;
+            return recalculateRow(row, spec, parsedByRowIdx.get(String(spec.rowIdx)));
+          });
+
+          return {
+            specs: nextSpecs,
+            data: nextData,
+            changed: true,
+            error: null,
+          };
+        }
+
+        window.FtSpecSync = { applySpecEdit };
+      })();
+    </script>
     <script type="module" crossorigin>(function(){const t=document.createElement("link").relList;if(t&&t.supports&&t.supports("modulepreload"))return;for(const i of document.querySelectorAll('link[rel="modulepreload"]'))n(i);new MutationObserver(i=>{for(const s of i)if(s.type==="childList")for(const a of s.addedNodes)a.tagName==="LINK"&&a.rel==="modulepreload"&&n(a)}).observe(document,{childList:!0,subtree:!0});function r(i){const s={};return i.integrity&&(s.integrity=i.integrity),i.referrerPolicy&&(s.referrerPolicy=i.referrerPolicy),i.crossOrigin==="use-credentials"?s.credentials="include":i.crossOrigin==="anonymous"?s.credentials="omit":s.credentials="same-origin",s}function n(i){if(i.ep)return;i.ep=!0;const s=r(i);fetch(i.href,s)}})();var Vt=typeof globalThis<"u"?globalThis:typeof window<"u"?window:typeof global<"u"?global:typeof self<"u"?self:{};function OL(e){return e&&e.__esModule&&Object.prototype.hasOwnProperty.call(e,"default")?e.default:e}var DL={exports:{}},iw={},IL={exports:{}},Ht={};/**
  * @license React
  * react.production.min.js
