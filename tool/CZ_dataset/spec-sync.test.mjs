@@ -87,6 +87,7 @@ const data = [
     typ_judge: "N/A",
     value_spec_ratio: 2.5,
     vcc: 1000,
+    vio: 1800,
   },
 ];
 
@@ -189,24 +190,38 @@ test("空白會清除規格，VCC 公式保留原文且使用 Value 相同單位
   assert.equal(formula.data.find((row) => row.specRowIdx === 10).specMax, 300);
   assert.equal(formula.specs.find((row) => row.rowIdx === 11).max, 360);
   assert.equal(formula.data.find((row) => row.specRowIdx === 11).specMax, 360);
-});
 
-test("無效規格拒絕修改並保留原本 specs 與 data", () => {
-  const result = applySpecEdit({
+  const vioFormula = applySpecEdit({
     specs,
     data,
     specRowIdx: 20,
     field: "max",
-    rawValue: "not-a-spec",
+    rawValue: "VIO*0.5",
     resolveValue,
     getLinkedSpecRowIds: linkedSpecRowIds,
     recalculateRow,
   });
+  assert.equal(vioFormula.specs.find((row) => row.rowIdx === 20).max, 900);
+});
 
-  assert.equal(result.changed, false);
-  assert.equal(result.error, "規格必須是數字或有效公式");
-  assert.deepEqual(result.specs, specs);
-  assert.deepEqual(result.data, data);
+test("無效規格拒絕修改並保留原本 specs 與 data", () => {
+  for (const rawValue of ["not-a-spec", "abc123", "VCC*0.3foo"]) {
+    const result = applySpecEdit({
+      specs,
+      data,
+      specRowIdx: 20,
+      field: "max",
+      rawValue,
+      resolveValue,
+      getLinkedSpecRowIds: linkedSpecRowIds,
+      recalculateRow,
+    });
+
+    assert.equal(result.changed, false);
+    assert.equal(result.error, "規格必須是數字、空白或有效的 VCC/VIO 公式");
+    assert.deepEqual(result.specs, specs);
+    assert.deepEqual(result.data, data);
+  }
 });
 
 test("更新是不可變的，原始規格可繼續作為 Summary C 基準", () => {

@@ -6,6 +6,51 @@
   }
 })(typeof globalThis === "object" ? globalThis : this, function () {
   const fields = new Set(["min", "typ", "max"]);
+  const invalidSpecMessage = "規格必須是數字、空白或有效的 VCC/VIO 公式";
+
+  function parseRawSpecValue(rawValue, row) {
+    const raw = String(rawValue ?? "").trim();
+    if (raw === "") {
+      return { valid: true, raw: null, value: null };
+    }
+
+    const numeric = Number(raw);
+    if (Number.isFinite(numeric)) {
+      return { valid: true, raw, value: numeric };
+    }
+
+    const expression = raw.toUpperCase().replace(/\s+/g, "");
+    if (!expression.includes("VCC") && !expression.includes("VIO")) {
+      return { valid: false, raw, value: null, message: invalidSpecMessage };
+    }
+
+    const vcc = Number.parseFloat(row?.vcc);
+    const vio = Number.parseFloat(row?.vio);
+    if (expression.includes("VCC") && !Number.isFinite(vcc)) {
+      return { valid: false, raw, value: null, message: invalidSpecMessage };
+    }
+    if (expression.includes("VIO") && !Number.isFinite(vio)) {
+      return { valid: false, raw, value: null, message: invalidSpecMessage };
+    }
+
+    const substituted = expression
+      .replace(/VCC/g, String(vcc))
+      .replace(/VIO/g, String(vio));
+    if (!/^[0-9.+\-*/()]+$/.test(substituted)) {
+      return { valid: false, raw, value: null, message: invalidSpecMessage };
+    }
+
+    try {
+      const value = Function(
+        '"use strict"; return (' + substituted + ")"
+      )();
+      return Number.isFinite(value)
+        ? { valid: true, raw, value: Number(value.toFixed(12)) }
+        : { valid: false, raw, value: null, message: invalidSpecMessage };
+    } catch {
+      return { valid: false, raw, value: null, message: invalidSpecMessage };
+    }
+  }
 
   function applySpecEdit({
     specs,
@@ -53,7 +98,7 @@
         data.find(
           (row) => String(row.specRowIdx) === String(spec.rowIdx)
         ) || context;
-      const parsed = resolveValue(rawValue, specContext, spec, field);
+      const parsed = parseRawSpecValue(rawValue, specContext);
       if (!parsed.valid) {
         return {
           specs,
