@@ -461,6 +461,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
+    { version: 'v2.0.0', date: '2026-09-01', text: '🆕 NOR Flash FT 特性系統新增 DATASHEET SPEC 分頁，可即時調整 Min／Typ／Max 規格並同步分析結果。', isNew: true },
     { version: 'v1.9.5', date: '2026-08-12', text: 'NOR Flash FT 特性系統分析工具修正：修正統計總覽捲軸、重設變更後圖表消失，以及規格調整後 Judge 顯示不更新問題。', isNew: true },
     { version: 'v1.9.4', date: '2026-08-06', text: '📂 TTO 分析：現在直接選擇包含各產品 .TGZ 的根目錄即可分析，免手動解壓 TAR 與 RAWDATA。', isNew: true },
     { version: 'v1.9.3', date: '2026-08-04', text: '🆕 新增 PP00 Knowledge Agent 機台知識庫，收錄 Keysight X-Series 與 EXR-Series 使用者操作手冊。', isNew: true },
