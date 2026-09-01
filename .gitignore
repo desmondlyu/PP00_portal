@@ -67,7 +67,7 @@ __pycache__/
 # Local git worktrees
 /.worktrees/
 
-# Local AI agent, skill, memory, and MCP settings
+# Local AI agent, skill, memory, and MCP settings (never upload)
 .agents/
 .gemini/
 .copilot/
@@ -81,7 +81,9 @@ __pycache__/
 .playwright-mcp/
 .mcp/
 .vscode/
-docs/superpowers/
+# Local-only agent planning artifacts, including nested tool directories
+/docs/superpowers/
+**/docs/superpowers/
 AGENTS.md
 CLAUDE.md
 GEMINI.md
