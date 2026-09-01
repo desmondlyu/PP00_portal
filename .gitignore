@@ -64,16 +64,39 @@ __pycache__/
 **/MEMORY.md
 /MEMORY.md
 
-# Superpowers planning artifacts (local only)
+# Local-only agent planning artifacts, including nested tool directories
 /docs/superpowers/
+**/docs/superpowers/
 
 # Local git worktrees
 /.worktrees/
 
-# Local agent and browser-test session artifacts
-/.agents/
-/.gemini/
-/.playwright-mcp/
-
-# Private GitHub agent/skill settings
-/.github/
+# Local AI agent, skill, memory, and MCP settings (never upload)
+.agents/
+.gemini/
+.copilot/
+.claude/
+.cursor/
+.continue/
+.roo/
+.windsurf/
+.superpowers/
+.codebase-memory/
+.playwright-mcp/
+.mcp/
+.vscode/
+# Local-only agent planning artifacts, including nested tool directories
+/docs/superpowers/
+**/docs/superpowers/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+SKILL.md
+mcp*.json
+mcp*.yaml
+mcp*.yml
+mcp*.toml
+/.github/instructions/
+/.github/prompts/
+/.github/skills/
+/.github/copilot-instructions.md
