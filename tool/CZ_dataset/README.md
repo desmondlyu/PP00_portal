@@ -28,7 +28,13 @@
   * 任何修改都會立刻重新計算該行的判定 Verdict、比率 Ratio，並會以**黃色背景高亮標註該儲存格的修改狀態**。
   * 提供一鍵「重設變更」按鈕，隨時還原為原始 Excel 數據。
 
-### 4. 分析圖表預覽 (Charts)
+### 4. DATASHEET SPEC 規格頁籤
+* 原始 Excel 匯入完成後，會新增第四個 `DATASHEET SPEC` 頁籤，完整呈現無損公式 Excel 中的 8 欄規格資料：`Item`、`Description`、`4Byte_Alignment`、`Group`、`Dummy_Rd`、`Min`、`Typ`、`Max`。
+* 僅 `Min`、`Typ`、`Max` 可編輯；修改後按 Enter 或離開欄位即可套用。
+* 支援數字、空白及依目前資料列的 `VCC`／`VIO` 公式，例如 `VCC*0.3`。空白代表清除該規格；無效輸入會拒絕並保留上一個有效值。
+* 規格變更會同步更新數據編輯表格的 `SPEC`、`Ratio`、`Judge`、`Typ_Judge`，並重新計算統計總覽 A、B、C 與圖表資料。
+
+### 5. 分析圖表預覽 (Charts)
 * **自動 Group 分群頁籤**：支援以橫向分頁切換 All, Time, Normal Read, DTR read 等群組，自動將大批圖表分類呈現。
 * **雙層巢狀水平分欄排版**：
   * 圖表採外層依 `4Byte_Alignment` 水平分欄、內層依溫度 `Temp` 水平並排展示的雙層網格結構。
@@ -41,8 +47,8 @@
   * 提供 `VCC`、`VIO`、`溫度`、`Judge`、`Alignment`、`過濾 Item` 六個獨立下拉式多選選單，各選單均支援「全選」與「清空」。
   * **搜尋與狀態記憶**：在 Item 下拉選單中輸入關鍵字過濾時，先前已經勾選的 Item 狀態會被穩定保持，不會因重新搜尋而重置。
 
-### 5. 無損公式 Excel 導出
+### 6. 無損公式 Excel 導出
 * 支援將網頁上修改後的數據與規格匯出為 Excel 檔案。
 * 導出的 Compare 工作表內含動態 Excel 巢狀公式（含 `IF`, `ABS`, `OR`, `UPPER` 等），自動動態鏈結到 `DATASHEET_SPEC` 工作表。
 * 開啟導出的 Excel 檔案後，在 Microsoft Excel 中修改規格限制，判定 Verdict 與良率 Ratio 依然會自動隨公式即時重新運算。
-* **重新套用規格**：點擊「匯入 DATASHEET_SPEC」可載入先前匯出的無損 Excel，只更新目前資料的 `Min`、`Typ`、`Max`，並自動重算 Ratio、Judge、Typ_Judge 與 Summary A/B/C。系統以 `Item`、`Description`、`4Byte_Alignment`、`Group`、`Dummy_Rd` 五個欄位比對；空白規格代表無規格，未匹配或無效規格會保留原值並提示。
+* 匯出的 `DATASHEET_SPEC` 工作表會保留規格原始公式文字，方便在 Excel 中繼續編輯與追蹤規格來源。
