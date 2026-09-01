@@ -19,6 +19,7 @@ const specs = [
   {
     rowIdx: 10,
     item: "VIL",
+    description: "shared",
     min: -500,
     typ: null,
     max: 300,
@@ -29,6 +30,7 @@ const specs = [
   {
     rowIdx: 11,
     item: "VIL",
+    description: "different",
     min: -500,
     typ: null,
     max: 360,
@@ -37,8 +39,20 @@ const specs = [
     rawMax: "VCC*0.3",
   },
   {
+    rowIdx: 12,
+    item: "VIL",
+    description: "shared",
+    min: -500,
+    typ: null,
+    max: 390,
+    rawMin: "-500",
+    rawTyp: null,
+    rawMax: "VCC*0.3",
+  },
+  {
     rowIdx: 20,
     item: "OTHER",
+    description: "other",
     min: 0,
     typ: null,
     max: 5,
@@ -52,6 +66,7 @@ const data = [
   {
     specRowIdx: 10,
     item: "VIL",
+    description: "shared",
     group: "Time",
     value: 250,
     specMin: -500,
@@ -65,6 +80,7 @@ const data = [
   {
     specRowIdx: 11,
     item: "VIL",
+    description: "different",
     group: "Time",
     value: 250,
     specMin: -500,
@@ -76,8 +92,23 @@ const data = [
     vcc: 1200,
   },
   {
+    specRowIdx: 12,
+    item: "VIL",
+    description: "shared",
+    group: "Time",
+    value: 250,
+    specMin: -500,
+    specTyp: null,
+    specMax: 390,
+    judge: "Pass",
+    typ_judge: "N/A",
+    value_spec_ratio: 1.56,
+    vcc: 1300,
+  },
+  {
     specRowIdx: 20,
     item: "OTHER",
+    description: "other",
     group: "DC",
     value: 2,
     specMin: 0,
@@ -92,9 +123,11 @@ const data = [
 ];
 
 function linkedSpecRowIds(spec) {
-  return spec.item === "VIL"
-    ? new Set(["10", "11"])
-    : new Set([String(spec.rowIdx)]);
+  return new Set(
+    data
+      .filter((row) => row.item === spec.item)
+      .map((row) => String(row.specRowIdx))
+  );
 }
 
 function resolveValue(rawValue, row) {
@@ -142,7 +175,7 @@ test("修改 Max 只更新相同 specRowIdx 的規格與資料列", () => {
   assert.equal(result.specs.find((row) => row.rowIdx === 10).max, 300);
 });
 
-test("Time 群組修改會同步同 Item 的規格列，但不影響其他 Item", () => {
+test("Time 群組修改只同步同 Item 與 Description 的規格列", () => {
   const result = applySpecEdit({
     specs,
     data,
@@ -155,9 +188,11 @@ test("Time 群組修改會同步同 Item 的規格列，但不影響其他 Item"
   });
 
   assert.equal(result.specs.find((row) => row.rowIdx === 10).max, 200);
-  assert.equal(result.specs.find((row) => row.rowIdx === 11).max, 200);
+  assert.equal(result.specs.find((row) => row.rowIdx === 11).max, 360);
+  assert.equal(result.specs.find((row) => row.rowIdx === 12).max, 200);
   assert.equal(result.data.find((row) => row.specRowIdx === 10).specMax, 200);
-  assert.equal(result.data.find((row) => row.specRowIdx === 11).specMax, 200);
+  assert.equal(result.data.find((row) => row.specRowIdx === 11).specMax, 360);
+  assert.equal(result.data.find((row) => row.specRowIdx === 12).specMax, 200);
   assert.equal(result.specs.find((row) => row.rowIdx === 20).max, 5);
 });
 
@@ -190,6 +225,8 @@ test("空白會清除規格，VCC 公式保留原文且使用 Value 相同單位
   assert.equal(formula.data.find((row) => row.specRowIdx === 10).specMax, 300);
   assert.equal(formula.specs.find((row) => row.rowIdx === 11).max, 360);
   assert.equal(formula.data.find((row) => row.specRowIdx === 11).specMax, 360);
+  assert.equal(formula.specs.find((row) => row.rowIdx === 12).max, 390);
+  assert.equal(formula.data.find((row) => row.specRowIdx === 12).specMax, 390);
 
   const vioFormula = applySpecEdit({
     specs,
