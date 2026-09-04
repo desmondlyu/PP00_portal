@@ -118,11 +118,12 @@ Portal 登入使用 Supabase Edge Function 配對帳號代碼，再由 Supabase 
 1. 在 **Authentication → Users** 確認存在 `dannyowan@gmail.com`，並設定後台專用密碼；不可使用 Portal 帳號共用的密碼。
 2. 確認該使用者的 Email 已驗證。
 3. 在 SQL Editor 執行 `supabase/setup/admin_account.sql`，將該 Auth user 的 `app_metadata.role` 設為 `admin`。
-4. 在 SQL Editor 執行 `supabase/migrations/20260904130000_restrict_tool_statuses_to_admin.sql`，將 `tool_statuses` 寫入權限限制為管理員角色。
-5. 登出並重新登入後台一次，讓新的 JWT 載入 `app_metadata.role`。
-6. 開啟「系統管理後台」，輸入完整 Email `dannyowan@gmail.com` 與後台專用密碼。
-7. 後台 Toggle 成功寫入 `tool_statuses` 後，點選「安全登出」；Portal 主頁應保持登入。
-8. 使用 Portal Header 的「登出」時，Portal 與後台 Session 才會一起清除。
+4. 在 SQL Editor 執行 `supabase/migrations/20260904120000_create_tool_statuses.sql`，建立工具狀態資料表；若 Table Editor 已有此表，這個 migration 不會覆蓋既有資料。
+5. 在 SQL Editor 執行 `supabase/migrations/20260904130000_restrict_tool_statuses_to_admin.sql`，將 `tool_statuses` 寫入權限限制為管理員角色。
+6. 登出並重新登入後台一次，讓新的 JWT 載入 `app_metadata.role`。
+7. 開啟「系統管理後台」，輸入完整 Email `dannyowan@gmail.com` 與後台專用密碼。
+8. 後台 Toggle 成功寫入 `tool_statuses` 後，點選「安全登出」；Portal 主頁應保持登入。
+9. 使用 Portal Header 的「登出」時，Portal 與後台 Session 才會一起清除。
 
 目前只有一位管理員，因此不需要新增 `admin_accounts` table，也不需要部署 `admin-login` Edge Function。新增管理員時，應重新評估角色資料表與管理員管理流程。
 
