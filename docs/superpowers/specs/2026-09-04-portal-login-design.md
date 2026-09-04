@@ -1,49 +1,63 @@
-# PP00 Portal 登入頁設計規格
+# PP00 Portal 帳號代碼登入設計規格
 
 ## 目標
 
-在 `PP00_Portal` 首頁前加入 Supabase Auth 登入閘門。登入前顯示與主頁一致的深色 Bento／霓虹科技風格，保留 Header 的 Logo 與品牌資訊，以及 Footer 的作者版權資訊；登入成功後顯示既有工具入口，不改變既有工具卡片、iframe 與管理後台流程。
+讓使用者只輸入既有帳號代碼與密碼，例如 `PP00`，由 Supabase Edge Function 在後端查詢帳號並驗證密碼；成功後建立 Supabase Auth Session，才允許進入 Portal。
+
+登入頁維持既有 PP00 Portal Bento／霓虹科技風格、Header Logo、Footer 作者與版權資訊。
 
 ## 範圍
 
-- 新增登入前畫面與登入後 session gate。
-- 使用既有 `@supabase/supabase-js` 與 `src/utils/supabaseClient.js`。
-- 提供固定帳號下拉清單：
-  `PP00`、`PP11`、`PP12`、`PP31`、`PP32`、`PP21`、`PP22`、`PP23`、`PP40`、`PP41`、`PP42`、`PP50`、`PT22`、`PT12`。
-- 由 Supabase Auth 驗證密碼；密碼不寫入程式碼、不預填、不顯示於畫面。
-- 登入成功後保留 Supabase 預設 session 持久化；登出後回到登入畫面。
-- 不新增註冊、忘記密碼、角色權限或新的路由套件。
+- 保留既有登入頁、Session Gate、登出與 `tool_statuses` 流程。
+- 移除前端 `@winbond.com` 帳號 mapping。
+- 新增私有 `public.portal_accounts` 對應表。
+- 新增公開登入用 Edge Function `portal-login`。
+- Supabase Auth 繼續負責密碼雜湊與 Session，不在自訂資料表保存明文或自行實作密碼雜湊。
+- 帳號代碼清單只存在 Supabase 資料表與一次性設定 SQL，不在前端 UI 或 JavaScript Bundle 列出。
+- 既有管理員 Modal 也改走同一個後端登入 helper，避免留下前端直接驗證路徑。
+- 不新增註冊、忘記密碼、角色權限、Router 或新的前端依賴。
 
-## 帳號對應假設
+## 帳號資料模型
 
-Supabase Auth 使用 email 登入，因此 UI 顯示帳號代碼，送出的 email 以小寫帳號加上 `@winbond.com` 組成，例如 `PP00` 對應 `pp00@winbond.com`。若 Supabase 既有使用者的 email domain 不同，只需調整單一 mapping 函式，不需改動 UI 或 session 流程。
+`public.portal_accounts` 欄位：
+
+| 欄位 | 型別 | 用途 |
+|---|---|---|
+| `account_code` | `text` PK | 小寫帳號代碼，例如 `pp00` |
+| `auth_user_id` | `uuid` UNIQUE | 對應 `auth.users.id` |
+| `is_active` | `boolean` | 後端停用帳號 |
+| `created_at` | `timestamptz` | 建立時間 |
+
+Supabase Auth 使用內部識別 Email，例如 `pp00@portal-internal.invalid`。這只是 Auth 的內部識別值，不顯示在登入頁、不要求使用者輸入，也不使用 `@winbond.com`。
+
+密碼只建立在 Supabase Auth，由 Supabase 儲存雜湊值。`portal_accounts` 不保存密碼欄位。
 
 ## 架構
 
-### App session gate
+### Edge Function `portal-login`
 
-`App` 啟動時：
+Function 設為登入前可呼叫，因此部署時使用 `--no-verify-jwt`；Function 自己執行以下驗證：
 
-1. 讀取既有 Supabase client。
-2. 呼叫 `supabase.auth.getSession()` 還原目前 session。
-3. 訂閱 `supabase.auth.onAuthStateChange()`，讓登入、登出與 token refresh 反映到畫面。
-4. `session` 為空時渲染登入頁；有 session 時渲染目前 Portal 主頁。
-5. Supabase 未設定時仍可渲染登入頁，但提交時顯示明確設定錯誤，不進入主頁。
+1. 僅接受 `POST`。
+2. 驗證 `Origin` 是否為本機 Portal 或正式 GitHub Pages origin。
+3. 解析 `{ account, password }`，帳號轉小寫並限制為英數代碼。
+4. 使用 service-role client 查詢 `portal_accounts`，只接受 `is_active = true`。
+5. 使用 `auth_user_id` 取得對應 Auth user 的內部 Email。
+6. 使用 anon client 呼叫 `signInWithPassword` 驗證密碼。
+7. 成功時只回傳 Supabase Session；失敗時回傳不區分「帳號不存在」或「密碼錯誤」的通用訊息。
 
-既有 `tool_statuses` 載入與管理員操作僅在主頁流程使用，避免登入前不必要地查詢工具狀態。
+Service-role key 只存在 Edge Function 執行環境，絕不進入前端 `.env` 或 Bundle。
 
-### LoginView
+### Portal 前端
 
-登入頁沿用既有 CSS token 與背景：
+共用 `signInWithPortalAccount(account, password)` helper：
 
-- Header：沿用 Logo、`PP00 Tool Portal`、`PP00 NOR FLASH 應用程式入口網站系統`；右側狀態顯示 `SECURE ACCESS · SUPABASE AUTH`。
-- Main：置中 Bento 卡片，包含鎖頭圖示、標題、帳號下拉、密碼欄位、顯示／隱藏密碼按鈕與登入按鈕。
-- 輔助資訊：顯示「請使用 PP00 Portal 授權帳號登入」，不顯示帳號密碼。
-- Footer：沿用現有作者、Copyright、MIT License 與版本文字。
+1. 呼叫 `supabase.functions.invoke('portal-login', { body: { account, password } })`。
+2. 取得 `access_token` 與 `refresh_token`。
+3. 呼叫 `supabase.auth.setSession(...)`，交給既有 Auth listener 更新 Portal。
+4. 不保存帳號清單與明文密碼。
 
-### 登出
-
-登入後在 Header 提供登出按鈕。按下後呼叫 `supabase.auth.signOut()`，session 清除後由 session gate 自動回到登入頁。
+`LoginView` 與管理員 Modal 共用此 helper；既有 `getSession()`、`onAuthStateChange()`、`signOut()` 與登入後工具狀態查詢維持不變。
 
 ## 資料流
 
@@ -51,42 +65,57 @@ Supabase Auth 使用 email 登入，因此 UI 顯示帳號代碼，送出的 ema
 帳號代碼 + 密碼
         |
         v
-accountToEmail()
+Portal 呼叫 portal-login Edge Function
         |
         v
-supabase.auth.signInWithPassword()
+portal_accounts 查詢 account_code / auth_user_id
+        |
+        v
+Supabase Auth signInWithPassword
         |
    +----+----+
    |         |
 成功        失敗
    |         |
-session     顯示可讀錯誤
+setSession  通用錯誤
    |
 Portal 主頁
 ```
 
-## 錯誤與狀態
+## Supabase 設定流程
 
-- 登入中：停用提交按鈕並顯示「登入驗證中…」，避免重複送出。
-- Supabase 未設定：顯示「尚未設定 Supabase 連線，無法登入」。
-- 帳密錯誤：顯示不暴露帳號存在性的通用錯誤訊息。
-- 網路／服務錯誤：顯示「Supabase 連線失敗，請稍後再試」。
-- 密碼欄位使用原生 `required` 與 `autoComplete="current-password"`。
-- 錯誤訊息不輸出密碼或完整 credential。
+1. 在 Authentication → Users 建立 14 個 Auth user，使用內部 Email：
+   `pp00`、`pp11`、`pp12`、`pp31`、`pp32`、`pp21`、`pp22`、`pp23`、`pp40`、`pp41`、`pp42`、`pp50`、`pt22`、`pt12`。
+2. 每個 Auth user 使用使用者提供的相同密碼，並開啟 Auto Confirm User。
+3. 執行 `supabase/setup/portal_accounts.sql`，將帳號代碼對應到 Auth user id。
+4. 部署 `supabase/functions/portal-login/index.ts`，並設定登入 Function 的允許來源。
+5. 本機以 `PP00` 測試，不輸入任何 Email。
+
+## 錯誤與安全處理
+
+- 空白或格式不符的帳號：前端與 Function 都拒絕。
+- 帳號不存在、停用或密碼錯誤：統一顯示「帳號或密碼錯誤，請確認後再試」。
+- Supabase 未設定：前端明確顯示無法登入。
+- Function 連線失敗：前端顯示 Supabase 連線錯誤。
+- Function 不記錄密碼、完整 credential 或登入輸入內容。
+- `portal_accounts` 啟用 RLS，撤銷 `anon` 與 `authenticated` 直接存取；只有 Edge Function service role 可查詢。
+- CORS 僅允許本機 Portal 與正式 Portal origin。
+- 登入按鈕在驗證期間停用，避免重複送出。
 
 ## 相容性與安全邊界
 
-- 不在 bundle、localStorage 或 UI 中保存明文密碼。
-- 使用既有 anon key client；Supabase Auth session 由 SDK 管理。
-- 此登入閘門只保護 React Portal 畫面；GitHub Pages 下 `tool/` 內的靜態檔案仍可被直接開啟，若未來要求真正保護子工具，需改用後端或受保護部署，不在本次範圍。
-- 不改變既有管理員 Modal 的 Supabase 驗證與工具狀態功能。
+- Supabase anon key 可保留在前端；service-role key 不可放入前端。
+- Session 仍由 Supabase Auth SDK 持久化與更新。
+- 入口網站 React UI 受登入閘門保護；GitHub Pages 下 `tool/` 靜態檔案仍可能被直接開啟。若未來要保護子工具本身，需使用受保護後端部署，不在本次範圍。
+- 不改變既有工具卡片、iframe、離線狀態與管理後台功能。
 
 ## 驗收
 
-- 未登入開啟 `http://localhost:3100` 時只看到登入頁，Header／Footer 資訊完整。
-- 14 個帳號代碼都可在下拉選單選取。
-- Supabase 未設定時，登入操作不會顯示成功或進入主頁。
-- Supabase 驗證成功後顯示既有 Portal 主頁。
+- 未登入開啟 `http://localhost:3100` 時只看到登入頁，Header／Footer 完整。
+- 前端沒有 `@winbond.com` mapping、帳號清單或 `<select>`。
+- 輸入 `PP00` 與正確密碼可登入。
+- 輸入不存在帳號或錯誤密碼不能登入，且錯誤訊息不洩露帳號是否存在。
+- 登入成功後既有 `tool_statuses` 查詢與 Portal 主頁正常。
 - 登出後回到登入頁。
-- 登入頁在桌面與窄螢幕無水平溢位，鍵盤可完成表單操作。
+- 桌面與窄螢幕無水平溢位。
 - `npm run build` 成功。
