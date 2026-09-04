@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from './utils/supabaseClient';
+import {
+  supabase,
+  supabaseAdmin,
+  signInWithPortalAccount,
+  signInWithAdminAccount,
+} from './utils/supabaseClient';
 import { 
   TrendingUp, 
   Calendar, 
@@ -16,7 +21,10 @@ import {
   X,
   AlertCircle,
   RotateCw,
-  MessageSquare
+  MessageSquare,
+  Eye,
+  EyeOff,
+  LogOut
 } from 'lucide-react';
 // 自適應動態路徑解析器
 const getToolUrl = (tool) => {
@@ -32,6 +40,165 @@ const getToolUrl = (tool) => {
   // 本地雙擊運行 (file://)
   return tool.localPath;
 };
+
+function LoginView({ checkingSession = false }) {
+  const [account, setAccount] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isDisabled = checkingSession || isSubmitting;
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+
+    if (isDisabled) return;
+    if (!account.trim() || !password) {
+      setError('請輸入帳號與密碼。');
+      return;
+    }
+    if (!supabase) {
+      setError('尚未設定 Supabase 連線，無法登入。');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { error: authError, status: authStatus } =
+        await signInWithPortalAccount(account, password);
+
+      if (authError) {
+        setError(
+          authStatus === 401
+            ? '帳號或密碼錯誤，請確認後再試。'
+            : authError.message === 'Supabase 尚未設定。'
+              ? '尚未設定 Supabase 連線，無法登入。'
+              : 'Supabase 連線失敗，請稍後再試。',
+        );
+        return;
+      }
+
+      setPassword('');
+    } catch (authError) {
+      console.error('Supabase 登入請求失敗：', authError);
+      setError('Supabase 連線失敗，請稍後再試。');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="app-container login-shell">
+      <header className="portal-header">
+        <div className="brand-section">
+          <img src="./logo.png" alt="PP00 Tool Portal Logo" className="brand-logo" />
+          <div className="brand-info">
+            <h1>PP00 Tool Portal</h1>
+            <p>PP00 NOR FLASH 應用程式入口網站系統</p>
+          </div>
+        </div>
+        <div className="system-status login-system-status">
+          <span className="status-dot"></span>
+          <span>{checkingSession ? 'CHECKING SESSION' : 'SECURE ACCESS - AUTH REQUIRED'}</span>
+        </div>
+      </header>
+
+      <main className="login-main">
+        <section className="bento-card login-card">
+          <div className="card-glow"></div>
+          <div className="login-mark" aria-hidden="true">
+            <Lock size={22} />
+          </div>
+          <span className="login-kicker">PP00 / Secure Workspace</span>
+          <h2 className="login-title">登入 PP00 Tool Portal</h2>
+          <p className="login-description">
+            {checkingSession
+              ? '正在確認工作階段，請稍候…'
+              : '請使用 PP00 Portal 授權帳號登入工作區。'}
+          </p>
+
+          <form className="login-form" onSubmit={handleSubmit}>
+            <div className="login-form-group">
+              <label className="login-label" htmlFor="portal-account">帳號</label>
+              <input
+                id="portal-account"
+                name="account"
+                className="login-input"
+                type="text"
+                value={account}
+                onChange={(event) => setAccount(event.target.value)}
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
+                placeholder="請輸入帳號"
+                required
+                disabled={isDisabled}
+              />
+            </div>
+
+            <div className="login-form-group">
+              <label className="login-label" htmlFor="portal-password">密碼</label>
+              <div className="password-field">
+                <input
+                  id="portal-password"
+                  name="password"
+                  className="login-input"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
+                  placeholder="請輸入密碼"
+                  required
+                  disabled={isDisabled}
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? '隱藏密碼' : '顯示密碼'}
+                  title={showPassword ? '隱藏密碼' : '顯示密碼'}
+                  disabled={isDisabled}
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="login-error" role="alert">
+                <AlertCircle size={16} aria-hidden="true" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <button type="submit" className="login-submit" disabled={isDisabled}>
+              <Lock size={16} aria-hidden="true" />
+              <span>{checkingSession ? '確認中…' : isSubmitting ? '登入驗證中…' : '登入工作區'}</span>
+            </button>
+          </form>
+
+          <p className="login-support">登入驗證由 Supabase Auth 提供。</p>
+        </section>
+      </main>
+
+      <footer className="portal-footer">
+        <div className="footer-left">
+          <p>© 2026 <span className="footer-author">PP32 YPLu (Desmond Lyu)</span>. All rights reserved.</p>
+        </div>
+        <div className="footer-right">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Shield size={14} />
+            <span>Licence: MIT</span>
+          </div>
+          <span>|</span>
+          <span style={{ color: 'var(--text-muted)' }}>Version 1.5.0</span>
+        </div>
+      </footer>
+    </div>
+  );
+}
 
 export default function App() {
   const [activeTool, setActiveTool] = useState(null);
@@ -56,7 +223,9 @@ export default function App() {
 
   // 後台管理狀態與驗證邏輯
   const [showAdminModal, setShowAdminModal] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [session, setSession] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState('');
@@ -87,65 +256,120 @@ export default function App() {
     return defaultOffline;
   });
 
-  // 從 Supabase 載入最新狀態與監聽 Auth (若 supabase 啟用)
+  // 從 Supabase 還原登入狀態並監聽 Auth
   useEffect(() => {
     if (!supabase) {
-      console.log('Supabase 未設定，網站將以本地唯讀狀態運行，無法登入管理後台。');
+      console.log('Supabase 未設定，Portal 將停留在登入頁。');
+      setAuthReady(true);
       return;
     }
+
+    let isMounted = true;
+    supabase.auth.getSession()
+      .then(({ data: { session: currentSession } }) => {
+        if (!isMounted) return;
+        setSession(currentSession);
+        setAuthReady(true);
+      })
+      .catch((error) => {
+        console.error('讀取 Supabase 登入狀態失敗：', error);
+        if (isMounted) setAuthReady(true);
+      });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setAuthReady(true);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!supabaseAdmin) {
+      setIsAdminLoggedIn(false);
+      return;
+    }
+
+    let isMounted = true;
+    supabaseAdmin.auth.getSession()
+      .then(({ data: { session: adminSession } }) => {
+        if (isMounted) setIsAdminLoggedIn(!!adminSession);
+      })
+      .catch((error) => {
+        console.error('讀取管理後台登入狀態失敗：', error);
+        if (isMounted) setIsAdminLoggedIn(false);
+      });
+
+    const { data: { subscription } } = supabaseAdmin.auth.onAuthStateChange(
+      (_event, nextSession) => setIsAdminLoggedIn(!!nextSession),
+    );
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // 僅在登入後讀取工具狀態
+  useEffect(() => {
+    if (!supabase || !session) return;
 
     const fetchStatuses = async () => {
       try {
         const { data, error } = await supabase.from('tool_statuses').select('id, is_offline');
-        if (!error && data) {
+        if (error) {
+          console.error('從 Supabase 讀取卡片狀態失敗，將採用本地狀態：', error);
+          return;
+        }
+        if (data) {
           const statusMap = {};
           data.forEach(row => {
             statusMap[row.id] = row.is_offline;
           });
-          setOfflineTools(prev => ({ ...prev, ...statusMap }));
-          // 同步到本地作為 fallback
-          localStorage.setItem('pp00_offline_tools', JSON.stringify({ ...offlineTools, ...statusMap }));
+          setOfflineTools(prev => {
+            const updated = { ...prev, ...statusMap };
+            localStorage.setItem('pp00_offline_tools', JSON.stringify(updated));
+            return updated;
+          });
         }
-      } catch (err) {
-        console.error('從 Supabase 讀取卡片狀態失敗，將採用本地狀態：', err);
+      } catch (error) {
+        console.error('從 Supabase 讀取卡片狀態失敗，將採用本地狀態：', error);
       }
     };
+
     fetchStatuses();
-
-    // 檢查目前 Session 狀態以保持管理員登入
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsLoggedIn(!!session);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
-    });
-
-    return () => {
-      if (subscription) subscription.unsubscribe();
-    };
-  }, []);
+  }, [session]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setAdminError('');
     
     // 如果沒有配置 Supabase，直接拒絕登入，不再保留任何本地雜湊後門
-    if (!supabase) {
+    if (!supabaseAdmin) {
       setAdminError('未設定 Supabase 雲端資料庫，無法使用管理員登入功能！');
       return;
     }
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: adminUsername,
-        password: adminPassword,
-      });
+      const { error, status } = await signInWithAdminAccount(
+        adminUsername,
+        adminPassword,
+      );
 
       if (error) {
-        setAdminError('管理員登入失敗：' + error.message);
+        setAdminError(
+          status === 401
+            ? '管理員登入失敗，請確認帳號與密碼。'
+            : status === 403
+              ? '管理員權限尚未設定，請先完成 Supabase 後台設定。'
+              : error.message === 'Supabase 尚未設定。'
+                ? '未設定 Supabase 雲端資料庫，無法使用管理員登入功能！'
+                : 'Supabase 連線失敗，請稍後再試。',
+        );
       } else {
-        setIsLoggedIn(true);
         setAdminPassword('');
       }
     } catch (err) {
@@ -153,11 +377,39 @@ export default function App() {
     }
   };
 
-  const handleLogout = async () => {
-    if (supabase) {
-      await supabase.auth.signOut();
+  const handleAdminLogout = async () => {
+    if (supabaseAdmin) {
+      const { error } = await supabaseAdmin.auth.signOut({ scope: 'local' });
+      if (error) {
+        console.error('管理後台登出失敗：', error);
+        return;
+      }
     }
-    setIsLoggedIn(false);
+    setIsAdminLoggedIn(false);
+    setShowAdminModal(false);
+    setAdminUsername('');
+    setAdminPassword('');
+    setAdminError('');
+  };
+
+  const handlePortalLogout = async () => {
+    if (supabase) {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Portal 登出失敗：', error);
+        return;
+      }
+    }
+    if (supabaseAdmin) {
+      const { error } = await supabaseAdmin.auth.signOut({ scope: 'local' });
+      if (error) {
+        console.error('管理後台登出失敗：', error);
+        return;
+      }
+    }
+    setSession(null);
+    setIsAdminLoggedIn(false);
+    setShowAdminModal(false);
     setAdminUsername('');
     setAdminPassword('');
     setAdminError('');
@@ -174,10 +426,10 @@ export default function App() {
     });
 
     // 2. 如果有 Supabase，同步寫入雲端資料表
-    if (supabase) {
+    if (supabaseAdmin) {
       try {
         // 使用 upsert 取代 update：若 tool_statuses 尚無此 id 資料列，自動 insert
-        const { error } = await supabase
+        const { error } = await supabaseAdmin
           .from('tool_statuses')
           .upsert({ id: toolId, is_offline: nextStatus }, { onConflict: 'id' });
         
@@ -198,10 +450,6 @@ export default function App() {
 
   const closeAdminModal = () => {
     setShowAdminModal(false);
-    if (isLoggedIn && supabase) {
-      supabase.auth.signOut();
-    }
-    setIsLoggedIn(false);
     setAdminUsername('');
     setAdminPassword('');
     setAdminError('');
@@ -515,6 +763,14 @@ export default function App() {
     }
   }, [offlineTools, activeTool]);
 
+  if (!authReady) {
+    return <LoginView checkingSession />;
+  }
+
+  if (!session) {
+    return <LoginView />;
+  }
+
   return (
     <div className="app-container">
       {/* 標頭 Header */}
@@ -526,23 +782,29 @@ export default function App() {
             <p>PP00 NOR FLASH 應用程式入口網站系統</p>
           </div>
         </div>
-        {(() => {
-          const offlineCount = Object.values(offlineTools).filter(Boolean).length;
-          const isAllOnline = offlineCount === 0;
-          return (
-            <div className="system-status" style={!isAllOnline ? { 
-              background: 'rgba(245, 158, 11, 0.1)', 
-              borderColor: 'rgba(245, 158, 11, 0.2)', 
-              color: 'var(--accent-amber)' 
-            } : undefined}>
-              <span className="status-dot" style={!isAllOnline ? { 
-                backgroundColor: 'var(--accent-amber)', 
-                boxShadow: '0 0 8px var(--accent-amber)' 
-              } : undefined}></span>
-              <span>{isAllOnline ? 'SYSTEM ACTIVE - ALL PORTALS ONLINE' : `SYSTEM ACTIVE - ${offlineCount} PORTAL(S) OFFLINE`}</span>
-            </div>
-          );
-        })()}
+        <div className="header-actions">
+          {(() => {
+            const offlineCount = Object.values(offlineTools).filter(Boolean).length;
+            const isAllOnline = offlineCount === 0;
+            return (
+              <div className="system-status" style={!isAllOnline ? {
+                background: 'rgba(245, 158, 11, 0.1)',
+                borderColor: 'rgba(245, 158, 11, 0.2)',
+                color: 'var(--accent-amber)'
+              } : undefined}>
+                <span className="status-dot" style={!isAllOnline ? {
+                  backgroundColor: 'var(--accent-amber)',
+                  boxShadow: '0 0 8px var(--accent-amber)'
+                } : undefined}></span>
+                <span>{isAllOnline ? 'SYSTEM ACTIVE - ALL PORTALS ONLINE' : `SYSTEM ACTIVE - ${offlineCount} PORTAL(S) OFFLINE`}</span>
+              </div>
+            );
+          })()}
+          <button type="button" className="header-logout-btn" onClick={handlePortalLogout}>
+            <LogOut size={14} />
+            <span>登出</span>
+          </button>
+        </div>
       </header>
 
       {/* Bento Grid 內容區 */}
@@ -772,17 +1034,19 @@ export default function App() {
               </button>
             </div>
 
-            {!isLoggedIn ? (
+            {!isAdminLoggedIn ? (
               <form onSubmit={handleLogin}>
                 <div className="admin-form-group">
-                  <label>管理員帳號</label>
+                  <label htmlFor="admin-account">管理員帳號 Email</label>
                   <input 
-                    type="text" 
+                    id="admin-account"
+                    type="email"
                     className="admin-input" 
                     value={adminUsername}
                     onChange={(e) => setAdminUsername(e.target.value)}
+                    autoComplete="username"
                     required 
-                    placeholder="請輸入帳號"
+                    placeholder="請輸入管理員 Email"
                   />
                 </div>
                 <div className="admin-form-group">
@@ -807,7 +1071,7 @@ export default function App() {
             ) : (
               <div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--accent-emerald)', marginBottom: '20px', fontWeight: '500' }}>
-                  ✓ 管理權限已授權 (yplu)
+                  ✓ 管理員身份已驗證
                 </div>
                 <div className="admin-tool-list">
                   {tools.map(tool => (
@@ -835,13 +1099,9 @@ export default function App() {
                 </div>
                 <button 
                   className="admin-logout-btn" 
-                  onClick={() => {
-                    setIsLoggedIn(false);
-                    setAdminUsername('');
-                    setAdminPassword('');
-                  }}
+                  onClick={handleAdminLogout}
                 >
-                  安全登出後台
+                  安全登出
                 </button>
               </div>
             )}
