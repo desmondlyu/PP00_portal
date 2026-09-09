@@ -837,9 +837,6 @@ function renderFloorPlan(date) {
         block.style.width = `${blockDef.w}%`;
         block.style.height = `${blockDef.h}%`;
         block.dataset.floorStaticIndex = String(blockIndex);
-        if (blockDef.kind === 'frame') {
-            block.style.visibility = 'hidden';
-        }
         block.textContent = blockDef.label;
         labelLayer.appendChild(block);
         staticBlockElements.push(block);
@@ -945,7 +942,6 @@ function renderFloorPlan(date) {
                         const blockDef = FLOOR_PLAN_STATIC_BLOCKS[blockIndex];
                         const position = staticBlocks[blockIndex];
                         if (blockDef.kind === 'frame') {
-                            block.style.visibility = 'hidden';
                             return;
                         }
                         if (!position) {

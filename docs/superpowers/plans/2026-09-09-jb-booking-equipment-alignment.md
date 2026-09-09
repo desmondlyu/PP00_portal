@@ -14,11 +14,11 @@
 
 - Modify: `tool/JB_booking/static/js/floor-plan-3d.js`
   - Add pure frame/row metrics.
-  - Render one unified frame from the envelope of the original frame blocks.
+  - Do not render any additional frame or rail mesh; use the original Floor Plan outer frame as the only visible frame.
   - Add UF3000 and probe-seat mesh factories.
   - Position all mesh groups by bottom/front baseline and clamp their geometry to the frame.
   - Project mesh anchors back to the DOM label layer after camera resize.
-  - Fit the orthographic camera to the unified floor envelope so the 3D base uses the original Floor Plan width.
+  - Fit the orthographic camera to the original floor envelope so the 3D base uses the original Floor Plan width.
   - Keep existing hover, Raycaster, resize, dispose, and DOM fallback contracts.
 - Modify: `tool/JB_booking/static/js/app.js`
   - Keep appointment lookup, tester records, state classes, and click handlers unchanged.
@@ -492,7 +492,7 @@ onLayout({
 });
 ```
 
-Keep frame entries `null` because the unified Three.js frame replaces the repeated DOM frame outlines.
+Keep frame entries `null` because the original outer frame remains the only visible frame.
 
 - [ ] **Step 2: Apply projection positions without changing booking identity**
 
@@ -508,13 +508,13 @@ Run:
 node tool/JB_booking/design-preview/threejs-floor-contract.test.mjs
 ```
 
-Expected: PASS with `createUnifiedFrame`, `projectSceneLayout`, `onLayout`, and hidden frame outline contracts.
+Expected: PASS with `fitCameraToFloor`, `projectSceneLayout`, `onLayout`, and hidden frame outline contracts; no extra frame mesh symbol is present.
 
-- [ ] **Step 4: Commit the unified frame and label projection fix**
+- [ ] **Step 4: Commit the label projection fix**
 
 ```powershell
 git add tool/JB_booking/static/js/floor-plan-3d.js tool/JB_booking/static/js/app.js tool/JB_booking/design-preview/threejs-floor-contract.test.mjs
-git commit -m "fix: align floor labels with unified threejs frame" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+git commit -m "fix: align floor labels with original frame" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 ```
 
 ## Task 6: Browser verification and presentation-only CSS guard
@@ -543,7 +543,7 @@ Check all of the following in the browser:
 4. The bottom edges of machines in each row form one horizontal visual baseline.
 5. No machine, UF3000, probe head, or static device geometry crosses the outer Floor Plan frame.
 6. Hover lifts only the selected tester mesh and keeps the DOM label synchronized.
-7. The unified frame fills the original green Floor Plan width instead of appearing as a narrower central frame.
+7. The 3D floor uses the original green Floor Plan width without adding a second central frame.
 
 - [ ] **Step 3: Verify booking interaction**
 
