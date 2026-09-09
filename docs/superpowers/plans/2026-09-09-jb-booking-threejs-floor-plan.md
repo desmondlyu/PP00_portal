@@ -20,6 +20,8 @@
   - 接收機台展示資料與 callback，回傳 `destroy()`、`setHovered()`、`resize()` 介面。
 - `tool/JB_booking/static/js/vendor/three.module.js`
   - 本地 Three.js module，避免 CDN／外部網路依賴。
+- `tool/JB_booking/static/js/vendor/three.core.js`
+  - `three.module.js` 在目前 Three.js 版本使用的同目錄 core module 依賴。
 - `tool/JB_booking/design-preview/threejs-floor-contract.test.mjs`
   - 驗證既有 21 個 slot、座標、尺寸、預約契約與 Three.js 整合邊界。
 
@@ -61,6 +63,8 @@ $tarball = Get-ChildItem $staging -Filter 'three-*.tgz' | Select-Object -First 1
 tar -xzf $tarball.FullName -C $staging
 Copy-Item "$staging\package\build\three.module.js" `
   "tool\JB_booking\static\js\vendor\three.module.js" -Force
+Copy-Item "$staging\package\build\three.core.js" `
+  "tool\JB_booking\static\js\vendor\three.core.js" -Force
 Remove-Item $staging -Recurse -Force
 ```
 
@@ -641,4 +645,3 @@ git -C .worktrees\jb-booking-playful --no-pager diff --name-only HEAD~4..HEAD
 - [ ] **Step 7: 更新任務狀態並保留隔離分支**
 
 將 `threejs-floor-implementation` 標記為完成前，確認 git status 中沒有把根目錄使用者既有變更加入提交；不合併、不推送。
-
