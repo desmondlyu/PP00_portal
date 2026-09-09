@@ -981,6 +981,7 @@ body {
     padding: 0.7rem 0.8rem;
     background-color: rgba(0, 0, 0, 0.2);
     color: var(--text-primary);
+    color-scheme: dark;
     border: 1px solid var(--divider);
     border-radius: 8px;
     font-size: var(--font-normal);
@@ -992,6 +993,17 @@ body {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(255, 122, 26, 0.15);
+}
+
+.form-group select option {
+    background-color: #111722;
+    color: var(--text-primary);
+}
+
+.form-group select option:checked,
+.form-group select option:hover {
+    background-color: #26344a;
+    color: var(--text-light);
 }
 
 .form-group input[readonly] {
@@ -1233,9 +1245,40 @@ body {
 }
 
 .modal-appt-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
     color: var(--text-primary);
     font-size: 0.8rem;
     line-height: 1.4;
+}
+
+.modal-appt-info {
+    min-width: 0;
+    flex: 1;
+}
+
+.modal-appt-detail {
+    overflow-wrap: anywhere;
+}
+
+.modal-appt-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.3rem;
+}
+
+.modal-appt-action {
+    min-width: 2.6rem;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.68rem;
+}
+
+.modal-appt-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.38;
+    filter: grayscale(0.35);
 }
 
 .modal-appt-item strong {
@@ -1437,6 +1480,15 @@ body {
 }
 
 @media (max-width: 768px) {
+    .modal-appt-item {
+        align-items: flex-start;
+    }
+
+    .modal-appt-actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
     body {
         overflow: auto; /* 解鎖全螢幕捲軸 */
         padding-top: 60px; /* 為置頂 Header 留空 */
