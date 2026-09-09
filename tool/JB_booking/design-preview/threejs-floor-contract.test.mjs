@@ -171,6 +171,16 @@ assert.match(cssSource, /\.floor-plan-3d-canvas/);
 assert.match(cssSource, /\.floor-plan-label-layer/);
 assert.match(
     cssSource,
+    /\.floor-plan-canvas\s*\{[\s\S]*?max-width:\s*1520px;/,
+    'Floor Plan should stop growing beyond its designed 2:1 canvas width',
+);
+assert.match(
+    cssSource,
+    /\.floor-plan-canvas\s*\{[\s\S]*?margin-inline:\s*auto;/,
+    'Floor Plan should remain centered when the viewport becomes wider',
+);
+assert.match(
+    cssSource,
     /\.floor-plan-stage[\s\S]{0,220}transform:\s*translateY\(8%\)\s*scaleY\(0\.98\)/,
 );
 assert.match(cssSource, /\.floor-plan-stage[\s\S]{0,260}transform-origin:\s*center top/);
