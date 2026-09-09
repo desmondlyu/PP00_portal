@@ -40,6 +40,8 @@ for (const required of [
     'createGround',
     'createLayoutMetrics',
     'createUnifiedFrame',
+    'fitCameraToFloor',
+    'CAMERA_PADDING',
     'projectSceneLayout',
     'createEquipmentMesh',
     'createUf3000Mesh',

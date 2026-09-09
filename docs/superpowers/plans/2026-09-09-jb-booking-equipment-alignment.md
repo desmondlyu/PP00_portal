@@ -18,6 +18,7 @@
   - Add UF3000 and probe-seat mesh factories.
   - Position all mesh groups by bottom/front baseline and clamp their geometry to the frame.
   - Project mesh anchors back to the DOM label layer after camera resize.
+  - Fit the orthographic camera to the unified floor envelope so the 3D base uses the original Floor Plan width.
   - Keep existing hover, Raycaster, resize, dispose, and DOM fallback contracts.
 - Modify: `tool/JB_booking/static/js/app.js`
   - Keep appointment lookup, tester records, state classes, and click handlers unchanged.
@@ -542,6 +543,7 @@ Check all of the following in the browser:
 4. The bottom edges of machines in each row form one horizontal visual baseline.
 5. No machine, UF3000, probe head, or static device geometry crosses the outer Floor Plan frame.
 6. Hover lifts only the selected tester mesh and keeps the DOM label synchronized.
+7. The unified frame fills the original green Floor Plan width instead of appearing as a narrower central frame.
 
 - [ ] **Step 3: Verify booking interaction**
 

@@ -2,12 +2,12 @@ import * as THREE from './vendor/three.module.js';
 
 const WORLD_WIDTH = 24;
 const WORLD_DEPTH = 18;
-const VIEW_HEIGHT = 20;
 const MACHINE_Y = 0.22;
 const FRAME_INSET = 0.72;
 const ROW_Y_TOLERANCE = 1.25;
 const MAX_EQUIPMENT_HEIGHT = 1.62;
 const MAX_MACHINE_HEIGHT = 1.58;
+const CAMERA_PADDING = 1.1;
 
 function percentToWorld(value, total) {
     return (value / 100) * total - total / 2;
@@ -167,6 +167,41 @@ function createUnifiedFrame(scene, staticBlocks) {
         rail.receiveShadow = true;
         scene.add(rail);
     });
+}
+
+function fitCameraToFloor(camera, host, staticBlocks) {
+    const floorBounds = getFrameBounds(staticBlocks, 0);
+    const minY = -0.2;
+    const maxY = MAX_EQUIPMENT_HEIGHT + MACHINE_Y;
+    camera.updateMatrixWorld(true);
+
+    const points = [
+        [floorBounds.minX, minY, floorBounds.minZ],
+        [floorBounds.minX, minY, floorBounds.maxZ],
+        [floorBounds.maxX, minY, floorBounds.minZ],
+        [floorBounds.maxX, minY, floorBounds.maxZ],
+        [floorBounds.minX, maxY, floorBounds.minZ],
+        [floorBounds.minX, maxY, floorBounds.maxZ],
+        [floorBounds.maxX, maxY, floorBounds.minZ],
+        [floorBounds.maxX, maxY, floorBounds.maxZ],
+    ].map(([x, y, z]) =>
+        new THREE.Vector3(x, y, z).applyMatrix4(camera.matrixWorldInverse),
+    );
+    const minX = Math.min(...points.map(({ x }) => x));
+    const maxX = Math.max(...points.map(({ x }) => x));
+    const minScreenY = Math.min(...points.map(({ y }) => y));
+    const maxScreenY = Math.max(...points.map(({ y }) => y));
+    const aspect = Math.max(0.1, host.clientWidth / host.clientHeight);
+    const requiredHeight = Math.max(
+        (maxScreenY - minScreenY) * CAMERA_PADDING,
+        ((maxX - minX) * CAMERA_PADDING) / aspect,
+    );
+    const requiredWidth = requiredHeight * aspect;
+    camera.left = -requiredWidth / 2;
+    camera.right = requiredWidth / 2;
+    camera.top = requiredHeight / 2;
+    camera.bottom = -requiredHeight / 2;
+    camera.updateProjectionMatrix();
 }
 
 function getGroupDepth(group) {
@@ -601,13 +636,7 @@ export function createFloorPlan3D({
         }
         const width = Math.max(1, host.clientWidth);
         const height = Math.max(1, host.clientHeight);
-        const aspect = width / height;
-        const viewWidth = VIEW_HEIGHT * aspect;
-        camera.left = -viewWidth / 2;
-        camera.right = viewWidth / 2;
-        camera.top = VIEW_HEIGHT / 2;
-        camera.bottom = -VIEW_HEIGHT / 2;
-        camera.updateProjectionMatrix();
+        fitCameraToFloor(camera, host, staticBlocks);
         camera.updateMatrixWorld();
         renderer.setSize(width, height, false);
         onLayout(projectSceneLayout(
