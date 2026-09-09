@@ -20,15 +20,15 @@ function percentRangeToWorld(start, size, total) {
     };
 }
 
-function getFrameBounds(staticBlocks) {
+function getFrameBounds(staticBlocks, inset = FRAME_INSET) {
     const frames = staticBlocks.filter(({ kind }) => kind === 'frame');
     const x = frames.map(({ x, w }) => percentRangeToWorld(x, w, WORLD_WIDTH));
     const z = frames.map(({ y, h }) => percentRangeToWorld(y, h, WORLD_DEPTH));
     return {
-        minX: Math.min(...x.map(({ min, max }) => Math.min(min, max))) + FRAME_INSET,
-        maxX: Math.max(...x.map(({ min, max }) => Math.max(min, max))) - FRAME_INSET,
-        minZ: Math.min(...z.map(({ min, max }) => Math.min(min, max))) + FRAME_INSET,
-        maxZ: Math.max(...z.map(({ min, max }) => Math.max(min, max))) - FRAME_INSET,
+        minX: Math.min(...x.map(({ min, max }) => Math.min(min, max))) + inset,
+        maxX: Math.max(...x.map(({ min, max }) => Math.max(min, max))) - inset,
+        minZ: Math.min(...z.map(({ min, max }) => Math.min(min, max))) + inset,
+        maxZ: Math.max(...z.map(({ min, max }) => Math.max(min, max))) - inset,
     };
 }
 
@@ -101,6 +101,72 @@ function createGround(scene) {
     grid.material.transparent = true;
     grid.material.opacity = 0.42;
     scene.add(grid);
+}
+
+function createUnifiedFrame(scene, staticBlocks) {
+    const bounds = getFrameBounds(staticBlocks, 0);
+    const width = bounds.maxX - bounds.minX;
+    const depth = bounds.maxZ - bounds.minZ;
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+    const frameMaterial = createMaterial(0x24455c, {
+        roughness: 0.78,
+        metalness: 0.18,
+        transparent: true,
+        opacity: 0.88,
+    });
+    const base = new THREE.Mesh(
+        new THREE.BoxGeometry(width, 0.12, depth),
+        frameMaterial,
+    );
+    base.position.set(centerX, -0.04, centerZ);
+    base.receiveShadow = true;
+    scene.add(base);
+
+    const railMaterial = createMaterial(0x5e9ab0, {
+        roughness: 0.5,
+        metalness: 0.3,
+        emissive: 0x0d2938,
+        emissiveIntensity: 0.2,
+    });
+    const railHeight = 0.18;
+    const railThickness = 0.12;
+    const rails = [
+        {
+            width,
+            depth: railThickness,
+            x: centerX,
+            z: bounds.minZ,
+        },
+        {
+            width,
+            depth: railThickness,
+            x: centerX,
+            z: bounds.maxZ,
+        },
+        {
+            width: railThickness,
+            depth,
+            x: bounds.minX,
+            z: centerZ,
+        },
+        {
+            width: railThickness,
+            depth,
+            x: bounds.maxX,
+            z: centerZ,
+        },
+    ];
+    rails.forEach(({ width: railWidth, depth: railDepth, x, z }) => {
+        const rail = new THREE.Mesh(
+            new THREE.BoxGeometry(railWidth, railHeight, railDepth),
+            railMaterial,
+        );
+        rail.position.set(x, railHeight / 2, z);
+        rail.castShadow = true;
+        rail.receiveShadow = true;
+        scene.add(rail);
+    });
 }
 
 function getGroupDepth(group) {
@@ -296,6 +362,9 @@ function createStaticBlock(scene, blockDef, metrics) {
     if (!['frame', 'walkway', 'device'].includes(kind)) {
         return;
     }
+    if (kind === 'frame') {
+        return null;
+    }
     if (kind === 'device') {
         const equipment = createEquipmentMesh(blockDef, metrics);
         scene.add(equipment);
@@ -427,11 +496,39 @@ function disposeObject(object) {
     });
 }
 
+function projectSceneLayout(camera, host, machineGroups, staticBlockGroups) {
+    const width = Math.max(1, host.clientWidth);
+    const height = Math.max(1, host.clientHeight);
+
+    function projectGroup(group) {
+        if (!group) {
+            return null;
+        }
+        const worldPosition = group.getWorldPosition(new THREE.Vector3());
+        const projected = worldPosition.project(camera);
+        return {
+            x: ((projected.x + 1) / 2) * width,
+            y: ((1 - projected.y) / 2) * height,
+        };
+    }
+
+    return {
+        width,
+        height,
+        machines: machineGroups.reduce((positions, group) => {
+            positions[group.userData.tester] = projectGroup(group);
+            return positions;
+        }, {}),
+        staticBlocks: staticBlockGroups.map((group) => projectGroup(group)),
+    };
+}
+
 export function createFloorPlan3D({
     host,
     machines,
     staticBlocks,
     onHover = () => {},
+    onLayout = () => {},
 }) {
     if (!host) {
         throw new Error('Three.js Floor Plan host is required.');
@@ -465,9 +562,10 @@ export function createFloorPlan3D({
 
     const layoutMetrics = createLayoutMetrics(staticBlocks, machines);
     createGround(scene);
-    staticBlocks.forEach((blockDef) => {
-        createStaticBlock(scene, blockDef, layoutMetrics);
-    });
+    createUnifiedFrame(scene, staticBlocks);
+    const staticBlockGroups = staticBlocks.map((blockDef) =>
+        createStaticBlock(scene, blockDef, layoutMetrics),
+    );
 
     const machineGroups = machines.map((machine) => {
         const group = createMachineMesh(machine, layoutMetrics);
@@ -510,7 +608,14 @@ export function createFloorPlan3D({
         camera.top = VIEW_HEIGHT / 2;
         camera.bottom = -VIEW_HEIGHT / 2;
         camera.updateProjectionMatrix();
+        camera.updateMatrixWorld();
         renderer.setSize(width, height, false);
+        onLayout(projectSceneLayout(
+            camera,
+            host,
+            machineGroups,
+            staticBlockGroups,
+        ));
         render();
     }
 

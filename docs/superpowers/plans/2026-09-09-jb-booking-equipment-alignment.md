@@ -14,13 +14,16 @@
 
 - Modify: `tool/JB_booking/static/js/floor-plan-3d.js`
   - Add pure frame/row metrics.
+  - Render one unified frame from the envelope of the original frame blocks.
   - Add UF3000 and probe-seat mesh factories.
   - Position all mesh groups by bottom/front baseline and clamp their geometry to the frame.
+  - Project mesh anchors back to the DOM label layer after camera resize.
   - Keep existing hover, Raycaster, resize, dispose, and DOM fallback contracts.
+- Modify: `tool/JB_booking/static/js/app.js`
+  - Keep appointment lookup, tester records, state classes, and click handlers unchanged.
+  - Apply projected presentation coordinates to existing labels and hide duplicate DOM frame outlines.
 - Modify: `tool/JB_booking/design-preview/threejs-floor-contract.test.mjs`
   - Add source contracts for equipment factories, row metrics, baseline placement, frame bounds, and unchanged booking integration.
-- Do not modify: `tool/JB_booking/static/js/app.js`
-  - The existing machine records, appointment lookup, tester IDs, CSS button coordinates, and `openAppointmentModal()` call remain unchanged.
 - Do not modify unless browser verification proves layer overlap: `tool/JB_booking/static/css/style.css`
   - If required, only adjust `.floor-plan-3d-host`, `.floor-plan-label-layer`, or their presentation-only `z-index`/`pointer-events`.
 
@@ -468,7 +471,52 @@ git add tool/JB_booking/static/js/floor-plan-3d.js
 git commit -m "fix: align floor plan 3d rows within frame" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 ```
 
-## Task 5: Browser verification and presentation-only CSS guard
+## Task 5: Project Three.js anchors into the DOM label layer
+
+**Files:**
+- Modify: `tool/JB_booking/static/js/floor-plan-3d.js`
+- Modify: `tool/JB_booking/static/js/app.js`
+- Test: `tool/JB_booking/design-preview/threejs-floor-contract.test.mjs`
+
+- [ ] **Step 1: Add the layout callback contract**
+
+Keep `onLayout` presentation-only and return projected host pixels for every tester and rendered static device:
+
+```js
+onLayout({
+    width,
+    height,
+    machines: { [testerId]: { x, y } },
+    staticBlocks: [{ x, y } | null],
+});
+```
+
+Keep frame entries `null` because the unified Three.js frame replaces the repeated DOM frame outlines.
+
+- [ ] **Step 2: Apply projection positions without changing booking identity**
+
+In `renderFloorPlan()`, retain the existing button creation and click listener, but update only `style.left` and `style.top` from the projected anchor. Preserve the original `dataset.floorTester`, width, height, state classes, and `openAppointmentModal()` callback.
+
+Set `visibility: hidden` only for `kind: 'frame'` DOM elements. Leave frame labels, walkways, and any unsupported static label at their existing CSS position when no projected group exists.
+
+- [ ] **Step 3: Verify the regression contract**
+
+Run:
+
+```powershell
+node tool/JB_booking/design-preview/threejs-floor-contract.test.mjs
+```
+
+Expected: PASS with `createUnifiedFrame`, `projectSceneLayout`, `onLayout`, and hidden frame outline contracts.
+
+- [ ] **Step 4: Commit the unified frame and label projection fix**
+
+```powershell
+git add tool/JB_booking/static/js/floor-plan-3d.js tool/JB_booking/static/js/app.js tool/JB_booking/design-preview/threejs-floor-contract.test.mjs
+git commit -m "fix: align floor labels with unified threejs frame" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+```
+
+## Task 6: Browser verification and presentation-only CSS guard
 
 **Files:**
 - Modify only if the browser check proves an overlay defect: `tool/JB_booking/static/css/style.css`

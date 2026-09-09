@@ -828,15 +828,21 @@ function renderFloorPlan(date) {
     stage.appendChild(labelLayer);
     floorPlanCanvas.appendChild(stage);
 
-    FLOOR_PLAN_STATIC_BLOCKS.forEach((blockDef) => {
+    const staticBlockElements = [];
+    FLOOR_PLAN_STATIC_BLOCKS.forEach((blockDef, blockIndex) => {
         const block = document.createElement('div');
         block.className = `floor-static-block ${blockDef.kind || 'machine'}`;
         block.style.left = `${blockDef.x}%`;
         block.style.top = `${blockDef.y}%`;
         block.style.width = `${blockDef.w}%`;
         block.style.height = `${blockDef.h}%`;
+        block.dataset.floorStaticIndex = String(blockIndex);
+        if (blockDef.kind === 'frame') {
+            block.style.visibility = 'hidden';
+        }
         block.textContent = blockDef.label;
         labelLayer.appendChild(block);
+        staticBlockElements.push(block);
     });
 
     FLOOR_PLAN_EXITS.forEach((exitDef) => {
@@ -861,6 +867,7 @@ function renderFloorPlan(date) {
     }
 
     const machineRecords = [];
+    const machineElements = new Map();
     layout.forEach((slot) => {
         const machineAppointments = dateAppointments[slot.tester] || [];
         const block = document.createElement('button');
@@ -889,6 +896,7 @@ function renderFloorPlan(date) {
         block.addEventListener('mouseleave', () => floorPlan3dInstance?.setHovered(null));
         block.addEventListener('click', () => openAppointmentModal(slot.tester, dateStr));
         labelLayer.appendChild(block);
+        machineElements.set(slot.tester, block);
 
         machineRecords.push({
             tester: slot.tester,
@@ -917,6 +925,39 @@ function renderFloorPlan(date) {
                             'is-hovered',
                             button.dataset.floorTester === tester,
                         );
+                    });
+                },
+                onLayout: (projectedLayout) => {
+                    const { width, height, machines, staticBlocks } = projectedLayout;
+                    machineElements.forEach((button, tester) => {
+                        const position = machines[tester];
+                        if (!position) {
+                            return;
+                        }
+                        button.style.left = `${
+                            (position.x / width) * 100 - FLOOR_PLAN_BLOCK_SIZE.w / 2
+                        }%`;
+                        button.style.top = `${
+                            (position.y / height) * 100 - FLOOR_PLAN_BLOCK_SIZE.h / 2
+                        }%`;
+                    });
+                    staticBlockElements.forEach((block, blockIndex) => {
+                        const blockDef = FLOOR_PLAN_STATIC_BLOCKS[blockIndex];
+                        const position = staticBlocks[blockIndex];
+                        if (blockDef.kind === 'frame') {
+                            block.style.visibility = 'hidden';
+                            return;
+                        }
+                        if (!position) {
+                            return;
+                        }
+                        block.style.visibility = '';
+                        block.style.left = `${
+                            (position.x / width) * 100 - blockDef.w / 2
+                        }%`;
+                        block.style.top = `${
+                            (position.y / height) * 100 - blockDef.h / 2
+                        }%`;
                     });
                 },
             });
