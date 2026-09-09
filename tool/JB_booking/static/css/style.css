@@ -651,6 +651,9 @@ body {
 }
 
 .floor-plan-canvas {
+    width: 100%;
+    max-width: 1520px;
+    margin-inline: auto;
     min-height: 560px;
     height: clamp(560px, 62vw, 760px);
     border: 1px solid rgba(255, 255, 255, 0.05);
