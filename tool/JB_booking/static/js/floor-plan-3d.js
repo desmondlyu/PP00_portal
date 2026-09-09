@@ -18,7 +18,6 @@ const MIDDLE_ZONE_START_Y = 40.5;
 const MIDDLE_ZONE_OFFSET_PERCENT = 4.5;
 const LOWER_ZONE_START_Y = 71.5;
 const LOWER_ZONE_OFFSET_PERCENT = 7.5;
-const LOWER_ZONE_EXTRA_OFFSET_PERCENT = 5;
 const LOWER_WALKWAY_START_Y = 55.5;
 const LOWER_WALKWAY_OFFSET_PERCENT = 6.5;
 
@@ -34,15 +33,6 @@ function getStaticVisualOffsetPercent(blockDef) {
         return LOWER_WALKWAY_OFFSET_PERCENT;
     }
     return getVisualOffsetPercent(blockDef.y);
-}
-
-function applyLowerZoneVisualOffset(group, y) {
-    if (y >= LOWER_ZONE_START_Y) {
-        group.position.z -= percentToWorld(
-            LOWER_ZONE_EXTRA_OFFSET_PERCENT,
-            WORLD_DEPTH,
-        );
-    }
 }
 
 function percentToWorld(value, total) {
@@ -95,7 +85,7 @@ function createLayoutMetrics(staticBlocks, machines) {
             ...row.machines.map(({ y, height }) => y + height),
         );
         const rowBaseline = percentToWorld(
-            rowBottomPercent - getVisualOffsetPercent(row.y),
+            rowBottomPercent + getVisualOffsetPercent(row.y),
             WORLD_DEPTH,
         );
         row.machines.forEach((machine) => {
@@ -197,7 +187,7 @@ function positionEquipmentOnBlock(group, blockDef) {
     const depth = getGroupDepth(group);
     const visualOffset = getVisualOffsetPercent(blockDef.y);
     const blockBottomZ = percentToWorld(
-        blockDef.y + blockDef.h - visualOffset,
+        blockDef.y + blockDef.h + visualOffset,
         WORLD_DEPTH,
     );
     group.position.set(
@@ -214,7 +204,7 @@ function createWalkwayAnchor(blockDef) {
         percentToWorld(blockDef.x + blockDef.w / 2, WORLD_WIDTH),
         0,
         percentToWorld(
-            blockDef.y + blockDef.h / 2 - visualOffset,
+            blockDef.y + blockDef.h / 2 + visualOffset,
             WORLD_DEPTH,
         ),
     );
@@ -422,7 +412,6 @@ function createEquipmentMesh(blockDef, metrics) {
             : createGenericEquipmentMesh(blockDef, metrics);
     positionEquipmentOnBlock(group, blockDef);
     clampGroupToBounds(group, metrics.frameBounds);
-    applyLowerZoneVisualOffset(group, blockDef.y);
     group.traverse((child) => {
         child.castShadow = true;
         child.receiveShadow = true;
@@ -546,7 +535,6 @@ function createMachineMesh(machine, metrics) {
     group.userData.baseScale = new THREE.Vector3(1, 1, 1);
     group.userData.body = body;
     clampGroupToBounds(group, metrics.frameBounds);
-    applyLowerZoneVisualOffset(group, machine.y);
     return group;
 }
 
