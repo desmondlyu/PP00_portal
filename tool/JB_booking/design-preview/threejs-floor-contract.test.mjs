@@ -99,6 +99,8 @@ assert.match(floorPlan3dSource, /MS_MACHINE_COLOR/);
 assert.match(floorPlan3dSource, /T_MACHINE_COLOR/);
 assert.match(floorPlan3dSource, /LOWER_ZONE_START_Y/);
 assert.match(floorPlan3dSource, /LOWER_ZONE_OFFSET_PERCENT/);
+assert.match(floorPlan3dSource, /LOWER_ZONE_EXTRA_OFFSET_PERCENT/);
+assert.match(floorPlan3dSource, /applyLowerZoneVisualOffset/);
 assert.match(floorPlan3dSource, /MIDDLE_ZONE_START_Y/);
 assert.match(floorPlan3dSource, /MIDDLE_ZONE_OFFSET_PERCENT/);
 assert.match(floorPlan3dSource, /MS_TOP_PANEL_COLOR/);

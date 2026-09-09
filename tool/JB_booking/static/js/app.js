@@ -150,7 +150,7 @@ const SUPABASE_ANON_KEY_PLACEHOLDER = 'REPLACE_WITH_SUPABASE_ANON_KEY';
 
 function loadFloorPlan3DModule() {
     if (!floorPlan3dModulePromise) {
-        floorPlan3dModulePromise = import('./floor-plan-3d.js?v=20260909-1433');
+        floorPlan3dModulePromise = import('./floor-plan-3d.js?v=20260909-1439');
     }
     return floorPlan3dModulePromise;
 }
