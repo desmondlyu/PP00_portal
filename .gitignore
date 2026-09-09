@@ -66,9 +66,11 @@ __pycache__/
 
 # Local git worktrees
 /.worktrees/
+**/.worktrees/
 
 # Local AI agent, skill, memory, and MCP settings (never upload)
 .agents/
+**/.agent/
 .gemini/
 .copilot/
 .claude/
@@ -78,16 +80,30 @@ __pycache__/
 .windsurf/
 .superpowers/
 .codebase-memory/
+**/.codebase*/
+**/.superpowers/
 .playwright-mcp/
 .mcp/
 .vscode/
 # Local-only agent planning artifacts, including nested tool directories
 /docs/superpowers/
 **/docs/superpowers/
+SECURITY-REVIEW*.md
+SECURITY-REVIEW*.html
 AGENTS.md
 CLAUDE.md
 GEMINI.md
 SKILL.md
+
+# Non-deployment tool artifacts
+/tool/TTO_Agent/rawdata_analysis/test/
+/tool/DL_to_Excel/docs/
+/tool/web_terminal/scripts/
+/tool/Yield_Summary/test_proxy.py
+/tool/CZ_dataset/spec-sync.js
+/tool/CZ_dataset/spec-sync.test.mjs
+/tool/TTO_Agent/rawdata_analysis/assets/example.png
+/tool/AutoDongle/icons.svg
 mcp*.json
 mcp*.yaml
 mcp*.yml
