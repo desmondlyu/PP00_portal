@@ -4,9 +4,71 @@ const WORLD_WIDTH = 24;
 const WORLD_DEPTH = 18;
 const VIEW_HEIGHT = 20;
 const MACHINE_Y = 0.22;
+const FRAME_INSET = 0.72;
+const ROW_Y_TOLERANCE = 1.25;
+const MAX_EQUIPMENT_HEIGHT = 1.62;
+const MAX_MACHINE_HEIGHT = 1.58;
 
 function percentToWorld(value, total) {
     return (value / 100) * total - total / 2;
+}
+
+function percentRangeToWorld(start, size, total) {
+    return {
+        min: percentToWorld(start, total),
+        max: percentToWorld(start + size, total),
+    };
+}
+
+function getFrameBounds(staticBlocks) {
+    const frames = staticBlocks.filter(({ kind }) => kind === 'frame');
+    const x = frames.map(({ x, w }) => percentRangeToWorld(x, w, WORLD_WIDTH));
+    const z = frames.map(({ y, h }) => percentRangeToWorld(y, h, WORLD_DEPTH));
+    return {
+        minX: Math.min(...x.map(({ min, max }) => Math.min(min, max))) + FRAME_INSET,
+        maxX: Math.max(...x.map(({ min, max }) => Math.max(min, max))) - FRAME_INSET,
+        minZ: Math.min(...z.map(({ min, max }) => Math.min(min, max))) + FRAME_INSET,
+        maxZ: Math.max(...z.map(({ min, max }) => Math.max(min, max))) - FRAME_INSET,
+    };
+}
+
+function groupMachineRows(machines) {
+    return machines
+        .slice()
+        .sort((a, b) => a.y - b.y)
+        .reduce((rows, machine) => {
+            const row = rows.find(
+                ({ y }) => Math.abs(y - machine.y) <= ROW_Y_TOLERANCE,
+            );
+            if (row) {
+                row.machines.push(machine);
+            } else {
+                rows.push({ y: machine.y, machines: [machine] });
+            }
+            return rows;
+        }, []);
+}
+
+function createLayoutMetrics(staticBlocks, machines) {
+    const frameBounds = getFrameBounds(staticBlocks);
+    const rows = groupMachineRows(machines);
+    const machinePlacements = new Map();
+
+    rows.forEach((row) => {
+        const rowBottomPercent = Math.max(
+            ...row.machines.map(({ y, height }) => y + height),
+        );
+        const rowBaseline = percentToWorld(rowBottomPercent, WORLD_DEPTH);
+        row.machines.forEach((machine) => {
+            machinePlacements.set(machine.tester, {
+                x: percentToWorld(machine.x + machine.width / 2, WORLD_WIDTH),
+                rowBaseline,
+                rowKey: row.y,
+            });
+        });
+    });
+
+    return { frameBounds, rows, machinePlacements };
 }
 
 function createMaterial(color, options = {}) {
@@ -41,10 +103,203 @@ function createGround(scene) {
     scene.add(grid);
 }
 
-function createStaticBlock(scene, blockDef) {
+function getGroupDepth(group) {
+    group.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(group);
+    return bounds.max.z - bounds.min.z;
+}
+
+function clampGroupToBounds(group, frameBounds) {
+    group.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(group);
+    const width = bounds.max.x - bounds.min.x;
+    const depth = bounds.max.z - bounds.min.z;
+    const availableWidth = frameBounds.maxX - frameBounds.minX;
+    const availableDepth = frameBounds.maxZ - frameBounds.minZ;
+    const footprintScale = Math.min(
+        1,
+        availableWidth / Math.max(width, 0.001),
+        availableDepth / Math.max(depth, 0.001),
+    );
+
+    if (footprintScale < 1) {
+        group.scale.multiplyScalar(footprintScale);
+        group.updateMatrixWorld(true);
+    }
+
+    const finalBounds = new THREE.Box3().setFromObject(group);
+    group.position.x += Math.max(
+        frameBounds.minX - finalBounds.min.x,
+        Math.min(0, frameBounds.maxX - finalBounds.max.x),
+    );
+    group.position.z += Math.max(
+        frameBounds.minZ - finalBounds.min.z,
+        Math.min(0, frameBounds.maxZ - finalBounds.max.z),
+    );
+    group.userData.frameBounds = frameBounds;
+}
+
+function positionEquipmentOnBlock(group, blockDef) {
+    const depth = getGroupDepth(group);
+    const blockBottomZ = percentToWorld(blockDef.y + blockDef.h, WORLD_DEPTH);
+    group.position.set(
+        percentToWorld(blockDef.x + blockDef.w / 2, WORLD_WIDTH),
+        0,
+        blockBottomZ - depth / 2,
+    );
+}
+
+function createEquipmentMaterial(color, options = {}) {
+    return createMaterial(color, {
+        roughness: options.roughness ?? 0.52,
+        metalness: options.metalness ?? 0.36,
+        emissive: options.emissive ?? 0x000000,
+        emissiveIntensity: options.emissiveIntensity ?? 0.12,
+    });
+}
+
+function createUf3000Mesh(blockDef, metrics) {
+    const width = Math.max(0.72, (blockDef.w / 100) * WORLD_WIDTH * 0.72);
+    const depth = Math.max(0.62, (blockDef.h / 100) * WORLD_DEPTH * 0.62);
+    const bodyHeight = Math.min(1.18, MAX_EQUIPMENT_HEIGHT - 0.25);
+    const group = new THREE.Group();
+
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(width, bodyHeight, depth),
+        createEquipmentMaterial(0x1b6f8d, { emissive: 0x062d3b }),
+    );
+    body.position.y = bodyHeight / 2 + MACHINE_Y;
+
+    const topPanel = new THREE.Mesh(
+        new THREE.BoxGeometry(width * 0.66, 0.10, depth * 0.70),
+        createEquipmentMaterial(0x8cecf4, {
+            metalness: 0.55,
+            emissive: 0x0b5a6d,
+        }),
+    );
+    topPanel.position.set(0, bodyHeight + MACHINE_Y + 0.05, 0);
+
+    const frontDoor = new THREE.Mesh(
+        new THREE.BoxGeometry(width * 0.52, bodyHeight * 0.48, 0.045),
+        createEquipmentMaterial(0x0d4056, { metalness: 0.48 }),
+    );
+    frontDoor.position.set(
+        0,
+        bodyHeight * 0.45 + MACHINE_Y,
+        depth / 2 + 0.025,
+    );
+
+    const controlPanel = new THREE.Mesh(
+        new THREE.BoxGeometry(width * 0.18, 0.16, 0.05),
+        createEquipmentMaterial(0xf1b65d, { emissive: 0x4a2107 }),
+    );
+    controlPanel.position.set(
+        width * 0.28,
+        bodyHeight * 0.78 + MACHINE_Y,
+        depth / 2 + 0.05,
+    );
+
+    group.add(body, topPanel, frontDoor, controlPanel);
+    group.userData.equipment = 'UF3000';
+    group.userData.blockLabel = blockDef.label;
+    group.userData.frameBounds = metrics.frameBounds;
+    return group;
+}
+
+function createProbeSeatMesh(blockDef, metrics) {
+    const width = Math.max(0.68, (blockDef.w / 100) * WORLD_WIDTH * 0.70);
+    const depth = Math.max(0.58, (blockDef.h / 100) * WORLD_DEPTH * 0.58);
+    const baseHeight = 0.30;
+    const columnHeight = 0.72;
+    const group = new THREE.Group();
+
+    const base = new THREE.Mesh(
+        new THREE.BoxGeometry(width, baseHeight, depth),
+        createEquipmentMaterial(0x55469c, { emissive: 0x171037 }),
+    );
+    base.position.y = baseHeight / 2 + MACHINE_Y;
+
+    const column = new THREE.Mesh(
+        new THREE.BoxGeometry(width * 0.13, columnHeight, depth * 0.16),
+        createEquipmentMaterial(0x9a86e8, { metalness: 0.50 }),
+    );
+    column.position.set(
+        0,
+        baseHeight + columnHeight / 2 + MACHINE_Y,
+        0,
+    );
+
+    const probeHead = new THREE.Mesh(
+        new THREE.BoxGeometry(width * 0.48, 0.16, depth * 0.38),
+        createEquipmentMaterial(0xd7ccff, {
+            metalness: 0.58,
+            emissive: 0x281e5a,
+        }),
+    );
+    probeHead.position.set(
+        0,
+        baseHeight + columnHeight + 0.08 + MACHINE_Y,
+        0,
+    );
+
+    const needle = new THREE.Mesh(
+        new THREE.BoxGeometry(width * 0.035, 0.30, depth * 0.035),
+        createEquipmentMaterial(0xf6de9b, { metalness: 0.68 }),
+    );
+    needle.position.set(
+        0,
+        baseHeight + columnHeight - 0.08 + MACHINE_Y,
+        0,
+    );
+
+    group.add(base, column, probeHead, needle);
+    group.userData.equipment = blockDef.label;
+    group.userData.blockLabel = blockDef.label;
+    group.userData.frameBounds = metrics.frameBounds;
+    return group;
+}
+
+function createGenericEquipmentMesh(blockDef, metrics) {
+    const width = Math.max(0.72, (blockDef.w / 100) * WORLD_WIDTH * 0.68);
+    const depth = Math.max(0.58, (blockDef.h / 100) * WORLD_DEPTH * 0.58);
+    const height = Math.min(0.55, MAX_EQUIPMENT_HEIGHT);
+    const group = new THREE.Group();
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(width, height, depth),
+        createEquipmentMaterial(0x35546b),
+    );
+    body.position.y = height / 2 + MACHINE_Y;
+    group.add(body);
+    group.userData.equipment = 'generic';
+    group.userData.blockLabel = blockDef.label;
+    group.userData.frameBounds = metrics.frameBounds;
+    return group;
+}
+
+function createEquipmentMesh(blockDef, metrics) {
+    const group = blockDef.label === 'UF3000'
+        ? createUf3000Mesh(blockDef, metrics)
+        : blockDef.label === '點針座1' || blockDef.label === '點針座2'
+            ? createProbeSeatMesh(blockDef, metrics)
+            : createGenericEquipmentMesh(blockDef, metrics);
+    positionEquipmentOnBlock(group, blockDef);
+    clampGroupToBounds(group, metrics.frameBounds);
+    group.traverse((child) => {
+        child.castShadow = true;
+        child.receiveShadow = true;
+    });
+    return group;
+}
+
+function createStaticBlock(scene, blockDef, metrics) {
     const kind = blockDef.kind || 'machine';
     if (!['frame', 'walkway', 'device'].includes(kind)) {
         return;
+    }
+    if (kind === 'device') {
+        const equipment = createEquipmentMesh(blockDef, metrics);
+        scene.add(equipment);
+        return equipment;
     }
 
     const width = Math.max(0.4, (blockDef.w / 100) * WORLD_WIDTH);
@@ -70,11 +325,11 @@ function createStaticBlock(scene, blockDef) {
     scene.add(mesh);
 }
 
-function createMachineMesh(machine) {
+function createMachineMesh(machine, metrics) {
     const isMs = machine.model === 'ms';
     const width = isMs ? 1.45 : 1.05;
     const depth = isMs ? 0.9 : 0.78;
-    const height = isMs ? 1.1 : 1.55;
+    const height = Math.min(isMs ? 1.1 : 1.55, MAX_MACHINE_HEIGHT);
     const color = machine.booked ? 0xf09a42 : 0x36b9dd;
     const material = createMaterial(color, {
         roughness: 0.48,
@@ -116,17 +371,21 @@ function createMachineMesh(machine) {
     frontPanel.position.set(0, height * 0.62 + MACHINE_Y, depth / 2 + 0.02);
 
     group.add(body, topPanel, frontPanel);
+    const placement = metrics.machinePlacements.get(machine.tester);
     group.position.set(
-        percentToWorld(machine.x + machine.width / 2, WORLD_WIDTH),
+        placement.x,
         0,
-        percentToWorld(machine.y + machine.height / 2, WORLD_DEPTH),
+        placement.rowBaseline - depth / 2,
     );
     group.userData.tester = machine.tester;
     group.userData.booked = machine.booked;
     group.userData.model = machine.model;
+    group.userData.rowBaseline = placement.rowBaseline;
+    group.userData.rowKey = placement.rowKey;
     group.userData.baseY = group.position.y;
     group.userData.baseScale = new THREE.Vector3(1, 1, 1);
     group.userData.body = body;
+    clampGroupToBounds(group, metrics.frameBounds);
     return group;
 }
 
@@ -204,11 +463,14 @@ export function createFloorPlan3D({
     keyLight.shadow.mapSize.set(1024, 1024);
     scene.add(keyLight);
 
+    const layoutMetrics = createLayoutMetrics(staticBlocks, machines);
     createGround(scene);
-    staticBlocks.forEach((blockDef) => createStaticBlock(scene, blockDef));
+    staticBlocks.forEach((blockDef) => {
+        createStaticBlock(scene, blockDef, layoutMetrics);
+    });
 
     const machineGroups = machines.map((machine) => {
-        const group = createMachineMesh(machine);
+        const group = createMachineMesh(machine, layoutMetrics);
         group.traverse((child) => {
             configureMaterialState(child.material);
         });
