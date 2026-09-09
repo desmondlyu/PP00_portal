@@ -114,26 +114,34 @@ const FLOOR_PLAN_STATIC_BLOCKS = [
 ];
 
 const FLOOR_PLAN_EXITS = [];
+const MIDDLE_ZONE_START_Y = 40.5;
+const MIDDLE_ZONE_OFFSET_PERCENT = 4.5;
 const LOWER_ZONE_START_Y = 71.5;
-const LOWER_ZONE_OFFSET_PERCENT = 6;
+const LOWER_ZONE_OFFSET_PERCENT = 7.5;
+const LOWER_WALKWAY_START_Y = 55.5;
+const LOWER_WALKWAY_OFFSET_PERCENT = 6.5;
 
 function isLowerFloorStaticBlock(blockDef) {
     return (
-        (blockDef.kind === 'walkway' && blockDef.y >= 55.5) ||
-        (
-            blockDef.kind === 'device' &&
-            ['UF3000', 'Auto Hander'].includes(blockDef.label) &&
-            blockDef.y >= LOWER_ZONE_START_Y
-        )
+        (blockDef.kind === 'walkway' && blockDef.y >= LOWER_WALKWAY_START_Y) ||
+        (blockDef.kind === 'device' && blockDef.y >= MIDDLE_ZONE_START_Y)
     );
 }
 
+function getFloorPlanStaticOffset(blockDef) {
+    if (!isLowerFloorStaticBlock(blockDef)) {
+        return blockDef.kind === 'device' && blockDef.y >= MIDDLE_ZONE_START_Y
+            ? MIDDLE_ZONE_OFFSET_PERCENT
+            : 0;
+    }
+    if (blockDef.kind === 'walkway') {
+        return LOWER_WALKWAY_OFFSET_PERCENT;
+    }
+    return LOWER_ZONE_OFFSET_PERCENT;
+}
+
 function getFloorPlanVisualTop(blockDef) {
-    return blockDef.y + (
-        isLowerFloorStaticBlock(blockDef)
-            ? LOWER_ZONE_OFFSET_PERCENT
-            : 0
-    );
+    return blockDef.y + getFloorPlanStaticOffset(blockDef);
 }
 
 const LOCAL_CLIENT_ID_KEY = 'jb-booking-client-id';
@@ -901,9 +909,12 @@ function renderFloorPlan(date) {
         const hasBooking = machineAppointments.length > 0;
         block.className = `tester-block ${hasBooking ? 'has-booking' : ''}`;
         block.style.left = `${slot.x}%`;
-        block.style.top = `${slot.y >= LOWER_ZONE_START_Y
-            ? slot.y + LOWER_ZONE_OFFSET_PERCENT
-            : slot.y}%`;
+        const machineOffset = slot.y >= LOWER_ZONE_START_Y
+            ? LOWER_ZONE_OFFSET_PERCENT
+            : slot.y >= MIDDLE_ZONE_START_Y
+                ? MIDDLE_ZONE_OFFSET_PERCENT
+                : 0;
+        block.style.top = `${slot.y + machineOffset}%`;
         block.style.width = `${FLOOR_PLAN_BLOCK_SIZE.w}%`;
         block.style.height = `${FLOOR_PLAN_BLOCK_SIZE.h}%`;
         block.dataset.floorTester = slot.tester;
