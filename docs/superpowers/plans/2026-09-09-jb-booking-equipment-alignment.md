@@ -344,6 +344,22 @@ function createEquipmentMesh(blockDef, metrics) {
 }
 ```
 
+Define `positionEquipmentOnBlock(group, blockDef)` before the dispatch so every equipment group uses the same block center and front/bottom baseline:
+
+```js
+function positionEquipmentOnBlock(group, blockDef) {
+    const depth = getGroupDepth(group);
+    const blockBottomZ = percentToWorld(blockDef.y + blockDef.h, WORLD_DEPTH);
+    group.position.set(
+        percentToWorld(blockDef.x + blockDef.w / 2, WORLD_WIDTH),
+        0,
+        blockBottomZ - depth / 2,
+    );
+}
+```
+
+`getGroupDepth(group)` must call `group.updateMatrixWorld(true)`, read `new THREE.Box3().setFromObject(group)`, and return `bounds.max.z - bounds.min.z`; it must not use DOM coordinates or change `blockDef`.
+
 Keep `blockDef.label` unchanged for the existing DOM label layer.
 
 - [ ] **Step 5: Run the focused contract test**
