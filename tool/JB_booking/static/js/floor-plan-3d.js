@@ -14,11 +14,17 @@ const T_BOOKED_COLOR = 0xf09a42;
 const MS_BOOKED_COLOR = 0xb52de0;
 const MS_TOP_PANEL_COLOR = 0xf2b3ff;
 const MS_FRONT_PANEL_COLOR = 0x6d1b98;
+const MIDDLE_ZONE_START_Y = 40.5;
+const MIDDLE_ZONE_OFFSET_PERCENT = 4.5;
 const LOWER_ZONE_START_Y = 71.5;
-const LOWER_ZONE_OFFSET_PERCENT = 6;
+const LOWER_ZONE_OFFSET_PERCENT = 7.5;
+const LOWER_WALKWAY_OFFSET_PERCENT = 6.5;
 
-function getLowerZoneOffsetPercent(y) {
-    return y >= LOWER_ZONE_START_Y ? LOWER_ZONE_OFFSET_PERCENT : 0;
+function getVisualOffsetPercent(y) {
+    if (y >= LOWER_ZONE_START_Y) {
+        return LOWER_ZONE_OFFSET_PERCENT;
+    }
+    return y >= MIDDLE_ZONE_START_Y ? MIDDLE_ZONE_OFFSET_PERCENT : 0;
 }
 
 function percentToWorld(value, total) {
@@ -71,7 +77,7 @@ function createLayoutMetrics(staticBlocks, machines) {
             ...row.machines.map(({ y, height }) => y + height),
         );
         const rowBaseline = percentToWorld(
-            rowBottomPercent + getLowerZoneOffsetPercent(row.y),
+            rowBottomPercent + getVisualOffsetPercent(row.y),
             WORLD_DEPTH,
         );
         row.machines.forEach((machine) => {
@@ -171,7 +177,7 @@ function clampGroupToBounds(group, frameBounds) {
 
 function positionEquipmentOnBlock(group, blockDef) {
     const depth = getGroupDepth(group);
-    const visualOffset = getLowerZoneOffsetPercent(blockDef.y);
+    const visualOffset = getVisualOffsetPercent(blockDef.y);
     const blockBottomZ = percentToWorld(
         blockDef.y + blockDef.h + visualOffset,
         WORLD_DEPTH,
