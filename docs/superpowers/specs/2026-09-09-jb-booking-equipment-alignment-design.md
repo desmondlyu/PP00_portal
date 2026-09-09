@@ -91,7 +91,7 @@ DOM tester／設備銘牌仍保留原本文字、尺寸與可存取 button，但
 
 - desktop 顯示完整等角 3D floor。
 - mobile 不改 button overlay 的原始比例與可點擊區域。
-- 3D camera 依 host resize 更新，但不改 floor data mapping。
+- 3D camera 依 unified floor bounds 與 host aspect ratio 自動 fit，讓 3D 底圖使用原始綠色 Floor Plan 外框寬度，不改 floor data mapping。
 
 ## 驗證策略
 
@@ -111,6 +111,7 @@ DOM tester／設備銘牌仍保留原本文字、尺寸與可存取 button，但
 - app.js 與 floor-plan-3d.js 語法檢查。
 - `git diff --check`。
 - 瀏覽器 desktop：確認 UF3000／點針座為 3D、每排底部水平、所有 geometry 位於 frame 內。
+- 瀏覽器 desktop：確認 camera fit 後 unified frame 填滿原始 Floor Plan 外框，不縮成中央獨立紅框。
 - 瀏覽器 mobile：確認 canvas resize、DOM button 數量與點擊能力。
 - 左側與右側 tester click：確認原 modal、tester ID、日期與預約資料流不變。
 - console：確認沒有本次新增的 JavaScript error。
