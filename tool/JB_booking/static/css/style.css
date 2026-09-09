@@ -656,13 +656,48 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 12px;
     background:
-        linear-gradient(to right, rgba(0, 214, 255, 0.02) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(0, 214, 255, 0.02) 1px, transparent 1px),
-        #080c16;
-    background-size: 24px 24px;
+        linear-gradient(30deg, rgba(129, 179, 202, 0.055) 12%, transparent 12.5%, transparent 87%, rgba(129, 179, 202, 0.055) 87.5%),
+        linear-gradient(150deg, rgba(129, 179, 202, 0.055) 12%, transparent 12.5%, transparent 87%, rgba(129, 179, 202, 0.055) 87.5%),
+        linear-gradient(30deg, rgba(129, 179, 202, 0.04) 12%, transparent 12.5%, transparent 87%, rgba(129, 179, 202, 0.04) 87.5%),
+        linear-gradient(150deg, rgba(129, 179, 202, 0.04) 12%, transparent 12.5%, transparent 87%, rgba(129, 179, 202, 0.04) 87.5%),
+        linear-gradient(145deg, #101c2c 0%, #070c15 58%, #0d1725 100%);
+    background-position: 0 0, 0 0, 18px 31px, 18px 31px, 0 0;
+    background-size: 36px 62px, 36px 62px, 36px 62px, 36px 62px, auto;
     position: relative;
     overflow: hidden;
     box-shadow: inset 0 4px 24px rgba(0, 0, 0, 0.6);
+}
+
+.floor-plan-stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 620px;
+    overflow: hidden;
+    border-radius: 10px;
+    transform: translateY(8%) scaleY(0.98);
+    transform-origin: center top;
+}
+
+.floor-plan-3d-host,
+.floor-plan-label-layer {
+    position: absolute;
+    inset: 0;
+}
+
+.floor-plan-3d-host {
+    z-index: 1;
+}
+
+.floor-plan-3d-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.floor-plan-label-layer {
+    z-index: 2;
+    pointer-events: none;
 }
 
 .floor-static-block {
@@ -681,25 +716,27 @@ body {
 }
 
 .floor-static-block.frame {
-    border: 2px dashed rgba(44, 200, 255, 0.4);
+    border: 1px dashed rgba(105, 191, 222, 0.42);
     border-radius: 0;
-    background: rgba(9, 22, 38, 0.05);
+    background: transparent;
+    box-shadow: none;
     color: transparent;
     pointer-events: none;
 }
 
 .floor-static-block.frame-label {
-    border: 1px solid rgba(255, 122, 26, 0.25);
-    background: rgba(255, 122, 26, 0.12);
+    border: 1px solid rgba(255, 166, 86, 0.38);
+    background: linear-gradient(135deg, rgba(255, 148, 65, 0.25), rgba(100, 45, 13, 0.22));
     color: #ffe2c7;
     font-size: 0.72rem;
     font-weight: 700;
+    box-shadow: 3px 4px 0 rgba(5, 10, 18, 0.55), inset 0 1px 0 rgba(255, 230, 197, 0.15);
 }
 
 .floor-static-block.walkway {
     border: none;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.12); /* 極淡白色文字，完美留白示意 */
+    background: repeating-linear-gradient(90deg, rgba(139, 198, 190, 0.035) 0 24px, rgba(173, 231, 219, 0.065) 24px 25px);
+    color: rgba(206, 237, 237, 0.19);
     font-size: 0.72rem;
     font-weight: 500;
     letter-spacing: 0.25em; /* 字符拉開，氣氛留白感 */
@@ -707,70 +744,138 @@ body {
 }
 
 .floor-static-block.device {
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(183, 214, 226, 0.22);
+    background: rgba(31, 61, 78, 0.66);
     color: #a2b4c7;
     font-size: 0.68rem;
     font-weight: 600;
     border-radius: 6px;
-    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.02);
+    box-shadow: 0 4px 10px rgba(3, 9, 17, 0.44);
 }
 
-/* 機台方塊設計 */
+.floor-static-block.device-label {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    color: #a9c6d5;
+    font-size: 0.68rem;
+    font-weight: 600;
+    pointer-events: none;
+}
+
+.floor-static-block.device.pc-equipment-layer {
+    border: none;
+    background: repeating-linear-gradient(
+        90deg,
+        rgba(139, 198, 190, 0.035) 0 24px,
+        rgba(173, 231, 219, 0.065) 24px 25px
+    );
+    color: rgba(206, 237, 237, 0.19);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    box-shadow: none;
+}
+
+.floor-grid-layer-label {
+    border: none;
+    border-radius: 2px;
+    background: transparent;
+    box-shadow: none;
+    color: rgba(216, 240, 244, 0.5);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    pointer-events: none;
+}
+
+.floor-grid-layer-label.pipeline {
+    color: rgba(204, 229, 238, 0.62);
+    font-size: 0.66rem;
+}
+
 .tester-block {
     position: absolute;
-    border: 1px solid rgba(44, 200, 255, 0.4);
-    background: linear-gradient(180deg, rgba(20, 44, 74, 0.8) 0%, rgba(12, 30, 52, 0.8) 100%);
-    border-radius: 8px;
-    padding: 0.15rem 0.2rem;
+    --machine-state: #56c9f1;
+    --machine-text: #e1f5ff;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    padding: 0;
     color: var(--text-light);
     cursor: pointer;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 0.04rem;
+    gap: 0.15rem;
     text-align: center;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateZ(0) scale(1);
+    transform-origin: 50% 100%;
+    transition: transform 0.18s ease, border-color 0.18s ease;
     min-height: 48px;
     z-index: 2;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    overflow: visible;
 }
 
-.tester-block:hover {
-    transform: translateY(-2px) scale(1.02);
-    border-color: rgba(44, 200, 255, 0.8);
-    box-shadow: 0 0 12px rgba(44, 200, 255, 0.35), 0 8px 16px rgba(0, 0, 0, 0.45);
+.tester-block:hover,
+.tester-block.is-hovered,
+.tester-block:focus-visible {
+    z-index: 4;
+    transform: translateY(-3px) scale(1.02);
+    border-color: color-mix(in srgb, var(--machine-state) 72%, transparent);
+}
+
+.tester-block:focus-visible {
+    outline: 2px solid var(--machine-state);
+    outline-offset: 6px;
 }
 
 .tester-block.has-booking {
-    border-color: var(--primary);
-    background: linear-gradient(180deg, rgba(58, 32, 17, 0.85) 0%, rgba(41, 21, 10, 0.85) 100%);
-    box-shadow: inset 0 0 8px rgba(255, 122, 26, 0.2), 0 4px 10px rgba(0, 0, 0, 0.3);
+    --machine-state: #ff9d55;
+    --machine-text: #ffe0bf;
 }
 
 .tester-block-name {
-    width: 100%;
-    font-size: 0.82rem;
+    max-width: 100%;
+    padding: 0.14rem 0.22rem;
+    border: 1px solid color-mix(in srgb, var(--machine-state) 60%, transparent);
+    border-radius: 4px;
+    background: rgba(6, 17, 28, 0.84);
+    font-size: clamp(0.56rem, 0.75vw, 0.72rem);
     font-weight: 700;
-    color: #c3ecff;
+    color: var(--machine-text);
     line-height: 1.1;
+    letter-spacing: -0.025em;
     word-break: break-all;
-}
-
-.tester-block.has-booking .tester-block-name {
-    color: #ffdcb9;
+    box-shadow: 0 3px 9px rgba(0, 0, 0, 0.42);
 }
 
 .tester-block-status {
-    font-size: 0.72rem;
-    color: #8dd6ff;
+    padding: 0.1rem 0.24rem;
+    border-radius: 999px;
+    background: rgba(6, 17, 28, 0.8);
+    font-size: clamp(0.5rem, 0.62vw, 0.62rem);
+    color: color-mix(in srgb, var(--machine-state) 78%, white);
     line-height: 1.1;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.32);
 }
 
-.tester-block.has-booking .tester-block-status {
-    color: #ff9b4e;
-    font-weight: 600;
+.floor-plan-label-layer .tester-block,
+.floor-plan-label-layer .exit-marker {
+    pointer-events: auto;
+}
+
+.floor-plan-label-layer .floor-static-block.frame,
+.floor-plan-label-layer .floor-static-block.walkway {
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tester-block {
+        transition: none;
+    }
 }
 
 .exit-marker {
@@ -1406,6 +1511,11 @@ body {
 
     .floor-plan-canvas {
         min-width: 900px; /* 強制最低寬度，防壓扁 */
+        min-height: 560px;
+    }
+
+    .floor-plan-stage {
+        min-width: 900px;
         min-height: 560px;
     }
 

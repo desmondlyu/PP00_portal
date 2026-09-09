@@ -11,6 +11,9 @@ let computerName = null;
 let currentEditingAppointment = null; // 當前正在編輯的預約
 let currentViewMode = 'floor';
 let floorLayoutTesters = [];
+let floorPlanRenderToken = 0;
+let floorPlan3dInstance = null;
+let floorPlan3dModulePromise = null;
 
 const DEFAULT_BOOKING_CONFIG = {
     supabaseUrl: 'https://udixppyspiujplwhszmo.supabase.co/',
@@ -91,7 +94,7 @@ const FLOOR_PLAN_STATIC_BLOCKS = [
     { label: 'PQ00', x: 79.0, y: 73.7, w: 9.5, h: 4, kind: 'frame-label' }, // PQ00 標籤隨框架移至 79.0
     
     // === 走道 (左半部，依 map.png 規劃，只留空白，無邊框，加大高度，只寫"走道"淺色字) ===
-    { label: '走道', x: 2.0, y: 11.0, w: 60.0, h: 6.5, kind: 'walkway' }, // 烤箱上方走道
+    { label: '走道', x: 2.0, y: 11.0, w: 60.0, h: 6.0, kind: 'walkway' }, // 烤箱上方走道
     { label: '走道', x: 2.0, y: 33.5, w: 60.0, h: 6.5, kind: 'walkway' }, // 第一排與第二排之間走道
     { label: '走道', x: 2.0, y: 55.5, w: 60.0, h: 6.5, kind: 'walkway' }, // 原第三排空下來的空間作為走道
     { label: '走道', x: 2.0, y: 63.5, w: 60.0, h: 6.5, kind: 'walkway' }, // 原第四排空下來的空間作為走道
@@ -111,10 +114,80 @@ const FLOOR_PLAN_STATIC_BLOCKS = [
 ];
 
 const FLOOR_PLAN_EXITS = [];
+const FLOOR_PLAN_VISUAL_GRID = Object.freeze({
+    columns: 7,
+    rows: [
+        { type: 'walkway', label: '走道' },
+        { type: 'pc-equipment', label: 'PC/設備/烤箱' },
+        { type: 'equipment-row', cells: [
+            'T5833-2(.84)', 'T5830ES_WBN12(.79)', '點針座2',
+            'Ms3490#3', 'T5830ES_WBN10(.74)', 'T5385ES_WBN1(.42)',
+            'UF3000@row1',
+        ] },
+        { type: 'walkway', label: '走道' },
+        { type: 'equipment-row', cells: [
+            'T5833-3(.92)', 'Ms3490#2', 'UF3000@row2',
+            'T5830ES_WBN15(.89)', 'T5385ES_WBN6(.56)', '點針座1',
+            'Ms3480#1',
+        ] },
+        { type: 'pipeline', label: '管線' },
+        { type: 'equipment-row', cells: [
+            'T5385ES_PT22', 'T5833-4(.96)', 'T5833-5(.97)',
+            'T5830ES_WBN11(.78)', null, 'T5830ES_WBN3(.61)',
+            'UF3000@row3',
+        ] },
+        { type: 'walkway', label: '走道' },
+        { type: 'equipment-row', cells: [
+            null, 'T5833-6(.98)', 'T5833-1(.80)', 'UF3000@row4-left',
+            'T5830ES_WBN8(.75)', 'UF3000@row4-right', null,
+        ] },
+        { type: 'pipeline', label: '管線' },
+        { type: 'equipment-row', cells: [
+            null, null, 'T5781-3(.33)', 'Auto Hander',
+            'T5781-2(.32)', null, null,
+        ] },
+    ],
+});
+const MIDDLE_ZONE_START_Y = 40.5;
+const MIDDLE_ZONE_OFFSET_PERCENT = 4.5;
+const LOWER_ZONE_START_Y = 71.5;
+const LOWER_ZONE_OFFSET_PERCENT = 7.5;
+const LOWER_WALKWAY_START_Y = 55.5;
+const LOWER_WALKWAY_OFFSET_PERCENT = 6.5;
+
+function isLowerFloorStaticBlock(blockDef) {
+    return (
+        (blockDef.kind === 'walkway' && blockDef.y >= LOWER_WALKWAY_START_Y) ||
+        (blockDef.kind === 'device' && blockDef.y >= MIDDLE_ZONE_START_Y)
+    );
+}
+
+function getFloorPlanStaticOffset(blockDef) {
+    if (!isLowerFloorStaticBlock(blockDef)) {
+        return blockDef.kind === 'device' && blockDef.y >= MIDDLE_ZONE_START_Y
+            ? MIDDLE_ZONE_OFFSET_PERCENT
+            : 0;
+    }
+    if (blockDef.kind === 'walkway') {
+        return LOWER_WALKWAY_OFFSET_PERCENT;
+    }
+    return LOWER_ZONE_OFFSET_PERCENT;
+}
+
+function getFloorPlanVisualTop(blockDef) {
+    return blockDef.y + getFloorPlanStaticOffset(blockDef);
+}
 
 const LOCAL_CLIENT_ID_KEY = 'jb-booking-client-id';
 const SUPABASE_URL_PLACEHOLDER = 'REPLACE_WITH_SUPABASE_URL';
 const SUPABASE_ANON_KEY_PLACEHOLDER = 'REPLACE_WITH_SUPABASE_ANON_KEY';
+
+function loadFloorPlan3DModule() {
+    if (!floorPlan3dModulePromise) {
+        floorPlan3dModulePromise = import('./floor-plan-3d.js?v=20260909-1858');
+    }
+    return floorPlan3dModulePromise;
+}
 
 function hasSupabaseConfig() {
     return Boolean(BOOKING_CONFIG.supabaseUrl) && Boolean(BOOKING_CONFIG.supabaseAnonKey);
@@ -791,6 +864,12 @@ function renderFloorPlan(date) {
         return;
     }
 
+    floorPlanRenderToken += 1;
+    if (floorPlan3dInstance) {
+        floorPlan3dInstance.destroy();
+        floorPlan3dInstance = null;
+    }
+
     const dateStr = formatDate(date || selectedDate);
     const dateAppointments = appointments[dateStr] || {};
     const layout = floorLayoutTesters;
@@ -800,17 +879,55 @@ function renderFloorPlan(date) {
     }
 
     floorPlanCanvas.innerHTML = '';
+    const stage = document.createElement('div');
+    stage.className = 'floor-plan-stage';
 
-    FLOOR_PLAN_STATIC_BLOCKS.forEach((blockDef) => {
+    const threeHost = document.createElement('div');
+    threeHost.className = 'floor-plan-3d-host';
+    stage.appendChild(threeHost);
+
+    const labelLayer = document.createElement('div');
+    labelLayer.className = 'floor-plan-label-layer';
+    stage.appendChild(labelLayer);
+    floorPlanCanvas.appendChild(stage);
+
+    const staticBlockElements = [];
+    FLOOR_PLAN_STATIC_BLOCKS.forEach((blockDef, blockIndex) => {
         const block = document.createElement('div');
-        block.className = `floor-static-block ${blockDef.kind || 'machine'}`;
+        block.className = `floor-static-block ${
+            blockDef.kind || 'machine'
+        }${
+            blockDef.kind === 'device' && blockDef.label !== 'PC/設備/烤箱'
+                ? ' device-label'
+                : ''
+        }${
+            blockDef.label === 'PC/設備/烤箱' ? ' pc-equipment-layer' : ''
+        }`;
         block.style.left = `${blockDef.x}%`;
-        block.style.top = `${blockDef.y}%`;
+        block.style.top = `${getFloorPlanVisualTop(blockDef)}%`;
         block.style.width = `${blockDef.w}%`;
         block.style.height = `${blockDef.h}%`;
+        block.dataset.floorStaticIndex = String(blockIndex);
         block.textContent = blockDef.label;
-        floorPlanCanvas.appendChild(block);
+        labelLayer.appendChild(block);
+        staticBlockElements.push(block);
     });
+
+    const visualLayerElements = FLOOR_PLAN_VISUAL_GRID.rows
+        .map((row, rowIndex) => {
+            if (row.type === 'equipment-row') {
+                return null;
+            }
+            const layer = document.createElement('div');
+            layer.className = `floor-static-block floor-grid-layer-label ${
+                row.type
+            }`;
+            layer.textContent = row.label;
+            layer.dataset.floorGridRow = String(rowIndex);
+            labelLayer.appendChild(layer);
+            return layer;
+        })
+        .filter(Boolean);
 
     FLOOR_PLAN_EXITS.forEach((exitDef) => {
         const exitMarker = document.createElement('div');
@@ -818,7 +935,7 @@ function renderFloorPlan(date) {
         exitMarker.style.left = `${exitDef.x}%`;
         exitMarker.style.top = `${exitDef.y}%`;
         exitMarker.textContent = exitDef.label;
-        floorPlanCanvas.appendChild(exitMarker);
+        labelLayer.appendChild(exitMarker);
     });
 
     if (layout.length === 0) {
@@ -829,38 +946,148 @@ function renderFloorPlan(date) {
         noData.style.left = '4%';
         noData.style.top = '45%';
         noData.style.width = '92%';
-        floorPlanCanvas.appendChild(noData);
+        labelLayer.appendChild(noData);
         return;
     }
 
+    const machineRecords = [];
+    const machineElements = new Map();
     layout.forEach((slot) => {
         const machineAppointments = dateAppointments[slot.tester] || [];
         const block = document.createElement('button');
         block.type = 'button';
-        block.className = 'tester-block';
-        if (machineAppointments.length > 0) {
-            block.classList.add('has-booking');
-        }
+        const hasBooking = machineAppointments.length > 0;
+        block.className = `tester-block ${hasBooking ? 'has-booking' : ''}`;
         block.style.left = `${slot.x}%`;
-        block.style.top = `${slot.y}%`;
+        const machineOffset = slot.y >= LOWER_ZONE_START_Y
+            ? LOWER_ZONE_OFFSET_PERCENT
+            : slot.y >= MIDDLE_ZONE_START_Y
+                ? MIDDLE_ZONE_OFFSET_PERCENT
+                : 0;
+        block.style.top = `${slot.y + machineOffset}%`;
         block.style.width = `${FLOOR_PLAN_BLOCK_SIZE.w}%`;
         block.style.height = `${FLOOR_PLAN_BLOCK_SIZE.h}%`;
+        block.dataset.floorTester = slot.tester;
 
         const bookingText = machineAppointments.length > 0
             ? `${machineAppointments.length} 筆預約`
             : '可預約';
 
-        block.innerHTML = `
-            <div class="tester-block-name">${slot.tester}</div>
-            <div class="tester-block-status">${bookingText}</div>
-        `;
+        const name = document.createElement('span');
+        name.className = 'tester-block-name';
+        name.textContent = slot.tester;
+        const status = document.createElement('span');
+        status.className = 'tester-block-status';
+        status.textContent = bookingText;
+        block.append(name, status);
 
-        block.addEventListener('click', () => {
-            openAppointmentModal(slot.tester, dateStr);
+        block.addEventListener('mouseenter', () => floorPlan3dInstance?.setHovered(slot.tester));
+        block.addEventListener('mouseleave', () => floorPlan3dInstance?.setHovered(null));
+        block.addEventListener('click', () => openAppointmentModal(slot.tester, dateStr));
+        labelLayer.appendChild(block);
+        machineElements.set(slot.tester, block);
+
+        machineRecords.push({
+            tester: slot.tester,
+            x: slot.x,
+            y: slot.y,
+            width: FLOOR_PLAN_BLOCK_SIZE.w,
+            height: FLOOR_PLAN_BLOCK_SIZE.h,
+            booked: hasBooking,
+            model: slot.tester.startsWith('Ms') ? 'ms' : 't',
         });
-
-        floorPlanCanvas.appendChild(block);
     });
+
+    const activeToken = floorPlanRenderToken;
+    loadFloorPlan3DModule()
+        .then(({ createFloorPlan3D }) => {
+            if (activeToken !== floorPlanRenderToken || !stage.isConnected) {
+                return;
+            }
+            floorPlan3dInstance = createFloorPlan3D({
+                host: threeHost,
+                machines: machineRecords,
+                staticBlocks: FLOOR_PLAN_STATIC_BLOCKS,
+                visualGrid: FLOOR_PLAN_VISUAL_GRID,
+                onHover: (tester) => {
+                    labelLayer.querySelectorAll('.tester-block').forEach((button) => {
+                        button.classList.toggle(
+                            'is-hovered',
+                            button.dataset.floorTester === tester,
+                        );
+                    });
+                },
+                onLayout: (projectedLayout) => {
+                    const {
+                        width,
+                        height,
+                        machines,
+                        staticBlocks,
+                        visualLayers,
+                    } = projectedLayout;
+                    machineElements.forEach((button, tester) => {
+                        const position = machines[tester];
+                        if (!position) {
+                            return;
+                        }
+                        button.style.left = `${
+                            (position.x / width) * 100 - FLOOR_PLAN_BLOCK_SIZE.w / 2
+                        }%`;
+                        button.style.top = `${
+                            (position.y / height) * 100 - FLOOR_PLAN_BLOCK_SIZE.h / 2
+                        }%`;
+                    });
+                    staticBlockElements.forEach((block, blockIndex) => {
+                        const blockDef = FLOOR_PLAN_STATIC_BLOCKS[blockIndex];
+                        const position = staticBlocks[blockIndex];
+                        if (blockDef.kind === 'frame') {
+                            return;
+                        }
+                        if (
+                            blockDef.kind === 'walkway' ||
+                            blockDef.label === 'PC/設備/烤箱'
+                        ) {
+                            block.style.visibility = 'hidden';
+                            return;
+                        }
+                        if (!position) {
+                            return;
+                        }
+                        block.style.visibility = '';
+                        block.style.left = `${
+                            (position.x / width) * 100 - blockDef.w / 2
+                        }%`;
+                        block.style.top = `${
+                            (position.y / height) * 100 - blockDef.h / 2
+                        }%`;
+                    });
+                    visualLayerElements.forEach((layer) => {
+                        const rowIndex = Number(layer.dataset.floorGridRow);
+                        const position = visualLayers.find(
+                            (item) => item?.gridRow === rowIndex,
+                        );
+                        if (!position) {
+                            return;
+                        }
+                        layer.style.left = `${
+                            ((position.x - position.width / 2) / width) * 100
+                        }%`;
+                        layer.style.top = `${
+                            ((position.y - position.height / 2) / height) * 100
+                        }%`;
+                        layer.style.width = `${
+                            (position.width / width) * 100
+                        }%`;
+                        layer.style.height = `${
+                            (position.height / height) * 100
+                        }%`;
+                    });
+                },
+            });
+        })
+        .catch((error) => {
+            console.error('Floor Plan 3D presentation failed; retaining DOM fallback.', error);
+        });
 }
 
 function renderScheduleView() {
@@ -1584,4 +1811,3 @@ async function exportMonthlyReportExcel() {
         hideLoading();
     }
 }
-
