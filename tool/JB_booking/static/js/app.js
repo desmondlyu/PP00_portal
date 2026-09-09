@@ -830,8 +830,18 @@ function renderFloorPlan(date) {
 
     const staticBlockElements = [];
     FLOOR_PLAN_STATIC_BLOCKS.forEach((blockDef, blockIndex) => {
+        if (
+            blockDef.kind === 'frame' ||
+            blockDef.kind === 'walkway' ||
+            blockDef.label === 'PC/設備/烤箱'
+        ) {
+            staticBlockElements.push(null);
+            return;
+        }
         const block = document.createElement('div');
-        block.className = `floor-static-block ${blockDef.kind || 'machine'}`;
+        block.className = `floor-static-block ${
+            blockDef.kind || 'machine'
+        }${blockDef.kind === 'device' ? ' device-label' : ''}`;
         block.style.left = `${blockDef.x}%`;
         block.style.top = `${blockDef.y}%`;
         block.style.width = `${blockDef.w}%`;
@@ -939,6 +949,9 @@ function renderFloorPlan(date) {
                         }%`;
                     });
                     staticBlockElements.forEach((block, blockIndex) => {
+                        if (!block) {
+                            return;
+                        }
                         const blockDef = FLOOR_PLAN_STATIC_BLOCKS[blockIndex];
                         const position = staticBlocks[blockIndex];
                         if (blockDef.kind === 'frame') {
