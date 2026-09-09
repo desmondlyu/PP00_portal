@@ -63,7 +63,7 @@ Three.js 只接收已建立的 `machineRecords` 與 `FLOOR_PLAN_STATIC_BLOCKS`�
 
 從 `FLOOR_PLAN_STATIC_BLOCKS` 的 `kind: 'frame'` 計算可用 floor bounds，並保留 presentation inset：
 
-- Three.js 只建立一個由所有原始 frame bounds 包絡出的 unified floor frame；不再將每個 `frame` block 各自渲染成獨立 3D 方塊。
+- Three.js 不新增任何 frame／rail mesh；原本 Floor Plan 的外層框架是唯一框架，Three.js 只依其尺寸 fit camera 與限制設備 geometry。
 - mesh footprint 不得超過 frame 的 X／Z 邊界。
 - UF3000 的上方面板與點針座的 probe head 需納入 bounds。
 - 建立 mesh 後先以 frame inset clamp group 的 X／Z 中心；若造型 footprint 仍超過可用範圍，再按同一比例縮小該 group 的 footprint，直到 geometry 完整落在 bounds 內；不得改變原始百分比資料。
@@ -74,7 +74,7 @@ Three.js 只接收已建立的 `machineRecords` 與 `FLOOR_PLAN_STATIC_BLOCKS`�
 DOM tester／設備銘牌仍保留原本文字、尺寸與可存取 button，但不再只依 2D 百分比猜測 3D 物件位置。Three.js 於 camera resize 後將 machine／device anchor 投影為 host pixel position，由 `renderFloorPlan()` 將銘牌中心同步到同一個投影座標。
 
 - tester ID、button click handler、booking state 與資料 mapping 不變。
-- 空的 DOM frame outline 隱藏，避免與 unified 3D frame 疊出拆開的雙重框架。
+- 空的 DOM frame outline 隱藏，避免與原始外層框架疊出拆開的第二層框線。
 - 無法取得 WebGL layout 時，既有 DOM 百分比定位仍作為 fallback。
 
 ### 5. 互動與失敗安全
@@ -91,7 +91,7 @@ DOM tester／設備銘牌仍保留原本文字、尺寸與可存取 button，但
 
 - desktop 顯示完整等角 3D floor。
 - mobile 不改 button overlay 的原始比例與可點擊區域。
-- 3D camera 依 unified floor bounds 與 host aspect ratio 自動 fit，讓 3D 底圖使用原始綠色 Floor Plan 外框寬度，不改 floor data mapping。
+- 3D camera 依原始 floor bounds 與 host aspect ratio 自動 fit，讓 3D 底圖使用原始綠色 Floor Plan 外框寬度，不改 floor data mapping。
 
 ## 驗證策略
 
@@ -101,7 +101,7 @@ DOM tester／設備銘牌仍保留原本文字、尺寸與可存取 button，但
 
 - 21 台 tester ID 唯一且原始座標不變。
 - `createEquipmentMesh`、UF3000、點針座造型元件存在。
-- `createUnifiedFrame`、scene projection、layout metrics、row baseline、frame bounds contract 存在。
+- camera fit、scene projection、layout metrics、row baseline、frame bounds contract 存在，且不得建立額外 frame mesh。
 - `app.js` 仍保留 appointments lookup、booking state 與 `openAppointmentModal` 呼叫。
 - 不重新引入人物、圖片或外部 Three.js CDN。
 
@@ -111,7 +111,7 @@ DOM tester／設備銘牌仍保留原本文字、尺寸與可存取 button，但
 - app.js 與 floor-plan-3d.js 語法檢查。
 - `git diff --check`。
 - 瀏覽器 desktop：確認 UF3000／點針座為 3D、每排底部水平、所有 geometry 位於 frame 內。
-- 瀏覽器 desktop：確認 camera fit 後 unified frame 填滿原始 Floor Plan 外框，不縮成中央獨立紅框。
+- 瀏覽器 desktop：確認 camera fit 後 3D floor 使用原始 Floor Plan 外框寬度，且沒有額外中央框線。
 - 瀏覽器 mobile：確認 canvas resize、DOM button 數量與點擊能力。
 - 左側與右側 tester click：確認原 modal、tester ID、日期與預約資料流不變。
 - console：確認沒有本次新增的 JavaScript error。

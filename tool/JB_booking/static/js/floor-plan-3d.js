@@ -103,72 +103,6 @@ function createGround(scene) {
     scene.add(grid);
 }
 
-function createUnifiedFrame(scene, staticBlocks) {
-    const bounds = getFrameBounds(staticBlocks, 0);
-    const width = bounds.maxX - bounds.minX;
-    const depth = bounds.maxZ - bounds.minZ;
-    const centerX = (bounds.minX + bounds.maxX) / 2;
-    const centerZ = (bounds.minZ + bounds.maxZ) / 2;
-    const frameMaterial = createMaterial(0x24455c, {
-        roughness: 0.78,
-        metalness: 0.18,
-        transparent: true,
-        opacity: 0.88,
-    });
-    const base = new THREE.Mesh(
-        new THREE.BoxGeometry(width, 0.12, depth),
-        frameMaterial,
-    );
-    base.position.set(centerX, -0.04, centerZ);
-    base.receiveShadow = true;
-    scene.add(base);
-
-    const railMaterial = createMaterial(0x5e9ab0, {
-        roughness: 0.5,
-        metalness: 0.3,
-        emissive: 0x0d2938,
-        emissiveIntensity: 0.2,
-    });
-    const railHeight = 0.18;
-    const railThickness = 0.12;
-    const rails = [
-        {
-            width,
-            depth: railThickness,
-            x: centerX,
-            z: bounds.minZ,
-        },
-        {
-            width,
-            depth: railThickness,
-            x: centerX,
-            z: bounds.maxZ,
-        },
-        {
-            width: railThickness,
-            depth,
-            x: bounds.minX,
-            z: centerZ,
-        },
-        {
-            width: railThickness,
-            depth,
-            x: bounds.maxX,
-            z: centerZ,
-        },
-    ];
-    rails.forEach(({ width: railWidth, depth: railDepth, x, z }) => {
-        const rail = new THREE.Mesh(
-            new THREE.BoxGeometry(railWidth, railHeight, railDepth),
-            railMaterial,
-        );
-        rail.position.set(x, railHeight / 2, z);
-        rail.castShadow = true;
-        rail.receiveShadow = true;
-        scene.add(rail);
-    });
-}
-
 function fitCameraToFloor(camera, host, staticBlocks) {
     const floorBounds = getFrameBounds(staticBlocks, 0);
     const minY = -0.2;
@@ -597,7 +531,6 @@ export function createFloorPlan3D({
 
     const layoutMetrics = createLayoutMetrics(staticBlocks, machines);
     createGround(scene);
-    createUnifiedFrame(scene, staticBlocks);
     const staticBlockGroups = staticBlocks.map((blockDef) =>
         createStaticBlock(scene, blockDef, layoutMetrics),
     );

@@ -39,7 +39,6 @@ for (const required of [
     'createMachineMesh',
     'createGround',
     'createLayoutMetrics',
-    'createUnifiedFrame',
     'fitCameraToFloor',
     'CAMERA_PADDING',
     'projectSceneLayout',
@@ -67,6 +66,7 @@ for (const required of [
     assert.match(floorPlan3dSource, new RegExp(required));
 }
 assert.doesNotMatch(floorPlan3dSource, /appointments|openAppointmentModal|supabase/i);
+assert.doesNotMatch(floorPlan3dSource, /createUnifiedFrame|railMaterial|frameMaterial/);
 
 assert.match(appSource, /appointments\[dateStr\]/);
 assert.match(appSource, /dateAppointments\[slot\.tester\]/);
@@ -75,7 +75,10 @@ assert.match(appSource, /openAppointmentModal\(slot\.tester, dateStr\)/);
 assert.match(appSource, /FLOOR_PLAN_BLOCK_SIZE\.w/);
 assert.match(appSource, /FLOOR_PLAN_BLOCK_SIZE\.h/);
 assert.match(appSource, /onLayout/);
-assert.match(appSource, /visibility\s*=\s*['"]hidden['"]/);
+assert.doesNotMatch(
+    appSource,
+    /blockDef\.kind\s*===\s*['"]frame['"][\s\S]{0,120}visibility\s*=\s*['"]hidden['"]/,
+);
 assert.doesNotMatch(appSource, /animateFloorEngineer|engineer-running|tester-machine-reference/);
 assert.match(cssSource, /\.floor-plan-3d-host/);
 assert.match(cssSource, /\.floor-plan-3d-canvas/);
