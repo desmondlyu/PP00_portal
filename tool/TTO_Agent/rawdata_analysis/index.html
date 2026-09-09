@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20260909c">
 </head>
 <body class="min-h-screen">
   <header class="gradient-header text-white py-10 px-6 text-center">
@@ -68,7 +68,7 @@
                 directory
                 multiple
               >
-              <input id="txt-input" type="file" class="hidden" accept=".txt,.TXT">
+              <input id="txt-input" type="file" class="hidden" accept=".txt,.TXT" multiple>
               <input id="xlsx-input" type="file" class="hidden" accept=".xlsx,.xls" multiple>
               <button id="pick-btn" class="primary-btn w-full md:w-auto px-6 py-3 rounded-xl font-bold">
                 📂 選擇上傳檔案
@@ -200,6 +200,19 @@
         <button id="raw-keyword-analyze-btn" class="primary-btn px-6 py-3 rounded-xl font-bold">開始分析</button>
       </div>
       <p id="raw-keyword-result-summary" class="hint-text text-sm mt-3">尚未執行關鍵字分析。</p>
+      <div id="raw-keyword-progress-wrap" class="raw-keyword-progress hidden" aria-live="polite" aria-hidden="true">
+        <div class="raw-keyword-progress-head">
+          <span id="raw-keyword-progress-phase">關鍵字分析中</span>
+          <span class="raw-keyword-progress-counts">
+            <span id="raw-keyword-progress-file-count">TGZ 0/0</span>
+            <span id="raw-keyword-progress-count">TXT 0/0</span>
+          </span>
+        </div>
+        <div id="raw-keyword-progress-track" class="raw-keyword-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="raw-keyword-progress-fill" class="raw-keyword-progress-fill"></div>
+        </div>
+        <p id="raw-keyword-progress-detail" class="raw-keyword-progress-detail">準備讀取原始 TGZ...</p>
+      </div>
       <div class="keyword-analysis-results mt-3">
         <div id="raw-keyword-result-box" class="keyword-analysis-result-box">尚無資料</div>
       </div>
@@ -376,7 +389,7 @@
   <script src="js/kpiCompareReact.js"></script>
   <script src="js/groupingRules.js"></script>
   <script src="js/tgzReader.js"></script>
-  <script src="js/app.js?v=20260604a"></script>
+  <script src="js/app.js?v=20260909c"></script>
 
   <!-- 加密 Excel 警告 dialog -->
   <dialog id="encrypted-file-dialog" style="border:none;border-radius:12px;padding:28px;max-width:380px;width:90%;background:#1e2030;color:#e5e7eb;box-shadow:0 24px 60px rgba(0,0,0,0.6);">

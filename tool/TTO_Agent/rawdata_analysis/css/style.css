@@ -218,6 +218,95 @@ body.theme-light .entry-tab-btn:hover {
   max-width: 220px;
 }
 
+.raw-keyword-progress {
+  margin-top: 0.85rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid #334155;
+  border-radius: 0.75rem;
+  background: #111827;
+}
+
+.raw-keyword-progress-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: #e2e8f0;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.raw-keyword-progress-counts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+.raw-keyword-progress-track {
+  width: 100%;
+  height: 0.58rem;
+  margin-top: 0.55rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: #1e293b;
+}
+
+.raw-keyword-progress-fill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: #64748b;
+  transition: width 0.25s ease, background-color 0.2s ease;
+}
+
+.raw-keyword-progress-fill.is-running {
+  background: linear-gradient(90deg, #38bdf8, #8b5cf6, #38bdf8);
+  background-size: 200% 100%;
+  animation: raw-keyword-progress-shimmer 1.6s linear infinite;
+}
+
+.raw-keyword-progress-fill.is-complete {
+  background: #22c55e;
+  animation: none;
+}
+
+.raw-keyword-progress-detail {
+  margin: 0.5rem 0 0;
+  overflow: hidden;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes raw-keyword-progress-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: 0 0; }
+}
+
+body.theme-light .raw-keyword-progress {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+body.theme-light .raw-keyword-progress-head {
+  color: #0f172a;
+}
+
+body.theme-light .raw-keyword-progress-track {
+  background: #e2e8f0;
+}
+
+body.theme-light .raw-keyword-progress-detail {
+  color: #475569;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .raw-keyword-progress-fill.is-running {
+    animation: none;
+  }
+}
+
 .keyword-analysis-results {
   border: 1px solid var(--border);
   border-radius: 0.75rem;

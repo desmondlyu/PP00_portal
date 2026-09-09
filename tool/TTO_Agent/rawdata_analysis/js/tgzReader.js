@@ -21,19 +21,26 @@
       !parts.includes("..");
   }
 
-  async function forEachTgzRawdataTextMember(file, onMember) {
+  function throwIfAborted(signal) {
+    if (signal?.aborted) throw new DOMException("TGZ 分析已取消。", "AbortError");
+  }
+
+  async function forEachTgzRawdataTextMemberChunked(file, handlers = {}) {
     if (!/\.tgz$/i.test(file.name)) throw new Error("只支援 .TGZ 壓縮檔。");
     if (typeof DecompressionStream === "undefined") {
       throw new Error("目前瀏覽器不支援 .TGZ 串流解析，請改用最新版 Chrome 或 Edge。");
     }
 
+    const signal = handlers.signal;
     const reader = file.stream().pipeThrough(new DecompressionStream("gzip")).getReader();
     let pending = new Uint8Array(0);
 
     async function take(length) {
+      throwIfAborted(signal);
       const chunks = [];
       let remaining = length;
       while (remaining > 0) {
+        throwIfAborted(signal);
         if (!pending.length) {
           const next = await reader.read();
           if (next.done || !next.value) throw new Error("TGZ 內容不完整或格式錯誤。");
@@ -56,22 +63,33 @@
 
     async function skip(length) {
       while (length > 0) {
+        throwIfAborted(signal);
         const chunk = await take(Math.min(length, 64 * 1024));
         length -= chunk.length;
       }
     }
 
     while (true) {
+      throwIfAborted(signal);
       const header = await take(BLOCK_SIZE);
       if (header.every((byte) => byte === 0)) break;
 
       const name = readString(header, 0, 100);
       const size = readSize(header);
       if (isRawdataTextMember(name)) {
-        await onMember({
+        const member = {
+          path: name,
           name: name.split("/").at(-1),
-          text: new TextDecoder().decode(await take(size))
-        });
+          size,
+        };
+        await handlers.onStart?.(member);
+        let remaining = size;
+        while (remaining > 0) {
+          const chunk = await take(Math.min(remaining, 64 * 1024));
+          await handlers.onChunk?.(chunk);
+          remaining -= chunk.length;
+        }
+        await handlers.onEnd?.(member);
       } else {
         await skip(size);
       }
@@ -80,6 +98,30 @@
     }
   }
 
+  async function forEachTgzRawdataTextMember(file, onMember) {
+    let decoder = new TextDecoder();
+    let text = "";
+    await forEachTgzRawdataTextMemberChunked(file, {
+      onStart(nextMember) {
+        decoder = new TextDecoder();
+        text = "";
+      },
+      onChunk(chunk) {
+        text += decoder.decode(chunk, { stream: true });
+      },
+      async onEnd(nextMember) {
+        text += decoder.decode();
+        await onMember({
+          name: nextMember.name,
+          text,
+        });
+      },
+    });
+  }
+
   global.forEachTgzRawdataTextMember = forEachTgzRawdataTextMember;
-  if (typeof module !== "undefined") module.exports = { forEachTgzRawdataTextMember };
+  global.forEachTgzRawdataTextMemberChunked = forEachTgzRawdataTextMemberChunked;
+  if (typeof module !== "undefined") {
+    module.exports = { forEachTgzRawdataTextMember, forEachTgzRawdataTextMemberChunked };
+  }
 })(typeof window === "undefined" ? globalThis : window);
