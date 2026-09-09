@@ -8,6 +8,10 @@ const ROW_Y_TOLERANCE = 1.25;
 const MAX_EQUIPMENT_HEIGHT = 1.62;
 const MAX_MACHINE_HEIGHT = 1.58;
 const CAMERA_PADDING = 1.1;
+const T_MACHINE_COLOR = 0x36b9dd;
+const MS_MACHINE_COLOR = 0x8c73e6;
+const T_BOOKED_COLOR = 0xf09a42;
+const MS_BOOKED_COLOR = 0xc66a9d;
 
 function percentToWorld(value, total) {
     return (value / 100) * total - total / 2;
@@ -416,7 +420,9 @@ function createMachineMesh(machine, metrics) {
     const width = isMs ? 1.45 : 1.05;
     const depth = isMs ? 0.9 : 0.78;
     const height = Math.min(isMs ? 1.1 : 1.55, MAX_MACHINE_HEIGHT);
-    const color = machine.booked ? 0xf09a42 : 0x36b9dd;
+    const color = machine.booked
+        ? (isMs ? MS_BOOKED_COLOR : T_BOOKED_COLOR)
+        : (isMs ? MS_MACHINE_COLOR : T_MACHINE_COLOR);
     const material = createMaterial(color, {
         roughness: 0.48,
         metalness: 0.42,
