@@ -91,10 +91,12 @@ assert.match(cssSource, /\.floor-plan-3d-canvas/);
 assert.match(cssSource, /\.floor-plan-label-layer/);
 assert.match(
     cssSource,
-    /\.floor-plan-stage[\s\S]{0,220}transform:\s*translateY\(2%\)\s*scaleY\(1\.04\)/,
+    /\.floor-plan-stage[\s\S]{0,220}transform:\s*translateY\(8%\)\s*scaleY\(0\.98\)/,
 );
 assert.match(cssSource, /\.floor-plan-stage[\s\S]{0,260}transform-origin:\s*center top/);
 assert.match(cssSource, /@media \(max-width: 768px\)/);
+assert.match(floorPlan3dSource, /MS_MACHINE_COLOR/);
+assert.match(floorPlan3dSource, /T_MACHINE_COLOR/);
 assert.match(appSource, /pc-equipment-layer/);
 assert.match(cssSource, /\.floor-static-block\.device\.pc-equipment-layer/);
 assert.match(
