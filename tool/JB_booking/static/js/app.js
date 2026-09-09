@@ -114,6 +114,27 @@ const FLOOR_PLAN_STATIC_BLOCKS = [
 ];
 
 const FLOOR_PLAN_EXITS = [];
+const LOWER_ZONE_START_Y = 71.5;
+const LOWER_ZONE_OFFSET_PERCENT = 6;
+
+function isLowerFloorStaticBlock(blockDef) {
+    return (
+        (blockDef.kind === 'walkway' && blockDef.y >= 55.5) ||
+        (
+            blockDef.kind === 'device' &&
+            ['UF3000', 'Auto Hander'].includes(blockDef.label) &&
+            blockDef.y >= LOWER_ZONE_START_Y
+        )
+    );
+}
+
+function getFloorPlanVisualTop(blockDef) {
+    return blockDef.y + (
+        isLowerFloorStaticBlock(blockDef)
+            ? LOWER_ZONE_OFFSET_PERCENT
+            : 0
+    );
+}
 
 const LOCAL_CLIENT_ID_KEY = 'jb-booking-client-id';
 const SUPABASE_URL_PLACEHOLDER = 'REPLACE_WITH_SUPABASE_URL';
@@ -841,7 +862,7 @@ function renderFloorPlan(date) {
             blockDef.label === 'PC/設備/烤箱' ? ' pc-equipment-layer' : ''
         }`;
         block.style.left = `${blockDef.x}%`;
-        block.style.top = `${blockDef.y}%`;
+        block.style.top = `${getFloorPlanVisualTop(blockDef)}%`;
         block.style.width = `${blockDef.w}%`;
         block.style.height = `${blockDef.h}%`;
         block.dataset.floorStaticIndex = String(blockIndex);
@@ -880,7 +901,9 @@ function renderFloorPlan(date) {
         const hasBooking = machineAppointments.length > 0;
         block.className = `tester-block ${hasBooking ? 'has-booking' : ''}`;
         block.style.left = `${slot.x}%`;
-        block.style.top = `${slot.y}%`;
+        block.style.top = `${slot.y >= LOWER_ZONE_START_Y
+            ? slot.y + LOWER_ZONE_OFFSET_PERCENT
+            : slot.y}%`;
         block.style.width = `${FLOOR_PLAN_BLOCK_SIZE.w}%`;
         block.style.height = `${FLOOR_PLAN_BLOCK_SIZE.h}%`;
         block.dataset.floorTester = slot.tester;
