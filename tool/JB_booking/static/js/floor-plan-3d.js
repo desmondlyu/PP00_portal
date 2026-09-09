@@ -18,6 +18,7 @@ const MIDDLE_ZONE_START_Y = 40.5;
 const MIDDLE_ZONE_OFFSET_PERCENT = 4.5;
 const LOWER_ZONE_START_Y = 71.5;
 const LOWER_ZONE_OFFSET_PERCENT = 7.5;
+const LOWER_WALKWAY_START_Y = 55.5;
 const LOWER_WALKWAY_OFFSET_PERCENT = 6.5;
 
 function getVisualOffsetPercent(y) {
@@ -25,6 +26,13 @@ function getVisualOffsetPercent(y) {
         return LOWER_ZONE_OFFSET_PERCENT;
     }
     return y >= MIDDLE_ZONE_START_Y ? MIDDLE_ZONE_OFFSET_PERCENT : 0;
+}
+
+function getStaticVisualOffsetPercent(blockDef) {
+    if (blockDef.kind === 'walkway' && blockDef.y >= LOWER_WALKWAY_START_Y) {
+        return LOWER_WALKWAY_OFFSET_PERCENT;
+    }
+    return getVisualOffsetPercent(blockDef.y);
 }
 
 function percentToWorld(value, total) {
@@ -187,6 +195,22 @@ function positionEquipmentOnBlock(group, blockDef) {
         0,
         blockBottomZ - depth / 2,
     );
+}
+
+function createWalkwayAnchor(blockDef) {
+    const group = new THREE.Group();
+    const visualOffset = getStaticVisualOffsetPercent(blockDef);
+    group.position.set(
+        percentToWorld(blockDef.x + blockDef.w / 2, WORLD_WIDTH),
+        0,
+        percentToWorld(
+            blockDef.y + blockDef.h / 2 + visualOffset,
+            WORLD_DEPTH,
+        ),
+    );
+    group.userData.blockLabel = blockDef.label;
+    group.userData.kind = 'walkway-anchor';
+    return group;
 }
 
 function createEquipmentMaterial(color, options = {}) {
@@ -400,12 +424,13 @@ function createStaticBlock(scene, blockDef, metrics) {
     if (!['frame', 'walkway', 'device'].includes(kind)) {
         return;
     }
-    if (
-        kind === 'frame' ||
-        kind === 'walkway' ||
-        blockDef.label === 'PC/設備/烤箱'
-    ) {
+    if (kind === 'frame' || blockDef.label === 'PC/設備/烤箱') {
         return null;
+    }
+    if (kind === 'walkway') {
+        const anchor = createWalkwayAnchor(blockDef);
+        scene.add(anchor);
+        return anchor;
     }
     if (kind === 'device') {
         const equipment = createEquipmentMesh(blockDef, metrics);
