@@ -1278,16 +1278,61 @@ function updateModalTodayAppointments(testerName, dateStr, currentStart = null) 
     if (machineAppointments.length === 0) {
         apptsContainer.innerHTML = '<div class="modal-no-appt">🟢 本日尚無其他預約，時段皆可選擇</div>';
     } else {
-        machineAppointments.forEach(appt => {
+        machineAppointments.forEach((appt) => {
             const item = document.createElement('div');
             item.className = 'modal-appt-item';
             const isCurrent = currentStart && appt.start === currentStart;
             if (isCurrent) {
                 item.classList.add('current-editing');
-                item.innerHTML = `🔵 <strong>${appt.start} - ${appt.end}</strong> : ${appt.name} (${appt.unit}) <span class="editing-tag">(本次編輯中)</span>`;
-            } else {
-                item.innerHTML = `🔴 <strong>${appt.start} - ${appt.end}</strong> : ${appt.name} (${appt.unit})`;
             }
+
+            const info = document.createElement('div');
+            info.className = 'modal-appt-info';
+
+            const time = document.createElement('strong');
+            time.textContent = `${isCurrent ? '🔵' : '🔴'} ${appt.start} - ${appt.end}`;
+            info.appendChild(time);
+
+            const detail = document.createElement('span');
+            detail.className = 'modal-appt-detail';
+            detail.textContent = ` : ${appt.name} (${appt.unit})`;
+            info.appendChild(detail);
+
+            if (isCurrent) {
+                const editingTag = document.createElement('span');
+                editingTag.className = 'editing-tag';
+                editingTag.textContent = '(本次編輯中)';
+                info.appendChild(editingTag);
+            }
+
+            const actions = document.createElement('div');
+            actions.className = 'modal-appt-actions';
+
+            const isOwner = !appt.computer || appt.computer === computerName;
+
+            const editButton = document.createElement('button');
+            editButton.type = 'button';
+            editButton.className = 'modal-appt-action btn-edit';
+            editButton.textContent = '編輯';
+            editButton.disabled = !isOwner;
+            editButton.title = isOwner ? '編輯此預約' : '僅建立此預約的電腦可編輯';
+            editButton.addEventListener('click', () => {
+                editAppointment(dateStr, testerName, appt);
+            });
+            actions.appendChild(editButton);
+
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'modal-appt-action btn-delete';
+            deleteButton.textContent = '刪除';
+            deleteButton.disabled = !isOwner;
+            deleteButton.title = isOwner ? '刪除此預約' : '僅建立此預約的電腦可刪除';
+            deleteButton.addEventListener('click', () => {
+                deleteAppointment(dateStr, testerName, appt.start, appt.computer || '');
+            });
+            actions.appendChild(deleteButton);
+
+            item.append(info, actions);
             apptsContainer.appendChild(item);
         });
     }
@@ -1457,6 +1502,18 @@ async function deleteAppointment(dateStr, testerName, startTime, ownerComputer =
             payload,
         });
         await loadAppointments();
+        const appointmentModal = document.getElementById('appointmentModal');
+        if (
+            appointmentModal?.style.display === 'block' &&
+            selectedTester === testerName &&
+            selectedDay === dateStr
+        ) {
+            updateModalTodayAppointments(
+                testerName,
+                dateStr,
+                currentEditingAppointment?.oldStart || null,
+            );
+        }
         showNotification('刪除成功', 'success');
     } catch (error) {
         showNotification('刪除失敗: ' + error.message, 'error');
