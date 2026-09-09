@@ -38,12 +38,29 @@ for (const required of [
 for (const required of [
     'createMachineMesh',
     'createGround',
+    'createLayoutMetrics',
+    'createEquipmentMesh',
+    'createUf3000Mesh',
+    'createProbeSeatMesh',
+    'FRAME_INSET',
+    'rowBaseline',
+    'frameBounds',
+    'Box3',
     'MeshStandardMaterial',
     'group.userData.tester',
     'group.userData.booked',
     'group.userData.model',
 ]) {
     assert.match(floorPlan3dSource, new RegExp(required.replace('.', '\\.')));
+}
+for (const required of [
+    'UF3000',
+    '點針座1',
+    '點針座2',
+    'setFromObject',
+    'clamp',
+]) {
+    assert.match(floorPlan3dSource, new RegExp(required));
 }
 assert.doesNotMatch(floorPlan3dSource, /appointments|openAppointmentModal|supabase/i);
 
