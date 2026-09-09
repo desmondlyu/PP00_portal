@@ -777,6 +777,23 @@ body {
     box-shadow: none;
 }
 
+.floor-grid-layer-label {
+    border: none;
+    border-radius: 2px;
+    background: transparent;
+    box-shadow: none;
+    color: rgba(216, 240, 244, 0.5);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    pointer-events: none;
+}
+
+.floor-grid-layer-label.pipeline {
+    color: rgba(204, 229, 238, 0.62);
+    font-size: 0.66rem;
+}
+
 .tester-block {
     position: absolute;
     --machine-state: #56c9f1;

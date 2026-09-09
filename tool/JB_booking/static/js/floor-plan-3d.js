@@ -14,25 +14,22 @@ const T_BOOKED_COLOR = 0xf09a42;
 const MS_BOOKED_COLOR = 0xb52de0;
 const MS_TOP_PANEL_COLOR = 0xf2b3ff;
 const MS_FRONT_PANEL_COLOR = 0x6d1b98;
-const MIDDLE_ZONE_START_Y = 40.5;
-const MIDDLE_ZONE_OFFSET_PERCENT = 4.5;
-const LOWER_ZONE_START_Y = 71.5;
-const LOWER_ZONE_OFFSET_PERCENT = 7.5;
-const LOWER_ZONE_POST_CLAMP_OFFSET_PERCENT = 4;
-
-function getVisualOffsetPercent(y) {
-    if (y >= LOWER_ZONE_START_Y) {
-        return LOWER_ZONE_OFFSET_PERCENT;
-    }
-    return y >= MIDDLE_ZONE_START_Y ? MIDDLE_ZONE_OFFSET_PERCENT : 0;
-}
+const GRID_LEFT = -11.3;
+const GRID_RIGHT = 2.8;
+const GRID_TOP = -6.65;
+const GRID_COLUMN_GAP = 0.16;
+const GRID_ROW_GAP = 0.12;
+const GRID_ENVIRONMENT_ROW_GAP = 0.75;
+const GRID_EQUIPMENT_ROW_DEPTH = 1.42;
+const GRID_WALKWAY_DEPTH = 0.62;
+const GRID_PC_DEPTH = 0.78;
+const GRID_PIPELINE_DEPTH = 0.34;
+const FLOOR_LAYER_DEPTH_SCALE = 2;
+const GRID_VERTICAL_FILL_SCALE = 1.9;
+const TOP_WALKWAY_Z_OFFSET = 1.15;
 
 function percentToWorld(value, total) {
     return (value / 100) * total - total / 2;
-}
-
-function percentDeltaToWorld(value, total) {
-    return (value / 100) * total;
 }
 
 function percentRangeToWorld(start, size, total) {
@@ -51,6 +48,28 @@ function getFrameBounds(staticBlocks, inset = FRAME_INSET) {
         maxX: Math.max(...x.map(({ min, max }) => Math.max(min, max))) - inset,
         minZ: Math.min(...z.map(({ min, max }) => Math.min(min, max))) + inset,
         maxZ: Math.max(...z.map(({ min, max }) => Math.max(min, max))) - inset,
+    };
+}
+
+function getPrimaryFloorFrameBounds(staticBlocks, inset = FRAME_INSET) {
+    const primaryFrame = staticBlocks
+        .filter(({ kind }) => kind === 'frame')
+        .sort((a, b) => (b.w * b.h) - (a.w * a.h))[0];
+    const x = percentRangeToWorld(
+        primaryFrame.x,
+        primaryFrame.w,
+        WORLD_WIDTH,
+    );
+    const z = percentRangeToWorld(
+        primaryFrame.y,
+        primaryFrame.h,
+        WORLD_DEPTH,
+    );
+    return {
+        minX: Math.min(x.min, x.max) + inset,
+        maxX: Math.max(x.min, x.max) - inset,
+        minZ: Math.min(z.min, z.max) + inset,
+        maxZ: Math.max(z.min, z.max) - inset,
     };
 }
 
@@ -80,10 +99,7 @@ function createLayoutMetrics(staticBlocks, machines) {
         const rowBottomPercent = Math.max(
             ...row.machines.map(({ y, height }) => y + height),
         );
-        const rowBaseline = percentToWorld(
-            rowBottomPercent + getVisualOffsetPercent(row.y),
-            WORLD_DEPTH,
-        );
+        const rowBaseline = percentToWorld(rowBottomPercent, WORLD_DEPTH);
         row.machines.forEach((machine) => {
             machinePlacements.set(machine.tester, {
                 x: percentToWorld(machine.x + machine.width / 2, WORLD_WIDTH),
@@ -105,6 +121,163 @@ function createMaterial(color, options = {}) {
         emissiveIntensity: options.emissiveIntensity ?? 0,
         transparent: options.transparent ?? false,
         opacity: options.opacity ?? 1,
+    });
+}
+
+function getGridRowDepth(type) {
+    if (type === 'walkway') {
+        return GRID_WALKWAY_DEPTH;
+    }
+    if (type === 'pc-equipment') {
+        return GRID_PC_DEPTH;
+    }
+    if (type === 'pipeline') {
+        return GRID_PIPELINE_DEPTH;
+    }
+    return GRID_EQUIPMENT_ROW_DEPTH;
+}
+
+function createVisualGridMetrics(visualGrid, primaryFrameBounds) {
+    if (visualGrid?.columns !== 7 || !Array.isArray(visualGrid.rows)) {
+        throw new Error('Floor Plan visual grid must contain seven columns.');
+    }
+    const gridWidth = GRID_RIGHT - GRID_LEFT;
+    const columnWidth = (
+        gridWidth - GRID_COLUMN_GAP * (visualGrid.columns - 1)
+    ) / visualGrid.columns;
+    const columnCenters = Array.from(
+        { length: visualGrid.columns },
+        (_, index) =>
+            GRID_LEFT + columnWidth / 2 +
+            index * (columnWidth + GRID_COLUMN_GAP),
+    );
+    let cursor = GRID_TOP;
+    const rawRows = visualGrid.rows.map((row, index) => {
+        const depth = getGridRowDepth(row.type);
+        const metric = {
+            ...row,
+            index,
+            depth,
+            centerZ: cursor + depth / 2,
+        };
+        cursor += depth + (
+            row.type === 'equipment-row'
+                ? GRID_ROW_GAP
+                : GRID_ENVIRONMENT_ROW_GAP
+        );
+        return metric;
+    });
+    const rawGridMinZ = rawRows[0].centerZ - rawRows[0].depth / 2;
+    const lastRow = rawRows.at(-1);
+    const rawGridMaxZ = lastRow.centerZ + lastRow.depth / 2;
+    const rawGridCenterZ = (rawGridMinZ + rawGridMaxZ) / 2;
+    const frameCenterZ = (
+        primaryFrameBounds.minZ + primaryFrameBounds.maxZ
+    ) / 2;
+    const rows = rawRows.map((row) => {
+        const rawCenterZ = row.centerZ;
+        const rowOffset = row.index === 0 ? TOP_WALKWAY_Z_OFFSET : 0;
+        return {
+            ...row,
+            centerZ: frameCenterZ + (
+                rawCenterZ - rawGridCenterZ
+            ) * GRID_VERTICAL_FILL_SCALE + rowOffset,
+        };
+    });
+    return { columnWidth, columnCenters, rows, width: gridWidth };
+}
+
+function createFloorLayerMesh(rowMetric, gridMetrics) {
+    const style = {
+        walkway: { color: 0x9fcfd2, opacity: 0.14 },
+        'pc-equipment': { color: 0xaac8cb, opacity: 0.18 },
+        pipeline: { color: 0x98bfd0, opacity: 0.16 },
+    }[rowMetric.type];
+    const visualDepth = rowMetric.depth * FLOOR_LAYER_DEPTH_SCALE;
+    const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(gridMetrics.width, 0.035, visualDepth),
+        createMaterial(style.color, {
+            roughness: 0.88,
+            metalness: 0.04,
+            transparent: true,
+            opacity: style.opacity,
+        }),
+    );
+    mesh.position.set(
+        (GRID_LEFT + GRID_RIGHT) / 2,
+        -0.035,
+        rowMetric.centerZ,
+    );
+    mesh.receiveShadow = true;
+    mesh.userData.gridRow = rowMetric.index;
+    mesh.userData.gridColumn = null;
+    mesh.userData.projectionKey = `layer-${rowMetric.index}`;
+    mesh.userData.blockLabel = rowMetric.label;
+    mesh.userData.kind = rowMetric.type;
+    return mesh;
+}
+
+function mapEquipmentGroups(staticBlockGroups) {
+    const equipmentGroups = staticBlockGroups.filter(Boolean);
+    const uf3000 = equipmentGroups.filter(
+        (group) => group.userData.blockLabel === 'UF3000',
+    );
+    return new Map([
+        ['UF3000@row1', uf3000[0]],
+        ['UF3000@row2', uf3000[1]],
+        ['UF3000@row3', uf3000[2]],
+        ['UF3000@row4-left', uf3000[3]],
+        ['UF3000@row4-right', uf3000[4]],
+        [
+            '點針座1',
+            equipmentGroups.find(
+                (group) => group.userData.blockLabel === '點針座1',
+            ),
+        ],
+        [
+            '點針座2',
+            equipmentGroups.find(
+                (group) => group.userData.blockLabel === '點針座2',
+            ),
+        ],
+        [
+            'Auto Hander',
+            equipmentGroups.find(
+                (group) => group.userData.blockLabel === 'Auto Hander',
+            ),
+        ],
+    ]);
+}
+
+function applyVisualGrid(
+    visualGrid,
+    gridMetrics,
+    machineGroups,
+    staticBlockGroups,
+) {
+    const machineByTester = new Map(
+        machineGroups.map((group) => [group.userData.tester, group]),
+    );
+    const equipmentByKey = mapEquipmentGroups(staticBlockGroups);
+
+    visualGrid.rows.forEach((row, rowIndex) => {
+        if (row.type !== 'equipment-row') {
+            return;
+        }
+        row.cells.forEach((cell, columnIndex) => {
+            if (!cell) {
+                return;
+            }
+            const group = machineByTester.get(cell) || equipmentByKey.get(cell);
+            if (!group) {
+                throw new Error(`Missing Floor Plan visual object: ${cell}`);
+            }
+            group.position.x = gridMetrics.columnCenters[columnIndex];
+            group.position.z = gridMetrics.rows[rowIndex].centerZ;
+            group.userData.gridRow = rowIndex;
+            group.userData.gridColumn = columnIndex;
+            group.userData.projectionKey = cell;
+        });
     });
 }
 
@@ -181,25 +354,12 @@ function clampGroupToBounds(group, frameBounds) {
 
 function positionEquipmentOnBlock(group, blockDef) {
     const depth = getGroupDepth(group);
-    const visualOffset = getVisualOffsetPercent(blockDef.y);
-    const blockBottomZ = percentToWorld(
-        blockDef.y + blockDef.h + visualOffset,
-        WORLD_DEPTH,
-    );
+    const blockBottomZ = percentToWorld(blockDef.y + blockDef.h, WORLD_DEPTH);
     group.position.set(
         percentToWorld(blockDef.x + blockDef.w / 2, WORLD_WIDTH),
         0,
         blockBottomZ - depth / 2,
     );
-}
-
-function applyLowerZoneOffset(group, y) {
-    if (y >= LOWER_ZONE_START_Y) {
-        group.position.z += percentDeltaToWorld(
-            LOWER_ZONE_POST_CLAMP_OFFSET_PERCENT,
-            WORLD_DEPTH,
-        );
-    }
 }
 
 function createEquipmentMaterial(color, options = {}) {
@@ -401,7 +561,6 @@ function createEquipmentMesh(blockDef, metrics) {
             : createGenericEquipmentMesh(blockDef, metrics);
     positionEquipmentOnBlock(group, blockDef);
     clampGroupToBounds(group, metrics.frameBounds);
-    applyLowerZoneOffset(group, blockDef.y);
     group.traverse((child) => {
         child.castShadow = true;
         child.receiveShadow = true;
@@ -524,7 +683,6 @@ function createMachineMesh(machine, metrics) {
     group.userData.baseScale = new THREE.Vector3(1, 1, 1);
     group.userData.body = body;
     clampGroupToBounds(group, metrics.frameBounds);
-    applyLowerZoneOffset(group, machine.y);
     return group;
 }
 
@@ -566,7 +724,13 @@ function disposeObject(object) {
     });
 }
 
-function projectSceneLayout(camera, host, machineGroups, staticBlockGroups) {
+function projectSceneLayout(
+    camera,
+    host,
+    machineGroups,
+    staticBlockGroups,
+    visualLayerGroups,
+) {
     const width = Math.max(1, host.clientWidth);
     const height = Math.max(1, host.clientHeight);
 
@@ -576,9 +740,17 @@ function projectSceneLayout(camera, host, machineGroups, staticBlockGroups) {
         }
         const worldPosition = group.getWorldPosition(new THREE.Vector3());
         const projected = worldPosition.project(camera);
+        const bounds = new THREE.Box3().setFromObject(group);
+        const min = bounds.min.clone().project(camera);
+        const max = bounds.max.clone().project(camera);
         return {
             x: ((projected.x + 1) / 2) * width,
             y: ((1 - projected.y) / 2) * height,
+            width: Math.abs(max.x - min.x) / 2 * width,
+            height: Math.abs(max.y - min.y) / 2 * height,
+            gridRow: group.userData.gridRow,
+            gridColumn: group.userData.gridColumn,
+            projectionKey: group.userData.projectionKey,
         };
     }
 
@@ -590,6 +762,7 @@ function projectSceneLayout(camera, host, machineGroups, staticBlockGroups) {
             return positions;
         }, {}),
         staticBlocks: staticBlockGroups.map((group) => projectGroup(group)),
+        visualLayers: visualLayerGroups.map((group) => projectGroup(group)),
     };
 }
 
@@ -597,6 +770,7 @@ export function createFloorPlan3D({
     host,
     machines,
     staticBlocks,
+    visualGrid,
     onHover = () => {},
     onLayout = () => {},
 }) {
@@ -631,9 +805,18 @@ export function createFloorPlan3D({
     scene.add(keyLight);
 
     const layoutMetrics = createLayoutMetrics(staticBlocks, machines);
+    const primaryFrameBounds = getPrimaryFloorFrameBounds(staticBlocks);
+    const gridMetrics = createVisualGridMetrics(visualGrid, primaryFrameBounds);
     const staticBlockGroups = staticBlocks.map((blockDef) =>
         createStaticBlock(scene, blockDef, layoutMetrics),
     );
+    const visualLayerGroups = gridMetrics.rows
+        .filter(({ type }) => type !== 'equipment-row')
+        .map((rowMetric) => {
+            const mesh = createFloorLayerMesh(rowMetric, gridMetrics);
+            scene.add(mesh);
+            return mesh;
+        });
 
     const machineGroups = machines.map((machine) => {
         const group = createMachineMesh(machine, layoutMetrics);
@@ -643,6 +826,12 @@ export function createFloorPlan3D({
         scene.add(group);
         return group;
     });
+    applyVisualGrid(
+        visualGrid,
+        gridMetrics,
+        machineGroups,
+        staticBlockGroups,
+    );
     const machineByTester = new Map(
         machineGroups.map((group) => [group.userData.tester, group]),
     );
@@ -677,6 +866,7 @@ export function createFloorPlan3D({
             host,
             machineGroups,
             staticBlockGroups,
+            visualLayerGroups,
         ));
         render();
     }

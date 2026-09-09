@@ -114,6 +114,40 @@ const FLOOR_PLAN_STATIC_BLOCKS = [
 ];
 
 const FLOOR_PLAN_EXITS = [];
+const FLOOR_PLAN_VISUAL_GRID = Object.freeze({
+    columns: 7,
+    rows: [
+        { type: 'walkway', label: '走道' },
+        { type: 'pc-equipment', label: 'PC/設備/烤箱' },
+        { type: 'equipment-row', cells: [
+            'T5833-2(.84)', 'T5830ES_WBN12(.79)', '點針座2',
+            'Ms3490#3', 'T5830ES_WBN10(.74)', 'T5385ES_WBN1(.42)',
+            'UF3000@row1',
+        ] },
+        { type: 'walkway', label: '走道' },
+        { type: 'equipment-row', cells: [
+            'T5833-3(.92)', 'Ms3490#2', 'UF3000@row2',
+            'T5830ES_WBN15(.89)', 'T5385ES_WBN6(.56)', '點針座1',
+            'Ms3480#1',
+        ] },
+        { type: 'pipeline', label: '管線' },
+        { type: 'equipment-row', cells: [
+            'T5385ES_PT22', 'T5833-4(.96)', 'T5833-5(.97)',
+            'T5830ES_WBN11(.78)', null, 'T5830ES_WBN3(.61)',
+            'UF3000@row3',
+        ] },
+        { type: 'walkway', label: '走道' },
+        { type: 'equipment-row', cells: [
+            null, 'T5833-6(.98)', 'T5833-1(.80)', 'UF3000@row4-left',
+            'T5830ES_WBN8(.75)', 'UF3000@row4-right', null,
+        ] },
+        { type: 'pipeline', label: '管線' },
+        { type: 'equipment-row', cells: [
+            null, null, 'T5781-3(.33)', 'Auto Hander',
+            'T5781-2(.32)', null, null,
+        ] },
+    ],
+});
 const MIDDLE_ZONE_START_Y = 40.5;
 const MIDDLE_ZONE_OFFSET_PERCENT = 4.5;
 const LOWER_ZONE_START_Y = 71.5;
@@ -150,7 +184,7 @@ const SUPABASE_ANON_KEY_PLACEHOLDER = 'REPLACE_WITH_SUPABASE_ANON_KEY';
 
 function loadFloorPlan3DModule() {
     if (!floorPlan3dModulePromise) {
-        floorPlan3dModulePromise = import('./floor-plan-3d.js?v=20260909-1450');
+        floorPlan3dModulePromise = import('./floor-plan-3d.js?v=20260909-1858');
     }
     return floorPlan3dModulePromise;
 }
@@ -879,6 +913,22 @@ function renderFloorPlan(date) {
         staticBlockElements.push(block);
     });
 
+    const visualLayerElements = FLOOR_PLAN_VISUAL_GRID.rows
+        .map((row, rowIndex) => {
+            if (row.type === 'equipment-row') {
+                return null;
+            }
+            const layer = document.createElement('div');
+            layer.className = `floor-static-block floor-grid-layer-label ${
+                row.type
+            }`;
+            layer.textContent = row.label;
+            layer.dataset.floorGridRow = String(rowIndex);
+            labelLayer.appendChild(layer);
+            return layer;
+        })
+        .filter(Boolean);
+
     FLOOR_PLAN_EXITS.forEach((exitDef) => {
         const exitMarker = document.createElement('div');
         exitMarker.className = 'exit-marker';
@@ -958,6 +1008,7 @@ function renderFloorPlan(date) {
                 host: threeHost,
                 machines: machineRecords,
                 staticBlocks: FLOOR_PLAN_STATIC_BLOCKS,
+                visualGrid: FLOOR_PLAN_VISUAL_GRID,
                 onHover: (tester) => {
                     labelLayer.querySelectorAll('.tester-block').forEach((button) => {
                         button.classList.toggle(
@@ -967,7 +1018,13 @@ function renderFloorPlan(date) {
                     });
                 },
                 onLayout: (projectedLayout) => {
-                    const { width, height, machines, staticBlocks } = projectedLayout;
+                    const {
+                        width,
+                        height,
+                        machines,
+                        staticBlocks,
+                        visualLayers,
+                    } = projectedLayout;
                     machineElements.forEach((button, tester) => {
                         const position = machines[tester];
                         if (!position) {
@@ -986,6 +1043,13 @@ function renderFloorPlan(date) {
                         if (blockDef.kind === 'frame') {
                             return;
                         }
+                        if (
+                            blockDef.kind === 'walkway' ||
+                            blockDef.label === 'PC/設備/烤箱'
+                        ) {
+                            block.style.visibility = 'hidden';
+                            return;
+                        }
                         if (!position) {
                             return;
                         }
@@ -995,6 +1059,27 @@ function renderFloorPlan(date) {
                         }%`;
                         block.style.top = `${
                             (position.y / height) * 100 - blockDef.h / 2
+                        }%`;
+                    });
+                    visualLayerElements.forEach((layer) => {
+                        const rowIndex = Number(layer.dataset.floorGridRow);
+                        const position = visualLayers.find(
+                            (item) => item?.gridRow === rowIndex,
+                        );
+                        if (!position) {
+                            return;
+                        }
+                        layer.style.left = `${
+                            ((position.x - position.width / 2) / width) * 100
+                        }%`;
+                        layer.style.top = `${
+                            ((position.y - position.height / 2) / height) * 100
+                        }%`;
+                        layer.style.width = `${
+                            (position.width / width) * 100
+                        }%`;
+                        layer.style.height = `${
+                            (position.height / height) * 100
                         }%`;
                     });
                 },
