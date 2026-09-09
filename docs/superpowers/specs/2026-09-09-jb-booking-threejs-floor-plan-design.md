@@ -36,7 +36,9 @@
   - Floor Plan canvas、DOM overlay、hover 狀態與 responsive 呈現。
   - 移除目前圖片機台與人物視覺規則。
 - `tool/JB_booking/static/js/vendor/three.module.js`
-  - 本地 Three.js module，避免預覽與部署依賴 CDN 或外部網路。
+  - 本地 Three.js entry module，避免預覽與部署依賴 CDN 或外部網路。
+- `tool/JB_booking/static/js/vendor/three.core.js`
+  - `three.module.js` 的同版本本地 core module 依賴。
 
 不修改 `index.html` 的既有入口結構、`config.js`、backend、API、資料 schema 或其他工具。
 
@@ -91,4 +93,3 @@ Raycaster 僅用於 hover 與視覺回饋。若 WebGL 初始化失敗，DOM over
 4. 回歸：
    - Calendar、其他 UI、API/data flow 與 console 不新增錯誤。
    - 只在 `design/jb-booking-playful` 隔離分支驗證，不合併、不推送。
-
