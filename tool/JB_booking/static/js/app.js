@@ -837,6 +837,8 @@ function renderFloorPlan(date) {
             blockDef.kind === 'device' && blockDef.label !== 'PC/設備/烤箱'
                 ? ' device-label'
                 : ''
+        }${
+            blockDef.label === 'PC/設備/烤箱' ? ' pc-equipment-layer' : ''
         }`;
         block.style.left = `${blockDef.x}%`;
         block.style.top = `${blockDef.y}%`;
