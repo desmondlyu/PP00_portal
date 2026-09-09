@@ -68,7 +68,7 @@ for (const required of [
 assert.doesNotMatch(floorPlan3dSource, /appointments|openAppointmentModal|supabase/i);
 assert.doesNotMatch(floorPlan3dSource, /createUnifiedFrame|railMaterial|frameMaterial/);
 assert.doesNotMatch(floorPlan3dSource, /createGround\(scene\);|new THREE\.GridHelper/);
-assert.match(floorPlan3dSource, /kind === 'walkway'[\s\S]{0,120}return null/);
+assert.match(floorPlan3dSource, /createWalkwayAnchor/);
 assert.match(floorPlan3dSource, /blockDef\.label === 'PC\/設備\/烤箱'[\s\S]{0,120}return null/);
 assert.match(floorPlan3dSource, /blockDef\.label === 'Auto Hander'[\s\S]{0,120}createAutoHandlerMesh/);
 
