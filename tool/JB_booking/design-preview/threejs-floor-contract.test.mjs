@@ -8,7 +8,7 @@ const appSource = readFileSync(
 );
 const layout = vm.runInNewContext(
     appSource.slice(0, appSource.indexOf('const LOCAL_CLIENT_ID_KEY')) +
-    ';({ slots: FLOOR_PLAN_TESTER_SLOTS, size: FLOOR_PLAN_BLOCK_SIZE })',
+    ';({ slots: FLOOR_PLAN_TESTER_SLOTS, blocks: FLOOR_PLAN_STATIC_BLOCKS, size: FLOOR_PLAN_BLOCK_SIZE })',
     { window: {} },
 );
 
@@ -16,6 +16,36 @@ assert.equal(layout.slots.length, 21);
 assert.equal(new Set(layout.slots.map(({ tester }) => tester)).size, 21);
 assert.equal(layout.size.w, 7.8);
 assert.equal(layout.size.h, 7.2);
+const topWalkway = layout.blocks.find(
+    ({ kind, y }) => kind === 'walkway' && y === 11,
+);
+const pcEquipment = layout.blocks.find(
+    ({ label }) => label === 'PC/設備/烤箱',
+);
+assert.ok(pcEquipment.y - (topWalkway.y + topWalkway.h) >= 1);
+assert.equal(
+    JSON.stringify(
+        layout.slots
+            .filter(({ y }) => y >= 71.5)
+            .map(({ tester }) => tester),
+    ),
+    JSON.stringify(
+        [
+            'T5833-6(.98)',
+            'T5833-1(.80)',
+            'T5830ES_WBN8(.75)',
+            'T5781-3(.33)',
+            'T5781-2(.32)',
+        ],
+    ),
+);
+assert.equal(
+    layout.blocks.filter(
+        ({ label, y }) =>
+            y >= 71.5 && ['UF3000', 'Auto Hander'].includes(label),
+    ).length,
+    3,
+);
 
 const floorPlan3dSource = readFileSync(
     new URL('../static/js/floor-plan-3d.js', import.meta.url),
@@ -68,7 +98,12 @@ for (const required of [
 assert.doesNotMatch(floorPlan3dSource, /appointments|openAppointmentModal|supabase/i);
 assert.doesNotMatch(floorPlan3dSource, /createUnifiedFrame|railMaterial|frameMaterial/);
 assert.doesNotMatch(floorPlan3dSource, /createGround\(scene\);|new THREE\.GridHelper/);
-assert.match(floorPlan3dSource, /createWalkwayAnchor/);
+assert.doesNotMatch(floorPlan3dSource, /createWalkwayAnchor/);
+assert.match(floorPlan3dSource, /percentDeltaToWorld/);
+assert.match(
+    floorPlan3dSource,
+    /clampGroupToBounds\(group, metrics\.frameBounds\);\s*applyLowerZoneOffset\(group,/,
+);
 assert.match(floorPlan3dSource, /blockDef\.label === 'PC\/設備\/烤箱'[\s\S]{0,120}return null/);
 assert.match(floorPlan3dSource, /blockDef\.label === 'Auto Hander'[\s\S]{0,120}createAutoHandlerMesh/);
 
