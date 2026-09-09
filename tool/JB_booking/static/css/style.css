@@ -675,6 +675,8 @@ body {
     min-height: 620px;
     overflow: hidden;
     border-radius: 10px;
+    transform: translateY(2%) scaleY(1.04);
+    transform-origin: center top;
 }
 
 .floor-plan-3d-host,

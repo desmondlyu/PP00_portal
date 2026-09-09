@@ -89,6 +89,11 @@ assert.doesNotMatch(appSource, /animateFloorEngineer|engineer-running|tester-mac
 assert.match(cssSource, /\.floor-plan-3d-host/);
 assert.match(cssSource, /\.floor-plan-3d-canvas/);
 assert.match(cssSource, /\.floor-plan-label-layer/);
+assert.match(
+    cssSource,
+    /\.floor-plan-stage[\s\S]{0,220}transform:\s*translateY\(2%\)\s*scaleY\(1\.04\)/,
+);
+assert.match(cssSource, /\.floor-plan-stage[\s\S]{0,260}transform-origin:\s*center top/);
 assert.match(cssSource, /@media \(max-width: 768px\)/);
 assert.match(appSource, /pc-equipment-layer/);
 assert.match(cssSource, /\.floor-static-block\.device\.pc-equipment-layer/);
