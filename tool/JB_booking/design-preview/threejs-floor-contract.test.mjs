@@ -90,6 +90,16 @@ assert.match(cssSource, /\.floor-plan-3d-host/);
 assert.match(cssSource, /\.floor-plan-3d-canvas/);
 assert.match(cssSource, /\.floor-plan-label-layer/);
 assert.match(cssSource, /@media \(max-width: 768px\)/);
+assert.match(appSource, /pc-equipment-layer/);
+assert.match(cssSource, /\.floor-static-block\.device\.pc-equipment-layer/);
+assert.match(
+    cssSource,
+    /background:\s*repeating-linear-gradient\(\s*90deg,\s*rgba\(139,\s*198,\s*190,\s*0\.035\)\s*0\s*24px,\s*rgba\(173,\s*231,\s*219,\s*0\.065\)\s*24px\s*25px\)/,
+);
+assert.match(
+    cssSource,
+    /\.floor-static-block\.device\.pc-equipment-layer[\s\S]{0,300}border:\s*none[\s\S]{0,300}box-shadow:\s*none/,
+);
 assert.doesNotMatch(cssSource, /engineer-running|tester-machine-reference|floor-equipment-reference/);
 
 console.log('Three.js presentation contract and 21-machine layout passed.');
