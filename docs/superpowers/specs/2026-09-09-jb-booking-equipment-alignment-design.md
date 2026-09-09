@@ -13,10 +13,11 @@
 主要變更限定於：
 
 - `tool/JB_booking/static/js/floor-plan-3d.js`
+- `tool/JB_booking/static/js/app.js`（只補充投影後的 DOM 銘牌定位與隱藏重複 frame outline）
 - `tool/JB_booking/design-preview/threejs-floor-contract.test.mjs`
 - `tool/JB_booking/static/css/style.css` 不預期需要修改；只有在瀏覽器驗證確認 3D canvas 與既有 label layer 發生層級遮擋時，才可調整 `.floor-plan-3d-host`、`.floor-plan-label-layer` 或其子元素的 presentation-only `z-index`／pointer-events。
 
-`renderFloorPlan()` 的既有資料流保持不變：
+`renderFloorPlan()` 的既有資料流保持不變；新增的 `onLayout` callback 只更新 Floor Plan presentation position／visibility：
 
 ```js
 const dateAppointments = appointments[dateStr] || {};
@@ -62,10 +63,19 @@ Three.js 只接收已建立的 `machineRecords` 與 `FLOOR_PLAN_STATIC_BLOCKS`�
 
 從 `FLOOR_PLAN_STATIC_BLOCKS` 的 `kind: 'frame'` 計算可用 floor bounds，並保留 presentation inset：
 
+- Three.js 只建立一個由所有原始 frame bounds 包絡出的 unified floor frame；不再將每個 `frame` block 各自渲染成獨立 3D 方塊。
 - mesh footprint 不得超過 frame 的 X／Z 邊界。
 - UF3000 的上方面板與點針座的 probe head 需納入 bounds。
 - 建立 mesh 後先以 frame inset clamp group 的 X／Z 中心；若造型 footprint 仍超過可用範圍，再按同一比例縮小該 group 的 footprint，直到 geometry 完整落在 bounds 內；不得改變原始百分比資料。
 - shadow 可以視覺淡出框架，但 geometry 不得越過框架。
+
+### 4.1 銘牌投影對齊
+
+DOM tester／設備銘牌仍保留原本文字、尺寸與可存取 button，但不再只依 2D 百分比猜測 3D 物件位置。Three.js 於 camera resize 後將 machine／device anchor 投影為 host pixel position，由 `renderFloorPlan()` 將銘牌中心同步到同一個投影座標。
+
+- tester ID、button click handler、booking state 與資料 mapping 不變。
+- 空的 DOM frame outline 隱藏，避免與 unified 3D frame 疊出拆開的雙重框架。
+- 無法取得 WebGL layout 時，既有 DOM 百分比定位仍作為 fallback。
 
 ### 5. 互動與失敗安全
 
@@ -91,7 +101,7 @@ Three.js 只接收已建立的 `machineRecords` 與 `FLOOR_PLAN_STATIC_BLOCKS`�
 
 - 21 台 tester ID 唯一且原始座標不變。
 - `createEquipmentMesh`、UF3000、點針座造型元件存在。
-- layout metrics、row baseline、frame bounds contract 存在。
+- `createUnifiedFrame`、scene projection、layout metrics、row baseline、frame bounds contract 存在。
 - `app.js` 仍保留 appointments lookup、booking state 與 `openAppointmentModal` 呼叫。
 - 不重新引入人物、圖片或外部 Three.js CDN。
 

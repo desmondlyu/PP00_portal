@@ -39,6 +39,8 @@ for (const required of [
     'createMachineMesh',
     'createGround',
     'createLayoutMetrics',
+    'createUnifiedFrame',
+    'projectSceneLayout',
     'createEquipmentMesh',
     'createUf3000Mesh',
     'createProbeSeatMesh',
@@ -70,6 +72,8 @@ assert.match(appSource, /machineAppointments\.length > 0/);
 assert.match(appSource, /openAppointmentModal\(slot\.tester, dateStr\)/);
 assert.match(appSource, /FLOOR_PLAN_BLOCK_SIZE\.w/);
 assert.match(appSource, /FLOOR_PLAN_BLOCK_SIZE\.h/);
+assert.match(appSource, /onLayout/);
+assert.match(appSource, /visibility\s*=\s*['"]hidden['"]/);
 assert.doesNotMatch(appSource, /animateFloorEngineer|engineer-running|tester-machine-reference/);
 assert.match(cssSource, /\.floor-plan-3d-host/);
 assert.match(cssSource, /\.floor-plan-3d-canvas/);
