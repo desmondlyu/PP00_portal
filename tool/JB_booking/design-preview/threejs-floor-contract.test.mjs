@@ -31,6 +31,16 @@ for (const required of [
 ]) {
     assert.match(floorPlan3dSource, new RegExp(required));
 }
+for (const required of [
+    'createMachineMesh',
+    'createGround',
+    'MeshStandardMaterial',
+    'group.userData.tester',
+    'group.userData.booked',
+    'group.userData.model',
+]) {
+    assert.match(floorPlan3dSource, new RegExp(required.replace('.', '\\.')));
+}
 assert.doesNotMatch(floorPlan3dSource, /appointments|openAppointmentModal|supabase/i);
 
 console.log('Three.js presentation contract and 21-machine layout passed.');
