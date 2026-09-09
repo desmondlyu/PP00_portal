@@ -19,6 +19,7 @@ const APP = {
   enableAnomalyDetail: false,
   enableRawKeywordAnalysis: false,
   rawKeywordResults: [],
+  rawKeywordProgressTimer: null,
   tableSort: { key: "mean", dir: "desc" },
   tableExpanded: new Set(),
   tableCollapsed: true,
@@ -30,6 +31,8 @@ const APP = {
   selectedScopes: new Set(),
   importedDashboardState: null,
   xlsxSummaryCards: [],
+  tgzAnalysisWorker: null,
+  tgzKeywordWorker: null,
   charts: {
     count: null, mean: null, range: null, ratio: null, reduction: null, ratioByGroup: null,
     groupCount: null, groupMean: null, groupRange: null, groupRatio: null, groupReduction: null,
@@ -125,6 +128,13 @@ const dom = {
   rawKeywordAnalyzeBtn: document.getElementById("raw-keyword-analyze-btn"),
   rawKeywordExportBtn: document.getElementById("raw-keyword-export-btn"),
   rawKeywordResultSummary: document.getElementById("raw-keyword-result-summary"),
+  rawKeywordProgressWrap: document.getElementById("raw-keyword-progress-wrap"),
+  rawKeywordProgressPhase: document.getElementById("raw-keyword-progress-phase"),
+  rawKeywordProgressFileCount: document.getElementById("raw-keyword-progress-file-count"),
+  rawKeywordProgressCount: document.getElementById("raw-keyword-progress-count"),
+  rawKeywordProgressTrack: document.getElementById("raw-keyword-progress-track"),
+  rawKeywordProgressFill: document.getElementById("raw-keyword-progress-fill"),
+  rawKeywordProgressDetail: document.getElementById("raw-keyword-progress-detail"),
   rawKeywordResultBox: document.getElementById("raw-keyword-result-box"),
 };
 
@@ -749,6 +759,93 @@ function syncRawKeywordAnalysisUI() {
   }
 }
 
+function clearRawKeywordProgress() {
+  if (APP.rawKeywordProgressTimer) {
+    window.clearTimeout(APP.rawKeywordProgressTimer);
+    APP.rawKeywordProgressTimer = null;
+  }
+  if (dom.rawKeywordProgressWrap) {
+    dom.rawKeywordProgressWrap.classList.add("hidden");
+    dom.rawKeywordProgressWrap.setAttribute("aria-hidden", "true");
+  }
+  if (dom.rawKeywordProgressFill) {
+    dom.rawKeywordProgressFill.classList.remove("is-running", "is-complete");
+    dom.rawKeywordProgressFill.style.width = "0%";
+  }
+  if (dom.rawKeywordProgressTrack) dom.rawKeywordProgressTrack.setAttribute("aria-valuenow", "0");
+  if (dom.rawKeywordProgressPhase) dom.rawKeywordProgressPhase.textContent = "關鍵字分析中";
+  if (dom.rawKeywordProgressFileCount) dom.rawKeywordProgressFileCount.textContent = "TGZ 0/0";
+  if (dom.rawKeywordProgressCount) dom.rawKeywordProgressCount.textContent = "TXT 0/0";
+  if (dom.rawKeywordProgressDetail) dom.rawKeywordProgressDetail.textContent = "準備讀取原始 TGZ...";
+}
+
+function showRawKeywordProgress(totalMembers) {
+  clearRawKeywordProgress();
+  if (!dom.rawKeywordProgressWrap) return;
+  const total = Number(totalMembers) || 0;
+  dom.rawKeywordProgressWrap.classList.remove("hidden");
+  dom.rawKeywordProgressWrap.setAttribute("aria-hidden", "false");
+  if (dom.rawKeywordProgressFileCount) dom.rawKeywordProgressFileCount.textContent = "TGZ 0/0";
+  if (dom.rawKeywordProgressCount) dom.rawKeywordProgressCount.textContent = `TXT 0/${total}`;
+  if (dom.rawKeywordProgressFill) dom.rawKeywordProgressFill.classList.add("is-running");
+}
+
+function updateRawKeywordProgress(message) {
+  if (!dom.rawKeywordProgressWrap) return;
+  const completedMembers = Math.max(0, Number(message.completedMembers) || 0);
+  const totalMembers = Math.max(0, Number(message.totalMembers) || 0);
+  const completedFiles = Math.max(0, Number(message.completedFiles) || 0);
+  const totalFiles = Math.max(0, Number(message.totalFiles) || 0);
+  const percent = totalMembers > 0
+    ? Math.min(100, Math.round((completedMembers / totalMembers) * 100))
+    : 0;
+  const memberName = message.memberName || message.fileName || "目前 TXT";
+  const lineLabel = Number(message.lineNumber) > 0
+    ? ` · 第 ${Number(message.lineNumber).toLocaleString()} 行`
+    : "";
+
+  dom.rawKeywordProgressWrap.classList.remove("hidden");
+  dom.rawKeywordProgressWrap.setAttribute("aria-hidden", "false");
+  if (dom.rawKeywordProgressFileCount) dom.rawKeywordProgressFileCount.textContent = `TGZ ${completedFiles}/${totalFiles}`;
+  if (dom.rawKeywordProgressCount) dom.rawKeywordProgressCount.textContent = `TXT ${completedMembers}/${totalMembers}`;
+  if (dom.rawKeywordProgressFill) dom.rawKeywordProgressFill.style.width = `${percent}%`;
+  if (dom.rawKeywordProgressTrack) dom.rawKeywordProgressTrack.setAttribute("aria-valuenow", String(percent));
+
+  if (message.type === "member-complete") {
+    dom.rawKeywordProgressFill?.classList.remove("is-running");
+    dom.rawKeywordProgressFill?.classList.add("is-complete");
+    if (dom.rawKeywordProgressPhase) dom.rawKeywordProgressPhase.textContent = "TXT 完成";
+  } else if (message.type === "member-start" || message.type === "progress") {
+    dom.rawKeywordProgressFill?.classList.remove("is-complete");
+    dom.rawKeywordProgressFill?.classList.add("is-running");
+    if (dom.rawKeywordProgressPhase) dom.rawKeywordProgressPhase.textContent = "關鍵字分析中";
+  }
+
+  if (dom.rawKeywordProgressDetail) {
+    const fileLabel = totalFiles > 0 ? `TGZ ${completedFiles}/${totalFiles}` : "TGZ 分析中";
+    dom.rawKeywordProgressDetail.textContent = `${fileLabel} · ${memberName}${lineLabel}`;
+  }
+}
+
+function finishRawKeywordProgress(state) {
+  if (!dom.rawKeywordProgressWrap) return;
+  if (APP.rawKeywordProgressTimer) window.clearTimeout(APP.rawKeywordProgressTimer);
+  APP.rawKeywordProgressTimer = null;
+  dom.rawKeywordProgressFill?.classList.remove("is-running");
+  dom.rawKeywordProgressFill?.classList.toggle("is-complete", state === "complete");
+  if (dom.rawKeywordProgressFill && state === "complete") dom.rawKeywordProgressFill.style.width = "100%";
+  if (dom.rawKeywordProgressTrack && state === "complete") dom.rawKeywordProgressTrack.setAttribute("aria-valuenow", "100");
+  if (dom.rawKeywordProgressPhase) {
+    dom.rawKeywordProgressPhase.textContent = state === "complete" ? "分析完成" : "分析失敗";
+  }
+  if (dom.rawKeywordProgressDetail) {
+    dom.rawKeywordProgressDetail.textContent = state === "complete"
+      ? "關鍵字分析已完成。"
+      : "關鍵字分析未完成，請查看錯誤訊息。";
+  }
+  APP.rawKeywordProgressTimer = window.setTimeout(clearRawKeywordProgress, 1200);
+}
+
 function renderRawKeywordResults(rows) {
   if (!dom.rawKeywordResultBox) return;
   if (!rows.length) {
@@ -773,6 +870,7 @@ function hasAnalyzedData() {
 }
 
 function resetResultsUI() {
+  clearRawKeywordProgress();
   for (const product of getProducts()) {
     for (const station of product.stations.values()) {
       station.stats = [];
@@ -988,7 +1086,19 @@ function ensureStation(product, stationName, stationFolder, stationMeta) {
   return created;
 }
 
+function stopActiveWorkers() {
+  clearRawKeywordProgress();
+  for (const key of ["tgzAnalysisWorker", "tgzKeywordWorker"]) {
+    const worker = APP[key];
+    if (!worker) continue;
+    worker.postMessage({ type: "cancel" });
+    worker.terminate();
+    APP[key] = null;
+  }
+}
+
 function handleFolderSelection(event) {
+  stopActiveWorkers();
   APP.sourceMode = "folder";
   APP.files = Array.from(event.target.files || []);
   APP.rootName = "";
@@ -1068,6 +1178,7 @@ function handleFolderSelection(event) {
 }
 
 function handleTxtSelection(event) {
+  stopActiveWorkers();
   APP.sourceMode = "txt";
   APP.files = Array.from(event.target.files || []);
   APP.manualFallback.lotNo = "";
@@ -1098,6 +1209,7 @@ function handleTxtSelection(event) {
 }
 
 async function handleXlsxSelection(event) {
+  stopActiveWorkers();
   APP.sourceMode = "xlsx";
   APP.files = Array.from(event.target.files || []).filter((f) => /\.(xlsx|xls)$/i.test(f.name));
   APP.manualFallback.lotNo = "";
@@ -1278,6 +1390,103 @@ function onMetaInputChange(event) {
   renderCharts();
 }
 
+function applyTgzStationResult(stationResult) {
+  const product = getProductByName(stationResult.productName);
+  const station = product?.stations.get(stationResult.stationName);
+  if (!station) throw new Error(`找不到分析結果對應的站點：${stationResult.productName}/${stationResult.stationName}`);
+
+  const result = stationResult.result;
+  station.touchDownCount = Number(result.touchDownCount) || 0;
+  station.stationTotalTime = Number(result.stationTotalTime) || 0;
+  station.siteTdMap = new Map(
+    (result.siteTdMap || []).map(([site, tdEntries]) => [site, new Map(tdEntries)]),
+  );
+  station.stats = Array.isArray(result.stats) ? result.stats : [];
+  station.rawTxtFiles = (result.memberNames || []).map((name) => ({ name }));
+}
+
+async function analyzeFolderWithWorker(selectedEntries, totalFiles) {
+  if (APP.tgzAnalysisWorker) {
+    APP.tgzAnalysisWorker.terminate();
+    APP.tgzAnalysisWorker = null;
+  }
+
+  const worker = new Worker("js/tgzAnalysisWorker.js");
+  APP.tgzAnalysisWorker = worker;
+  const entries = selectedEntries.map(({ product, station }) => ({
+    productName: product.name,
+    stationName: station.name,
+    files: station.rawTgzFiles.slice(),
+  }));
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (success) => {
+      if (settled) return;
+      settled = true;
+      worker.terminate();
+      if (APP.tgzAnalysisWorker === worker) APP.tgzAnalysisWorker = null;
+      resolve(success);
+    };
+
+    worker.onmessage = (event) => {
+      const message = event.data || {};
+      if (message.type === "file-start") {
+        setTgzProgress("extracting", message.completedFiles || 0, totalFiles, message.fileName);
+        return;
+      }
+      if (message.type === "member-start") {
+        setTgzProgress("parsing", message.completedFiles || 0, totalFiles, message.fileName);
+        return;
+      }
+      if (message.type === "progress") {
+        setTgzProgress("parsing", message.completedFiles || 0, totalFiles, `${message.fileName} / ${message.memberName}`);
+        return;
+      }
+      if (message.type === "file-complete") {
+        const completed = Number(message.completedFiles) || 0;
+        setProgress(Math.round((completed / totalFiles) * 100));
+        setTgzProgress("parsing", completed, totalFiles, message.fileName);
+        return;
+      }
+      if (message.type === "complete") {
+        try {
+          for (const stationResult of message.stationResults || []) {
+            applyTgzStationResult(stationResult);
+          }
+          setTgzProgress("analyzing", totalFiles, totalFiles);
+          finish(true);
+        } catch (error) {
+          showMessage(error instanceof Error ? error.message : String(error), "error");
+          dom.progressWrap.classList.add("hidden");
+          updateAnalyzeState();
+          finish(false);
+        }
+        return;
+      }
+      if (message.type === "error") {
+        showMessage(message.message || "TGZ 分析失敗。", "error");
+        dom.progressWrap.classList.add("hidden");
+        updateAnalyzeState();
+        finish(false);
+      }
+    };
+
+    worker.onerror = (event) => {
+      showMessage(event.message || "TGZ Worker 分析失敗。", "error");
+      dom.progressWrap.classList.add("hidden");
+      updateAnalyzeState();
+      finish(false);
+    };
+
+    worker.postMessage({
+      type: "start",
+      entries,
+      options: { includeDetail: APP.enableAnomalyDetail },
+    });
+  });
+}
+
 async function startAnalysis() {
   if (APP.sourceMode === "xlsx") {
     await startAnalysisFromXlsx();
@@ -1338,17 +1547,25 @@ async function startAnalysis() {
   else clearTgzProgress();
   showMessage("開始解析 TXT 檔案...", "info");
 
-  let processed = 0;
   for (const product of getProducts()) {
     for (const station of product.stations.values()) {
       station.touchDownCount = 0;
       station.stationTotalTime = 0;
       station.siteTdMap = new Map();
       station.stats = [];
+      if (APP.sourceMode === "folder") station.rawTxtFiles = [];
     }
   }
 
-  for (const entry of selectedEntries) {
+  let processed = 0;
+  if (APP.sourceMode === "folder") {
+    const completed = await analyzeFolderWithWorker(selectedEntries, totalFiles);
+    if (!completed) {
+      dom.analyzeBtn.disabled = false;
+      updateAnalyzeState();
+      return;
+    }
+  } else for (const entry of selectedEntries) {
     const { station } = entry;
     const itemMap = new Map();
     const tdMaxMap = new Map();
@@ -1405,32 +1622,7 @@ async function startAnalysis() {
     }
 
     const inputFiles = getStationInputFiles(station);
-    if (APP.sourceMode === "folder") {
-      station.rawTxtFiles = [];
-      for (const file of inputFiles) {
-        setTgzProgress("extracting", processed, totalFiles, file.name);
-        let parsingStarted = false;
-        try {
-          await window.forEachTgzRawdataTextMember(file, (member) => {
-            if (!parsingStarted) {
-              setTgzProgress("parsing", processed, totalFiles, file.name);
-              parsingStarted = true;
-            }
-            processRawText(member.name, member.text);
-            station.rawTxtFiles.push(APP.enableRawKeywordAnalysis
-              ? new File([member.text], member.name, { type: "text/plain" })
-              : { name: member.name });
-          });
-        } catch (error) {
-          dom.progressWrap.classList.add("hidden");
-          showMessage(error instanceof Error ? `${file.name}：${error.message}` : `${file.name} 無法解壓。`, "error");
-          updateAnalyzeState();
-          return;
-        }
-        processed += 1;
-        setProgress(Math.round((processed / totalFiles) * 100));
-      }
-    } else for (const file of inputFiles) {
+    for (const file of inputFiles) {
       processRawText(file.name, await file.text());
       processed += 1;
       setProgress(Math.round((processed / totalFiles) * 100));
@@ -1643,6 +1835,76 @@ function parseXyFromRawLine(line) {
   return { x: fallback[1], y: fallback[2], td: lineMeta.td || "" };
 }
 
+async function startRawKeywordAnalysisWithWorker(entries, keyword, targetBin) {
+  if (APP.tgzKeywordWorker) {
+    APP.tgzKeywordWorker.terminate();
+    APP.tgzKeywordWorker = null;
+  }
+
+  const worker = new Worker("js/tgzKeywordWorker.js");
+  APP.tgzKeywordWorker = worker;
+  const payload = entries.map(({ product, station }) => ({
+    productName: product.name,
+    stationName: station.name,
+    files: station.rawTgzFiles.slice(),
+  }));
+  const totalMembers = entries.reduce(
+    (total, entry) => total + (entry.station.rawTxtFiles?.length || 0),
+    0,
+  );
+  showRawKeywordProgress(totalMembers);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      worker.terminate();
+      if (APP.tgzKeywordWorker === worker) APP.tgzKeywordWorker = null;
+      if (dom.rawKeywordAnalyzeBtn) dom.rawKeywordAnalyzeBtn.textContent = "開始分析";
+      syncRawKeywordAnalysisUI();
+      resolve();
+    };
+
+    worker.onmessage = (event) => {
+      const message = event.data || {};
+      if (message.type === "member-start" || message.type === "progress" || message.type === "member-complete") {
+        updateRawKeywordProgress(message);
+        return;
+      }
+      if (message.type === "file-complete") {
+        updateRawKeywordProgress(message);
+        showMessage(`關鍵字分析中：${message.completedFiles}/${message.totalFiles} 個 .TGZ。`, "info");
+        return;
+      }
+      if (message.type === "complete") {
+        APP.rawKeywordResults = message.results || [];
+        renderRawKeywordResults(APP.rawKeywordResults);
+        const binLabel = targetBin ? `（BIN 篩選：${targetBin}）` : "";
+        if (dom.rawKeywordResultSummary) {
+          dom.rawKeywordResultSummary.textContent = `共找到 ${APP.rawKeywordResults.length} 筆命中資料${binLabel}。`;
+        }
+        showMessage(`關鍵字分析完成：命中 ${APP.rawKeywordResults.length} 筆。`, "success");
+        finishRawKeywordProgress("complete");
+        finish();
+        return;
+      }
+      if (message.type === "error") {
+        showMessage(message.message || "關鍵字分析失敗。", "error");
+        finishRawKeywordProgress("error");
+        finish();
+      }
+    };
+
+    worker.onerror = (event) => {
+      showMessage(event.message || "關鍵字 Worker 分析失敗。", "error");
+      finishRawKeywordProgress("error");
+      finish();
+    };
+    worker.postMessage({ type: "start", entries: payload, keyword, targetBin, totalMembers });
+  });
+}
+
 async function startRawKeywordAnalysis() {
   if (!APP.enableRawKeywordAnalysis || !dom.rawKeywordAnalysisToggle?.checked) {
     showMessage("請先勾選步驟三(Option)再進行關鍵字分析。", "error");
@@ -1662,12 +1924,22 @@ async function startRawKeywordAnalysis() {
     syncRawKeywordAnalysisUI();
     return;
   }
+  const targetBin = normalizeBinToken(dom.rawBinInput?.value || "");
+  if (APP.sourceMode === "folder") {
+    if (dom.rawKeywordAnalyzeBtn) {
+      dom.rawKeywordAnalyzeBtn.disabled = true;
+      dom.rawKeywordAnalyzeBtn.textContent = "分析中...";
+    }
+    if (dom.rawKeywordResultSummary) dom.rawKeywordResultSummary.textContent = "關鍵字分析中，請稍候...";
+    await startRawKeywordAnalysisWithWorker(entries, keyword, targetBin);
+    return;
+  }
+
   if (entries.some((entry) => entry.station.rawTxtFiles.some((file) => typeof file.text !== "function"))) {
     showMessage("關鍵字分析需在開始分析前啟用；請勾選後重新分析 TGZ 資料。", "error");
     return;
   }
 
-  const targetBin = normalizeBinToken(dom.rawBinInput?.value || "");
   if (dom.rawKeywordAnalyzeBtn) {
     dom.rawKeywordAnalyzeBtn.disabled = true;
     dom.rawKeywordAnalyzeBtn.textContent = "分析中...";

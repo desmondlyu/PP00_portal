@@ -709,6 +709,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
+    { version: 'v2.0.2', date: '2026-09-09', text: '🛠️ NOR Flash Rawdata/TTO 分析平台：修正上傳壓縮檔解析模式，新增支援上傳多個 .TXT 檔案功能。', isNew: true },
     { version: 'v2.0.1', date: '2026-09-04', text: '🔒 增加入口網站需輸入帳號密碼登入限制。', isNew: true },
     { version: 'v2.0.0', date: '2026-09-01', text: '🆕 NOR Flash FT 特性系統新增 DATASHEET SPEC 分頁，可即時調整 Min／Typ／Max 規格並同步分析結果。', isNew: true },
     { version: 'v1.9.5', date: '2026-08-12', text: 'NOR Flash FT 特性系統分析工具修正：修正統計總覽捲軸、重設變更後圖表消失，以及規格調整後 Judge 顯示不更新問題。', isNew: true },
