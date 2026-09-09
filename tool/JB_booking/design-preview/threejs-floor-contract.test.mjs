@@ -45,6 +45,7 @@ for (const required of [
     'createEquipmentMesh',
     'createUf3000Mesh',
     'createProbeSeatMesh',
+    'createAutoHandlerMesh',
     'FRAME_INSET',
     'rowBaseline',
     'frameBounds',
@@ -67,6 +68,9 @@ for (const required of [
 }
 assert.doesNotMatch(floorPlan3dSource, /appointments|openAppointmentModal|supabase/i);
 assert.doesNotMatch(floorPlan3dSource, /createUnifiedFrame|railMaterial|frameMaterial/);
+assert.match(floorPlan3dSource, /kind === 'walkway'[\s\S]{0,120}return null/);
+assert.match(floorPlan3dSource, /blockDef\.label === 'PC\/設備\/烤箱'[\s\S]{0,120}return null/);
+assert.match(floorPlan3dSource, /blockDef\.label === 'Auto Hander'[\s\S]{0,120}createAutoHandlerMesh/);
 
 assert.match(appSource, /appointments\[dateStr\]/);
 assert.match(appSource, /dateAppointments\[slot\.tester\]/);
@@ -79,6 +83,11 @@ assert.doesNotMatch(
     appSource,
     /blockDef\.kind\s*===\s*['"]frame['"][\s\S]{0,120}visibility\s*=\s*['"]hidden['"]/,
 );
+assert.match(
+    appSource,
+    /blockDef\.kind\s*===\s*['"]frame['"]\s*\|\|\s*blockDef\.kind\s*===\s*['"]walkway['"]/,
+);
+assert.match(appSource, /blockDef\.label\s*===\s*['"]PC\/設備\/烤箱['"]/);
 assert.doesNotMatch(appSource, /animateFloorEngineer|engineer-running|tester-machine-reference/);
 assert.match(cssSource, /\.floor-plan-3d-host/);
 assert.match(cssSource, /\.floor-plan-3d-canvas/);

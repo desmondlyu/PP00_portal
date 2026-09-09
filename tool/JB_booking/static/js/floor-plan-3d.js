@@ -294,6 +294,68 @@ function createProbeSeatMesh(blockDef, metrics) {
     return group;
 }
 
+function createAutoHandlerMesh(blockDef, metrics) {
+    const width = Math.max(0.76, (blockDef.w / 100) * WORLD_WIDTH * 0.72);
+    const depth = Math.max(0.62, (blockDef.h / 100) * WORLD_DEPTH * 0.62);
+    const baseHeight = 0.26;
+    const columnHeight = 0.72;
+    const group = new THREE.Group();
+
+    const base = new THREE.Mesh(
+        new THREE.BoxGeometry(width, baseHeight, depth),
+        createEquipmentMaterial(0x4b6575, { emissive: 0x10242e }),
+    );
+    base.position.y = baseHeight / 2 + MACHINE_Y;
+
+    const deck = new THREE.Mesh(
+        new THREE.BoxGeometry(width * 0.78, 0.10, depth * 0.72),
+        createEquipmentMaterial(0x8bd7dc, {
+            metalness: 0.52,
+            emissive: 0x0a3f49,
+        }),
+    );
+    deck.position.set(0, baseHeight + MACHINE_Y + 0.05, 0);
+
+    const column = new THREE.Mesh(
+        new THREE.BoxGeometry(width * 0.14, columnHeight, depth * 0.16),
+        createEquipmentMaterial(0x6d8795, { metalness: 0.46 }),
+    );
+    column.position.set(
+        -width * 0.22,
+        baseHeight + columnHeight / 2 + MACHINE_Y,
+        0,
+    );
+
+    const arm = new THREE.Mesh(
+        new THREE.BoxGeometry(width * 0.56, 0.10, depth * 0.12),
+        createEquipmentMaterial(0xe0b45e, {
+            metalness: 0.58,
+            emissive: 0x4b2607,
+        }),
+    );
+    arm.position.set(
+        width * 0.08,
+        baseHeight + columnHeight - 0.04 + MACHINE_Y,
+        0,
+    );
+
+    const gripper = new THREE.Mesh(
+        new THREE.BoxGeometry(width * 0.12, 0.18, depth * 0.18),
+        createEquipmentMaterial(0xd7e6ea, { metalness: 0.64 }),
+    );
+    gripper.position.set(
+        width * 0.34,
+        baseHeight + columnHeight - 0.14 + MACHINE_Y,
+        0,
+    );
+
+    group.add(base, deck, column, arm, gripper);
+    group.userData.equipment = 'Auto Hander';
+    group.userData.blockLabel = blockDef.label;
+    group.userData.frameBounds = metrics.frameBounds;
+    return group;
+}
+
 function createGenericEquipmentMesh(blockDef, metrics) {
     const width = Math.max(0.72, (blockDef.w / 100) * WORLD_WIDTH * 0.68);
     const depth = Math.max(0.58, (blockDef.h / 100) * WORLD_DEPTH * 0.58);
@@ -316,6 +378,8 @@ function createEquipmentMesh(blockDef, metrics) {
         ? createUf3000Mesh(blockDef, metrics)
         : blockDef.label === '點針座1' || blockDef.label === '點針座2'
             ? createProbeSeatMesh(blockDef, metrics)
+            : blockDef.label === 'Auto Hander'
+                ? createAutoHandlerMesh(blockDef, metrics)
             : createGenericEquipmentMesh(blockDef, metrics);
     positionEquipmentOnBlock(group, blockDef);
     clampGroupToBounds(group, metrics.frameBounds);
@@ -331,7 +395,11 @@ function createStaticBlock(scene, blockDef, metrics) {
     if (!['frame', 'walkway', 'device'].includes(kind)) {
         return;
     }
-    if (kind === 'frame') {
+    if (
+        kind === 'frame' ||
+        kind === 'walkway' ||
+        blockDef.label === 'PC/設備/烤箱'
+    ) {
         return null;
     }
     if (kind === 'device') {
