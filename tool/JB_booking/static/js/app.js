@@ -94,7 +94,7 @@ const FLOOR_PLAN_STATIC_BLOCKS = [
     { label: 'PQ00', x: 79.0, y: 73.7, w: 9.5, h: 4, kind: 'frame-label' }, // PQ00 標籤隨框架移至 79.0
     
     // === 走道 (左半部，依 map.png 規劃，只留空白，無邊框，加大高度，只寫"走道"淺色字) ===
-    { label: '走道', x: 2.0, y: 11.0, w: 60.0, h: 6.5, kind: 'walkway' }, // 烤箱上方走道
+    { label: '走道', x: 2.0, y: 11.0, w: 60.0, h: 6.0, kind: 'walkway' }, // 烤箱上方走道
     { label: '走道', x: 2.0, y: 33.5, w: 60.0, h: 6.5, kind: 'walkway' }, // 第一排與第二排之間走道
     { label: '走道', x: 2.0, y: 55.5, w: 60.0, h: 6.5, kind: 'walkway' }, // 原第三排空下來的空間作為走道
     { label: '走道', x: 2.0, y: 63.5, w: 60.0, h: 6.5, kind: 'walkway' }, // 原第四排空下來的空間作為走道
@@ -150,7 +150,7 @@ const SUPABASE_ANON_KEY_PLACEHOLDER = 'REPLACE_WITH_SUPABASE_ANON_KEY';
 
 function loadFloorPlan3DModule() {
     if (!floorPlan3dModulePromise) {
-        floorPlan3dModulePromise = import('./floor-plan-3d.js?v=20260909-1433');
+        floorPlan3dModulePromise = import('./floor-plan-3d.js?v=20260909-1450');
     }
     return floorPlan3dModulePromise;
 }
