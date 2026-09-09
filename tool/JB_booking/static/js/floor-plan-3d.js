@@ -9,9 +9,17 @@ const MAX_EQUIPMENT_HEIGHT = 1.62;
 const MAX_MACHINE_HEIGHT = 1.58;
 const CAMERA_PADDING = 1.1;
 const T_MACHINE_COLOR = 0x36b9dd;
-const MS_MACHINE_COLOR = 0x8c73e6;
+const MS_MACHINE_COLOR = 0xd13bff;
 const T_BOOKED_COLOR = 0xf09a42;
-const MS_BOOKED_COLOR = 0xc66a9d;
+const MS_BOOKED_COLOR = 0xb52de0;
+const MS_TOP_PANEL_COLOR = 0xf2b3ff;
+const MS_FRONT_PANEL_COLOR = 0x6d1b98;
+const LOWER_ZONE_START_Y = 71.5;
+const LOWER_ZONE_OFFSET_PERCENT = 6;
+
+function getLowerZoneOffsetPercent(y) {
+    return y >= LOWER_ZONE_START_Y ? LOWER_ZONE_OFFSET_PERCENT : 0;
+}
 
 function percentToWorld(value, total) {
     return (value / 100) * total - total / 2;
@@ -62,7 +70,10 @@ function createLayoutMetrics(staticBlocks, machines) {
         const rowBottomPercent = Math.max(
             ...row.machines.map(({ y, height }) => y + height),
         );
-        const rowBaseline = percentToWorld(rowBottomPercent, WORLD_DEPTH);
+        const rowBaseline = percentToWorld(
+            rowBottomPercent + getLowerZoneOffsetPercent(row.y),
+            WORLD_DEPTH,
+        );
         row.machines.forEach((machine) => {
             machinePlacements.set(machine.tester, {
                 x: percentToWorld(machine.x + machine.width / 2, WORLD_WIDTH),
@@ -160,7 +171,11 @@ function clampGroupToBounds(group, frameBounds) {
 
 function positionEquipmentOnBlock(group, blockDef) {
     const depth = getGroupDepth(group);
-    const blockBottomZ = percentToWorld(blockDef.y + blockDef.h, WORLD_DEPTH);
+    const visualOffset = getLowerZoneOffsetPercent(blockDef.y);
+    const blockBottomZ = percentToWorld(
+        blockDef.y + blockDef.h + visualOffset,
+        WORLD_DEPTH,
+    );
     group.position.set(
         percentToWorld(blockDef.x + blockDef.w / 2, WORLD_WIDTH),
         0,
@@ -441,22 +456,33 @@ function createMachineMesh(machine, metrics) {
 
     const topPanel = new THREE.Mesh(
         new THREE.BoxGeometry(width * 0.78, 0.08, depth * 0.72),
-        createMaterial(machine.booked ? 0xffc16f : 0x8be7f7, {
+        createMaterial(
+            machine.booked
+                ? (isMs ? MS_TOP_PANEL_COLOR : 0xffc16f)
+                : (isMs ? MS_TOP_PANEL_COLOR : 0x8be7f7),
+            {
             roughness: 0.32,
             metalness: 0.56,
-            emissive: machine.booked ? 0x6e2d08 : 0x0a4e63,
+            emissive: machine.booked
+                ? (isMs ? 0x5b0b72 : 0x6e2d08)
+                : (isMs ? 0x7c168f : 0x0a4e63),
             emissiveIntensity: 0.4,
-        }),
+            },
+        ),
     );
     topPanel.position.set(0, height + MACHINE_Y + 0.04, 0);
     topPanel.castShadow = true;
 
     const frontPanel = new THREE.Mesh(
         new THREE.BoxGeometry(width * 0.62, height * 0.26, 0.035),
-        createMaterial(machine.booked ? 0x8a4e21 : 0x17657d, {
+        createMaterial(machine.booked
+            ? (isMs ? MS_FRONT_PANEL_COLOR : 0x8a4e21)
+            : (isMs ? MS_FRONT_PANEL_COLOR : 0x17657d), {
             roughness: 0.38,
             metalness: 0.5,
-            emissive: machine.booked ? 0x2b1004 : 0x03242d,
+            emissive: machine.booked
+                ? (isMs ? 0x2d0638 : 0x2b1004)
+                : (isMs ? 0x2d0638 : 0x03242d),
             emissiveIntensity: 0.38,
         }),
     );

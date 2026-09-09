@@ -97,6 +97,12 @@ assert.match(cssSource, /\.floor-plan-stage[\s\S]{0,260}transform-origin:\s*cent
 assert.match(cssSource, /@media \(max-width: 768px\)/);
 assert.match(floorPlan3dSource, /MS_MACHINE_COLOR/);
 assert.match(floorPlan3dSource, /T_MACHINE_COLOR/);
+assert.match(floorPlan3dSource, /LOWER_ZONE_START_Y/);
+assert.match(floorPlan3dSource, /LOWER_ZONE_OFFSET_PERCENT/);
+assert.match(floorPlan3dSource, /MS_TOP_PANEL_COLOR/);
+assert.match(floorPlan3dSource, /MS_FRONT_PANEL_COLOR/);
+assert.match(appSource, /LOWER_ZONE_OFFSET_PERCENT/);
+assert.match(appSource, /isLowerFloorStaticBlock/);
 assert.match(appSource, /pc-equipment-layer/);
 assert.match(cssSource, /\.floor-static-block\.device\.pc-equipment-layer/);
 assert.match(
