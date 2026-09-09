@@ -191,7 +191,7 @@ export function createFloorPlan3D({
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.domElement.className = 'floor-plan-3d-canvas';
     host.appendChild(renderer.domElement);
 
