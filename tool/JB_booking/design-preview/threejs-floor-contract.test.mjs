@@ -101,6 +101,8 @@ assert.match(floorPlan3dSource, /LOWER_ZONE_START_Y/);
 assert.match(floorPlan3dSource, /LOWER_ZONE_OFFSET_PERCENT/);
 assert.match(floorPlan3dSource, /LOWER_ZONE_EXTRA_OFFSET_PERCENT/);
 assert.match(floorPlan3dSource, /applyLowerZoneVisualOffset/);
+assert.match(floorPlan3dSource, /rowBottomPercent\s*-\s*getVisualOffsetPercent/);
+assert.match(floorPlan3dSource, /blockDef\.y \+ blockDef\.h - visualOffset/);
 assert.match(floorPlan3dSource, /MIDDLE_ZONE_START_Y/);
 assert.match(floorPlan3dSource, /MIDDLE_ZONE_OFFSET_PERCENT/);
 assert.match(floorPlan3dSource, /MS_TOP_PANEL_COLOR/);

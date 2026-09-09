@@ -38,7 +38,7 @@ function getStaticVisualOffsetPercent(blockDef) {
 
 function applyLowerZoneVisualOffset(group, y) {
     if (y >= LOWER_ZONE_START_Y) {
-        group.position.z += percentToWorld(
+        group.position.z -= percentToWorld(
             LOWER_ZONE_EXTRA_OFFSET_PERCENT,
             WORLD_DEPTH,
         );
@@ -95,7 +95,7 @@ function createLayoutMetrics(staticBlocks, machines) {
             ...row.machines.map(({ y, height }) => y + height),
         );
         const rowBaseline = percentToWorld(
-            rowBottomPercent + getVisualOffsetPercent(row.y),
+            rowBottomPercent - getVisualOffsetPercent(row.y),
             WORLD_DEPTH,
         );
         row.machines.forEach((machine) => {
@@ -197,7 +197,7 @@ function positionEquipmentOnBlock(group, blockDef) {
     const depth = getGroupDepth(group);
     const visualOffset = getVisualOffsetPercent(blockDef.y);
     const blockBottomZ = percentToWorld(
-        blockDef.y + blockDef.h + visualOffset,
+        blockDef.y + blockDef.h - visualOffset,
         WORLD_DEPTH,
     );
     group.position.set(
@@ -214,7 +214,7 @@ function createWalkwayAnchor(blockDef) {
         percentToWorld(blockDef.x + blockDef.w / 2, WORLD_WIDTH),
         0,
         percentToWorld(
-            blockDef.y + blockDef.h / 2 + visualOffset,
+            blockDef.y + blockDef.h / 2 - visualOffset,
             WORLD_DEPTH,
         ),
     );
