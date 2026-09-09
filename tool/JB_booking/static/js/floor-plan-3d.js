@@ -83,26 +83,6 @@ function createMaterial(color, options = {}) {
     });
 }
 
-function createGround(scene) {
-    const geometry = new THREE.PlaneGeometry(WORLD_WIDTH, WORLD_DEPTH);
-    const material = createMaterial(0x102131, {
-        roughness: 0.92,
-        metalness: 0.08,
-    });
-    const ground = new THREE.Mesh(geometry, material);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.12;
-    ground.receiveShadow = true;
-    scene.add(ground);
-
-    const grid = new THREE.GridHelper(WORLD_WIDTH, 24, 0x31566d, 0x1b3445);
-    grid.scale.z = WORLD_DEPTH / WORLD_WIDTH;
-    grid.position.y = -0.1;
-    grid.material.transparent = true;
-    grid.material.opacity = 0.42;
-    scene.add(grid);
-}
-
 function fitCameraToFloor(camera, host, staticBlocks) {
     const floorBounds = getFrameBounds(staticBlocks, 0);
     const minY = -0.2;
@@ -598,7 +578,6 @@ export function createFloorPlan3D({
     scene.add(keyLight);
 
     const layoutMetrics = createLayoutMetrics(staticBlocks, machines);
-    createGround(scene);
     const staticBlockGroups = staticBlocks.map((blockDef) =>
         createStaticBlock(scene, blockDef, layoutMetrics),
     );
