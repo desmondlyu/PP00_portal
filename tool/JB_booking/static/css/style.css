@@ -761,6 +761,20 @@ body {
     pointer-events: none;
 }
 
+.floor-static-block.device.pc-equipment-layer {
+    border: none;
+    background: repeating-linear-gradient(
+        90deg,
+        rgba(139, 198, 190, 0.035) 0 24px,
+        rgba(173, 231, 219, 0.065) 24px 25px
+    );
+    color: rgba(206, 237, 237, 0.19);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    box-shadow: none;
+}
+
 .tester-block {
     position: absolute;
     --machine-state: #56c9f1;
