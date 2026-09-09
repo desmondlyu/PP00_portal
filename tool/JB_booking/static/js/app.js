@@ -11,6 +11,9 @@ let computerName = null;
 let currentEditingAppointment = null; // 當前正在編輯的預約
 let currentViewMode = 'floor';
 let floorLayoutTesters = [];
+let floorPlanRenderToken = 0;
+let floorPlan3dInstance = null;
+let floorPlan3dModulePromise = null;
 
 const DEFAULT_BOOKING_CONFIG = {
     supabaseUrl: 'https://udixppyspiujplwhszmo.supabase.co/',
@@ -115,6 +118,13 @@ const FLOOR_PLAN_EXITS = [];
 const LOCAL_CLIENT_ID_KEY = 'jb-booking-client-id';
 const SUPABASE_URL_PLACEHOLDER = 'REPLACE_WITH_SUPABASE_URL';
 const SUPABASE_ANON_KEY_PLACEHOLDER = 'REPLACE_WITH_SUPABASE_ANON_KEY';
+
+function loadFloorPlan3DModule() {
+    if (!floorPlan3dModulePromise) {
+        floorPlan3dModulePromise = import('./floor-plan-3d.js');
+    }
+    return floorPlan3dModulePromise;
+}
 
 function hasSupabaseConfig() {
     return Boolean(BOOKING_CONFIG.supabaseUrl) && Boolean(BOOKING_CONFIG.supabaseAnonKey);
@@ -791,6 +801,12 @@ function renderFloorPlan(date) {
         return;
     }
 
+    floorPlanRenderToken += 1;
+    if (floorPlan3dInstance) {
+        floorPlan3dInstance.destroy();
+        floorPlan3dInstance = null;
+    }
+
     const dateStr = formatDate(date || selectedDate);
     const dateAppointments = appointments[dateStr] || {};
     const layout = floorLayoutTesters;
@@ -800,6 +816,17 @@ function renderFloorPlan(date) {
     }
 
     floorPlanCanvas.innerHTML = '';
+    const stage = document.createElement('div');
+    stage.className = 'floor-plan-stage';
+
+    const threeHost = document.createElement('div');
+    threeHost.className = 'floor-plan-3d-host';
+    stage.appendChild(threeHost);
+
+    const labelLayer = document.createElement('div');
+    labelLayer.className = 'floor-plan-label-layer';
+    stage.appendChild(labelLayer);
+    floorPlanCanvas.appendChild(stage);
 
     FLOOR_PLAN_STATIC_BLOCKS.forEach((blockDef) => {
         const block = document.createElement('div');
@@ -809,7 +836,7 @@ function renderFloorPlan(date) {
         block.style.width = `${blockDef.w}%`;
         block.style.height = `${blockDef.h}%`;
         block.textContent = blockDef.label;
-        floorPlanCanvas.appendChild(block);
+        labelLayer.appendChild(block);
     });
 
     FLOOR_PLAN_EXITS.forEach((exitDef) => {
@@ -818,7 +845,7 @@ function renderFloorPlan(date) {
         exitMarker.style.left = `${exitDef.x}%`;
         exitMarker.style.top = `${exitDef.y}%`;
         exitMarker.textContent = exitDef.label;
-        floorPlanCanvas.appendChild(exitMarker);
+        labelLayer.appendChild(exitMarker);
     });
 
     if (layout.length === 0) {
@@ -829,38 +856,74 @@ function renderFloorPlan(date) {
         noData.style.left = '4%';
         noData.style.top = '45%';
         noData.style.width = '92%';
-        floorPlanCanvas.appendChild(noData);
+        labelLayer.appendChild(noData);
         return;
     }
 
+    const machineRecords = [];
     layout.forEach((slot) => {
         const machineAppointments = dateAppointments[slot.tester] || [];
         const block = document.createElement('button');
         block.type = 'button';
-        block.className = 'tester-block';
-        if (machineAppointments.length > 0) {
-            block.classList.add('has-booking');
-        }
+        const hasBooking = machineAppointments.length > 0;
+        block.className = `tester-block ${hasBooking ? 'has-booking' : ''}`;
         block.style.left = `${slot.x}%`;
         block.style.top = `${slot.y}%`;
         block.style.width = `${FLOOR_PLAN_BLOCK_SIZE.w}%`;
         block.style.height = `${FLOOR_PLAN_BLOCK_SIZE.h}%`;
+        block.dataset.floorTester = slot.tester;
 
         const bookingText = machineAppointments.length > 0
             ? `${machineAppointments.length} 筆預約`
             : '可預約';
 
-        block.innerHTML = `
-            <div class="tester-block-name">${slot.tester}</div>
-            <div class="tester-block-status">${bookingText}</div>
-        `;
+        const name = document.createElement('span');
+        name.className = 'tester-block-name';
+        name.textContent = slot.tester;
+        const status = document.createElement('span');
+        status.className = 'tester-block-status';
+        status.textContent = bookingText;
+        block.append(name, status);
 
-        block.addEventListener('click', () => {
-            openAppointmentModal(slot.tester, dateStr);
+        block.addEventListener('mouseenter', () => floorPlan3dInstance?.setHovered(slot.tester));
+        block.addEventListener('mouseleave', () => floorPlan3dInstance?.setHovered(null));
+        block.addEventListener('click', () => openAppointmentModal(slot.tester, dateStr));
+        labelLayer.appendChild(block);
+
+        machineRecords.push({
+            tester: slot.tester,
+            x: slot.x,
+            y: slot.y,
+            width: FLOOR_PLAN_BLOCK_SIZE.w,
+            height: FLOOR_PLAN_BLOCK_SIZE.h,
+            booked: hasBooking,
+            model: slot.tester.startsWith('Ms') ? 'ms' : 't',
         });
-
-        floorPlanCanvas.appendChild(block);
     });
+
+    const activeToken = floorPlanRenderToken;
+    loadFloorPlan3DModule()
+        .then(({ createFloorPlan3D }) => {
+            if (activeToken !== floorPlanRenderToken || !stage.isConnected) {
+                return;
+            }
+            floorPlan3dInstance = createFloorPlan3D({
+                host: threeHost,
+                machines: machineRecords,
+                staticBlocks: FLOOR_PLAN_STATIC_BLOCKS,
+                onHover: (tester) => {
+                    labelLayer.querySelectorAll('.tester-block').forEach((button) => {
+                        button.classList.toggle(
+                            'is-hovered',
+                            button.dataset.floorTester === tester,
+                        );
+                    });
+                },
+            });
+        })
+        .catch((error) => {
+            console.error('Floor Plan 3D presentation failed; retaining DOM fallback.', error);
+        });
 }
 
 function renderScheduleView() {
@@ -1584,4 +1647,3 @@ async function exportMonthlyReportExcel() {
         hideLoading();
     }
 }
-

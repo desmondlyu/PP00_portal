@@ -21,6 +21,10 @@ const floorPlan3dSource = readFileSync(
     new URL('../static/js/floor-plan-3d.js', import.meta.url),
     'utf8',
 );
+const cssSource = readFileSync(
+    new URL('../static/css/style.css', import.meta.url),
+    'utf8',
+);
 for (const required of [
     'OrthographicCamera',
     'WebGLRenderer',
@@ -42,5 +46,18 @@ for (const required of [
     assert.match(floorPlan3dSource, new RegExp(required.replace('.', '\\.')));
 }
 assert.doesNotMatch(floorPlan3dSource, /appointments|openAppointmentModal|supabase/i);
+
+assert.match(appSource, /appointments\[dateStr\]/);
+assert.match(appSource, /dateAppointments\[slot\.tester\]/);
+assert.match(appSource, /machineAppointments\.length > 0/);
+assert.match(appSource, /openAppointmentModal\(slot\.tester, dateStr\)/);
+assert.match(appSource, /FLOOR_PLAN_BLOCK_SIZE\.w/);
+assert.match(appSource, /FLOOR_PLAN_BLOCK_SIZE\.h/);
+assert.doesNotMatch(appSource, /animateFloorEngineer|engineer-running|tester-machine-reference/);
+assert.match(cssSource, /\.floor-plan-3d-host/);
+assert.match(cssSource, /\.floor-plan-3d-canvas/);
+assert.match(cssSource, /\.floor-plan-label-layer/);
+assert.match(cssSource, /@media \(max-width: 768px\)/);
+assert.doesNotMatch(cssSource, /engineer-running|tester-machine-reference|floor-equipment-reference/);
 
 console.log('Three.js presentation contract and 21-machine layout passed.');
