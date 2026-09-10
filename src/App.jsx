@@ -41,6 +41,9 @@ const getToolUrl = (tool) => {
   return tool.localPath;
 };
 
+const PP00_AGENT_FLOATING_URL =
+  'https://m365.cloud.microsoft/chat/?titleId=T_a49b0530-b9c3-2b20-ec6b-58c35253d255';
+
 function LoginView({ checkingSession = false }) {
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
@@ -688,22 +691,14 @@ export default function App() {
     },
     {
       id: 'pp00-knowledge-agent',
-      title: 'PP00 Knownledge Agent',
-      badge: 'Active',
-      desc: 'PP00 內部知識型 Agent',
+      title: '開發中，敬請期待',
+      badge: '開發中',
+      desc: '',
       icon: '🤖',
       gradient: 'var(--grad-cyan-blue)',
       gridClass: 'col-4',
-      devUrl: 'https://m365.cloud.microsoft/chat/?titleId=T_a49b0530-b9c3-2b20-ec6b-58c35253d255',
-      localPath: 'https://m365.cloud.microsoft/chat/?titleId=T_a49b0530-b9c3-2b20-ec6b-58c35253d255',
-      ghPagesUrl: 'https://m365.cloud.microsoft/chat/?titleId=T_a49b0530-b9c3-2b20-ec6b-58c35253d255',
-      status: 'active',
-      openExternal: true,
-      details: [
-        '提供PP00內部知識搜尋，包含測試、產品以及製程相關知識檢索',
-        '提供新人訓練必須了解的課程，技能訓練',
-        '僅限PP00使用'
-      ]
+      status: 'pending',
+      details: []
     }
   ];
 
@@ -1006,6 +1001,20 @@ export default function App() {
         </section>
 
       </main>
+
+      <a
+        className="pp00-agent-floating-link"
+        href={PP00_AGENT_FLOATING_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="開啟 PP00 Agent"
+      >
+        <img
+          src="./pp00_agent.png"
+          alt="PP00 Agent"
+          className="pp00-agent-floating-image"
+        />
+      </a>
 
       {/* 頁尾 Footer 與版權宣告 */}
       <footer className="portal-footer">
