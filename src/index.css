@@ -31,6 +31,10 @@
   padding: 0;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   background-color: var(--bg-color);
   color: var(--text-primary);
@@ -70,6 +74,50 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+}
+
+.pp00-agent-floating-link {
+  position: fixed;
+  right: clamp(24px, 3vw, 44px);
+  bottom: clamp(20px, 3vw, 32px);
+  z-index: 900;
+  width: clamp(112px, 13vw, 176px);
+  display: block;
+  border-radius: 18px;
+  outline: none;
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.35));
+  transition: transform 0.25s ease, filter 0.25s ease;
+}
+
+.pp00-agent-floating-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.pp00-agent-floating-link:hover,
+.pp00-agent-floating-link:focus-visible {
+  transform: translateY(-6px) scale(1.03);
+  filter: drop-shadow(0 18px 30px rgba(6, 182, 212, 0.35));
+}
+
+.pp00-agent-floating-link:focus-visible {
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.85);
+}
+
+@media (max-width: 700px) {
+  .pp00-agent-floating-link {
+    right: 16px;
+    bottom: 18px;
+    width: 116px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp00-agent-floating-link {
+    transition: none;
+  }
 }
 
 /* Header 樣式 */
