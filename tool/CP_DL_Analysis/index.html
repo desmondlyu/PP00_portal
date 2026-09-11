@@ -723,6 +723,19 @@
       pointer-events: none;
     }
 
+    .histogram-card canvas {
+      cursor: ew-resize;
+      touch-action: none;
+    }
+
+    .histogram-selection-overlay {
+      border-color: var(--color-accent);
+      background-color: rgba(53, 216, 232, 0.16);
+      box-shadow:
+        inset 2px 0 0 rgba(112, 232, 241, 0.8),
+        inset -2px 0 0 rgba(112, 232, 241, 0.8);
+    }
+
     canvas {
       display: block;
       width: 100%;
@@ -1211,6 +1224,22 @@
       return remappedIndices;
     }
 
+    function normalizeHistogramBrush(startX, endX, canvasWidth, margin, minWidth = 8) {
+      const plotMin = margin;
+      const plotMax = Math.max(plotMin, canvasWidth - margin);
+      let x1 = Math.max(plotMin, Math.min(plotMax, Math.min(startX, endX)));
+      let x2 = Math.max(plotMin, Math.min(plotMax, Math.max(startX, endX)));
+
+      if (x2 - x1 < minWidth) {
+        const center = (x1 + x2) / 2;
+        x1 = Math.max(plotMin, center - minWidth / 2);
+        x2 = Math.min(plotMax, x1 + minWidth);
+        x1 = Math.max(plotMin, x2 - minWidth);
+      }
+
+      return { x1, x2 };
+    }
+
     // =================================================================
     // 3. UI 渲染中心
     // =================================================================
@@ -1333,7 +1362,7 @@
               </div>
               <div class="chart-content">
                 <canvas id="hist-canvas"></canvas>
-                <div id="hist-selection-box" class="selection-overlay"></div>
+                <div id="hist-selection-box" class="selection-overlay histogram-selection-overlay"></div>
               </div>
             </div>
           </div>
@@ -2728,56 +2757,53 @@
       if (!canvas || !box) return;
 
       let isSelecting = false;
-      let startX, startY;
+      let startX = 0;
+      let activePointerId = null;
+      const margin = 40;
 
-      canvas.addEventListener("mousedown", (e) => {
-        if (!state.filteredData || state.filteredData.length === 0) return;
+      function clampToPlotX(clientX) {
         const rect = canvas.getBoundingClientRect();
-        startX = e.clientX - rect.left;
-        startY = e.clientY - rect.top;
-        isSelecting = true;
+        return Math.max(margin, Math.min(canvas.width - margin, clientX - rect.left));
+      }
 
-        box.style.left = startX + "px";
-        box.style.top = startY + "px";
-        box.style.width = "0px";
-        box.style.height = "0px";
+      function updateBrushVisual(currentX) {
+        const x1 = Math.min(startX, currentX);
+        const x2 = Math.max(startX, currentX);
+        box.style.left = `${x1}px`;
+        box.style.top = `${margin}px`;
+        box.style.width = `${Math.max(2, x2 - x1)}px`;
+        box.style.height = `${Math.max(0, canvas.height - 2 * margin)}px`;
         box.style.display = "block";
+      }
+
+      canvas.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0 || !state.filteredData || state.filteredData.length === 0) return;
+        e.preventDefault();
+        activePointerId = e.pointerId;
+        startX = clampToPlotX(e.clientX);
+        isSelecting = true;
+        canvas.setPointerCapture(e.pointerId);
+        updateBrushVisual(startX);
       });
 
-      canvas.addEventListener("mousemove", (e) => {
-        if (!isSelecting) return;
-        const rect = canvas.getBoundingClientRect();
-        const curX = Math.max(0, Math.min(canvas.width, e.clientX - rect.left));
-        const curY = Math.max(0, Math.min(canvas.height, e.clientY - rect.top));
-
-        const left = Math.min(startX, curX);
-        const top = Math.min(startY, curY);
-        const width = Math.abs(startX - curX);
-        const height = Math.abs(startY - curY);
-
-        box.style.left = left + "px";
-        box.style.top = top + "px";
-        box.style.width = width + "px";
-        box.style.height = height + "px";
+      canvas.addEventListener("pointermove", (e) => {
+        if (!isSelecting || e.pointerId !== activePointerId) return;
+        updateBrushVisual(clampToPlotX(e.clientX));
       });
 
-      canvas.addEventListener("mouseup", (e) => {
-        if (!isSelecting) return;
+      function finishSelection(e) {
+        if (!isSelecting || e.pointerId !== activePointerId) return;
         isSelecting = false;
+        const endX = clampToPlotX(e.clientX);
+        const brush = normalizeHistogramBrush(startX, endX, canvas.width, margin);
+        activePointerId = null;
         box.style.display = "none";
 
-        const rect = canvas.getBoundingClientRect();
-        const endX = e.clientX - rect.left;
-        const endY = e.clientY - rect.top;
-
-        const margin = 40;
-        const plotW = canvas.width - 2 * margin;
-        const plotH = canvas.height - 2 * margin;
-
-        if (startX < margin || startX > canvas.width - margin || startY < margin || startY > canvas.height - margin ||
-            endX < margin || endX > canvas.width - margin || endY < margin || endY > canvas.height - margin) {
-          return;
+        if (canvas.hasPointerCapture(e.pointerId)) {
+          canvas.releasePointerCapture(e.pointerId);
         }
+
+        const plotW = canvas.width - 2 * margin;
 
         const params = state.selectedDistParams;
         const data = state.filteredData;
@@ -2803,8 +2829,8 @@
         if (globalMin === globalMax) { globalMin -= 0.5; globalMax += 0.5; }
 
         const xRangeDiff = globalMax - globalMin;
-        const x1_norm = (Math.min(startX, endX) - margin) / plotW * xRangeDiff + globalMin;
-        const x2_norm = (Math.max(startX, endX) - margin) / plotW * xRangeDiff + globalMin;
+        const x1_norm = (brush.x1 - margin) / plotW * xRangeDiff + globalMin;
+        const x2_norm = (brush.x2 - margin) / plotW * xRangeDiff + globalMin;
 
         // Fail-safe: 判斷是否有任何點在範圍內
         const hasPoints = data.some(row => {
@@ -2837,6 +2863,14 @@
         });
 
         triggerRedraw();
+      }
+
+      canvas.addEventListener("pointerup", finishSelection);
+      canvas.addEventListener("pointercancel", (e) => {
+        if (e.pointerId !== activePointerId) return;
+        isSelecting = false;
+        activePointerId = null;
+        box.style.display = "none";
       });
     }
 
