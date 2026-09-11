@@ -1195,6 +1195,22 @@
       return `rgba(${r}, ${g}, ${b}, 0.85)`;
     }
 
+    function remapHighlightIndices(sourceData, targetData, highlightIndices) {
+      if (highlightIndices.size === 0) return new Set();
+
+      const highlightedRows = new Set();
+      highlightIndices.forEach((index) => {
+        const row = sourceData[index];
+        if (row !== undefined) highlightedRows.add(row);
+      });
+
+      const remappedIndices = new Set();
+      targetData.forEach((row, index) => {
+        if (highlightedRows.has(row)) remappedIndices.add(index);
+      });
+      return remappedIndices;
+    }
+
     // =================================================================
     // 3. UI 渲染中心
     // =================================================================
@@ -1340,6 +1356,8 @@
     // 重新過濾數據並渲染所有區域
     function updateDataAndRender() {
       if (!state.rawData) return;
+      const previousFilteredData = state.filteredData;
+      const previousHighlightIndices = state.highlightIndices;
 
       // 1. 僅套用參數值篩選 (用於 Wafer Map)
       state.nonSpatialFilteredData = state.rawData.filter((row) => {
@@ -1367,6 +1385,11 @@
       } else {
         state.filteredData = state.nonSpatialFilteredData;
       }
+      state.highlightIndices = remapHighlightIndices(
+        previousFilteredData,
+        state.filteredData,
+        previousHighlightIndices
+      );
 
       // 3. 渲染控制面板與圖表
       renderSidebarControls();
@@ -1806,12 +1829,12 @@
 
       // Tab 切換
       document.querySelectorAll(".tab-btn").forEach(btn => {
-        btn.addEventListener("click", (e) => {
+        btn.onclick = (e) => {
           document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-          e.target.classList.add("active");
-          state.activeTab = e.target.getAttribute("data-tab");
+          e.currentTarget.classList.add("active");
+          state.activeTab = e.currentTarget.getAttribute("data-tab");
           renderSidebarControls();
-        });
+        };
       });
     }
 
@@ -1885,7 +1908,13 @@
 
       // 繪製數據點
       const pointRadius = 3;
-      data.forEach((row) => {
+      const highlightedWaferIndices = remapHighlightIndices(
+        state.filteredData,
+        data,
+        state.highlightIndices
+      );
+
+      data.forEach((row, idx) => {
         const x = Number(row.X);
         const y = Number(row.Y);
         const pval = Number(row[param]);
@@ -1900,7 +1929,7 @@
           ctx.fill();
 
           // 檢查是否在高亮集合中
-          if (state.highlightIndices.has(state.nonSpatialFilteredData.indexOf(row))) {
+          if (highlightedWaferIndices.has(idx)) {
             ctx.strokeStyle = "#ff0000";
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -2008,7 +2037,7 @@
         ctx.arc(px, py, 3, 0, 2 * Math.PI);
         ctx.fill();
 
-        if (state.highlightIndices.has(state.filteredData.indexOf(row))) {
+        if (state.highlightIndices.has(idx)) {
           ctx.strokeStyle = "#ff0000";
           ctx.lineWidth = 2;
           ctx.beginPath();
