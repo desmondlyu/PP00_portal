@@ -4,106 +4,723 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NOR Flash CP DL logo 分析工具</title>
+  <link rel="icon" href="data:,">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
     :root {
-      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color-scheme: dark;
+      font-family: "Segoe UI", "Microsoft JhengHei", system-ui, sans-serif;
       line-height: 1.5;
       font-weight: 400;
-      color-scheme: dark;
-      color: #f3f4f6;
-      background-color: #0b0f19;
+
+      --primitive-slate-950: #071018;
+      --primitive-slate-925: #0a141e;
+      --primitive-slate-900: #0d1823;
+      --primitive-slate-850: #101e2a;
+      --primitive-slate-800: #152633;
+      --primitive-slate-700: #263b49;
+      --primitive-slate-500: #6f8694;
+      --primitive-slate-300: #b7c8d1;
+      --primitive-slate-100: #edf6f8;
+      --primitive-cyan-400: #35d8e8;
+      --primitive-cyan-300: #70e8f1;
+      --primitive-amber-400: #f7b955;
+      --primitive-green-400: #45d49d;
+      --primitive-red-400: #ff6f6f;
+
+      --color-page: var(--primitive-slate-950);
+      --color-surface: var(--primitive-slate-900);
+      --color-surface-raised: var(--primitive-slate-850);
+      --color-surface-control: var(--primitive-slate-800);
+      --color-border: var(--primitive-slate-700);
+      --color-border-soft: rgba(111, 134, 148, 0.22);
+      --color-text: var(--primitive-slate-100);
+      --color-text-muted: var(--primitive-slate-300);
+      --color-text-dim: var(--primitive-slate-500);
+      --color-accent: var(--primitive-cyan-400);
+      --color-accent-strong: var(--primitive-cyan-300);
+      --color-warning: var(--primitive-amber-400);
+      --color-success: var(--primitive-green-400);
+      --color-danger: var(--primitive-red-400);
+
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow-panel: 0 12px 28px rgba(0, 0, 0, 0.24);
+      --focus-ring: 0 0 0 3px rgba(53, 216, 232, 0.2);
+      --sidebar-width: 268px;
+      --header-height: 58px;
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     body {
       margin: 0;
-      padding: 0;
       min-width: 320px;
       min-height: 100vh;
-      background-color: #0b0f19;
+      background: var(--color-page);
+      color: var(--color-text);
       overflow: hidden;
     }
 
-    /* Swiss Grid Layout */
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button,
+    [role="button"],
+    select,
+    input[type="checkbox"] {
+      cursor: pointer;
+    }
+
     .dashboard-container {
       display: grid;
-      grid-template-columns: 340px 1fr;
-      height: 100vh;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      grid-template-rows: var(--header-height) minmax(0, 1fr);
+      grid-template-areas:
+        "header header"
+        "sidebar main";
       width: 100vw;
-      box-sizing: border-box;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      background-color: var(--color-page);
+    }
+
+    .workstation-header {
+      grid-area: header;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-width: 0;
+      padding: 0 var(--space-5);
+      border-bottom: 1px solid var(--color-border);
+      background-color: #08131c;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+      z-index: 5;
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      min-width: 0;
+    }
+
+    .brand-mark {
+      position: relative;
+      width: 34px;
+      height: 34px;
+      flex: 0 0 34px;
+      border: 1px solid rgba(53, 216, 232, 0.7);
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 5px rgba(53, 216, 232, 0.06);
+    }
+
+    .brand-mark::before,
+    .brand-mark::after {
+      position: absolute;
+      content: "";
+      background: var(--color-accent);
+    }
+
+    .brand-mark::before {
+      top: 15px;
+      left: 5px;
+      width: 22px;
+      height: 1px;
+    }
+
+    .brand-mark::after {
+      top: 5px;
+      left: 15px;
+      width: 1px;
+      height: 22px;
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .brand-kicker,
+    .section-kicker,
+    .metric-label,
+    .workspace-label {
+      color: var(--color-text-dim);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .brand-title {
+      margin: 1px 0 0;
+      overflow: hidden;
+      color: var(--color-text);
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.045em;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .workstation-state {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      min-width: 0;
+    }
+
+    .state-label {
+      max-width: 320px;
+      overflow: hidden;
+      color: var(--color-text-dim);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 30px;
+      padding: 5px 11px;
+      border: 1px solid rgba(247, 185, 85, 0.35);
+      border-radius: 999px;
+      background-color: rgba(247, 185, 85, 0.08);
+      color: var(--color-warning);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .status-pill::before {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: currentColor;
+      content: "";
+      box-shadow: 0 0 10px currentColor;
+    }
+
+    .status-pill.is-online {
+      border-color: rgba(69, 212, 157, 0.38);
+      background-color: rgba(69, 212, 157, 0.09);
+      color: var(--color-success);
+    }
+
+    .sidebar {
+      grid-area: sidebar;
+      display: flex;
+      min-height: 0;
+      flex-direction: column;
+      border-right: 1px solid var(--color-border);
+      background-color: var(--color-surface);
+    }
+
+    .upload-panel {
+      padding: var(--space-4);
+      border-bottom: 1px solid var(--color-border-soft);
+    }
+
+    .upload-heading {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: var(--space-2);
+      margin-bottom: var(--space-3);
+    }
+
+    .upload-heading strong {
+      color: var(--color-text);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .offline-label {
+      color: var(--color-success);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+    }
+
+    #drop-zone {
+      min-height: 94px;
+      padding: 16px 12px;
+      border: 1px dashed rgba(53, 216, 232, 0.45);
+      border-radius: var(--radius-md);
+      background-color: rgba(53, 216, 232, 0.035);
+      text-align: center;
+      transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+    }
+
+    #drop-zone:hover {
+      border-color: var(--color-accent);
+      background-color: rgba(53, 216, 232, 0.075);
+      transform: translateY(-1px);
+    }
+
+    #drop-zone.is-dragging {
+      border-color: var(--color-accent-strong);
+      background-color: rgba(53, 216, 232, 0.14);
+      box-shadow: var(--focus-ring);
+    }
+
+    #drop-zone:focus-visible,
+    .tab-btn:focus-visible,
+    .btn:focus-visible,
+    .form-control:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+
+    .upload-icon {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      margin-bottom: var(--space-2);
+      fill: none;
+      stroke: var(--color-accent);
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.8;
+    }
+
+    #upload-status {
+      margin: 0;
+      color: var(--color-text-muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .tabs-header {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-1);
+      padding: var(--space-2);
+      border-bottom: 1px solid var(--color-border-soft);
+      background-color: #0b1721;
+    }
+
+    .tab-btn {
+      min-height: 38px;
+      padding: 7px 5px;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--color-text-dim);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+    }
+
+    .tab-btn::before {
+      margin-right: 5px;
+      color: rgba(111, 134, 148, 0.72);
+      content: attr(data-code);
+      font-size: 9px;
+    }
+
+    .tab-btn:hover {
+      color: var(--color-text);
+      background-color: rgba(255, 255, 255, 0.035);
+    }
+
+    .tab-btn.active {
+      border-color: rgba(53, 216, 232, 0.34);
+      background-color: rgba(53, 216, 232, 0.09);
+      color: var(--color-accent-strong);
+    }
+
+    .tab-content {
+      min-height: 0;
+      flex: 1;
+      padding: var(--space-4);
+      overflow-y: auto;
+      scrollbar-gutter: stable;
+    }
+
+    .control-empty {
+      margin-top: 28px;
+      padding: var(--space-4);
+      border: 1px solid var(--color-border-soft);
+      border-radius: var(--radius-md);
+      color: var(--color-text-dim);
+      font-size: 12px;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .sidebar-footer {
+      padding: 11px var(--space-4);
+      border-top: 1px solid var(--color-border-soft);
+      background-color: #09141d;
+      color: var(--color-text-dim);
+      font-size: 10px;
+      line-height: 1.55;
+    }
+
+    .sidebar-footer strong {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--color-text-muted);
+      font-weight: 650;
+    }
+
+    .sidebar-footer a {
+      color: var(--color-accent);
+      text-decoration: none;
+    }
+
+    .main-panel {
+      grid-area: main;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background-color: var(--color-page);
+    }
+
+    .welcome-container {
+      position: relative;
+      display: grid;
+      height: 100%;
+      min-height: 0;
+      place-items: center;
+      padding: clamp(24px, 5vw, 64px);
+      overflow: hidden;
+      background-color: var(--color-page);
+    }
+
+    .welcome-container::before {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(53, 216, 232, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(53, 216, 232, 0.035) 1px, transparent 1px);
+      background-size: 30px 30px;
+      content: "";
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent 88%);
+      pointer-events: none;
+    }
+
+    .welcome-card {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      width: min(850px, 100%);
+      grid-template-columns: minmax(220px, 0.75fr) minmax(320px, 1.25fr);
+      overflow: hidden;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      background-color: rgba(13, 24, 35, 0.96);
+      box-shadow: var(--shadow-panel);
+    }
+
+    .wafer-standby {
+      position: relative;
+      display: grid;
+      min-height: 390px;
+      place-items: center;
+      border-right: 1px solid var(--color-border-soft);
+      background-color: #09151f;
       overflow: hidden;
     }
 
-    /* Sidebar */
-    .sidebar {
-      background-color: #111827;
-      border-right: 1px solid #1f2937;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      box-sizing: border-box;
+    .wafer-disc {
+      position: relative;
+      width: min(220px, 70%);
+      aspect-ratio: 1;
+      border: 1px solid rgba(53, 216, 232, 0.55);
+      border-radius: 50%;
+      background-image:
+        linear-gradient(rgba(53, 216, 232, 0.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(53, 216, 232, 0.12) 1px, transparent 1px);
+      background-size: 20px 20px;
+      box-shadow: inset 0 0 40px rgba(53, 216, 232, 0.06), 0 0 30px rgba(53, 216, 232, 0.05);
     }
 
-    /* Data-Dense Grid (BI Dashboard 2x2) */
+    .wafer-disc::before,
+    .wafer-disc::after {
+      position: absolute;
+      content: "";
+      background-color: rgba(53, 216, 232, 0.46);
+    }
+
+    .wafer-disc::before {
+      top: 50%;
+      left: 8%;
+      width: 84%;
+      height: 1px;
+    }
+
+    .wafer-disc::after {
+      top: 8%;
+      left: 50%;
+      width: 1px;
+      height: 84%;
+    }
+
+    .standby-caption {
+      position: absolute;
+      bottom: 24px;
+      color: var(--color-text-dim);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .welcome-copy {
+      align-self: center;
+      padding: clamp(28px, 4vw, 52px);
+    }
+
+    .welcome-copy h1 {
+      margin: 5px 0 12px;
+      color: var(--color-text);
+      font-size: clamp(25px, 3vw, 40px);
+      font-weight: 700;
+      letter-spacing: -0.035em;
+      line-height: 1.08;
+    }
+
+    .welcome-copy > p {
+      max-width: 560px;
+      margin: 0 0 24px;
+      color: var(--color-text-muted);
+      font-size: 14px;
+      line-height: 1.75;
+    }
+
+    .workflow-guide {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-3);
+    }
+
+    .guide-item {
+      min-height: 96px;
+      padding: var(--space-3);
+      border: 1px solid var(--color-border-soft);
+      border-radius: var(--radius-md);
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    .guide-number {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--color-accent);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+    }
+
+    .guide-item strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--color-text);
+      font-size: 12px;
+    }
+
+    .guide-item p {
+      margin: 0;
+      color: var(--color-text-dim);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+
+    .analysis-workspace {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      gap: var(--space-3);
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      padding: var(--space-3);
+      background-color: var(--color-page);
+    }
+
+    .workspace-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      min-height: 43px;
+      padding: 7px 12px;
+      border: 1px solid var(--color-border-soft);
+      border-radius: var(--radius-md);
+      background-color: var(--color-surface);
+    }
+
+    .workspace-dataset {
+      display: flex;
+      align-items: baseline;
+      min-width: 0;
+      gap: var(--space-2);
+    }
+
+    .workspace-filename {
+      overflow: hidden;
+      color: var(--color-text-muted);
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .metrics-strip {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: var(--space-2);
+    }
+
+    .metric-card {
+      min-width: 0;
+      padding: 9px 12px;
+      border: 1px solid var(--color-border-soft);
+      border-radius: var(--radius-md);
+      background-color: var(--color-surface);
+    }
+
+    .metric-value {
+      display: block;
+      margin-top: 2px;
+      overflow: hidden;
+      color: var(--color-text);
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .metric-card.is-accent .metric-value {
+      color: var(--color-accent-strong);
+    }
+
     .charts-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr;
-      gap: 12px;
-      padding: 12px;
-      height: 100vh;
-      box-sizing: border-box;
-      background-color: #0b0f19;
+      grid-template-columns: minmax(0, 1.48fr) minmax(190px, 0.55fr) minmax(190px, 0.55fr);
+      grid-template-rows: minmax(0, 1.04fr) minmax(220px, 0.76fr);
+      gap: var(--space-3);
+      min-width: 0;
+      min-height: 0;
       overflow: hidden;
     }
 
     .chart-card {
-      background-color: #111827;
-      border: 1px solid #1f2937;
-      border-radius: 4px;
+      position: relative;
       display: flex;
+      min-width: 0;
+      min-height: 0;
       flex-direction: column;
       overflow: hidden;
-      position: relative;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background-color: var(--color-surface);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.13);
+    }
+
+    .chart-card::before {
+      position: absolute;
+      z-index: 2;
+      top: 0;
+      left: 0;
+      width: 48px;
+      height: 2px;
+      background-color: var(--color-accent);
+      content: "";
+    }
+
+    .wafer-card {
+      grid-column: 1;
+      grid-row: 1 / 3;
+    }
+
+    .correlation-card {
+      grid-column: 2 / 4;
+      grid-row: 1;
+    }
+
+    .boxplot-card {
+      grid-column: 2;
+      grid-row: 2;
+    }
+
+    .histogram-card {
+      grid-column: 3;
+      grid-row: 2;
     }
 
     .chart-header {
-      background-color: #1f2937;
-      padding: 6px 12px;
       display: flex;
-      justify-content: space-between;
+      min-height: 37px;
       align-items: center;
-      border-bottom: 1px solid #374151;
-      height: 32px;
-      box-sizing: border-box;
+      gap: var(--space-2);
+      padding: 7px 11px;
+      border-bottom: 1px solid var(--color-border-soft);
+      background-color: var(--color-surface-raised);
     }
 
     .chart-title {
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 0.05em;
+      color: var(--color-text-muted);
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: #9ca3af;
     }
 
     .chart-info {
-      font-size: 11px;
-      color: #6b7280;
+      min-width: 0;
+      margin-left: auto;
+      overflow: hidden;
+      color: var(--color-text-dim);
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .chart-actions {
       display: flex;
-      gap: 8px;
+      align-items: center;
+      gap: var(--space-2);
     }
 
     .chart-content {
-      flex: 1;
       position: relative;
       width: 100%;
-      height: 100%;
+      min-height: 0;
+      flex: 1;
       overflow: hidden;
+      background-color: #0b151f;
+    }
+
+    .selection-overlay {
+      position: absolute;
+      display: none;
+      border: 2px solid var(--color-danger);
+      background-color: rgba(255, 111, 111, 0.14);
+      pointer-events: none;
     }
 
     canvas {
@@ -113,244 +730,244 @@
       cursor: crosshair;
     }
 
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #111827;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #374151;
-      border-radius: 3px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #4b5563;
-    }
-
-    /* Common UI Elements */
     .btn {
-      background-color: #2563eb;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      font-size: 13px;
-      font-weight: 500;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 150ms ease-out;
       display: inline-flex;
+      min-height: 34px;
       align-items: center;
-      gap: 4px;
+      justify-content: center;
+      gap: var(--space-1);
+      padding: 6px 11px;
+      border: 1px solid rgba(53, 216, 232, 0.32);
+      border-radius: var(--radius-sm);
+      background-color: rgba(53, 216, 232, 0.12);
+      color: var(--color-accent-strong);
+      font-size: 12px;
+      font-weight: 700;
+      transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
     }
 
     .btn:hover {
-      background-color: #1d4ed8;
+      border-color: rgba(53, 216, 232, 0.64);
+      background-color: rgba(53, 216, 232, 0.2);
+      color: var(--color-text);
     }
 
     .btn-secondary {
-      background-color: #374151;
-      color: #d1d5db;
+      border-color: var(--color-border);
+      background-color: var(--color-surface-control);
+      color: var(--color-text-muted);
     }
 
     .btn-secondary:hover {
-      background-color: #4b5563;
-      color: white;
+      border-color: var(--color-text-dim);
+      background-color: #1a303d;
+      color: var(--color-text);
     }
 
     .btn-danger {
-      background-color: #dc2626;
+      border-color: rgba(255, 111, 111, 0.38);
+      background-color: rgba(255, 111, 111, 0.1);
+      color: #ffaaaa;
     }
 
     .btn-danger:hover {
-      background-color: #b91c1c;
+      border-color: rgba(255, 111, 111, 0.7);
+      background-color: rgba(255, 111, 111, 0.18);
     }
 
     .btn-xs {
-      padding: 3px 6px;
-      font-size: 11px;
+      min-height: 29px;
+      padding: 4px 8px;
+      font-size: 10px;
     }
 
-    /* Form Styles */
     .form-group {
-      margin-bottom: 10px;
+      margin-bottom: var(--space-3);
+      padding-bottom: var(--space-3);
+      border-bottom: 1px solid var(--color-border-soft);
     }
 
     .form-label {
       display: block;
-      font-size: 12px;
-      font-weight: 500;
+      margin-bottom: 5px;
+      color: var(--color-text-dim);
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: #9ca3af;
-      margin-bottom: 3px;
-      letter-spacing: 0.05em;
     }
 
     .form-control {
       width: 100%;
-      background-color: #1f2937;
-      border: 1px solid #374151;
-      border-radius: 4px;
-      color: #f3f4f6;
-      padding: 6px 10px;
-      font-size: 13px;
-      box-sizing: border-box;
+      min-height: 36px;
+      padding: 7px 9px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background-color: var(--color-surface-control);
+      color: var(--color-text);
+      font-size: 12px;
+      transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+    }
+
+    .form-control:hover {
+      border-color: var(--color-text-dim);
     }
 
     .form-control:focus {
+      border-color: var(--color-accent);
       outline: none;
-      border-color: #2563eb;
+      background-color: #18303c;
+      box-shadow: var(--focus-ring);
     }
 
-    /* Tabs */
-    .tabs-header {
-      display: flex;
-      border-bottom: 1px solid #1f2937;
-      background-color: #0f172a;
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--color-accent);
     }
 
-    .tab-btn {
-      flex: 1;
-      background: none;
-      border: none;
-      padding: 8px;
-      font-size: 13px;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #6b7280;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
     }
 
-    .tab-btn.active {
-      color: #3b82f6;
-      border-bottom-color: #3b82f6;
+    ::-webkit-scrollbar-track {
+      background: var(--color-surface);
     }
 
-    .tab-content {
-      padding: 12px;
-      flex: 1;
-      overflow-y: auto;
+    ::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: var(--color-border);
     }
 
-    /* Welcome Card */
-    .welcome-container {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      background-color: #0b0f19;
-      color: #f3f4f6;
-      padding: 40px;
-      height: 100vh;
-      box-sizing: border-box;
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--color-text-dim);
     }
 
-    .welcome-card {
-      max-width: 600px;
-      text-align: center;
-      border: 1px solid #1f2937;
-      border-radius: 8px;
-      padding: 32px;
-      background-color: #111827;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    @media (max-width: 1180px) {
+      :root {
+        --sidebar-width: 248px;
+      }
+
+      .charts-grid {
+        grid-template-columns: minmax(0, 1.35fr) minmax(170px, 0.55fr) minmax(170px, 0.55fr);
+      }
+
+      .metric-card {
+        padding-inline: 9px;
+      }
     }
 
-    .welcome-icons {
-      display: flex;
-      justify-content: center;
-      gap: 16px;
-      margin-bottom: 16px;
+    @media (max-width: 920px) {
+      body {
+        overflow: auto;
+      }
+
+      .dashboard-container {
+        grid-template-columns: 230px minmax(690px, 1fr);
+        min-width: 920px;
+      }
+
+      .state-label {
+        display: none;
+      }
     }
 
-    .welcome-icon {
-      width: 40px;
-      height: 40px;
-      stroke-width: 1.5;
-      stroke: #3b82f6;
-      fill: none;
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
     }
   </style>
 </head>
 <body>
 
   <div id="app" class="dashboard-container">
-    <!-- 左側 Sidebar 控制面板 -->
+    <header class="workstation-header">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div class="brand-copy">
+          <div class="brand-kicker">NOR Flash · CP Test Analytics</div>
+          <h1 class="brand-title">Wafer Process Monitoring Station</h1>
+        </div>
+      </div>
+      <div class="workstation-state">
+        <span class="state-label">Local processing · No data leaves this device</span>
+        <span class="status-pill" id="workstation-status">Awaiting Data</span>
+      </div>
+    </header>
+
     <aside class="sidebar">
-      <div style="padding: 12px; border-bottom: 1px solid #1f2937;">
-        <span class="form-label">📁 檔案上傳 (完全離線)</span>
-        <div id="drop-zone" style="border: 1px dashed #374151; border-radius: 4px; padding: 12px 8px; text-align: center; cursor: pointer; background-color: #1f2937; transition: all 150ms ease-out;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 4px; display: inline-block;">
+      <section class="upload-panel" aria-labelledby="upload-heading">
+        <div class="upload-heading">
+          <div>
+            <div class="section-kicker">Source Input</div>
+            <strong id="upload-heading">CP DL Data File</strong>
+          </div>
+          <span class="offline-label">OFFLINE</span>
+        </div>
+        <div id="drop-zone" role="button" tabindex="0" aria-controls="file-input">
+          <svg class="upload-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="17 8 12 3 7 8"></polyline>
             <line x1="12" y1="3" x2="12" y2="15"></line>
           </svg>
-          <p id="upload-status" style="margin: 0; font-size: 12px; color: #9ca3af;">點擊或拖曳測試資料至此</p>
+          <p id="upload-status">點擊或拖曳測試資料至此</p>
         </div>
-        <input type="file" id="file-input" style="display: none;" />
-      </div>
+        <input type="file" id="file-input" hidden />
+      </section>
 
-      <div class="tabs-header">
-        <button class="tab-btn active" data-tab="wafer">Wafer</button>
-        <button class="tab-btn" data-tab="correlation">Corr</button>
-        <button class="tab-btn" data-tab="distribution">Dist</button>
-      </div>
+      <nav class="tabs-header" aria-label="分析控制面板">
+        <button class="tab-btn active" data-code="01" data-tab="wafer">Wafer</button>
+        <button class="tab-btn" data-code="02" data-tab="correlation">Corr</button>
+        <button class="tab-btn" data-code="03" data-tab="distribution">Dist</button>
+      </nav>
 
       <div class="tab-content" id="sidebar-controls-container">
-        <div style="font-size: 13px; color: #6b7280; font-style: italic; text-align: center; margin-top: 32px;">
-          請先載入測試資料以啟用篩選控制項
+        <div class="control-empty">
+          請先載入測試資料<br />
+          參數、篩選器與尺度控制將顯示於此
         </div>
       </div>
 
-      <!-- Footer -->
-      <footer style="padding: 12px; border-top: 1px solid #1f2937; font-size: 11px; color: #6b7280; background-color: #0f172a; line-height: 1.5; box-sizing: border-box;">
-        <div style="font-weight: 600; color: #9ca3af; margin-bottom: 2px;">CP DL Analysis Tool by PP32 YPLu (Desmond)</div>
-        <div>Contact: <a href="mailto:yplu@winbond.com" style="color: #3b82f6; text-decoration: none;">yplu@winbond.com</a></div>
-        <div style="margin-top: 2px; font-size: 10px; color: #4b5563;">Copyright © 2026 PP32 YPLu (Desmond) ｜ MIT License</div>
+      <footer class="sidebar-footer">
+        <strong>CP DL Analysis Tool · PP32 YPLu</strong>
+        <div>Contact: <a href="mailto:yplu@winbond.com">yplu@winbond.com</a></div>
+        <div>Copyright © 2026 PP32 YPLu (Desmond) ｜ MIT License</div>
       </footer>
     </aside>
 
-    <!-- 右側 4 宮格看板 / 歡迎畫面 -->
-    <main id="main-panel" style="width:100%; height:100%;">
+    <main id="main-panel" class="main-panel">
       <div class="welcome-container">
-        <div class="welcome-card">
-          <div class="welcome-icons">
-            <!-- Grid Icon -->
-            <svg class="welcome-icon" style="stroke: #00E5FF" viewBox="0 0 24 24">
-              <rect x="3" y="3" width="7" height="9"></rect>
-              <rect x="14" y="3" width="7" height="5"></rect>
-              <rect x="14" y="12" width="7" height="9"></rect>
-              <rect x="3" y="16" width="7" height="5"></rect>
-            </svg>
-            <!-- Crosshair Icon -->
-            <svg class="welcome-icon" style="stroke: #3b82f6" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <line x1="12" y1="2" x2="12" y2="22"></line>
-            </svg>
-            <!-- Chart Icon -->
-            <svg class="welcome-icon" style="stroke: #10b981" viewBox="0 0 24 24">
-              <line x1="18" y1="20" x2="18" y2="10"></line>
-              <line x1="12" y1="20" x2="12" y2="4"></line>
-              <line x1="6" y1="20" x2="6" y2="14"></line>
-            </svg>
+        <section class="welcome-card">
+          <div class="wafer-standby" aria-hidden="true">
+            <div class="wafer-disc"></div>
+            <span class="standby-caption">Wafer Stage · Standby</span>
           </div>
-          <h1 style="font-size: 20px; font-weight: 600; letter-spacing: 0.05em; color: #f9fafb; margin: 0 0 10px 0; text-transform: uppercase;">
-            CP Wafer Map & DL Analysis
-          </h1>
-          <p style="font-size: 12px; color: #9ca3af; line-height: 1.6; margin-bottom: 24px;">
-            100% 離線執行。請在左側面板點選或拖放載入 Wafer 測試資料（格式為跳過前五行，以空白及斜線分隔的數據檔）。
-          </p>
-          <div style="border-top: 1px solid #1f2937; padding-top: 16px; text-align: left;">
-            <span class="form-label" style="margin-bottom: 6px; display: block;">離線版互動指引</span>
-            <ul style="margin: 0; padding-left: 16px; font-size: 11px; color: #9ca3af; display: flex; flex-direction: column; gap: 4px;">
-              <li><b>空間框選連動</b>：在 Wafer Map 上按住左鍵並拖曳拉框，可限制其餘圖表的分析資料範圍。</li>
-              <li><b>高亮框選聯動</b>：在相關性、直方圖、箱形圖上拉框，將會以紅色外框高亮對應的 Die 點位。</li>
-            </ul>
+          <div class="welcome-copy">
+            <div class="section-kicker">Process Analytics Workstation</div>
+            <h1>CP Wafer Map<br />& DL Analysis</h1>
+            <p>
+              100% 本機離線運算。載入 CP DL 測試資料後，以晶圓圖為主視覺，
+              同步檢視相關性、箱形圖與直方圖。
+            </p>
+            <div class="workflow-guide">
+              <div class="guide-item">
+                <span class="guide-number">WORKFLOW 01</span>
+                <strong>空間框選分析</strong>
+                <p>在 Wafer Map 拉框，限定其他統計圖表的分析區域。</p>
+              </div>
+              <div class="guide-item">
+                <span class="guide-number">WORKFLOW 02</span>
+                <strong>跨圖高亮追蹤</strong>
+                <p>由統計圖框選資料點，反向定位晶圓上的 Die 分佈。</p>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
       </div>
     </main>
   </div>
@@ -620,65 +1237,93 @@
       state.highlightIndices = new Set();
 
       document.getElementById("upload-status").innerText = `已載入: ${filename}`;
+      const workstationStatus = document.getElementById("workstation-status");
+      if (workstationStatus) {
+        workstationStatus.innerText = "Data Online";
+        workstationStatus.classList.add("is-online");
+      }
       
-      // 替換右側為四宮格網格佈局
+      // 替換右側為製程監控儀表板
       const mainPanel = document.getElementById("main-panel");
       mainPanel.innerHTML = `
-        <div style="display: flex; flex-direction: column; height: 100vh; width: 100%; overflow: hidden; background-color: #0b0f19;">
-          <!-- Workspace 控制面板/工具列 -->
-          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background-color: #111827; border-bottom: 1px solid #1f2937; box-sizing: border-box; height: 45px;">
-            <span style="font-size: 11px; color: #9ca3af; font-weight: 600; letter-spacing: 0.05em;">
-              📊 ANALYSIS WORKSPACE
-            </span>
-            <div id="global-reset-container" style="display: flex; gap: 8px;">
-              <!-- 這裡會動態載入重置按鈕 -->
+        <section class="analysis-workspace">
+          <div class="workspace-toolbar">
+            <div class="workspace-dataset">
+              <span class="workspace-label">Active Lot File</span>
+              <span class="workspace-filename" id="workspace-filename">Loading...</span>
+            </div>
+            <div id="global-reset-container" class="chart-actions"></div>
+          </div>
+
+          <div class="metrics-strip" id="dashboard-metrics">
+            <div class="metric-card">
+              <span class="metric-label">Total Die</span>
+              <strong class="metric-value" id="metric-total-die">0</strong>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Test Items</span>
+              <strong class="metric-value" id="metric-parameter-count">0</strong>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Active / Filtered</span>
+              <strong class="metric-value" id="metric-active-die">0 / 0</strong>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Highlighted Die</span>
+              <strong class="metric-value" id="metric-selected-die">0</strong>
+            </div>
+            <div class="metric-card is-accent">
+              <span class="metric-label">Pearson R</span>
+              <strong class="metric-value" id="metric-correlation">--</strong>
             </div>
           </div>
-          <div class="charts-grid" style="flex: 1; height: calc(100vh - 45px); padding: 12px; box-sizing: border-box;">
-            <div class="chart-card">
+
+          <div class="charts-grid">
+            <div class="chart-card wafer-card">
               <div class="chart-header">
-                <span class="chart-title" id="wafer-title">Wafer Map</span>
+                <span class="chart-title" id="wafer-title">MAP-01 · Wafer Map</span>
                 <div class="chart-actions" id="wafer-actions"></div>
               </div>
               <div class="chart-content">
                 <canvas id="wafer-canvas"></canvas>
-                <div id="wafer-selection-box" style="position: absolute; border: 2px solid #FF3B30; background-color: rgba(255, 59, 48, 0.15); display: none; pointer-events: none;"></div>
+                <div id="wafer-selection-box" class="selection-overlay"></div>
               </div>
             </div>
-            <div class="chart-card">
+            <div class="chart-card correlation-card">
               <div class="chart-header">
-                <span class="chart-title" id="corr-title">Correlation</span>
+                <span class="chart-title" id="corr-title">STAT-02 · Correlation</span>
                 <span class="chart-info" id="corr-info"></span>
                 <div class="chart-actions" id="corr-actions"></div>
               </div>
               <div class="chart-content">
                 <canvas id="corr-canvas"></canvas>
-                <div id="corr-selection-box" style="position: absolute; border: 2px solid #FF3B30; background-color: rgba(255, 59, 48, 0.15); display: none; pointer-events: none;"></div>
+                <div id="corr-selection-box" class="selection-overlay"></div>
               </div>
             </div>
-            <div class="chart-card">
+            <div class="chart-card boxplot-card">
               <div class="chart-header">
-                <span class="chart-title" id="box-title">Boxplot</span>
+                <span class="chart-title" id="box-title">DIST-03 · Boxplot</span>
                 <div class="chart-actions" id="box-actions"></div>
               </div>
               <div class="chart-content">
                 <canvas id="box-canvas"></canvas>
-                <div id="box-selection-box" style="position: absolute; border: 2px solid #FF3B30; background-color: rgba(255, 59, 48, 0.15); display: none; pointer-events: none;"></div>
+                <div id="box-selection-box" class="selection-overlay"></div>
               </div>
             </div>
-            <div class="chart-card">
+            <div class="chart-card histogram-card">
               <div class="chart-header">
-                <span class="chart-title" id="hist-title">Histogram</span>
+                <span class="chart-title" id="hist-title">DIST-04 · Histogram</span>
                 <div class="chart-actions" id="hist-actions"></div>
               </div>
               <div class="chart-content">
                 <canvas id="hist-canvas"></canvas>
-                <div id="hist-selection-box" style="position: absolute; border: 2px solid #FF3B30; background-color: rgba(255, 59, 48, 0.15); display: none; pointer-events: none;"></div>
+                <div id="hist-selection-box" class="selection-overlay"></div>
               </div>
             </div>
           </div>
-        </div>
+        </section>
       `;
+      document.getElementById("workspace-filename").innerText = filename;
 
       // 初始化 Canvas 事件
       initWaferCanvasEvents();
@@ -732,8 +1377,8 @@
       if (resetContainer) {
         if (state.spatialFilterRange !== null || state.highlightIndices.size > 0) {
           resetContainer.innerHTML = `
-            <button class="btn btn-secondary btn-danger" id="global-reset-btn" style="padding: 4px 12px; font-size: 11px; font-weight: 600; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px;">
-              🔄 取消所有框選 / 重置高亮
+            <button class="btn btn-secondary btn-danger" id="global-reset-btn">
+              重置框選 / 高亮
             </button>
           `;
           document.getElementById("global-reset-btn").addEventListener("click", () => {
@@ -747,7 +1392,38 @@
       }
     }
 
+    function updateDashboardMetrics() {
+      const totalDie = document.getElementById("metric-total-die");
+      const parameterCount = document.getElementById("metric-parameter-count");
+      const activeDie = document.getElementById("metric-active-die");
+      const selectedDie = document.getElementById("metric-selected-die");
+      const correlation = document.getElementById("metric-correlation");
+      if (!totalDie || !parameterCount || !activeDie || !selectedDie || !correlation) return;
+
+      totalDie.innerText = String(state.rawData?.length || 0);
+      parameterCount.innerText = String(state.availableParams.length);
+      activeDie.innerText = `${state.filteredData.length} / ${state.nonSpatialFilteredData.length}`;
+      selectedDie.innerText = String(state.highlightIndices.size);
+
+      const xValues = [];
+      const yValues = [];
+      if (state.selectedCorrX && state.selectedCorrY) {
+        state.filteredData.forEach((row) => {
+          const x = Number(row[state.selectedCorrX]);
+          const y = Number(row[state.selectedCorrY]);
+          if (!isNaN(x) && !isNaN(y)) {
+            xValues.push(x);
+            yValues.push(y);
+          }
+        });
+      }
+
+      const pearsonR = calculatePearsonR(xValues, yValues);
+      correlation.innerText = Number.isFinite(pearsonR) ? pearsonR.toFixed(3) : "--";
+    }
+
     function triggerRedraw() {
+      updateDashboardMetrics();
       drawWaferMap();
       drawCorrelation();
       drawBoxPlot();
@@ -2144,21 +2820,27 @@
 
     if (dropZone) {
       dropZone.addEventListener("click", () => fileInput?.click());
+      dropZone.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          fileInput?.click();
+        }
+      });
 
       ["dragenter", "dragover", "dragleave", "drop"].forEach(eventName => {
         dropZone.addEventListener(eventName, (e) => {
           e.preventDefault();
           e.stopPropagation();
           if (eventName === "dragenter" || eventName === "dragover") {
-            dropZone.style.backgroundColor = "#2563eb";
+            dropZone.classList.add("is-dragging");
           } else {
-            dropZone.style.backgroundColor = "#1f2937";
+            dropZone.classList.remove("is-dragging");
           }
         });
       });
 
       dropZone.addEventListener("drop", (e) => {
-        dropZone.style.backgroundColor = "#1f2937";
+        dropZone.classList.remove("is-dragging");
         const files = e.dataTransfer.files;
         if (files.length > 0) {
           handleFile(files[0]);
