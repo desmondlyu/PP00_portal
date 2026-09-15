@@ -616,7 +616,7 @@ export default function App() {
       status: 'active',
       details: [
         '使用者可自訂 DATASHEET SPEC 條件後，同步匯入各站點測試項目',
-        '自動偵測並高亮顯示 Excel 檔案中是否有 For 迴圈項目'
+        '使用者可自訂義並顏色 HIGHLIGHT 測試像有迴圈的項目'
       ]
     },
     {
@@ -627,9 +627,9 @@ export default function App() {
       icon: '🔐',
       gradient: 'var(--grad-purple-pink)',
       gridClass: 'col-4',
-      devUrl: 'http://localhost:5173',
-      localPath: './tool/AutoDongle/index.html',
-      ghPagesUrl: './tool/AutoDongle/index.html',
+      devUrl: '#',
+      localPath: '#',
+      ghPagesUrl: '#',
       status: 'active',
       details: [
         '支援多個USB Device匯出資料，並依據Cycling類型一次性整理產生報表',
@@ -638,9 +638,9 @@ export default function App() {
     },
     {
       id: 'writer',
-      title: 'WRITER 按鍵錄製精靈',
+      title: 'WRITER 網頁版終端機',
       badge: 'Active',
-      desc: '專為 LP56 燒錄控制設計，支援 CH340 自動連線、按鍵操作錄製與回放功能。',
+      desc: '專為 LP56 WRITER 所設計的瀏覽器終端機，支援測試錄製、LOG記錄功能。',
       icon: '📟',
       gradient: 'var(--grad-emerald-cyan)',
       gridClass: 'col-4',
@@ -649,9 +649,9 @@ export default function App() {
       ghPagesUrl: './tool/web_terminal/index.html',
       status: 'active',
       details: [
-        '使用 Web Serial API，免裝終端機，直接網頁化連線',
-        '支援「測試流程錄製」與「回放」，可匯出/匯入 JSON 格式',
-        '支援 Big5 編碼防亂碼、終端機輸出 Log 錄製功能'
+        '以瀏覽器作為終端機使用',
+        '支援匯出與匯入「測試流程」',
+        '支援終端機輸出 Log 功能'
       ]
     },
     {
