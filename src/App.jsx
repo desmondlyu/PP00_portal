@@ -627,9 +627,9 @@ export default function App() {
       icon: '🔐',
       gradient: 'var(--grad-purple-pink)',
       gridClass: 'col-4',
-      devUrl: '#',
-      localPath: '#',
-      ghPagesUrl: '#',
+      devUrl: 'http://localhost:5173',
+      localPath: './tool/AutoDongle/index.html',
+      ghPagesUrl: './tool/AutoDongle/index.html',
       status: 'active',
       details: [
         '支援多個USB Device匯出資料，並依據Cycling類型一次性整理產生報表',
