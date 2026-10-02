@@ -225,7 +225,10 @@
       <div class="chart-toolbar mb-4">
         <div class="chart-toolbar-head">
           <div>
-          <h2 class="text-xl font-bold">統計圖表</h2>
+          <div class="flex items-center gap-3 flex-wrap">
+            <h2 class="text-xl font-bold">統計圖表</h2>
+            <button id="chart-image-export-btn" type="button" class="secondary-btn px-3 py-2 rounded-lg text-sm font-semibold" title="依目前站點、篩選與模擬值，下載兩類圖表的 PNG 壓縮檔">下載圖表 ZIP</button>
+          </div>
           <div class="station-tabs chart-tabs mt-2" role="tablist" aria-label="統計圖表切換">
             <button id="chart-tab-item" type="button" class="station-tab-btn" data-chart-tab="item" aria-selected="true">測試項圖表</button>
             <button id="chart-tab-group" type="button" class="station-tab-btn" data-chart-tab="group" aria-selected="false">群組化圖表</button>
@@ -389,7 +392,8 @@
   <script src="js/kpiCompareReact.js"></script>
   <script src="js/groupingRules.js"></script>
   <script src="js/tgzReader.js"></script>
-  <script src="js/app.js?v=20260909c"></script>
+  <script src="js/chartImageExport.js?v=20261002"></script>
+  <script src="js/app.js?v=20261002"></script>
 
   <!-- 加密 Excel 警告 dialog -->
   <dialog id="encrypted-file-dialog" style="border:none;border-radius:12px;padding:28px;max-width:380px;width:90%;background:#1e2030;color:#e5e7eb;box-shadow:0 24px 60px rgba(0,0,0,0.6);">

@@ -113,6 +113,7 @@ const dom = {
   chartFilterVoltageBtn: document.getElementById("chart-filter-voltage-btn"),
   chartFilterVoltageMenu: document.getElementById("chart-filter-voltage-menu"),
   chartToggleBtn: document.getElementById("chart-toggle-btn"),
+  chartImageExportBtn: document.getElementById("chart-image-export-btn"),
   chartContentItem: document.getElementById("chart-content-item"),
   chartContentGroup: document.getElementById("chart-content-group"),
   tableSection: document.getElementById("table-section"),
@@ -169,6 +170,7 @@ dom.chartFilterProcessMenu?.addEventListener("change", (event) => onChartMultiFi
 dom.chartFilterDensityMenu?.addEventListener("change", (event) => onChartMultiFilterItemChange(event, "density"));
 dom.chartFilterVoltageMenu?.addEventListener("change", (event) => onChartMultiFilterItemChange(event, "voltage"));
 dom.chartToggleBtn?.addEventListener("click", onChartToggleClick);
+dom.chartImageExportBtn?.addEventListener("click", exportChartImages);
 dom.tableToggleBtn?.addEventListener("click", onTableToggleClick);
 dom.siteTdToggleBtn?.addEventListener("click", onSiteTdToggleClick);
 dom.scenarioResetBtn?.addEventListener("click", onScenarioResetClick);
@@ -3637,8 +3639,8 @@ function getTopByMetric(stats, metricKey, valueResolver = null, labelKey = "test
     .slice(0, 15);
 }
 
-function renderMetricChart(canvasId, metricKey, label, colorFallback) {
-  const canvas = document.getElementById(canvasId);
+function renderMetricChart(canvasId, metricKey, label, colorFallback, chartOptions = {}) {
+  const canvas = typeof canvasId === "string" ? document.getElementById(canvasId) : canvasId;
   if (!canvas) return null;
   const productsInStation = getChartFilteredProductsInStation(APP.activeStation);
   if (!productsInStation.length) return null;
@@ -3675,6 +3677,7 @@ function renderMetricChart(canvasId, metricKey, label, colorFallback) {
         x: { ticks: { color: "#94a3b8" }, grid: { color: "#1e293b" } },
         y: { ticks: { color: "#94a3b8" }, grid: { color: "#1e293b" } },
       },
+      ...chartOptions,
     },
   });
 }
@@ -3687,8 +3690,8 @@ function groupMetricValueWithScenario(stat, metric, productName, stationName, sc
   return Number(getGroupScenarioTtRatio(stat, productName, stationName, scenarioStationTotal).toFixed(6));
 }
 
-function renderGroupMetricChart(canvasId, metricKey, label, colorFallback) {
-  const canvas = document.getElementById(canvasId);
+function renderGroupMetricChart(canvasId, metricKey, label, colorFallback, chartOptions = {}) {
+  const canvas = typeof canvasId === "string" ? document.getElementById(canvasId) : canvasId;
   if (!canvas) return null;
   const productsInStation = getChartFilteredProductsInStation(APP.activeStation);
   if (!productsInStation.length) return null;
@@ -3726,12 +3729,13 @@ function renderGroupMetricChart(canvasId, metricKey, label, colorFallback) {
         x: { ticks: { color: "#94a3b8" }, grid: { color: "#1e293b" } },
         y: { ticks: { color: "#94a3b8" }, grid: { color: "#1e293b" } },
       },
+      ...chartOptions,
     },
   });
 }
 
-function renderStationReductionChart() {
-  const canvas = document.getElementById("tt-reduction-chart");
+function renderStationReductionChart(canvasId = "tt-reduction-chart", chartOptions = {}) {
+  const canvas = typeof canvasId === "string" ? document.getElementById(canvasId) : canvasId;
   if (!canvas) return null;
   const rows = getProducts()
     .filter((product) => {
@@ -3808,6 +3812,7 @@ function renderStationReductionChart() {
           title: { display: true, text: "降低百分比 (%)", color: "#94a3b8" },
         },
       },
+      ...chartOptions,
     },
   });
 }
@@ -3949,6 +3954,90 @@ function renderSiteTdChart() {
     return;
   }
   if (window.SiteTdHeatmapReact && dom.siteTdHeatmap) window.SiteTdHeatmapReact.render(dom.siteTdHeatmap, station.siteTdMap);
+}
+
+function collectChartImageFiles() {
+  const style = getComputedStyle(document.body);
+  const palette = {
+    background: getComputedStyle(dom.chartSection.querySelector(".chart-box")).backgroundColor,
+    text: style.getPropertyValue("--text").trim(),
+    muted: style.getPropertyValue("--muted").trim(),
+    border: style.getPropertyValue("--border").trim(),
+  };
+  const categories = [
+    {
+      folder: "測試項圖表",
+      charts: [
+        ["count-chart", (canvas, options) => renderMetricChart(canvas, "count", "Count", "#3b82f6", options)],
+        ["mean-chart", (canvas, options) => renderMetricChart(canvas, "mean", "Mean (s)", "#10b981", options)],
+        ["range-chart", (canvas, options) => renderMetricChart(canvas, "range", "Range (s)", "#f59e0b", options)],
+        ["tt-ratio-chart", (canvas, options) => renderMetricChart(canvas, "ttRatio", "TT Ratio/站點 (%)", "#a855f7", options)],
+        ["tt-reduction-chart", (canvas, options) => renderStationReductionChart(canvas, options)],
+        ["tt-ratio-by-group-chart", (canvas, options) => renderGroupMetricChart(canvas, "ttRatio", "TT Ratio/站點 (%) by Group", "#a855f7", options)],
+      ],
+    },
+    {
+      folder: "群組化圖表",
+      charts: [
+        ["group-count-chart", (canvas, options) => renderGroupMetricChart(canvas, "count", "Group Count", "#3b82f6", options)],
+        ["group-mean-chart", (canvas, options) => renderGroupMetricChart(canvas, "mean", "Group Mean (s)", "#10b981", options)],
+        ["group-range-chart", (canvas, options) => renderGroupMetricChart(canvas, "range", "Group Range (s)", "#f59e0b", options)],
+        ["group-tt-ratio-chart", (canvas, options) => renderGroupMetricChart(canvas, "ttRatio", "Group TT Ratio/站點 (%)", "#a855f7", options)],
+      ],
+    },
+  ];
+  const files = [];
+  for (const category of categories) {
+    for (const [index, [id, render]] of category.charts.entries()) {
+      const data = TtoChartImageExport.renderPng(render, palette);
+      if (!data) continue;
+      const title = document.getElementById(id).getAttribute("aria-label");
+      files.push({ name: `${category.folder}/${String(index + 1).padStart(2, "0")}_${sanitizeFileName(title)}.png`, data });
+    }
+  }
+  return files;
+}
+
+async function exportChartImages() {
+  if (!getChartFilteredProductsInStation(APP.activeStation).length) {
+    showMessage("目前篩選範圍沒有可下載的圖表。", "error");
+    return;
+  }
+  if (typeof TtoChartImageExport === "undefined") {
+    showMessage("圖表圖片匯出元件尚未載入，請重新整理頁面。", "error");
+    return;
+  }
+  const button = dom.chartImageExportBtn;
+  button.disabled = true;
+  button.textContent = "打包中…";
+  button.setAttribute("aria-busy", "true");
+  showMessage("正在產生並壓縮兩類圖表圖片…", "info");
+  try {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const files = collectChartImageFiles();
+    const products = getChartFilteredProductsInStation(APP.activeStation).map((product) => product.name);
+    const name = sanitizeFileName(`${products.join("_")}_${APP.activeStation}_charts`);
+    const zip = await TtoChartImageExport.createZip(files);
+    const url = URL.createObjectURL(zip);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${name}.zip`;
+    document.body.appendChild(link);
+    try {
+      link.click();
+    } finally {
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    showMessage(`圖表 ZIP 已產生，共 ${files.length} 張 PNG，分為「測試項圖表」與「群組化圖表」。`, "success");
+  } catch (error) {
+    console.error("[TTO] 圖表圖片匯出失敗", error);
+    showMessage(`圖表圖片匯出失敗：${error.message}`, "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = "下載圖表 ZIP";
+    button.removeAttribute("aria-busy");
+  }
 }
 
 function exportXlsx() {
