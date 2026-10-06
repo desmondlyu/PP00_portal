@@ -9,11 +9,11 @@ const MAX_EQUIPMENT_HEIGHT = 1.62;
 const MAX_MACHINE_HEIGHT = 1.58;
 const CAMERA_PADDING = 1.1;
 const T_MACHINE_COLOR = 0x36b9dd;
-const MS_MACHINE_COLOR = 0xd13bff;
+const MS_MACHINE_COLOR = 0x387fb3;
 const T_BOOKED_COLOR = 0xf09a42;
 const MS_BOOKED_COLOR = 0xb52de0;
-const MS_TOP_PANEL_COLOR = 0xf2b3ff;
-const MS_FRONT_PANEL_COLOR = 0x6d1b98;
+const MS_TOP_PANEL_COLOR = 0xd4dedd;
+const MS_FRONT_PANEL_COLOR = 0x314b68;
 const GRID_LEFT = -11.3;
 const GRID_RIGHT = 2.8;
 const GRID_TOP = -6.65;
@@ -379,167 +379,119 @@ function createEquipmentMaterial(color, options = {}) {
     });
 }
 
-function createUf3000Mesh(blockDef, metrics) {
-    const width = Math.max(0.72, (blockDef.w / 100) * WORLD_WIDTH * 0.72);
-    const depth = Math.max(0.62, (blockDef.h / 100) * WORLD_DEPTH * 0.62);
-    const bodyHeight = Math.min(1.18, MAX_EQUIPMENT_HEIGHT - 0.25);
-    const group = new THREE.Group();
-
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(width, bodyHeight, depth),
-        createEquipmentMaterial(0x1b6f8d, { emissive: 0x062d3b }),
-    );
-    body.position.y = bodyHeight / 2 + MACHINE_Y;
-
-    const topPanel = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.66, 0.10, depth * 0.70),
-        createEquipmentMaterial(0x8cecf4, {
-            metalness: 0.55,
-            emissive: 0x0b5a6d,
-        }),
-    );
-    topPanel.position.set(0, bodyHeight + MACHINE_Y + 0.05, 0);
-
-    const frontDoor = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.52, bodyHeight * 0.48, 0.045),
-        createEquipmentMaterial(0x0d4056, { metalness: 0.48 }),
-    );
-    frontDoor.position.set(
-        0,
-        bodyHeight * 0.45 + MACHINE_Y,
-        depth / 2 + 0.025,
-    );
-
-    const controlPanel = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.18, 0.16, 0.05),
-        createEquipmentMaterial(0xf1b65d, { emissive: 0x4a2107 }),
-    );
-    controlPanel.position.set(
-        width * 0.28,
-        bodyHeight * 0.78 + MACHINE_Y,
-        depth / 2 + 0.05,
-    );
-
-    group.add(body, topPanel, frontDoor, controlPanel);
-    group.userData.equipment = 'UF3000';
-    group.userData.blockLabel = blockDef.label;
-    group.userData.frameBounds = metrics.frameBounds;
-    return group;
+// Lightweight, locally built silhouettes informed by the references in
+// design-preview/EQUIPMENT_VISUAL_REFERENCES.md. No remote model/texture loads.
+function addBox(group, size, position, color, options = {}) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), createEquipmentMaterial(color, options));
+    mesh.position.set(...position);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+    return mesh;
 }
 
-function createProbeSeatMesh(blockDef, metrics) {
-    const width = Math.max(0.68, (blockDef.w / 100) * WORLD_WIDTH * 0.70);
-    const depth = Math.max(0.58, (blockDef.h / 100) * WORLD_DEPTH * 0.58);
-    const baseHeight = 0.30;
-    const columnHeight = 0.72;
-    const group = new THREE.Group();
+function addCylinder(group, radius, height, position, color, options = {}) {
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, 24), createEquipmentMaterial(color, options));
+    mesh.position.set(...position);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+    return mesh;
+}
 
-    const base = new THREE.Mesh(
-        new THREE.BoxGeometry(width, baseHeight, depth),
-        createEquipmentMaterial(0x55469c, { emissive: 0x171037 }),
-    );
-    base.position.y = baseHeight / 2 + MACHINE_Y;
+function addMonitor(group, x, y, z, width = 0.36) {
+    addBox(group, [0.045, 0.24, 0.045], [x, y - 0.16, z], 0x657887);
+    addBox(group, [width, width * 0.66, 0.055], [x, y, z], 0x192c3a);
+    addBox(group, [width * 0.83, width * 0.48, 0.01], [x, y, z + 0.034], 0x67c7db,
+        { emissive: 0x2485a0, emissiveIntensity: 0.32 });
+    addBox(group, [width * 0.64, 0.015, 0.014], [x, y - 0.03, z + 0.042], 0xc3eff4);
+}
 
-    const column = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.13, columnHeight, depth * 0.16),
-        createEquipmentMaterial(0x9a86e8, { metalness: 0.50 }),
-    );
-    column.position.set(
-        0,
-        baseHeight + columnHeight / 2 + MACHINE_Y,
-        0,
-    );
+function addWafer(group, x, y, z, radius) {
+    addCylinder(group, radius + 0.04, 0.065, [x, y, z], 0x879bad, { metalness: 0.7 });
+    addCylinder(group, radius, 0.012, [x, y + 0.04, z], 0x576b99, { metalness: 0.5, roughness: 0.26 });
+    for (let i = -2; i <= 2; i++) {
+        const offset = i * radius / 3;
+        const length = 2 * Math.sqrt(radius * radius - offset * offset) * 0.93;
+        addBox(group, [length, 0.006, 0.008], [x, y + 0.05, z + offset], 0x9cb8d9);
+        addBox(group, [0.008, 0.006, length], [x + offset, y + 0.05, z], 0x9cb8d9);
+    }
+}
 
-    const probeHead = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.48, 0.16, depth * 0.38),
-        createEquipmentMaterial(0xd7ccff, {
-            metalness: 0.58,
-            emissive: 0x281e5a,
-        }),
-    );
-    probeHead.position.set(
-        0,
-        baseHeight + columnHeight + 0.08 + MACHINE_Y,
-        0,
-    );
+function addVent(group, x, y, z, width, height) {
+    addBox(group, [width, height, 0.016], [x, y, z], 0x293744);
+    for (let i = 0; i < 6; i++) {
+        addBox(group, [width * 0.94, 0.015, 0.024], [x, y - height / 2 + (i + 0.5) * height / 6, z + 0.015], 0x92a3af);
+    }
+}
 
-    const needle = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.035, 0.30, depth * 0.035),
-        createEquipmentMaterial(0xf6de9b, { metalness: 0.68 }),
-    );
-    needle.position.set(
-        0,
-        baseHeight + columnHeight - 0.08 + MACHINE_Y,
-        0,
-    );
-
-    group.add(base, column, probeHead, needle);
+function finishEquipment(group, blockDef, metrics) {
+    group.rotation.y = -0.22;
     group.userData.equipment = blockDef.label;
     group.userData.blockLabel = blockDef.label;
     group.userData.frameBounds = metrics.frameBounds;
     return group;
 }
 
-function createAutoHandlerMesh(blockDef, metrics) {
-    const width = Math.max(0.76, (blockDef.w / 100) * WORLD_WIDTH * 0.72);
-    const depth = Math.max(0.62, (blockDef.h / 100) * WORLD_DEPTH * 0.62);
-    const baseHeight = 0.26;
-    const columnHeight = 0.72;
+function createUf3000Mesh(blockDef, metrics) {
     const group = new THREE.Group();
+    addBox(group, [1.38, 0.12, 0.92], [0, 0.18, 0], 0x273b52);
+    addBox(group, [1.34, 0.63, 0.88], [0, 0.55, 0], 0xd9e3e9);
+    addBox(group, [1.35, 0.09, 0.89], [0, 0.37, 0], 0x2379b7);
+    addBox(group, [0.81, 0.20, 0.82], [-0.25, 0.96, 0], 0xeef1ef);
+    addWafer(group, -0.25, 1.08, -0.03, 0.25);
+    // Raised cassette / loading bay, with a dark opening and visible shelves.
+    addBox(group, [0.43, 0.62, 0.80], [0.44, 1.0, 0], 0xe6edee);
+    addBox(group, [0.31, 0.38, 0.025], [0.44, 1.03, 0.408], 0x203446);
+    for (let i = 0; i < 4; i++) addBox(group, [0.26, 0.02, 0.045], [0.44, 0.89 + i * 0.08, 0.43], 0x9cb2c0);
+    addMonitor(group, -0.52, 1.31, 0.12, 0.30);
+    addBox(group, [0.065, 0.065, 0.028], [0.15, 0.95, 0.43], 0xda614c);
+    addBox(group, [0.04, 0.13, 0.04], [0.55, 1.37, -0.28], 0x55c69c);
+    return finishEquipment(group, blockDef, metrics);
+}
 
-    const base = new THREE.Mesh(
-        new THREE.BoxGeometry(width, baseHeight, depth),
-        createEquipmentMaterial(0x4b6575, { emissive: 0x10242e }),
-    );
-    base.position.y = baseHeight / 2 + MACHINE_Y;
+function createProbeSeatMesh(blockDef, metrics) {
+    const group = new THREE.Group();
+    addBox(group, [1.25, 0.18, 0.94], [0, 0.24, 0], 0x384752);
+    addBox(group, [1.15, 0.12, 0.85], [0, 0.39, 0], 0xbbc9d2);
+    addWafer(group, 0, 0.50, 0.12, 0.28);
+    for (const side of [-1, 1]) {
+        addBox(group, [0.24, 0.17, 0.26], [side * 0.42, 0.54, 0.13], 0x626e85);
+        addBox(group, [0.27, 0.025, 0.028], [side * 0.26, 0.64, 0.1], 0xe0bd70);
+        const knob = addCylinder(group, 0.07, 0.08, [side * 0.56, 0.54, 0.15], 0x293745);
+        knob.rotation.z = Math.PI / 2;
+        addBox(group, [0.07, 0.69, 0.07], [side * 0.40, 0.85, -0.31], 0x7d93a3);
+    }
+    addBox(group, [0.91, 0.10, 0.12], [0, 1.21, -0.31], 0xd8e0e3);
+    addBox(group, [0.20, 0.14, 0.45], [0, 1.23, -0.12], 0xe9edeb);
+    addCylinder(group, 0.105, 0.26, [0, 1.08, 0.08], 0xc8d4da);
+    addCylinder(group, 0.065, 0.12, [0, 0.91, 0.08], 0x293d50);
+    for (const x of [-0.07, 0.07]) {
+        const eyepiece = addCylinder(group, 0.047, 0.19, [x, 1.36, 0.05], 0x263949);
+        eyepiece.rotation.x = Math.PI / 4;
+    }
+    return finishEquipment(group, blockDef, metrics);
+}
 
-    const deck = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.78, 0.10, depth * 0.72),
-        createEquipmentMaterial(0x8bd7dc, {
-            metalness: 0.52,
-            emissive: 0x0a3f49,
-        }),
-    );
-    deck.position.set(0, baseHeight + MACHINE_Y + 0.05, 0);
-
-    const column = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.14, columnHeight, depth * 0.16),
-        createEquipmentMaterial(0x6d8795, { metalness: 0.46 }),
-    );
-    column.position.set(
-        -width * 0.22,
-        baseHeight + columnHeight / 2 + MACHINE_Y,
-        0,
-    );
-
-    const arm = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.56, 0.10, depth * 0.12),
-        createEquipmentMaterial(0xe0b45e, {
-            metalness: 0.58,
-            emissive: 0x4b2607,
-        }),
-    );
-    arm.position.set(
-        width * 0.08,
-        baseHeight + columnHeight - 0.04 + MACHINE_Y,
-        0,
-    );
-
-    const gripper = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.12, 0.18, depth * 0.18),
-        createEquipmentMaterial(0xd7e6ea, { metalness: 0.64 }),
-    );
-    gripper.position.set(
-        width * 0.34,
-        baseHeight + columnHeight - 0.14 + MACHINE_Y,
-        0,
-    );
-
-    group.add(base, deck, column, arm, gripper);
-    group.userData.equipment = 'Auto Hander';
-    group.userData.blockLabel = blockDef.label;
-    group.userData.frameBounds = metrics.frameBounds;
-    return group;
+function createAutoHandlerMesh(blockDef, metrics) {
+    const group = new THREE.Group();
+    addBox(group, [1.10, 0.16, 0.87], [0, 0.21, 0], 0x304352);
+    addCylinder(group, 0.23, 0.26, [-0.25, 0.42, 0], 0xc5d2d8);
+    const joints = [[-0.25, 0.60, 0], [-0.38, 1.15, 0], [0.25, 1.25, 0.06]];
+    for (let i = 0; i < 2; i++) {
+        const start = new THREE.Vector3(...joints[i]);
+        const end = new THREE.Vector3(...joints[i + 1]);
+        const arm = addBox(group, [0.17, start.distanceTo(end), 0.18], start.clone().add(end).multiplyScalar(0.5).toArray(), 0xe3e9e6);
+        arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), end.sub(start).normalize());
+    }
+    for (const point of joints) {
+        const joint = addCylinder(group, 0.12, 0.22, point, 0xe3a349);
+        joint.rotation.x = Math.PI / 2;
+    }
+    addCylinder(group, 0.075, 0.18, [0.27, 1.09, 0.06], 0x8094a4);
+    addBox(group, [0.23, 0.055, 0.12], [0.30, 0.98, 0.07], 0xb9cbd5);
+    for (const x of [0.23, 0.38]) addBox(group, [0.04, 0.12, 0.055], [x, 0.91, 0.07], 0x283d4e);
+    return finishEquipment(group, blockDef, metrics);
 }
 
 function createGenericEquipmentMesh(blockDef, metrics) {
@@ -619,69 +571,48 @@ function createStaticBlock(scene, blockDef, metrics) {
 
 function createMachineMesh(machine, metrics) {
     const isMs = machine.model === 'ms';
-    const width = isMs ? 1.45 : 1.05;
-    const depth = isMs ? 0.9 : 0.78;
-    const height = Math.min(isMs ? 1.1 : 1.55, MAX_MACHINE_HEIGHT);
+    const width = isMs ? 1.32 : 1.18;
+    const depth = isMs ? 0.86 : 1.02;
     const color = machine.booked
         ? (isMs ? MS_BOOKED_COLOR : T_BOOKED_COLOR)
         : (isMs ? MS_MACHINE_COLOR : T_MACHINE_COLOR);
-    const material = createMaterial(color, {
-        roughness: 0.48,
-        metalness: 0.42,
-        emissive: machine.booked ? 0x301406 : 0x06202a,
-        emissiveIntensity: 0.28,
-    });
-
     const group = new THREE.Group();
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(width, height, depth),
-        material,
-    );
-    body.position.y = height / 2 + MACHINE_Y;
-    body.castShadow = true;
-    body.receiveShadow = true;
-
-    const topPanel = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.78, 0.08, depth * 0.72),
-        createMaterial(
-            machine.booked
-                ? (isMs ? MS_TOP_PANEL_COLOR : 0xffc16f)
-                : (isMs ? MS_TOP_PANEL_COLOR : 0x8be7f7),
-            {
-            roughness: 0.32,
-            metalness: 0.56,
-            emissive: machine.booked
-                ? (isMs ? 0x5b0b72 : 0x6e2d08)
-                : (isMs ? 0x7c168f : 0x0a4e63),
-            emissiveIntensity: 0.4,
-            },
-        ),
-    );
-    topPanel.position.set(0, height + MACHINE_Y + 0.04, 0);
-    topPanel.castShadow = true;
-
-    const frontPanel = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.62, height * 0.26, 0.035),
-        createMaterial(machine.booked
-            ? (isMs ? MS_FRONT_PANEL_COLOR : 0x8a4e21)
-            : (isMs ? MS_FRONT_PANEL_COLOR : 0x17657d), {
-            roughness: 0.38,
-            metalness: 0.5,
-            emissive: machine.booked
-                ? (isMs ? 0x2d0638 : 0x2b1004)
-                : (isMs ? 0x2d0638 : 0x03242d),
-            emissiveIntensity: 0.38,
-        }),
-    );
-    frontPanel.position.set(0, height * 0.62 + MACHINE_Y, depth / 2 + 0.02);
-
-    group.add(body, topPanel, frontPanel);
+    addBox(group, [width, 0.12, depth], [0, 0.18, 0], 0x233749);
+    const body = addBox(group, [width * 0.94, isMs ? 1.00 : 0.70, depth * 0.91],
+        [0, isMs ? 0.74 : 0.59, 0], isMs ? 0xd4dfde : 0xb7c4cd,
+        { roughness: 0.52, metalness: 0.22 });
+    const accent = addBox(group, [width * 0.96, 0.10, depth * 0.94],
+        [0, isMs ? 1.12 : 0.88, 0], color, { emissive: color, emissiveIntensity: 0.08 });
+    if (isMs) {
+        // MOSAID MS34xx: off-white cabinet, blue fascia, twin ventilation banks.
+        addVent(group, 0, 0.53, depth * 0.46, width * 0.76, 0.27);
+        addVent(group, 0, 0.88, depth * 0.46, width * 0.76, 0.24);
+        addBox(group, [0.85, 0.05, 0.62], [0, 1.265, 0], MS_TOP_PANEL_COLOR);
+        addBox(group, [0.46, 0.03, 0.30], [0, 1.31, 0.06], MS_FRONT_PANEL_COLOR);
+        for (const x of [-0.13, 0.13]) for (const z of [-0.025, 0.145]) {
+            addBox(group, [0.17, 0.025, 0.11], [x, 1.335, z], 0x39465d);
+        }
+        addBox(group, [0.28, 0.13, 0.025], [-0.31, 1.14, depth * 0.49], 0x193955);
+        for (let i = 0; i < 3; i++) addBox(group, [0.04, 0.04, 0.025], [0.17 + i * 0.09, 1.14, depth * 0.49], i === 2 ? 0xd66351 : 0x68b8aa);
+    } else {
+        // Advantest engineering-station silhouette: low test head + rear cabinet.
+        addBox(group, [0.43, 1.27, 0.32], [0.30, 0.93, -0.30], 0xe0e6e8);
+        addBox(group, [0.33, 1.12, 0.012], [0.30, 0.94, -0.13], 0xc5d1d7);
+        addBox(group, [0.80, 0.16, 0.67], [-0.15, 1.02, 0.12], 0xdce5e7);
+        addCylinder(group, 0.24, 0.08, [-0.15, 1.15, 0.12], 0x7e97a8);
+        addCylinder(group, 0.17, 0.015, [-0.15, 1.20, 0.12], 0x21364a);
+        addVent(group, -0.10, 0.52, depth * 0.46, 0.71, 0.24);
+        addMonitor(group, -0.42, 1.43, -0.20, 0.30);
+        addBox(group, [0.045, 0.17, 0.025], [0.43, 1.30, -0.12], 0xe4bd65);
+        addBox(group, [0.06, 0.06, 0.025], [0.43, 1.37, -0.10], 0xc45248);
+    }
+    // Feet and a restrained state stripe retain the existing booked distinction.
+    for (const x of [-width * 0.36, width * 0.36]) {
+        addBox(group, [0.13, 0.12, 0.14], [x, 0.10, depth * 0.32], 0x172a38);
+    }
+    group.rotation.y = -0.22;
     const placement = metrics.machinePlacements.get(machine.tester);
-    group.position.set(
-        placement.x,
-        0,
-        placement.rowBaseline - depth / 2,
-    );
+    group.position.set(placement.x, 0, placement.rowBaseline - (isMs ? 0.9 : 0.78) / 2);
     group.userData.tester = machine.tester;
     group.userData.booked = machine.booked;
     group.userData.model = machine.model;
@@ -690,6 +621,7 @@ function createMachineMesh(machine, metrics) {
     group.userData.baseY = group.position.y;
     group.userData.baseScale = new THREE.Vector3(1, 1, 1);
     group.userData.body = body;
+    group.userData.accent = accent;
     clampGroupToBounds(group, metrics.frameBounds);
     return group;
 }
@@ -698,8 +630,8 @@ function setMeshHovered(group, hovered) {
     if (!group) {
         return;
     }
-    group.position.y = group.userData.baseY + (hovered ? 0.16 : 0);
-    group.scale.copy(group.userData.baseScale).multiplyScalar(hovered ? 1.035 : 1);
+    group.position.y = group.userData.baseY + (hovered ? 0.06 : 0);
+    group.scale.copy(group.userData.baseScale).multiplyScalar(hovered ? 1.015 : 1);
     const bodyMaterial = group.userData.body?.material;
     if (bodyMaterial) {
         bodyMaterial.emissiveIntensity = hovered
@@ -749,13 +681,34 @@ function projectSceneLayout(
         const worldPosition = group.getWorldPosition(new THREE.Vector3());
         const projected = worldPosition.project(camera);
         const bounds = new THREE.Box3().setFromObject(group);
-        const min = bounds.min.clone().project(camera);
-        const max = bounds.max.clone().project(camera);
+        const corners = [];
+        for (const x of [bounds.min.x, bounds.max.x]) {
+            for (const y of [bounds.min.y, bounds.max.y]) {
+                for (const z of [bounds.min.z, bounds.max.z]) {
+                    corners.push(new THREE.Vector3(x, y, z).project(camera));
+                }
+            }
+        }
+        const left = (Math.min(...corners.map(p => p.x)) + 1) / 2 * width;
+        const right = (Math.max(...corners.map(p => p.x)) + 1) / 2 * width;
+        const top = (1 - Math.max(...corners.map(p => p.y))) / 2 * height;
+        const bottom = (1 - Math.min(...corners.map(p => p.y))) / 2 * height;
+        const x = ((projected.x + 1) / 2) * width;
+        // One nameplate per existing grid cell, with an 8px+ gap to neighbours.
+        const cellWidth = ((GRID_RIGHT - GRID_LEFT + GRID_COLUMN_GAP) / 7) * width / (camera.right - camera.left);
+        const labelWidth = Math.min(128, cellWidth - 12);
         return {
-            x: ((projected.x + 1) / 2) * width,
+            x,
             y: ((1 - projected.y) / 2) * height,
-            width: Math.abs(max.x - min.x) / 2 * width,
-            height: Math.abs(max.y - min.y) / 2 * height,
+            width: right - left,
+            height: bottom - top,
+            top,
+            label: {
+                x: x - labelWidth / 2,
+                y: top - 12 - 64,
+                width: labelWidth,
+                height: 64,
+            },
             gridRow: group.userData.gridRow,
             gridColumn: group.userData.gridColumn,
             projectionKey: group.userData.projectionKey,
@@ -799,17 +752,28 @@ export function createFloorPlan3D({
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
     renderer.domElement.className = 'floor-plan-3d-canvas';
     host.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.HemisphereLight(0xb9e9ff, 0x07111c, 1.6);
+    const ambientLight = new THREE.HemisphereLight(0xd8efff, 0x15202b, 1.25);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.3);
-    keyLight.position.set(-6, 14, 10);
+    const keyLight = new THREE.DirectionalLight(0xfff1dd, 3.0);
+    keyLight.position.set(-8, 16, 9);
     keyLight.castShadow = true;
-    keyLight.shadow.mapSize.set(1024, 1024);
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.left = -20;
+    keyLight.shadow.camera.right = 20;
+    keyLight.shadow.camera.top = 20;
+    keyLight.shadow.camera.bottom = -20;
+    keyLight.shadow.camera.far = 70;
+    keyLight.shadow.normalBias = 0.035;
+    const fillLight = new THREE.DirectionalLight(0x8bc9ef, 0.85);
+    fillLight.position.set(12, 8, -6);
+    scene.add(fillLight);
     scene.add(keyLight);
 
     const layoutMetrics = createLayoutMetrics(staticBlocks, machines);
@@ -840,6 +804,14 @@ export function createFloorPlan3D({
         machineGroups,
         staticBlockGroups,
     );
+    const equipmentBounds = new THREE.Box3().setFromObject(scene);
+    const shadowFloor = new THREE.Mesh(
+        new THREE.PlaneGeometry(equipmentBounds.max.x - equipmentBounds.min.x + 0.6, equipmentBounds.max.z - equipmentBounds.min.z + 0.6),
+        new THREE.ShadowMaterial({ opacity: 0.32 }),
+    );
+    shadowFloor.rotation.x = -Math.PI / 2;
+    shadowFloor.position.set((equipmentBounds.min.x + equipmentBounds.max.x) / 2, 0.015, (equipmentBounds.min.z + equipmentBounds.max.z) / 2);
+    shadowFloor.receiveShadow = true;
     const machineByTester = new Map(
         machineGroups.map((group) => [group.userData.tester, group]),
     );
@@ -866,7 +838,9 @@ export function createFloorPlan3D({
         }
         const width = Math.max(1, host.clientWidth);
         const height = Math.max(1, host.clientHeight);
+        scene.remove(shadowFloor);
         fitCameraToFloor(camera, host, staticBlocks, scene);
+        scene.add(shadowFloor);
         camera.updateMatrixWorld();
         renderer.setSize(width, height, false);
         onLayout(projectSceneLayout(

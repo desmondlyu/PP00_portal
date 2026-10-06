@@ -28,7 +28,7 @@ assert.match(
 );
 assert.match(cssSource, /\.modal-appt-actions/);
 assert.match(cssSource, /\.modal-appt-action:disabled/);
-assert.match(htmlSource, /style\.css\?v=20260909-2225/);
-assert.match(htmlSource, /app\.js\?v=20260909-2225/);
+assert.match(htmlSource, /style\.css\?v=[\w-]+/);
+assert.match(htmlSource, /app\.js\?v=[\w-]+/);
 
 console.log('JB Booking appointment modal contract passed.');

@@ -619,6 +619,7 @@ body {
 
 /* 平面圖模式面板 */
 .floor-plan-view {
+    overflow-x: auto;
     border: 1px solid var(--divider);
     border-radius: 16px;
     background: rgba(16, 22, 38, 0.65);
@@ -654,8 +655,10 @@ body {
     width: 100%;
     max-width: 1520px;
     margin-inline: auto;
-    min-height: 560px;
-    height: clamp(560px, 62vw, 760px);
+    /* Keep seven nameplates legible without changing the equipment grid. */
+    min-width: 1280px;
+    min-height: 1080px;
+    height: 1080px;
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 12px;
     background:
@@ -871,6 +874,83 @@ body {
 .floor-plan-label-layer .floor-static-block.frame,
 .floor-plan-label-layer .floor-static-block.walkway {
     pointer-events: none;
+}
+
+/* DOM nameplates always sit above the WebGL canvas. Geometry supplies an
+   individual rectangle for each equipment cell; no transform enlarges targets. */
+.floor-plan-label-layer .floor-nameplate {
+    box-sizing: border-box;
+    z-index: 10;
+    padding: 6px 4px;
+    border: 1px solid #467084;
+    border-top: 2px solid var(--machine-state, #7c9aac);
+    border-radius: 7px;
+    background: #102331;
+    color: #e5f3f7;
+    box-shadow: 0 4px 10px #0007, inset 0 1px 0 #ffffff0d;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.15;
+    transform: none;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.floor-plan-label-layer .floor-nameplate::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    width: 1px;
+    height: 10px;
+    background: #7698ab;
+    pointer-events: none;
+}
+
+.floor-nameplate .tester-block-name {
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    font-size: 12px;
+    line-height: 1.15;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
+}
+
+.floor-nameplate .tester-block-status {
+    padding: 2px 0 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 10px;
+    line-height: 1.2;
+    color: #9edcec;
+}
+
+.floor-nameplate.has-booking {
+    border-color: #b97c40;
+}
+
+.floor-nameplate.has-booking .tester-block-status {
+    color: #ffd39b;
+}
+
+.floor-plan-label-layer .floor-nameplate:hover,
+.floor-plan-label-layer .floor-nameplate.is-hovered,
+.floor-plan-label-layer .floor-nameplate:focus-visible {
+    transform: none;
+    border-color: #afedff;
+    background: #1a3546;
+}
+
+.floor-plan-label-layer .floor-nameplate:focus-visible {
+    outline: 2px solid #d2f6ff;
+    outline-offset: 2px;
+}
+
+.floor-plan-label-layer .device-label.floor-nameplate {
+    pointer-events: none;
+    color: #c6dbe5;
+    border-top-color: #829cae;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1563,7 +1643,7 @@ body {
     }
 
     .floor-plan-canvas {
-        min-width: 900px; /* 強制最低寬度，防壓扁 */
+        min-width: 1280px; /* 名牌保留完整文字與安全點擊間距 */
         min-height: 560px;
     }
 
