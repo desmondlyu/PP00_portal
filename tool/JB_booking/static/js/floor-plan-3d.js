@@ -281,10 +281,16 @@ function applyVisualGrid(
     });
 }
 
-function fitCameraToFloor(camera, host, staticBlocks) {
+function fitCameraToFloor(camera, host, staticBlocks, scene) {
     const floorBounds = getFrameBounds(staticBlocks, 0);
-    const minY = -0.2;
-    const maxY = MAX_EQUIPMENT_HEIGHT + MACHINE_Y;
+    // Include the final visual-grid positions, which can extend beyond the frame.
+    const sceneBounds = new THREE.Box3().setFromObject(scene);
+    floorBounds.minX = Math.min(floorBounds.minX, sceneBounds.min.x);
+    floorBounds.maxX = Math.max(floorBounds.maxX, sceneBounds.max.x);
+    floorBounds.minZ = Math.min(floorBounds.minZ, sceneBounds.min.z);
+    floorBounds.maxZ = Math.max(floorBounds.maxZ, sceneBounds.max.z);
+    const minY = Math.min(-0.2, sceneBounds.min.y);
+    const maxY = Math.max(MAX_EQUIPMENT_HEIGHT + MACHINE_Y, sceneBounds.max.y);
     camera.updateMatrixWorld(true);
 
     const points = [
@@ -309,10 +315,12 @@ function fitCameraToFloor(camera, host, staticBlocks) {
         ((maxX - minX) * CAMERA_PADDING) / aspect,
     );
     const requiredWidth = requiredHeight * aspect;
-    camera.left = -requiredWidth / 2;
-    camera.right = requiredWidth / 2;
-    camera.top = requiredHeight / 2;
-    camera.bottom = -requiredHeight / 2;
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minScreenY + maxScreenY) / 2;
+    camera.left = centerX - requiredWidth / 2;
+    camera.right = centerX + requiredWidth / 2;
+    camera.top = centerY + requiredHeight / 2;
+    camera.bottom = centerY - requiredHeight / 2;
     camera.updateProjectionMatrix();
 }
 
@@ -858,7 +866,7 @@ export function createFloorPlan3D({
         }
         const width = Math.max(1, host.clientWidth);
         const height = Math.max(1, host.clientHeight);
-        fitCameraToFloor(camera, host, staticBlocks);
+        fitCameraToFloor(camera, host, staticBlocks, scene);
         camera.updateMatrixWorld();
         renderer.setSize(width, height, false);
         onLayout(projectSceneLayout(
