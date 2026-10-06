@@ -184,7 +184,7 @@ const SUPABASE_ANON_KEY_PLACEHOLDER = 'REPLACE_WITH_SUPABASE_ANON_KEY';
 
 function loadFloorPlan3DModule() {
     if (!floorPlan3dModulePromise) {
-        floorPlan3dModulePromise = import('./floor-plan-3d.js?v=20260909-1858');
+        floorPlan3dModulePromise = import('./floor-plan-3d.js?v=20261006-equipment-3d');
     }
     return floorPlan3dModulePromise;
 }
@@ -857,6 +857,16 @@ function renderTesterList(date) {
     });
 }
 
+// Presentation only: the existing buttons and their booking handlers are retained.
+function positionFloorNameplate(element, position) {
+    element.classList.add('floor-nameplate');
+    const { x, y, width, height } = position.label;
+    element.style.left = `${x}px`;
+    element.style.top = `${y}px`;
+    element.style.width = `${width}px`;
+    element.style.height = `${height}px`;
+}
+
 function renderFloorPlan(date) {
     const floorPlanCanvas = document.getElementById('floorPlanCanvas');
     const floorPlanTitle = document.getElementById('floorPlanTitle');
@@ -1030,12 +1040,7 @@ function renderFloorPlan(date) {
                         if (!position) {
                             return;
                         }
-                        button.style.left = `${
-                            (position.x / width) * 100 - FLOOR_PLAN_BLOCK_SIZE.w / 2
-                        }%`;
-                        button.style.top = `${
-                            (position.y / height) * 100 - FLOOR_PLAN_BLOCK_SIZE.h / 2
-                        }%`;
+                        positionFloorNameplate(button, position);
                     });
                     staticBlockElements.forEach((block, blockIndex) => {
                         const blockDef = FLOOR_PLAN_STATIC_BLOCKS[blockIndex];
@@ -1054,12 +1059,7 @@ function renderFloorPlan(date) {
                             return;
                         }
                         block.style.visibility = '';
-                        block.style.left = `${
-                            (position.x / width) * 100 - blockDef.w / 2
-                        }%`;
-                        block.style.top = `${
-                            (position.y / height) * 100 - blockDef.h / 2
-                        }%`;
+                        positionFloorNameplate(block, position);
                     });
                     visualLayerElements.forEach((layer) => {
                         const rowIndex = Number(layer.dataset.floorGridRow);

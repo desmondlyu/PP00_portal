@@ -11,7 +11,7 @@ const { slots, blocks, size, grid } = vm.runInNewContext(
 );
 const source = readFileSync(new URL('../static/js/floor-plan-3d.js', import.meta.url), 'utf8');
 const api = vm.runInNewContext(source.replace(/^import .*;\n/, '').replace('export function', 'function') +
-    ';({createLayoutMetrics, getPrimaryFloorFrameBounds, createVisualGridMetrics, createStaticBlock, createFloorLayerMesh, createMachineMesh, applyVisualGrid, fitCameraToFloor})', { THREE });
+    ';({createLayoutMetrics, getPrimaryFloorFrameBounds, createVisualGridMetrics, createStaticBlock, createFloorLayerMesh, createMachineMesh, applyVisualGrid, fitCameraToFloor, projectSceneLayout})', { THREE });
 const machines = slots.map(slot => ({ ...slot, width: size.w, height: size.h, model: slot.tester.startsWith('Ms') ? 'ms' : 't' }));
 const scene = new THREE.Scene();
 const metrics = api.createLayoutMetrics(blocks, machines);
@@ -42,3 +42,31 @@ for (const [width, height] of [[1520, 760], [1000, 620], [900, 560], [760, 760]]
     }
 }
 console.log('All 21 machines and label footprints fit at four viewport ratios.');
+
+// Nameplates must sit above the model, inside the stage and away from every
+// other equipment label. This catches fixed-percent labels and narrow layouts.
+for (const [width, height] of [[1280, 1080], [1440, 1080], [1520, 1120]]) {
+    const camera = new THREE.OrthographicCamera(-12, 12, 10, -10, 0.1, 100);
+    camera.position.set(0, 18, 18);
+    camera.lookAt(0, 0, 0);
+    const host = { clientWidth: width, clientHeight: height };
+    api.fitCameraToFloor(camera, host, blocks, scene);
+    camera.updateMatrixWorld(true);
+    const projected = api.projectSceneLayout(camera, host, groups, staticGroups, []);
+    const objects = [...Object.values(projected.machines), ...projected.staticBlocks.filter(Boolean)];
+    assert.equal(objects.length, 29);
+    const cards = objects.map(p => {
+        assert.ok(p.label, 'each model needs its own projected nameplate');
+        const r = p.label;
+        assert.ok(r.width >= 80 && r.height >= 60, 'readable complete labels');
+        assert.ok(r.y >= 0 && r.x >= 0 && r.x + r.width <= width && r.y + r.height <= height, 'nameplate inside stage');
+        assert.ok(r.y + r.height <= p.top - 8, 'nameplate above model with hover clearance');
+        return r;
+    });
+    cards.forEach((a, i) => cards.slice(i + 1).forEach(b => {
+        assert.ok(a.x + a.width + 8 <= b.x || b.x + b.width + 8 <= a.x ||
+            a.y + a.height + 8 <= b.y || b.y + b.height + 8 <= a.y,
+            `nameplates overlap at ${width}x${height}`);
+    }));
+}
+console.log('All 29 nameplates are above models, separated and inside the stage.');
