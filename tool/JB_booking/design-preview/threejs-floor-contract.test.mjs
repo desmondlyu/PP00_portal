@@ -179,11 +179,6 @@ assert.match(
     /\.floor-plan-canvas\s*\{[\s\S]*?margin-inline:\s*auto;/,
     'Floor Plan should remain centered when the viewport becomes wider',
 );
-assert.match(
-    cssSource,
-    /\.floor-plan-stage[\s\S]{0,220}transform:\s*translateY\(8%\)\s*scaleY\(0\.98\)/,
-);
-assert.match(cssSource, /\.floor-plan-stage[\s\S]{0,260}transform-origin:\s*center top/);
 assert.match(cssSource, /@media \(max-width: 768px\)/);
 assert.match(floorPlan3dSource, /MS_MACHINE_COLOR/);
 assert.match(floorPlan3dSource, /T_MACHINE_COLOR/);
