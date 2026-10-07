@@ -16,6 +16,14 @@ The models are deliberately simplified for a booking map. Cabinet colors, propor
 
 - Nameplates use all eight projected model-bound corners to sit above their own model, with hover clearance.
 - Each card fits inside its existing grid column and retains its own DOM booking button. Decorative equipment labels do not intercept pointer events.
-- The stage is at least 1280 × 1080 CSS pixels and horizontally scrolls in narrower containers. Labels show the full original name and booking state; they do not expand on hover.
+- The stage is at least 1280 × 1240 CSS pixels and horizontally scrolls in narrower containers. Labels show the full original name and booking state; they do not expand on hover.
 - `node --test tool/JB_booking/design-preview/*.test.mjs` verifies geometry visibility, 29 separate nameplate rectangles, the existing 21-tester contract and appointment UI contracts.
 - Local browser execution was attempted but Chromium could not start because the execution environment denied its Unix socket operation. Browser font wrapping, real clicks and WebGL appearance are not claimed as verified by Node tests.
+
+## Lab floor appearance — 2026-10-07
+
+The existing room frames remain the source for adjacency: top storage/exit, left PP00, upper/lower right PQ00, and the narrow right FAE zone. The solid floor and low partitions replace screen-space dashed frames only when WebGL has initialized successfully. The fallback remains available if rendering fails.
+
+Vertical room display coordinates follow the existing expanded equipment rows, rather than changing any tester or auxiliary equipment position. Walkways, workbench/oven strip and service strips retain their existing visual-grid centers. Storage and exit remain in the original top bays. Shelf, monitor and oven repetitions are illustrative furnishing for the original combined zone, not an inventory or surveyed individual placements. Floor materials use muted blue-gray (PP00), lavender-gray (PQ00), and sand-gray (FAE); department names are low-opacity text on the actual floor plane.
+
+All markings are noninteractive Three.js meshes. Existing booking buttons remain above the scene. Canvas text textures are locally generated and disposed with the scene. Geometry tests now include the complete environment, confirm equipment footprints lie on the slab, and verify both PQ00 watermarks, PP00, FAE, storage and exit markings. The taller 1240px stage retains readable nameplate separation while fitting the full floor.

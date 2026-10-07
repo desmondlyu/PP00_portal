@@ -184,7 +184,7 @@ const SUPABASE_ANON_KEY_PLACEHOLDER = 'REPLACE_WITH_SUPABASE_ANON_KEY';
 
 function loadFloorPlan3DModule() {
     if (!floorPlan3dModulePromise) {
-        floorPlan3dModulePromise = import('./floor-plan-3d.js?v=20261006-equipment-3d');
+        floorPlan3dModulePromise = import('./floor-plan-3d.js?v=20261007-lab-floor');
     }
     return floorPlan3dModulePromise;
 }
@@ -1028,6 +1028,7 @@ function renderFloorPlan(date) {
                     });
                 },
                 onLayout: (projectedLayout) => {
+                    stage.classList.add('has-lab-environment');
                     const {
                         width,
                         height,

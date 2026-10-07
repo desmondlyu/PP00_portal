@@ -11,7 +11,7 @@ const { slots, blocks, size, grid } = vm.runInNewContext(
 );
 const source = readFileSync(new URL('../static/js/floor-plan-3d.js', import.meta.url), 'utf8');
 const api = vm.runInNewContext(source.replace(/^import .*;\n/, '').replace('export function', 'function') +
-    ';({createLayoutMetrics, getPrimaryFloorFrameBounds, createVisualGridMetrics, createStaticBlock, createFloorLayerMesh, createMachineMesh, applyVisualGrid, fitCameraToFloor, projectSceneLayout})', { THREE });
+    ';({createLabEnvironment, createLayoutMetrics, getPrimaryFloorFrameBounds, createVisualGridMetrics, createStaticBlock, createFloorLayerMesh, createMachineMesh, applyVisualGrid, fitCameraToFloor, projectSceneLayout})', { THREE, document: { createElement: () => ({ getContext: () => ({ clearRect() {}, fillText() {} }) }) } });
 const machines = slots.map(slot => ({ ...slot, width: size.w, height: size.h, model: slot.tester.startsWith('Ms') ? 'ms' : 't' }));
 const scene = new THREE.Scene();
 const metrics = api.createLayoutMetrics(blocks, machines);
@@ -21,6 +21,25 @@ for (const row of gridMetrics.rows.filter(row => row.type !== 'equipment-row')) 
 const groups = machines.map(machine => api.createMachineMesh(machine, metrics));
 scene.add(...groups);
 api.applyVisualGrid(grid, gridMetrics, groups, staticGroups);
+
+const positionsBefore = [...groups, ...staticGroups.filter(Boolean)].map(g => g.position.toArray());
+const environment = api.createLabEnvironment(blocks, gridMetrics);
+scene.add(environment);
+assert.deepEqual([...groups, ...staticGroups.filter(Boolean)].map(g => g.position.toArray()), positionsBefore);
+const departments = [];
+const markings = [];
+environment.traverse(object => {
+    if (object.userData.department) departments.push(object.userData.department);
+    if (object.userData.floorText) markings.push(object.userData.floorText);
+});
+assert.deepEqual(departments.sort(), ['FAE', 'PP00', 'PQ00', 'PQ00']);
+assert.ok(markings.includes('貨架') && markings.includes('4F出口 ↑'));
+const floor = environment.userData.floorBounds;
+for (const object of [...groups, ...staticGroups.filter(Boolean)]) {
+    const b = new THREE.Box3().setFromObject(object);
+    assert.ok(b.min.x >= floor.minX && b.max.x <= floor.maxX && b.min.z >= floor.minZ && b.max.z <= floor.maxZ,
+        'every equipment footprint must be supported by the floor slab');
+}
 
 // Frame-only camera fitting used to clip the expanded bottom equipment row.
 for (const [width, height] of [[1520, 760], [1000, 620], [900, 560], [760, 760]]) {
@@ -45,7 +64,7 @@ console.log('All 21 machines and label footprints fit at four viewport ratios.')
 
 // Nameplates must sit above the model, inside the stage and away from every
 // other equipment label. This catches fixed-percent labels and narrow layouts.
-for (const [width, height] of [[1280, 1080], [1440, 1080], [1520, 1120]]) {
+for (const [width, height] of [[1280, 1240], [1440, 1240], [1520, 1240]]) {
     const camera = new THREE.OrthographicCamera(-12, 12, 10, -10, 0.1, 100);
     camera.position.set(0, 18, 18);
     camera.lookAt(0, 0, 0);
