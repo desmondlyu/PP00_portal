@@ -169,11 +169,11 @@ assert.doesNotMatch(appSource, /animateFloorEngineer|engineer-running|tester-mac
 assert.match(cssSource, /\.floor-plan-3d-host/);
 assert.match(cssSource, /\.floor-plan-3d-canvas/);
 assert.match(cssSource, /\.floor-plan-label-layer/);
-assert.match(
-    cssSource,
-    /\.floor-plan-canvas\s*\{[\s\S]*?max-width:\s*1520px;/,
-    'Floor Plan should stop growing beyond its designed 2:1 canvas width',
-);
+const canvasCss = cssSource.match(/\.floor-plan-canvas\s*\{([^}]+)\}/)[1];
+assert.doesNotMatch(canvasCss, /max-width|height:\s*1240px/);
+assert.match(canvasCss, /background:\s*transparent/);
+assert.match(canvasCss, /height:\s*auto/);
+assert.match(floorPlan3dSource, /scene.background = null/);
 assert.match(
     cssSource,
     /\.floor-plan-canvas\s*\{[\s\S]*?margin-inline:\s*auto;/,
