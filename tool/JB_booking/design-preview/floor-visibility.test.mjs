@@ -64,13 +64,22 @@ console.log('All 21 machines and label footprints fit at four viewport ratios.')
 
 // Nameplates must sit above the model, inside the stage and away from every
 // other equipment label. This catches fixed-percent labels and narrow layouts.
-for (const [width, height] of [[1280, 1240], [1440, 1240], [1520, 1240]]) {
+for (const width of [1280, 1470, 1920, 2560]) {
     const camera = new THREE.OrthographicCamera(-12, 12, 10, -10, 0.1, 100);
     camera.position.set(0, 18, 18);
     camera.lookAt(0, 0, 0);
-    const host = { clientWidth: width, clientHeight: height };
+    const canvas = { style: { aspectRatio: '1' } };
+    const host = {
+        clientWidth: width,
+        get clientHeight() { return Math.round(width / Number(canvas.style.aspectRatio)); },
+        parentElement: { parentElement: canvas },
+    };
     api.fitCameraToFloor(camera, host, blocks, scene);
     camera.updateMatrixWorld(true);
+    const height = host.clientHeight;
+    const left = new THREE.Vector3(floor.minX, 0, 0).project(camera);
+    const right = new THREE.Vector3(floor.maxX, 0, 0).project(camera);
+    assert.ok((right.x - left.x) / 2 >= 0.97, 'floor should fill at least 97% of card width');
     const projected = api.projectSceneLayout(camera, host, groups, staticGroups, []);
     const objects = [...Object.values(projected.machines), ...projected.staticBlocks.filter(Boolean)];
     assert.equal(objects.length, 29);

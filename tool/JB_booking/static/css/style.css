@@ -653,29 +653,23 @@ body {
 
 .floor-plan-canvas {
     width: 100%;
-    max-width: 1520px;
     margin-inline: auto;
-    /* Keep seven nameplates legible without changing the equipment grid. */
+    /* Preserve legible booking targets on narrow screens; desktop fills card. */
     min-width: 1280px;
-    min-height: 1240px;
-    height: 1240px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    background:
-        linear-gradient(30deg, rgba(129, 179, 202, 0.055) 12%, transparent 12.5%, transparent 87%, rgba(129, 179, 202, 0.055) 87.5%),
-        linear-gradient(150deg, rgba(129, 179, 202, 0.055) 12%, transparent 12.5%, transparent 87%, rgba(129, 179, 202, 0.055) 87.5%),
-        linear-gradient(30deg, rgba(129, 179, 202, 0.04) 12%, transparent 12.5%, transparent 87%, rgba(129, 179, 202, 0.04) 87.5%),
-        linear-gradient(150deg, rgba(129, 179, 202, 0.04) 12%, transparent 12.5%, transparent 87%, rgba(129, 179, 202, 0.04) 87.5%),
-        linear-gradient(145deg, #101c2c 0%, #070c15 58%, #0d1725 100%);
-    background-position: 0 0, 0 0, 18px 31px, 18px 31px, 0 0;
-    background-size: 36px 62px, 36px 62px, 36px 62px, 36px 62px, auto;
+    min-height: 0;
+    height: auto;
+    aspect-ratio: 1;
+    border: none;
+    border-radius: 0;
+    background: transparent;
     position: relative;
     overflow: hidden;
-    box-shadow: inset 0 4px 24px rgba(0, 0, 0, 0.6);
+    box-shadow: none;
 }
 
 .floor-plan-stage {
-    position: relative;
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     min-height: 0;
@@ -1644,12 +1638,12 @@ body {
 
     .floor-plan-canvas {
         min-width: 1280px; /* 名牌保留完整文字與安全點擊間距 */
-        min-height: 560px;
+        min-height: 0;
     }
 
     .floor-plan-stage {
-        min-width: 900px;
-        min-height: 560px;
+        min-width: 0;
+        min-height: 0;
     }
 
     .monthly-summary {

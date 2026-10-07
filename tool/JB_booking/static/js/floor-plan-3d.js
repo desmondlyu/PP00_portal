@@ -7,7 +7,7 @@ const FRAME_INSET = 0.72;
 const ROW_Y_TOLERANCE = 1.25;
 const MAX_EQUIPMENT_HEIGHT = 1.62;
 const MAX_MACHINE_HEIGHT = 1.58;
-const CAMERA_PADDING = 1.1;
+const CAMERA_PADDING = 1.015;
 const T_MACHINE_COLOR = 0x36b9dd;
 const MS_MACHINE_COLOR = 0x387fb3;
 const T_BOOKED_COLOR = 0xf09a42;
@@ -393,33 +393,34 @@ function applyVisualGrid(
 }
 
 function fitCameraToFloor(camera, host, staticBlocks, scene) {
-    const floorBounds = getFrameBounds(staticBlocks, 0);
-    // Include the final visual-grid positions, which can extend beyond the frame.
-    const sceneBounds = new THREE.Box3().setFromObject(scene);
-    floorBounds.minX = Math.min(floorBounds.minX, sceneBounds.min.x);
-    floorBounds.maxX = Math.max(floorBounds.maxX, sceneBounds.max.x);
-    floorBounds.minZ = Math.min(floorBounds.minZ, sceneBounds.min.z);
-    floorBounds.maxZ = Math.max(floorBounds.maxZ, sceneBounds.max.z);
-    const minY = Math.min(-0.2, sceneBounds.min.y);
-    const maxY = Math.max(MAX_EQUIPMENT_HEIGHT + MACHINE_Y, sceneBounds.max.y);
+    // Fit actual mesh corners, rather than empty corners above the floor slab.
+    scene.updateMatrixWorld(true);
     camera.updateMatrixWorld(true);
-
-    const points = [
-        [floorBounds.minX, minY, floorBounds.minZ],
-        [floorBounds.minX, minY, floorBounds.maxZ],
-        [floorBounds.maxX, minY, floorBounds.minZ],
-        [floorBounds.maxX, minY, floorBounds.maxZ],
-        [floorBounds.minX, maxY, floorBounds.minZ],
-        [floorBounds.minX, maxY, floorBounds.maxZ],
-        [floorBounds.maxX, maxY, floorBounds.minZ],
-        [floorBounds.maxX, maxY, floorBounds.maxZ],
-    ].map(([x, y, z]) =>
-        new THREE.Vector3(x, y, z).applyMatrix4(camera.matrixWorldInverse),
-    );
+    const points = [];
+    scene.traverse(object => {
+        if (!object.isMesh) return;
+        object.geometry.computeBoundingBox();
+        const bounds = object.geometry.boundingBox;
+        for (const x of [bounds.min.x, bounds.max.x]) {
+            for (const y of [bounds.min.y, bounds.max.y]) {
+                for (const z of [bounds.min.z, bounds.max.z]) {
+                    points.push(new THREE.Vector3(x, y, z)
+                        .applyMatrix4(object.matrixWorld)
+                        .applyMatrix4(camera.matrixWorldInverse));
+                }
+            }
+        }
+    });
     const minX = Math.min(...points.map(({ x }) => x));
     const maxX = Math.max(...points.map(({ x }) => x));
     const minScreenY = Math.min(...points.map(({ y }) => y));
     const maxScreenY = Math.max(...points.map(({ y }) => y));
+    // Let the card's available width determine height. This avoids the wide
+    // side margins produced by a fixed-height canvas at larger screen widths.
+    const canvas = host.parentElement?.parentElement;
+    if (canvas) {
+        canvas.style.aspectRatio = String((maxX - minX) / (maxScreenY - minScreenY));
+    }
     const aspect = Math.max(0.1, host.clientWidth / host.clientHeight);
     const requiredHeight = Math.max(
         (maxScreenY - minScreenY) * CAMERA_PADDING,
@@ -854,7 +855,7 @@ export function createFloorPlan3D({
     }
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x233641);
+    scene.background = null;
 
     const camera = new THREE.OrthographicCamera(-12, 12, 10, -10, 0.1, 100);
     camera.position.set(0, 18, 18);
@@ -864,6 +865,7 @@ export function createFloorPlan3D({
         antialias: true,
         alpha: true,
     });
+    renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -944,9 +946,9 @@ export function createFloorPlan3D({
         if (destroyed) {
             return;
         }
+        fitCameraToFloor(camera, host, staticBlocks, scene);
         const width = Math.max(1, host.clientWidth);
         const height = Math.max(1, host.clientHeight);
-        fitCameraToFloor(camera, host, staticBlocks, scene);
         camera.updateMatrixWorld();
         renderer.setSize(width, height, false);
         onLayout(projectSceneLayout(
