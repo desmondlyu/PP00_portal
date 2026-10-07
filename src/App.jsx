@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import ToolIcon from './components/ToolIcon';
+import WaferVisual from './components/WaferVisual';
 import {
   supabase,
   supabaseAdmin,
@@ -808,57 +810,30 @@ export default function App() {
       <main className="bento-grid">
         
         {/* 英雄展示區 */}
-        <section className="bento-card col-4 hero-card">
+        <section className="bento-card col-8 hero-card">
           <div className="card-glow"></div>
           <div className="hero-content">
-            <span className="hero-tag">Tech & SaaS Portal</span>
+            <span className="hero-tag">ENGINEERING WORKSPACE</span>
             <h2 className="hero-title">PP00 數位化分析工具入口網站</h2>
             <p className="hero-desc">
               歡迎使用 PP00 Tool Portal。此平台收納了晶片特性驗證、NOR Flash 測試資料分析、測試機台預約管理等專用工具，為研發與專案控制提供直覺且安全的交互界面。
             </p>
           </div>
-          <div className="hero-visual">
-            <svg className="wafer-visual" viewBox="0 0 200 200" aria-hidden="true">
-              <defs>
-                <clipPath id="wafer-clip">
-                  <circle cx="100" cy="100" r="78" />
-                </clipPath>
-                <pattern id="wafer-dies" width="14" height="14" patternUnits="userSpaceOnUse">
-                  <rect width="12" height="12" x="1" y="1" className="wafer-die" />
-                </pattern>
-              </defs>
-              <circle className="wafer-rim" cx="100" cy="100" r="80" />
-              <circle className="wafer-surface" cx="100" cy="100" r="78" />
-              <rect className="wafer-die-grid" x="22" y="22" width="156" height="156" clipPath="url(#wafer-clip)" />
-              <g clipPath="url(#wafer-clip)">
-                <rect className="wafer-defect wafer-defect-a" x="58" y="58" width="12" height="12" />
-                <rect className="wafer-defect wafer-defect-b" x="72" y="58" width="12" height="12" />
-                <rect className="wafer-defect wafer-defect-c" x="100" y="58" width="12" height="12" />
-                <rect className="wafer-defect wafer-defect-a" x="128" y="72" width="12" height="12" />
-                <rect className="wafer-defect wafer-defect-b" x="142" y="86" width="12" height="12" />
-                <rect className="wafer-defect wafer-defect-c" x="86" y="100" width="12" height="12" />
-                <rect className="wafer-defect wafer-defect-a" x="114" y="114" width="12" height="12" />
-                <rect className="wafer-defect wafer-defect-b" x="100" y="128" width="12" height="12" />
-                <rect className="wafer-defect wafer-defect-c" x="72" y="128" width="12" height="12" />
-                <rect className="wafer-defect wafer-defect-a" x="128" y="142" width="12" height="12" />
-              </g>
-              <path className="wafer-notch" d="M92 21h16l-8 8z" />
-            </svg>
-          </div>
+          <WaferVisual />
         </section>
 
         {/* 更新日誌 */}
-        <section className="bento-card col-8 changelog-card">
+        <section className="bento-card col-4 changelog-card">
           <div className="card-glow"></div>
           <div>
             <div className="changelog-header">
               <h3 className="changelog-title">
-                <span role="img" aria-label="pager">📟</span>
+                <Layers size={18} aria-hidden="true" />
                 更新日誌
               </h3>
               <span className="tool-badge">Changelog</span>
             </div>
-            <div className="changelog-list">
+            <div className="changelog-list" tabIndex={0} aria-label="更新日誌，可捲動閱讀所有版本">
               {changelog.map((item, idx) => (
                 <div key={item.version} className={`changelog-item ${idx === 0 ? 'new changelog-latest' : ''}`}>
                   <div className="changelog-meta">
@@ -872,24 +847,18 @@ export default function App() {
           </div>
         </section>
 
+        <div className="applications-heading col-12"><h2>應用程式</h2><span>ENGINEERING APPLICATIONS</span></div>
+
         {/* 動態渲染工具卡片 */}
         {tools.map((tool) => {
-          const IconComp = tool.icon;
-          const isEmojiIcon = typeof IconComp === 'string';
           const isPending = tool.status === 'pending';
           const isOffline = offlineTools[tool.id];
           
           return (
-            <section key={tool.id} className={`bento-card ${tool.gridClass} ${isOffline ? 'tool-offline' : ''}`}>
+            <section key={tool.id} className={`bento-card tool-card ${tool.gridClass} ${isOffline ? 'tool-offline' : ''}`}>
               <div className="card-glow"></div>
               <div>
-                <div className="tool-icon-wrapper" style={{ background: tool.gradient }}>
-                  {isEmojiIcon ? (
-                    <span role="img" aria-label="tool icon" style={{ fontSize: '24px', lineHeight: 1 }}>{IconComp}</span>
-                  ) : (
-                    <IconComp size={24} />
-                  )}
-                </div>
+                <div className="tool-icon-wrapper"><ToolIcon id={tool.id} /></div>
                 <div className="tool-info">
                   <h3 className="tool-title">
                     {tool.title}
@@ -947,7 +916,7 @@ export default function App() {
                       }
                     }}
                     className="tool-action-btn"
-                    style={{ border: 'none', width: '100%', background: 'rgba(255, 255, 255, 0.03)', cursor: 'pointer' }}
+                    style={{ width: '100%', cursor: 'pointer' }}
                   >
                     <span>{tool.openExternal ? '在新分頁啟動' : '啟動應用程式'}</span>
                     <ExternalLink size={14} />
@@ -1034,19 +1003,20 @@ export default function App() {
       {/* 系統管理後台 Modal */}
       {showAdminModal && (
         <div className="admin-modal-overlay" onClick={closeAdminModal}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+          <div className={`admin-modal ${isAdminLoggedIn ? 'admin-modal-authenticated' : ''}`} role="dialog" aria-labelledby="admin-heading" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3>
                 <Lock size={18} color="var(--accent-cyan)" />
-                <span>系統管理後台</span>
+                <span id="admin-heading">系統管理後台</span>
               </h3>
-              <button className="admin-close-btn" onClick={closeAdminModal}>
+              <button className="admin-close-btn" aria-label="關閉系統管理後台" onClick={closeAdminModal}>
                 <X size={18} />
               </button>
             </div>
 
             {!isAdminLoggedIn ? (
               <form onSubmit={handleLogin}>
+                <div className="admin-intro"><span>ADMINISTRATION</span><h4>管理員登入</h4><p>登入後可管理各應用程式的開放狀態。</p></div>
                 <div className="admin-form-group">
                   <label htmlFor="admin-account">管理員帳號 Email</label>
                   <input 
@@ -1061,8 +1031,9 @@ export default function App() {
                   />
                 </div>
                 <div className="admin-form-group">
-                  <label>管理員密碼</label>
+                  <label htmlFor="admin-password">管理員密碼</label>
                   <input 
+                    id="admin-password"
                     type="password" 
                     className="admin-input" 
                     value={adminPassword}
@@ -1072,7 +1043,7 @@ export default function App() {
                   />
                 </div>
                 {adminError && (
-                  <div className="admin-error-msg">
+                  <div className="admin-error-msg" role="alert">
                     <AlertCircle size={14} />
                     <span>{adminError}</span>
                   </div>
@@ -1084,10 +1055,12 @@ export default function App() {
                 <div style={{ fontSize: '0.85rem', color: 'var(--accent-emerald)', marginBottom: '20px', fontWeight: '500' }}>
                   ✓ 管理員身份已驗證
                 </div>
-                <div className="admin-tool-list">
+                <div className="admin-list-heading"><h4>應用程式存取管理</h4><span>開放狀態</span></div>
+                <div className="admin-tool-list" tabIndex={0} aria-label="應用程式狀態清單">
                   {tools.map(tool => (
                     <div key={tool.id} className="admin-tool-item">
-                      <div>
+                      <ToolIcon id={tool.id} />
+                      <div className="admin-tool-copy">
                         <span className="admin-tool-name">{tool.title}</span>
                         <div className="admin-tool-status-label">
                           狀態：{offlineTools[tool.id] ? (
@@ -1099,7 +1072,8 @@ export default function App() {
                       </div>
                       <label className="switch">
                         <input 
-                          type="checkbox" 
+                          type="checkbox"
+                          aria-label={`${tool.title} 開放狀態`}
                           checked={!offlineTools[tool.id]} 
                           onChange={() => toggleToolStatus(tool.id)}
                         />
@@ -1125,9 +1099,7 @@ export default function App() {
         <div className="portal-iframe-overlay">
           <div className="portal-iframe-header">
             <div className="portal-iframe-title">
-              {typeof activeTool.icon === 'string'
-                ? <span style={{ fontSize: 18 }}>{activeTool.icon}</span>
-                : React.createElement(activeTool.icon, { size: 18, style: { color: 'var(--accent-cyan)' } })}
+              <ToolIcon id={activeTool.id} />
               <span>{activeTool.title}</span>
             </div>
             <div className="portal-iframe-actions">
