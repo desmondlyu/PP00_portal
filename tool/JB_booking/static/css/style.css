@@ -657,8 +657,8 @@ body {
     margin-inline: auto;
     /* Keep seven nameplates legible without changing the equipment grid. */
     min-width: 1280px;
-    min-height: 1080px;
-    height: 1080px;
+    min-height: 1240px;
+    height: 1240px;
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 12px;
     background:
@@ -1660,4 +1660,12 @@ body {
         width: 95%;
         margin: 10% auto;
     }
+}
+
+/* Hide the percentage-based fallback only after the 3D room is ready.
+   Room markings live on the floor, below all equipment nameplate buttons. */
+.has-lab-environment .floor-static-block.frame,
+.has-lab-environment .floor-static-block.frame-label,
+.has-lab-environment .floor-grid-layer-label {
+    visibility: hidden;
 }

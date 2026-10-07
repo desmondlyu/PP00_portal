@@ -187,34 +187,145 @@ function createVisualGridMetrics(visualGrid, primaryFrameBounds) {
     return { columnWidth, columnCenters, rows, width: gridWidth };
 }
 
+// Text is painted onto the floor, so it follows the camera and cannot intercept
+// booking clicks. Local canvas textures avoid remote fonts or image assets.
+function addFloorText(group, text, x, z, width, depth, color = '#476267', opacity = 0.28) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 192;
+    const context = canvas.getContext('2d');
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.font = '600 112px "Noto Sans TC", "Microsoft JhengHei", sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillStyle = color;
+    context.fillText(text, 512, 96, 980);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, depth),
+        new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity, depthWrite: false }));
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(x, 0.045, z);
+    mesh.userData.floorText = text;
+    group.add(mesh);
+    return mesh;
+}
+
 function createFloorLayerMesh(rowMetric, gridMetrics) {
-    const style = {
-        walkway: { color: 0x9fcfd2, opacity: 0.14 },
-        'pc-equipment': { color: 0xaac8cb, opacity: 0.18 },
-        pipeline: { color: 0x98bfd0, opacity: 0.16 },
-    }[rowMetric.type];
+    const colors = { walkway: 0xbacdc8, 'pc-equipment': 0xa9b8bf, pipeline: 0x83979f };
     const visualDepth = rowMetric.depth * FLOOR_LAYER_DEPTH_SCALE;
     const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(gridMetrics.width, 0.035, visualDepth),
-        createMaterial(style.color, {
-            roughness: 0.88,
-            metalness: 0.04,
-            transparent: true,
-            opacity: style.opacity,
-        }),
+        createMaterial(colors[rowMetric.type], { roughness: 0.94, metalness: 0.02 }),
     );
-    mesh.position.set(
-        (GRID_LEFT + GRID_RIGHT) / 2,
-        -0.035,
-        rowMetric.centerZ,
-    );
+    mesh.position.set((GRID_LEFT + GRID_RIGHT) / 2, 0.008, rowMetric.centerZ);
     mesh.receiveShadow = true;
     mesh.userData.gridRow = rowMetric.index;
     mesh.userData.gridColumn = null;
     mesh.userData.projectionKey = `layer-${rowMetric.index}`;
     mesh.userData.blockLabel = rowMetric.label;
     mesh.userData.kind = rowMetric.type;
+    // Painted aisle margins, recessed service strips and solid work surfaces.
+    for (const side of [-1, 1]) {
+        addBox(mesh, [gridMetrics.width, 0.008, 0.035],
+            [0, 0.023, side * (visualDepth / 2 - 0.06)],
+            rowMetric.type === 'pipeline' ? 0x5a717e : 0xe7eeea);
+    }
+    if (rowMetric.type === 'pc-equipment') {
+        for (let i = 0; i < 7; i++) {
+            const x = gridMetrics.columnCenters[i] - mesh.position.x;
+            addBox(mesh, [1.60, 0.09, 0.64], [x, 0.39, -0.28], 0xe1e5df);
+            for (const side of [-1, 1]) addBox(mesh, [0.07, 0.35, 0.52], [x + side * 0.64, 0.19, -0.28], 0x74858a);
+            if (i < 4) {
+                addMonitor(mesh, x, 0.66, -0.39, 0.47);
+                addBox(mesh, [0.40, 0.022, 0.14], [x, 0.455, -0.08], 0x495b63);
+            } else {
+                addBox(mesh, [0.68, 0.49, 0.53], [x, 0.69, -0.28], 0xcbd4d5);
+                addBox(mesh, [0.49, 0.32, 0.02], [x - 0.04, 0.69, 0], 0x344a55);
+                addBox(mesh, [0.035, 0.21, 0.035], [x + 0.13, 0.68, 0.025], 0xdfe6e7);
+                addBox(mesh, [0.09, 0.045, 0.025], [x + 0.27, 0.82, 0.02], 0xd4a95c);
+            }
+        }
+    }
+    addFloorText(mesh, rowMetric.label, rowMetric.type === 'walkway' ? -gridMetrics.width / 2 + 1.05 : 0,
+        rowMetric.type === 'pc-equipment' ? 0.50 : 0,
+        rowMetric.type === 'pc-equipment' ? 3.4 : 1.45, 0.31, '#314c55', 0.78);
     return mesh;
+}
+
+// The old percentage frames describe room adjacency. Their vertical display
+// extent follows the existing expanded equipment grid; no machine moves.
+function createLabEnvironment(staticBlocks, gridMetrics) {
+    const group = new THREE.Group();
+    group.name = 'lab-environment';
+    const frames = staticBlocks.filter(block => block.kind === 'frame');
+    const primary = frames.slice().sort((a, b) => b.w * b.h - a.w * a.h)[0];
+    const first = gridMetrics.rows[0];
+    const last = gridMetrics.rows.at(-1);
+    const minZ = first.centerZ - first.depth * FLOOR_LAYER_DEPTH_SCALE / 2 - 0.32;
+    const maxZ = last.centerZ + last.depth / 2 + 0.50;
+    const displayZ = percent => minZ + (percent - primary.y) / primary.h * (maxZ - minZ);
+    const minX = percentToWorld(Math.min(...frames.map(f => f.x)), WORLD_WIDTH);
+    const maxX = percentToWorld(Math.max(...frames.map(f => f.x + f.w)), WORLD_WIDTH);
+    const backZ = displayZ(Math.min(...frames.map(f => f.y)));
+    const frontZ = displayZ(Math.max(...frames.map(f => f.y + f.h)));
+    const centerX = (minX + maxX) / 2;
+    const centerZ = (backZ + frontZ) / 2;
+    addBox(group, [maxX - minX, 0.22, frontZ - backZ], [centerX, -0.15, centerZ], 0x71838c, { roughness: 0.95, metalness: 0.02 });
+    const roomColors = [0xd2d4c9, 0xc4d5ce, 0xc9d5d8, 0xd0d4e0, 0xd9d0be, 0xd0d4e0];
+    frames.forEach((frame, index) => {
+        const x1 = percentToWorld(frame.x, WORLD_WIDTH);
+        const x2 = percentToWorld(frame.x + frame.w, WORLD_WIDTH);
+        const z1 = displayZ(frame.y);
+        const z2 = displayZ(frame.y + frame.h);
+        addBox(group, [x2 - x1 - 0.035, 0.028, z2 - z1 - 0.035],
+            [(x1 + x2) / 2, -0.02, (z1 + z2) / 2], roomColors[index],
+            { roughness: 0.95, metalness: 0.02 });
+        // Subtle expansion joints in solid flooring, not an outline-only grid.
+        for (let z = z1 + 1.8; z < z2 - 0.2; z += 1.8) {
+            addBox(group, [x2 - x1 - 0.08, 0.003, 0.012], [(x1 + x2) / 2, -0.003, z], 0xb6c3c6);
+        }
+        if (index >= 2) {
+            const label = index === 2 ? 'PP00' : index === 4 ? 'FAE' : 'PQ00';
+            const watermark = addFloorText(group, label, (x1 + x2) / 2,
+                index === 2 ? gridMetrics.rows.findLast(row => row.type === 'walkway').centerZ : z1 + (z2 - z1) * 0.30,
+                Math.min(x2 - x1 - 0.4, 5.0), 1.0);
+            watermark.userData.department = label;
+        }
+    });
+    // Low perimeter walls preserve visibility. The original top exit is open.
+    const exit = staticBlocks.find(block => block.label === '4F出口');
+    const exitX = percentToWorld(exit.x + exit.w / 2, WORLD_WIDTH);
+    const opening = 2.1;
+    for (const [left, right] of [[minX, exitX - opening / 2], [exitX + opening / 2, maxX]]) {
+        addBox(group, [right - left, 0.34, 0.12], [(left + right) / 2, 0.14, backZ], 0xe5e9e6);
+    }
+    for (const x of [minX, maxX]) addBox(group, [0.12, 0.34, frontZ - backZ], [x, 0.14, centerZ], 0xe5e9e6);
+    addBox(group, [maxX - minX, 0.12, 0.12], [centerX, 0.02, frontZ], 0xe5e9e6);
+    // Department boundaries remain in their original left/right arrangement.
+    const rightX = percentToWorld(frames[3].x, WORLD_WIDTH);
+    const faeX = percentToWorld(frames[4].x, WORLD_WIDTH);
+    const splitZ = displayZ(frames[5].y);
+    addBox(group, [0.10, 0.16, frontZ - backZ], [rightX, 0.055, centerZ], 0xeff0eb);
+    addBox(group, [0.10, 0.16, splitZ - backZ], [faeX, 0.055, (splitZ + backZ) / 2], 0xeff0eb);
+    addBox(group, [maxX - rightX, 0.16, 0.10], [(maxX + rightX) / 2, 0.055, splitZ], 0xeff0eb);
+    // Illustrative shelving inside the original top-left storage bay.
+    const shelfFrame = frames[0];
+    const shelfX1 = percentToWorld(shelfFrame.x, WORLD_WIDTH);
+    const shelfX2 = percentToWorld(shelfFrame.x + shelfFrame.w, WORLD_WIDTH);
+    const shelfZ = (displayZ(shelfFrame.y) + displayZ(shelfFrame.y + shelfFrame.h)) / 2;
+    for (let i = 0; i < 4; i++) {
+        const x = shelfX1 + 1.0 + i * (shelfX2 - shelfX1 - 2.0) / 3;
+        for (const side of [-1, 1]) addBox(group, [0.06, 0.74, 0.64], [x + side * 0.69, 0.35, shelfZ], 0x546c79);
+        for (const y of [0.12, 0.43, 0.74]) addBox(group, [1.42, 0.035, 0.65], [x, y, shelfZ], 0x97a9aa);
+        addBox(group, [0.47, 0.23, 0.43], [x - 0.3, 0.56, shelfZ], 0xb7a987);
+        addBox(group, [0.43, 0.20, 0.43], [x + 0.28, 0.545, shelfZ], 0x819fa8);
+    }
+    addFloorText(group, '貨架', (shelfX1 + shelfX2) / 2, shelfZ + 0.70, 1.4, 0.35, '#415c64', 0.85);
+    addBox(group, [opening, 0.026, 1.0], [exitX, 0.005, backZ + 0.56], 0x527f73);
+    addFloorText(group, '4F出口 ↑', exitX, backZ + 0.56, 1.9, 0.48, '#ffffff', 1);
+    group.userData.floorBounds = { minX, maxX, minZ: backZ, maxZ: frontZ };
+    return group;
 }
 
 function mapEquipmentGroups(staticBlockGroups) {
@@ -659,7 +770,10 @@ function disposeObject(object) {
             const materials = Array.isArray(child.material)
                 ? child.material
                 : [child.material];
-            materials.forEach((material) => material.dispose());
+            materials.forEach((material) => {
+                material.map?.dispose();
+                material.dispose();
+            });
         }
     });
 }
@@ -740,7 +854,7 @@ export function createFloorPlan3D({
     }
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x07111c);
+    scene.background = new THREE.Color(0x233641);
 
     const camera = new THREE.OrthographicCamera(-12, 12, 10, -10, 0.1, 100);
     camera.position.set(0, 18, 18);
@@ -804,14 +918,8 @@ export function createFloorPlan3D({
         machineGroups,
         staticBlockGroups,
     );
-    const equipmentBounds = new THREE.Box3().setFromObject(scene);
-    const shadowFloor = new THREE.Mesh(
-        new THREE.PlaneGeometry(equipmentBounds.max.x - equipmentBounds.min.x + 0.6, equipmentBounds.max.z - equipmentBounds.min.z + 0.6),
-        new THREE.ShadowMaterial({ opacity: 0.32 }),
-    );
-    shadowFloor.rotation.x = -Math.PI / 2;
-    shadowFloor.position.set((equipmentBounds.min.x + equipmentBounds.max.x) / 2, 0.015, (equipmentBounds.min.z + equipmentBounds.max.z) / 2);
-    shadowFloor.receiveShadow = true;
+    const environment = createLabEnvironment(staticBlocks, gridMetrics);
+    scene.add(environment);
     const machineByTester = new Map(
         machineGroups.map((group) => [group.userData.tester, group]),
     );
@@ -838,9 +946,7 @@ export function createFloorPlan3D({
         }
         const width = Math.max(1, host.clientWidth);
         const height = Math.max(1, host.clientHeight);
-        scene.remove(shadowFloor);
         fitCameraToFloor(camera, host, staticBlocks, scene);
-        scene.add(shadowFloor);
         camera.updateMatrixWorld();
         renderer.setSize(width, height, false);
         onLayout(projectSceneLayout(
