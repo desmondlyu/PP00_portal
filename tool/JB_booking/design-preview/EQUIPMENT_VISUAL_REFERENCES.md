@@ -16,7 +16,7 @@ The models are deliberately simplified for a booking map. Cabinet colors, propor
 
 - Nameplates use all eight projected model-bound corners to sit above their own model, with hover clearance.
 - Each card fits inside its existing grid column and retains its own DOM booking button. Decorative equipment labels do not intercept pointer events.
-- The stage is at least 1280 × 1240 CSS pixels and horizontally scrolls in narrower containers. Labels show the full original name and booking state; they do not expand on hover.
+- The stage is at least 1280 CSS pixels wide and horizontally scrolls in narrower containers. Its height follows the projected floor aspect ratio. Labels show the full original name and booking state; they do not expand on hover.
 - `node --test tool/JB_booking/design-preview/*.test.mjs` verifies geometry visibility, 29 separate nameplate rectangles, the existing 21-tester contract and appointment UI contracts.
 - Local browser execution was attempted but Chromium could not start because the execution environment denied its Unix socket operation. Browser font wrapping, real clicks and WebGL appearance are not claimed as verified by Node tests.
 
@@ -26,4 +26,8 @@ The existing room frames remain the source for adjacency: top storage/exit, left
 
 Vertical room display coordinates follow the existing expanded equipment rows, rather than changing any tester or auxiliary equipment position. Walkways, workbench/oven strip and service strips retain their existing visual-grid centers. Storage and exit remain in the original top bays. Shelf, monitor and oven repetitions are illustrative furnishing for the original combined zone, not an inventory or surveyed individual placements. Floor materials use muted blue-gray (PP00), lavender-gray (PQ00), and sand-gray (FAE); department names are low-opacity text on the actual floor plane.
 
-All markings are noninteractive Three.js meshes. Existing booking buttons remain above the scene. Canvas text textures are locally generated and disposed with the scene. Geometry tests now include the complete environment, confirm equipment footprints lie on the slab, and verify both PQ00 watermarks, PP00, FAE, storage and exit markings. The taller 1240px stage retains readable nameplate separation while fitting the full floor.
+All markings are noninteractive Three.js meshes. Existing booking buttons remain above the scene. Canvas text textures are locally generated and disposed with the scene. Geometry tests now include the complete environment, confirm equipment footprints lie on the slab, and verify both PQ00 watermarks, PP00, FAE, storage and exit markings. Nameplate separation is verified together with the full floor.
+
+## Card fit and transparent background — 2026-10-07
+
+Removed the opaque `#233641` WebGL backdrop and the canvas background pattern, border and inset shadow. The outer LAB card remains the background. The floor canvas fills available desktop width without a 1520px cap; height follows actual projected mesh bounds instead of a fixed height. Camera framing uses actual mesh corners with 1.5% total padding. Narrow containers keep the existing 1280px minimum and horizontal scrolling to protect nameplate legibility. Tests cover 1280, 1470, 1920 and 2560px widths, require at least 97% floor-width coverage, and verify all 29 nameplate rectangles remain visible and separated.
