@@ -3,10 +3,6 @@ import React from 'react';
 export default function WaferVisual() {
   return (
     <div className="wafer-scene">
-      <label className="wafer-motion-control">
-        <input type="checkbox" className="wafer-pause" />
-        <span>暫停晶圓動畫</span>
-      </label>
       <div className="wafer-stage" aria-hidden="true">
         <div className="wafer-shadow" />
         <div className="wafer-tilt">
