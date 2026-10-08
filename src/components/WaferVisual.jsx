@@ -37,7 +37,6 @@ export default function WaferVisual() {
             </g>
           </svg>
         </div>
-        <div className="wafer-plinth" />
       </div>
       <span className="wafer-caption" aria-hidden="true">SILICON / ENGINEERING PRECISION</span>
     </div>
