@@ -481,20 +481,18 @@ export default function App() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Escape 鍵關閉 iframe overlay 與管理後台 modal
+  // Escape 鍵僅關閉 iframe overlay；管理後台由 X 或安全登出關閉
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         if (activeTool) {
           setActiveTool(null);
-        } else if (showAdminModal) {
-          closeAdminModal();
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTool, showAdminModal]);
+  }, [activeTool]);
 
   // 實際工具配置資料
   const tools = [
@@ -1002,7 +1000,7 @@ export default function App() {
 
       {/* 系統管理後台 Modal */}
       {showAdminModal && (
-        <div className="admin-modal-overlay" onClick={closeAdminModal}>
+        <div className="admin-modal-overlay">
           <div className={`admin-modal ${isAdminLoggedIn ? 'admin-modal-authenticated' : ''}`} role="dialog" aria-labelledby="admin-heading" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3>
