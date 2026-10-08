@@ -64,7 +64,6 @@ svg { flex-shrink: 0; }
 .wafer-disc { width: 100%; max-width: 390px; overflow: visible; filter: drop-shadow(3px 5px 0 #536277) drop-shadow(4px 6px 0 #c1cbd8) drop-shadow(12px 18px 12px #06121b80); animation: wafer-turn 70s linear infinite; }
 .wafer-lit-die { fill: #79c8ff; stroke: #d6f3ff; stroke-width: .8px; animation: die-light 6s ease-in-out infinite; }
 .wafer-shadow { position: absolute; left: 13%; right: 2%; bottom: 8%; height: 12%; border-radius: 50%; background: #0714228c; filter: blur(14px); }
-.wafer-plinth { position: absolute; left: 9%; right: 2%; bottom: 3%; height: 10px; background: linear-gradient(#8c9bac, #253c50); transform: skewX(-25deg); border: 1px solid #a1afbc; box-shadow: 3px 5px 0 #192839; }
 .wafer-motion-control { position: absolute; right: 14px; top: 12px; z-index: 3; display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 8px; font-size: .68rem; color: #d6e1ed; cursor: pointer; }
 .wafer-pause { width: 15px; height: 15px; accent-color: #699bdf; }
 .wafer-scene:has(.wafer-pause:checked) .wafer-disc, .wafer-scene:has(.wafer-pause:checked) .wafer-lit-die { animation-play-state: paused; }
@@ -223,7 +222,6 @@ button.tool-action-btn:hover { background: #dce9fc; border-color: #97b4e0; }
   .wafer-scene { position: relative; inset: auto; width: 100%; height: 265px; flex: none; }
   .wafer-tilt { inset: -18px 0 0; }
   .wafer-disc { max-width: 235px; }
-  .wafer-plinth { left: 20%; right: 20%; bottom: 0; }
   .wafer-shadow { left: 20%; right: 20%; }
   .wafer-motion-control { top: auto; bottom: 9px; right: 0; }
   .wafer-caption { display: none; }
