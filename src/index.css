@@ -57,16 +57,16 @@ svg { flex-shrink: 0; }
 .hero-tag { color: #bdcee1; letter-spacing: .2em; font-size: .62rem; font-weight: 600; }
 .hero-title { margin: 14px 0 20px; font-size: clamp(1.6rem, 2.7vw, 2.3rem); line-height: 1.35; letter-spacing: -.025em; color: #f6f8fc; text-wrap: balance; }
 .hero-desc { color: #d3deea; font-size: .86rem; line-height: 1.85; }
-/* The wafer is decorative, with a native control: no application state or data changes. */
-.wafer-scene { position: absolute; inset: 0 0 0 54%; perspective: 900px; }
-.wafer-stage { position: absolute; inset: 18px 0 32px; }
-.wafer-tilt { position: absolute; inset: 0 -12% 0 -10%; display: grid; place-items: center; transform: rotateX(27deg) rotateY(-28deg) rotateZ(-15deg); transform-style: preserve-3d; }
-.wafer-disc { width: 100%; max-width: 390px; overflow: visible; filter: drop-shadow(3px 5px 0 #536277) drop-shadow(4px 6px 0 #c1cbd8) drop-shadow(12px 18px 12px #06121b80); animation: wafer-turn 70s linear infinite; }
-.wafer-lit-die { fill: #79c8ff; stroke: #d6f3ff; stroke-width: .8px; animation: die-light 6s ease-in-out infinite; }
-.wafer-shadow { position: absolute; left: 13%; right: 2%; bottom: 8%; height: 12%; border-radius: 50%; background: #0714228c; filter: blur(14px); }
-.wafer-caption { position: absolute; right: 18px; bottom: 13px; font-size: .48rem; letter-spacing: .15em; color: #becddd; }
-@keyframes wafer-turn { to { transform: rotate(360deg); } }
-@keyframes die-light { 0%, 100% { opacity: .2; } 45% { opacity: .95; } 70% { opacity: .4; } }
+/* Decorative hero artwork: static package, slow signal highlights only. */
+.circuit-scene { position: absolute; inset: 0 0 0 56%; overflow: hidden; pointer-events: none; mask-image: linear-gradient(90deg, transparent, #000 14%); -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%); }
+.circuit-art { display: block; width: 100%; height: 100%; }
+.circuit-trace-shadow { fill: none; stroke: #0c1b2a; stroke-width: 4; opacity: .55; }
+.circuit-trace { fill: none; stroke: #708ba3; stroke-width: 1.4; opacity: .45; }
+.circuit-via { fill: #203448; stroke: #7990a6; stroke-width: 1; opacity: .55; }
+.circuit-signal { fill: none; stroke: #a4dcff; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 5 95; stroke-dashoffset: 6; opacity: 0; filter: drop-shadow(0 0 3px #71c7ff); animation: circuit-flow 12s linear infinite; }
+.circuit-chip-label { fill: #d4deea; font: 500 15px var(--font-body); letter-spacing: 1.5px; }
+.circuit-chip-subtitle { fill: #8fa4b8; font: 500 10px var(--font-body); letter-spacing: 3px; }
+@keyframes circuit-flow { 0%, 10% { stroke-dashoffset: 6; opacity: 0; } 18% { opacity: .85; } 65% { opacity: .85; } 76%, 100% { stroke-dashoffset: -96; opacity: 0; } }
 .changelog-card { padding: 24px; min-height: 360px; }
 .changelog-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
 .changelog-title { display: flex; align-items: center; gap: 9px; font-size: 1.05rem; }
@@ -199,7 +199,6 @@ button.tool-action-btn:hover { background: #dce9fc; border-color: #97b4e0; }
   .hero-card { min-height: 340px; }
   .changelog-card { min-height: 0; }
   .changelog-list { height: 190px; }
-  .wafer-tilt { inset: -7% 0; }
 }
 @media (max-width: 600px) {
   .app-container { padding: 20px 16px 145px; }
@@ -216,11 +215,7 @@ button.tool-action-btn:hover { background: #dce9fc; border-color: #97b4e0; }
   .hero-content { width: 100%; }
   .hero-title { font-size: 1.85rem; max-width: 330px; }
   .hero-desc { font-size: .84rem; }
-  .wafer-scene { position: relative; inset: auto; width: 100%; height: 265px; flex: none; }
-  .wafer-tilt { inset: -18px 0 0; }
-  .wafer-disc { max-width: 235px; }
-  .wafer-shadow { left: 20%; right: 20%; }
-  .wafer-caption { display: none; }
+  .circuit-scene { position: relative; inset: auto; width: 100%; height: 265px; flex: none; mask-image: none; -webkit-mask-image: none; }
   .applications-heading > span { font-size: .5rem; letter-spacing: .08em; }
   .tool-icon-wrapper { width: 58px; height: 58px; }
   .profile-horizontal-layout, .profile-right-panel { flex-direction: column; align-items: flex-start; gap: 20px; }
@@ -242,6 +237,6 @@ button.tool-action-btn:hover { background: #dce9fc; border-color: #97b4e0; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-  .wafer-lit-die { opacity: .6; }
+  .circuit-signal { opacity: 0; }
   .tool-card:hover, .pp00-agent-floating-link:hover { transform: none; }
 }
