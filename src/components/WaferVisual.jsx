@@ -1,40 +1,60 @@
-import React from 'react';
+import React, { useId } from 'react';
+
+// Decorative circuit illustration; the package stays still while signals travel.
+const lanes = Array.from({ length: 8 }, (_, i) => {
+  const x = -56 + i * 16;
+  const end = x + (i < 4 ? -1 : 1) * (34 + (i % 4) * 12);
+  return { x, end, d: `M ${x} -88 V ${-112 - (i % 4) * 14} L ${end} ${-146 - (i % 4) * 14} V -246` };
+});
 
 export default function WaferVisual() {
+  const id = useId().replace(/:/g, '');
   return (
-    <div className="wafer-scene">
-      <div className="wafer-stage" aria-hidden="true">
-        <div className="wafer-shadow" />
-        <div className="wafer-tilt">
-          <svg className="wafer-disc" viewBox="0 0 320 320">
-            <defs>
-              <radialGradient id="silicon-metal" cx="30%" cy="20%" r="90%">
-                <stop offset="0" stopColor="#f5f8fc" /><stop offset=".28" stopColor="#8495ac" />
-                <stop offset=".52" stopColor="#d3dce5" /><stop offset=".72" stopColor="#6e829e" /><stop offset="1" stopColor="#c1c9d2" />
-              </radialGradient>
-              <linearGradient id="silicon-sheen" x1="0" y1="0" x2="1" y2="1">
-                <stop stopColor="#6f9dd6" stopOpacity=".4" /><stop offset=".4" stopColor="#d3c1d5" stopOpacity=".05" />
-                <stop offset=".65" stopColor="#d9bc98" stopOpacity=".3" /><stop offset="1" stopColor="#73a2bc" stopOpacity=".3" />
-              </linearGradient>
-              <pattern id="silicon-dies" width="18" height="22" patternUnits="userSpaceOnUse">
-                <rect x="1.2" y="1.2" width="15.6" height="19.6" rx=".6" fill="none" stroke="#33445b" strokeWidth="1" />
-                <path d="M3 18V4h10" fill="none" stroke="#eff5fc" strokeOpacity=".55" strokeWidth=".65" />
-              </pattern>
-              <clipPath id="silicon-outline"><path d="M153 12a148 148 0 1 0 14 0l-7 10z" /></clipPath>
-            </defs>
-            <g clipPath="url(#silicon-outline)">
-              <circle cx="160" cy="160" r="148" fill="url(#silicon-metal)" />
-              <circle cx="160" cy="160" r="148" fill="url(#silicon-sheen)" />
-              <circle cx="160" cy="160" r="144" fill="url(#silicon-dies)" />
-              {[[91,89],[181,67],[235,155],[145,199],[73,177],[199,243]].map(([x,y], i) => (
-                <rect key={i} className="wafer-lit-die" x={x} y={y} width="15" height="19" rx="1" style={{ animationDelay: `${-i * 1.3}s` }} />
+    <div className="circuit-scene" aria-hidden="true">
+      <svg className="circuit-art" viewBox="0 0 480 360" focusable="false">
+        <defs>
+          <linearGradient id={`${id}-case`} x1="0" y1="0" x2="1" y2="1">
+            <stop stopColor="#394c60" /><stop offset=".48" stopColor="#1e3042" /><stop offset="1" stopColor="#101e2d" />
+          </linearGradient>
+          <linearGradient id={`${id}-pin`} x1="0" y1="0" x2="0" y2="1">
+            <stop stopColor="#b3beca" /><stop offset=".45" stopColor="#536a80" /><stop offset="1" stopColor="#91a2b2" />
+          </linearGradient>
+          <pattern id={`${id}-grain`} width="5" height="5" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r=".45" fill="#a5b7c9" opacity=".16" />
+            <circle cx="3" cy="4" r=".35" fill="#050d16" opacity=".4" />
+          </pattern>
+          <radialGradient id={`${id}-halo`}>
+            <stop stopColor="#6b91b3" stopOpacity=".18" /><stop offset="1" stopColor="#6b91b3" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <ellipse cx="257" cy="195" rx="210" ry="150" fill={`url(#${id}-halo)`} />
+        <g transform="translate(252 174) scale(1 .72) rotate(-28)">
+          {[0, 90, 180, 270].map((angle, side) => (
+            <g key={angle} transform={`rotate(${angle})`}>
+              {lanes.map(({ x, end, d }, i) => (
+                <g key={x}>
+                  <path d={d} className="circuit-trace-shadow" transform="translate(0 2)" />
+                  <path d={d} className="circuit-trace" />
+                  <circle cx={end} cy="-246" r="3" className="circuit-via" />
+                  <rect x={x - 4} y="-94" width="8" height="24" rx="1.5" fill={`url(#${id}-pin)`} />
+                  {i === (side % 2 ? 5 : 2) && (
+                    <path d={d} pathLength="100" className="circuit-signal" style={{ animationDelay: `${side * -3}s` }} />
+                  )}
+                </g>
               ))}
-              <circle cx="160" cy="160" r="147" fill="none" stroke="#eef3f9" strokeWidth="3" />
             </g>
-          </svg>
-        </div>
-      </div>
-      <span className="wafer-caption" aria-hidden="true">SILICON / ENGINEERING PRECISION</span>
+          ))}
+          <rect x="-82" y="-66" width="168" height="158" rx="9" fill="#07121e" opacity=".55" />
+          <rect x="-78" y="-70" width="156" height="156" rx="7" fill="#0b1724" stroke="#4b6074" strokeWidth="1.5" />
+          <rect x="-78" y="-78" width="156" height="156" rx="7" fill={`url(#${id}-case)`} stroke="#708498" strokeWidth="1" />
+          <rect x="-76" y="-76" width="152" height="152" rx="6" fill={`url(#${id}-grain)`} />
+          <path d="M-68 64V-64Q-68-68-64-68H64" fill="none" stroke="#9bafbf" strokeOpacity=".25" />
+          <circle cx="-57" cy="-55" r="4" fill="#132334" stroke="#61768a" strokeWidth=".8" />
+          <text x="0" y="-2" textAnchor="middle" className="circuit-chip-label">NOR FLASH</text>
+          <path d="M-24 13H24" stroke="#7c92a8" strokeOpacity=".4" />
+          <text x="0" y="30" textAnchor="middle" className="circuit-chip-subtitle">PP00</text>
+        </g>
+      </svg>
     </div>
   );
 }
