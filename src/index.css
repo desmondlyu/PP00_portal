@@ -60,6 +60,7 @@ svg { flex-shrink: 0; }
 /* Photoreal artwork and light paths use the same SVG viewport for responsive alignment. */
 .circuit-scene { position: absolute; inset: 0 0 0 56%; overflow: hidden; pointer-events: none; mask-image: linear-gradient(90deg, transparent, #000 22%); -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%); }
 .circuit-art { display: block; width: 100%; height: 100%; }
+.circuit-chip-brand { fill: #a9afb7; font: 500 48px Arial, sans-serif; letter-spacing: 5px; paint-order: stroke fill; stroke: #172432; stroke-width: 1.1px; }
 .circuit-signal { --signal-offset: 0; fill: none; stroke: var(--signal-color, #48baff); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24 76; opacity: 0; animation: circuit-flow var(--signal-duration, 6s) linear infinite; animation-delay: var(--signal-delay, 0s); }
 .circuit-signal-glow { stroke-width: 24; filter: blur(9px); }
 .circuit-signal-tail { stroke-width: 5; }

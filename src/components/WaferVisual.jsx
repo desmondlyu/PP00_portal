@@ -24,6 +24,7 @@ export default function WaferVisual() {
     <div className="circuit-scene" aria-hidden="true">
       <svg className="circuit-art" viewBox="0 0 1254 1254" preserveAspectRatio="xMidYMid slice" focusable="false">
         <image href={chipImage} width="1254" height="1254" />
+        <text className="circuit-chip-brand" transform="translate(600 537) rotate(-37) scale(1 .85)" textAnchor="middle">PP00</text>
         {signalPaths.map((d, i) => (
           <g key={d} style={{ '--signal-delay': `${-i * 1.37}s`, '--signal-duration': `${4.8 + (i % 4) * .7}s`, '--signal-color': i % 3 === 0 ? '#64dcff' : '#409bff' }}>
             <path d={d} pathLength="100" className="circuit-signal circuit-signal-glow" />
