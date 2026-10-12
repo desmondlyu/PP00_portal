@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import ToolIcon from './components/ToolIcon';
 import WaferVisual from './components/WaferVisual';
+import UsageDashboard from './components/UsageDashboard';
+import {recordToolClick} from './utils/usageAnalytics.mjs';
 import {
   supabase,
   supabaseAdmin,
@@ -228,6 +230,7 @@ export default function App() {
 
   // 後台管理狀態與驗證邏輯
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminView, setAdminView] = useState('access');
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -906,6 +909,7 @@ export default function App() {
                   <button 
                     onClick={() => {
                       const url = getToolUrl(tool);
+                      void recordToolClick(supabase, tool.id);
                       if (tool.openExternal) {
                         window.open(url, '_blank');
                       } else {
@@ -1053,6 +1057,11 @@ export default function App() {
                 <div style={{ fontSize: '0.85rem', color: 'var(--accent-emerald)', marginBottom: '20px', fontWeight: '500' }}>
                   ✓ 管理員身份已驗證
                 </div>
+                <div className="admin-view-switch" role="group" aria-label="管理功能">
+                  <button type="button" aria-pressed={adminView === 'access'} onClick={() => setAdminView('access')}>應用程式開關</button>
+                  <button type="button" aria-pressed={adminView === 'usage'} onClick={() => setAdminView('usage')}>使用統計</button>
+                </div>
+                {adminView === 'usage' ? <UsageDashboard tools={tools} /> : <>
                 <div className="admin-list-heading"><h4>應用程式存取管理</h4><span>開放狀態</span></div>
                 <div className="admin-tool-list" tabIndex={0} aria-label="應用程式狀態清單">
                   {tools.map(tool => (
@@ -1080,6 +1089,7 @@ export default function App() {
                     </div>
                   ))}
                 </div>
+                </>}
                 <button 
                   className="admin-logout-btn" 
                   onClick={handleAdminLogout}
