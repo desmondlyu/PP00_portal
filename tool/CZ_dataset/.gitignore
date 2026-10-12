@@ -5,3 +5,4 @@
 !.gitignore
 !index.html
 !README.md
+!spec-filter.test.mjs
