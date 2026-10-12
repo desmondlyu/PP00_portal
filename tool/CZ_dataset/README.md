@@ -30,6 +30,7 @@
 
 ### 4. DATASHEET SPEC 規格頁籤
 * 原始 Excel 匯入完成後，會新增第四個 `DATASHEET SPEC` 頁籤，完整呈現無損公式 Excel 中的 8 欄規格資料：`Item`、`Description`、`4Byte_Alignment`、`Group`、`Dummy_Rd`、`Min`、`Typ`、`Max`。
+* 支援依 `Item`、`4Byte_Alignment`、`Group` 多選篩選；多個條件會同時套用，清空選取即可顯示全部規格。
 * 僅 `Min`、`Typ`、`Max` 可編輯；修改後按 Enter 或離開欄位即可套用。
 * 支援數字、空白及依目前資料列的 `VCC`／`VIO` 公式，例如 `VCC*0.3`。空白代表清除該規格；無效輸入會拒絕並保留上一個有效值。
 * 規格變更會同步更新數據編輯表格的 `SPEC`、`Ratio`、`Judge`、`Typ_Judge`，並重新計算統計總覽 A、B、C 與圖表資料。
