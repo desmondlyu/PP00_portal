@@ -22,7 +22,7 @@
 
 ### 3. 數據編輯表格 (Data Grid)
 * **高密度分頁表格**：以高清晰度網格展示所有彙整後的測試數據與規格限。
-* **即時搜尋與過濾**：可依輸入關鍵字對測試項目名稱 (Item) 與描述 (Description) 進行模糊搜尋，並支援 Group, 溫度, Vcc, Judge, Typ Judge 進行獨立快速過濾。
+* **即時搜尋與過濾**：可依項目名稱與描述搜尋，或多選 Group、溫度、Vcc、VIO、Judge、Typ Judge；VIO 篩選器與數值欄位都位於 Vcc 右側，沒有 VIO 時顯示「-」。
 * **即時編輯與聯動計算 (Real-time recalculation)**：
   * 允許在網格內直接修改任何實測值 (Value) 或規格限制 (Min, Typ, Max)。
   * 任何修改都會立刻重新計算該行的判定 Verdict、比率 Ratio，並會以**黃色背景高亮標註該儲存格的修改狀態**。
