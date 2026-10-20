@@ -1,2937 +1,2487 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hant">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NOR Flash CP DL logo 分析工具</title>
-  <link rel="icon" href="data:,">
-  <style>
-    :root {
-      color-scheme: dark;
-      font-family: "Segoe UI", "Microsoft JhengHei", system-ui, sans-serif;
-      line-height: 1.5;
-      font-weight: 400;
-
-      --primitive-slate-950: #071018;
-      --primitive-slate-925: #0a141e;
-      --primitive-slate-900: #0d1823;
-      --primitive-slate-850: #101e2a;
-      --primitive-slate-800: #152633;
-      --primitive-slate-700: #263b49;
-      --primitive-slate-500: #6f8694;
-      --primitive-slate-300: #b7c8d1;
-      --primitive-slate-100: #edf6f8;
-      --primitive-cyan-400: #35d8e8;
-      --primitive-cyan-300: #70e8f1;
-      --primitive-amber-400: #f7b955;
-      --primitive-green-400: #45d49d;
-      --primitive-red-400: #ff6f6f;
-
-      --color-page: var(--primitive-slate-950);
-      --color-surface: var(--primitive-slate-900);
-      --color-surface-raised: var(--primitive-slate-850);
-      --color-surface-control: var(--primitive-slate-800);
-      --color-border: var(--primitive-slate-700);
-      --color-border-soft: rgba(111, 134, 148, 0.22);
-      --color-text: var(--primitive-slate-100);
-      --color-text-muted: var(--primitive-slate-300);
-      --color-text-dim: var(--primitive-slate-500);
-      --color-accent: var(--primitive-cyan-400);
-      --color-accent-strong: var(--primitive-cyan-300);
-      --color-warning: var(--primitive-amber-400);
-      --color-success: var(--primitive-green-400);
-      --color-danger: var(--primitive-red-400);
-
-      --space-1: 4px;
-      --space-2: 8px;
-      --space-3: 12px;
-      --space-4: 16px;
-      --space-5: 20px;
-      --space-6: 24px;
-
-      --radius-sm: 4px;
-      --radius-md: 8px;
-      --radius-lg: 12px;
-      --shadow-panel: 0 12px 28px rgba(0, 0, 0, 0.24);
-      --focus-ring: 0 0 0 3px rgba(53, 216, 232, 0.2);
-      --sidebar-width: 268px;
-      --header-height: 58px;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      min-width: 320px;
-      min-height: 100vh;
-      background: var(--color-page);
-      color: var(--color-text);
-      overflow: hidden;
-    }
-
-    button,
-    input,
-    select {
-      font: inherit;
-    }
-
-    button,
-    [role="button"],
-    select,
-    input[type="checkbox"] {
-      cursor: pointer;
-    }
-
-    .dashboard-container {
-      display: grid;
-      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-      grid-template-rows: var(--header-height) minmax(0, 1fr);
-      grid-template-areas:
-        "header header"
-        "sidebar main";
-      width: 100vw;
-      height: 100vh;
-      height: 100dvh;
-      overflow: hidden;
-      background-color: var(--color-page);
-    }
-
-    .workstation-header {
-      grid-area: header;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      min-width: 0;
-      padding: 0 var(--space-5);
-      border-bottom: 1px solid var(--color-border);
-      background-color: #08131c;
-      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
-      z-index: 5;
-    }
-
-    .brand-lockup {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      min-width: 0;
-    }
-
-    .brand-mark {
-      position: relative;
-      width: 34px;
-      height: 34px;
-      flex: 0 0 34px;
-      border: 1px solid rgba(53, 216, 232, 0.7);
-      border-radius: 50%;
-      box-shadow: inset 0 0 0 5px rgba(53, 216, 232, 0.06);
-    }
-
-    .brand-mark::before,
-    .brand-mark::after {
-      position: absolute;
-      content: "";
-      background: var(--color-accent);
-    }
-
-    .brand-mark::before {
-      top: 15px;
-      left: 5px;
-      width: 22px;
-      height: 1px;
-    }
-
-    .brand-mark::after {
-      top: 5px;
-      left: 15px;
-      width: 1px;
-      height: 22px;
-    }
-
-    .brand-copy {
-      min-width: 0;
-    }
-
-    .brand-kicker,
-    .section-kicker,
-    .metric-label,
-    .workspace-label {
-      color: var(--color-text-dim);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-    }
-
-    .brand-title {
-      margin: 1px 0 0;
-      overflow: hidden;
-      color: var(--color-text);
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 0.045em;
-      text-overflow: ellipsis;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-
-    .workstation-state {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      min-width: 0;
-    }
-
-    .state-label {
-      max-width: 320px;
-      overflow: hidden;
-      color: var(--color-text-dim);
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      text-overflow: ellipsis;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      min-height: 30px;
-      padding: 5px 11px;
-      border: 1px solid rgba(247, 185, 85, 0.35);
-      border-radius: 999px;
-      background-color: rgba(247, 185, 85, 0.08);
-      color: var(--color-warning);
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    .status-pill::before {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background-color: currentColor;
-      content: "";
-      box-shadow: 0 0 10px currentColor;
-    }
-
-    .status-pill.is-online {
-      border-color: rgba(69, 212, 157, 0.38);
-      background-color: rgba(69, 212, 157, 0.09);
-      color: var(--color-success);
-    }
-
-    .sidebar {
-      grid-area: sidebar;
-      display: flex;
-      min-height: 0;
-      flex-direction: column;
-      border-right: 1px solid var(--color-border);
-      background-color: var(--color-surface);
-    }
-
-    .upload-panel {
-      padding: var(--space-4);
-      border-bottom: 1px solid var(--color-border-soft);
-    }
-
-    .upload-heading {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: var(--space-2);
-      margin-bottom: var(--space-3);
-    }
-
-    .upload-heading strong {
-      color: var(--color-text);
-      font-size: 13px;
-      font-weight: 650;
-    }
-
-    .offline-label {
-      color: var(--color-success);
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-    }
-
-    #drop-zone {
-      min-height: 94px;
-      padding: 16px 12px;
-      border: 1px dashed rgba(53, 216, 232, 0.45);
-      border-radius: var(--radius-md);
-      background-color: rgba(53, 216, 232, 0.035);
-      text-align: center;
-      transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
-    }
-
-    #drop-zone:hover {
-      border-color: var(--color-accent);
-      background-color: rgba(53, 216, 232, 0.075);
-      transform: translateY(-1px);
-    }
-
-    #drop-zone.is-dragging {
-      border-color: var(--color-accent-strong);
-      background-color: rgba(53, 216, 232, 0.14);
-      box-shadow: var(--focus-ring);
-    }
-
-    #drop-zone:focus-visible,
-    .tab-btn:focus-visible,
-    .btn:focus-visible,
-    .form-control:focus-visible {
-      outline: none;
-      box-shadow: var(--focus-ring);
-    }
-
-    .upload-icon {
-      display: inline-block;
-      width: 22px;
-      height: 22px;
-      margin-bottom: var(--space-2);
-      fill: none;
-      stroke: var(--color-accent);
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      stroke-width: 1.8;
-    }
-
-    #upload-status {
-      margin: 0;
-      color: var(--color-text-muted);
-      font-size: 11px;
-      line-height: 1.45;
-    }
-
-    .tabs-header {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: var(--space-1);
-      padding: var(--space-2);
-      border-bottom: 1px solid var(--color-border-soft);
-      background-color: #0b1721;
-    }
-
-    .tab-btn {
-      min-height: 38px;
-      padding: 7px 5px;
-      border: 1px solid transparent;
-      border-radius: var(--radius-sm);
-      background: transparent;
-      color: var(--color-text-dim);
-      font-size: 11px;
-      font-weight: 750;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
-    }
-
-    .tab-btn::before {
-      margin-right: 5px;
-      color: rgba(111, 134, 148, 0.72);
-      content: attr(data-code);
-      font-size: 9px;
-    }
-
-    .tab-btn:hover {
-      color: var(--color-text);
-      background-color: rgba(255, 255, 255, 0.035);
-    }
-
-    .tab-btn.active {
-      border-color: rgba(53, 216, 232, 0.34);
-      background-color: rgba(53, 216, 232, 0.09);
-      color: var(--color-accent-strong);
-    }
-
-    .tab-content {
-      min-height: 0;
-      flex: 1;
-      padding: var(--space-4);
-      overflow-y: auto;
-      scrollbar-gutter: stable;
-    }
-
-    .control-empty {
-      margin-top: 28px;
-      padding: var(--space-4);
-      border: 1px solid var(--color-border-soft);
-      border-radius: var(--radius-md);
-      color: var(--color-text-dim);
-      font-size: 12px;
-      line-height: 1.6;
-      text-align: center;
-    }
-
-    .sidebar-footer {
-      padding: 11px var(--space-4);
-      border-top: 1px solid var(--color-border-soft);
-      background-color: #09141d;
-      color: var(--color-text-dim);
-      font-size: 10px;
-      line-height: 1.55;
-    }
-
-    .sidebar-footer strong {
-      display: block;
-      margin-bottom: 2px;
-      color: var(--color-text-muted);
-      font-weight: 650;
-    }
-
-    .sidebar-footer a {
-      color: var(--color-accent);
-      text-decoration: none;
-    }
-
-    .main-panel {
-      grid-area: main;
-      min-width: 0;
-      min-height: 0;
-      overflow: hidden;
-      background-color: var(--color-page);
-    }
-
-    .welcome-container {
-      position: relative;
-      display: grid;
-      height: 100%;
-      min-height: 0;
-      place-items: center;
-      padding: clamp(24px, 5vw, 64px);
-      overflow: hidden;
-      background-color: var(--color-page);
-    }
-
-    .welcome-container::before {
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(53, 216, 232, 0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(53, 216, 232, 0.035) 1px, transparent 1px);
-      background-size: 30px 30px;
-      content: "";
-      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent 88%);
-      pointer-events: none;
-    }
-
-    .welcome-card {
-      position: relative;
-      z-index: 1;
-      display: grid;
-      width: min(850px, 100%);
-      grid-template-columns: minmax(220px, 0.75fr) minmax(320px, 1.25fr);
-      overflow: hidden;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      background-color: rgba(13, 24, 35, 0.96);
-      box-shadow: var(--shadow-panel);
-    }
-
-    .wafer-standby {
-      position: relative;
-      display: grid;
-      min-height: 390px;
-      place-items: center;
-      border-right: 1px solid var(--color-border-soft);
-      background-color: #09151f;
-      overflow: hidden;
-    }
-
-    .wafer-disc {
-      position: relative;
-      width: min(220px, 70%);
-      aspect-ratio: 1;
-      border: 1px solid rgba(53, 216, 232, 0.55);
-      border-radius: 50%;
-      background-image:
-        linear-gradient(rgba(53, 216, 232, 0.12) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(53, 216, 232, 0.12) 1px, transparent 1px);
-      background-size: 20px 20px;
-      box-shadow: inset 0 0 40px rgba(53, 216, 232, 0.06), 0 0 30px rgba(53, 216, 232, 0.05);
-    }
-
-    .wafer-disc::before,
-    .wafer-disc::after {
-      position: absolute;
-      content: "";
-      background-color: rgba(53, 216, 232, 0.46);
-    }
-
-    .wafer-disc::before {
-      top: 50%;
-      left: 8%;
-      width: 84%;
-      height: 1px;
-    }
-
-    .wafer-disc::after {
-      top: 8%;
-      left: 50%;
-      width: 1px;
-      height: 84%;
-    }
-
-    .standby-caption {
-      position: absolute;
-      bottom: 24px;
-      color: var(--color-text-dim);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-    }
-
-    .welcome-copy {
-      align-self: center;
-      padding: clamp(28px, 4vw, 52px);
-    }
-
-    .welcome-copy h1 {
-      margin: 5px 0 12px;
-      color: var(--color-text);
-      font-size: clamp(25px, 3vw, 40px);
-      font-weight: 700;
-      letter-spacing: -0.035em;
-      line-height: 1.08;
-    }
-
-    .welcome-copy > p {
-      max-width: 560px;
-      margin: 0 0 24px;
-      color: var(--color-text-muted);
-      font-size: 14px;
-      line-height: 1.75;
-    }
-
-    .workflow-guide {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--space-3);
-    }
-
-    .guide-item {
-      min-height: 96px;
-      padding: var(--space-3);
-      border: 1px solid var(--color-border-soft);
-      border-radius: var(--radius-md);
-      background-color: rgba(255, 255, 255, 0.02);
-    }
-
-    .guide-number {
-      display: block;
-      margin-bottom: 7px;
-      color: var(--color-accent);
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.14em;
-    }
-
-    .guide-item strong {
-      display: block;
-      margin-bottom: 4px;
-      color: var(--color-text);
-      font-size: 12px;
-    }
-
-    .guide-item p {
-      margin: 0;
-      color: var(--color-text-dim);
-      font-size: 11px;
-      line-height: 1.55;
-    }
-
-    .analysis-workspace {
-      display: grid;
-      grid-template-rows: auto auto minmax(0, 1fr);
-      gap: var(--space-3);
-      width: 100%;
-      height: 100%;
-      min-height: 0;
-      padding: var(--space-3);
-      background-color: var(--color-page);
-    }
-
-    .workspace-toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--space-4);
-      min-height: 43px;
-      padding: 7px 12px;
-      border: 1px solid var(--color-border-soft);
-      border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-    }
-
-    .workspace-dataset {
-      display: flex;
-      align-items: baseline;
-      min-width: 0;
-      gap: var(--space-2);
-    }
-
-    .workspace-filename {
-      overflow: hidden;
-      color: var(--color-text-muted);
-      font-family: Consolas, "SFMono-Regular", monospace;
-      font-size: 11px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .metrics-strip {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: var(--space-2);
-    }
-
-    .metric-card {
-      min-width: 0;
-      padding: 9px 12px;
-      border: 1px solid var(--color-border-soft);
-      border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-    }
-
-    .metric-value {
-      display: block;
-      margin-top: 2px;
-      overflow: hidden;
-      color: var(--color-text);
-      font-family: Consolas, "SFMono-Regular", monospace;
-      font-size: 17px;
-      font-weight: 700;
-      line-height: 1.2;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .metric-card.is-accent .metric-value {
-      color: var(--color-accent-strong);
-    }
-
-    .charts-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.48fr) minmax(190px, 0.55fr) minmax(190px, 0.55fr);
-      grid-template-rows: minmax(0, 1.04fr) minmax(220px, 0.76fr);
-      gap: var(--space-3);
-      min-width: 0;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    .chart-card {
-      position: relative;
-      display: flex;
-      min-width: 0;
-      min-height: 0;
-      flex-direction: column;
-      overflow: hidden;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      background-color: var(--color-surface);
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.13);
-    }
-
-    .chart-card::before {
-      position: absolute;
-      z-index: 2;
-      top: 0;
-      left: 0;
-      width: 48px;
-      height: 2px;
-      background-color: var(--color-accent);
-      content: "";
-    }
-
-    .wafer-card {
-      grid-column: 1;
-      grid-row: 1 / 3;
-    }
-
-    .correlation-card {
-      grid-column: 2 / 4;
-      grid-row: 1;
-    }
-
-    .boxplot-card {
-      grid-column: 2;
-      grid-row: 2;
-    }
-
-    .histogram-card {
-      grid-column: 3;
-      grid-row: 2;
-    }
-
-    .chart-header {
-      display: flex;
-      min-height: 37px;
-      align-items: center;
-      gap: var(--space-2);
-      padding: 7px 11px;
-      border-bottom: 1px solid var(--color-border-soft);
-      background-color: var(--color-surface-raised);
-    }
-
-    .chart-title {
-      color: var(--color-text-muted);
-      font-size: 10px;
-      font-weight: 750;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    .chart-info {
-      min-width: 0;
-      margin-left: auto;
-      overflow: hidden;
-      color: var(--color-text-dim);
-      font-family: Consolas, "SFMono-Regular", monospace;
-      font-size: 10px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .chart-actions {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-    }
-
-    .chart-content {
-      position: relative;
-      width: 100%;
-      min-height: 0;
-      flex: 1;
-      overflow: hidden;
-      background-color: #0b151f;
-    }
-
-    .selection-overlay {
-      position: absolute;
-      display: none;
-      border: 2px solid var(--color-danger);
-      background-color: rgba(255, 111, 111, 0.14);
-      pointer-events: none;
-    }
-
-    .histogram-card canvas {
-      cursor: ew-resize;
-      touch-action: none;
-    }
-
-    .histogram-selection-overlay {
-      border-color: var(--color-accent);
-      background-color: rgba(53, 216, 232, 0.16);
-      box-shadow:
-        inset 2px 0 0 rgba(112, 232, 241, 0.8),
-        inset -2px 0 0 rgba(112, 232, 241, 0.8);
-    }
-
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-      cursor: crosshair;
-    }
-
-    .btn {
-      display: inline-flex;
-      min-height: 34px;
-      align-items: center;
-      justify-content: center;
-      gap: var(--space-1);
-      padding: 6px 11px;
-      border: 1px solid rgba(53, 216, 232, 0.32);
-      border-radius: var(--radius-sm);
-      background-color: rgba(53, 216, 232, 0.12);
-      color: var(--color-accent-strong);
-      font-size: 12px;
-      font-weight: 700;
-      transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
-    }
-
-    .btn:hover {
-      border-color: rgba(53, 216, 232, 0.64);
-      background-color: rgba(53, 216, 232, 0.2);
-      color: var(--color-text);
-    }
-
-    .btn-secondary {
-      border-color: var(--color-border);
-      background-color: var(--color-surface-control);
-      color: var(--color-text-muted);
-    }
-
-    .btn-secondary:hover {
-      border-color: var(--color-text-dim);
-      background-color: #1a303d;
-      color: var(--color-text);
-    }
-
-    .btn-danger {
-      border-color: rgba(255, 111, 111, 0.38);
-      background-color: rgba(255, 111, 111, 0.1);
-      color: #ffaaaa;
-    }
-
-    .btn-danger:hover {
-      border-color: rgba(255, 111, 111, 0.7);
-      background-color: rgba(255, 111, 111, 0.18);
-    }
-
-    .btn-xs {
-      min-height: 29px;
-      padding: 4px 8px;
-      font-size: 10px;
-    }
-
-    .form-group {
-      margin-bottom: var(--space-3);
-      padding-bottom: var(--space-3);
-      border-bottom: 1px solid var(--color-border-soft);
-    }
-
-    .form-label {
-      display: block;
-      margin-bottom: 5px;
-      color: var(--color-text-dim);
-      font-size: 10px;
-      font-weight: 750;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-
-    .form-control {
-      width: 100%;
-      min-height: 36px;
-      padding: 7px 9px;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm);
-      background-color: var(--color-surface-control);
-      color: var(--color-text);
-      font-size: 12px;
-      transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
-    }
-
-    .form-control:hover {
-      border-color: var(--color-text-dim);
-    }
-
-    .form-control:focus {
-      border-color: var(--color-accent);
-      outline: none;
-      background-color: #18303c;
-      box-shadow: var(--focus-ring);
-    }
-
-    input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      accent-color: var(--color-accent);
-    }
-
-    ::-webkit-scrollbar {
-      width: 7px;
-      height: 7px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: var(--color-surface);
-    }
-
-    ::-webkit-scrollbar-thumb {
-      border-radius: 999px;
-      background: var(--color-border);
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--color-text-dim);
-    }
-
-    @media (max-width: 1180px) {
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CP DL Analysis · 晶圓電性分析</title>
+    <link rel="icon" href="data:," />
+    <style>
       :root {
-        --sidebar-width: 248px;
+        font-family: "Segoe UI", "Microsoft JhengHei", sans-serif;
+        color: #253448;
+        background: #edf1f5;
+        font-size: 13px;
+        --blue: #1673dc;
+        --line: #d7e0e9;
+        --muted: #64758a;
+        --amber: #d47b00;
       }
-
-      .charts-grid {
-        grid-template-columns: minmax(0, 1.35fr) minmax(170px, 0.55fr) minmax(170px, 0.55fr);
+      * {
+        box-sizing: border-box;
       }
-
-      .metric-card {
-        padding-inline: 9px;
-      }
-    }
-
-    @media (max-width: 920px) {
       body {
+        margin: 0;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button,
+      select {
+        cursor: pointer;
+      }
+      button {
+        background: #fff;
+        color: #34475e;
+        border: 1px solid #cbd7e4;
+        border-radius: 5px;
+        padding: 7px 10px;
+        white-space: nowrap;
+      }
+      button:hover {
+        background: #edf5ff;
+        border-color: #91b8e5;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      button.primary,
+      button.active {
+        background: #eaf3ff;
+        border-color: var(--blue);
+        color: #075caf;
+      }
+      button.primary {
+        background: var(--blue);
+        color: #fff;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 2px solid #1673dc;
+        outline-offset: 2px;
+      }
+      input,
+      select {
+        border: 1px solid #cbd7e4;
+        border-radius: 4px;
+        padding: 6px;
+        background: #fff;
+        color: #253448;
+        min-width: 0;
+      }
+      input[type="search"] {
+        width: 100%;
+      }
+      h1 {
+        font-size: 21px;
+        letter-spacing: -0.6px;
+        margin: 0;
+      }
+      h2 {
+        font-size: 16px;
+        margin: 0;
+      }
+      h3 {
+        font-size: 13px;
+        margin: 0;
+      }
+      p {
+        line-height: 1.7;
+      }
+      .muted,
+      small {
+        color: var(--muted);
+      }
+      header.app-header {
+        height: 62px;
+        padding: 0 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        background: linear-gradient(100deg, #fff, #eff3f8);
+        border-bottom: 1px solid var(--line);
+      }
+      .brand {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+      }
+      .actions,
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+      .app {
+        display: grid;
+        grid-template-columns: 232px minmax(380px, 43fr) minmax(420px, 50fr);
+        height: calc(100dvh - 62px);
+        min-height: 580px;
+      }
+      .sidebar {
+        background: #f0f4f8;
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 13px 16px;
+        border-bottom: 1px solid var(--line);
+        min-height: 49px;
+        background: #f7f9fb;
+      }
+      .sidebar-inner {
+        padding: 15px;
         overflow: auto;
+        flex: 1;
       }
-
-      .dashboard-container {
-        grid-template-columns: 230px minmax(690px, 1fr);
-        min-width: 920px;
+      .file-label {
+        word-break: break-all;
+        font-size: 12px;
+        margin: 12px 0;
       }
-
-      .state-label {
+      .field-group {
+        margin: 19px 0 8px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .field {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        width: 100%;
+        margin: 5px 0;
+        text-align: left;
+        background: #fff;
+        padding: 10px;
+      }
+      .field .handle {
+        color: #8395a9;
+      }
+      .field .name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .field.selected {
+        border-color: var(--blue);
+        background: #e8f2ff;
+      }
+      .sidebar-footer {
+        padding: 13px;
+        border-top: 1px solid var(--line);
+        font-size: 11px;
+        line-height: 1.8;
+      }
+      .assign {
+        padding: 12px;
+        background: #e9f2fc;
+        border-top: 1px solid #c8dcf4;
+      }
+      .assign p {
+        margin: 0 0 8px;
+      }
+      .assign button {
+        padding: 5px 8px;
+        margin: 2px;
+      }
+      .wafer-pane {
+        min-width: 0;
+        overflow: auto;
+        background: #fff;
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+      }
+      .pin {
+        font-size: 11px;
+        color: var(--blue);
+        font-weight: 400;
+        margin-left: 8px;
+      }
+      .wafer-tools {
+        padding: 11px 14px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .wafer-tools select {
+        max-width: 160px;
+      }
+      .wafer-wrap {
+        height: clamp(320px, 48vh, 600px);
+        min-height: 320px;
+        position: relative;
+        margin: 0 12px;
+      }
+      .plot-canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        touch-action: none;
+        cursor: crosshair;
+      }
+      .brush {
+        position: absolute;
+        pointer-events: none;
+        border: 1px dashed #bc6900;
+        background: #e7a02c22;
         display: none;
       }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      *,
-      *::before,
-      *::after {
-        scroll-behavior: auto !important;
-        transition-duration: 0.01ms !important;
+      .tooltip {
+        position: fixed;
+        z-index: 20;
+        pointer-events: none;
+        white-space: pre-line;
+        max-width: 340px;
+        background: #fffef8;
+        border: 1px solid #d9bc87;
+        border-radius: 5px;
+        box-shadow: 0 3px 16px #182b4826;
+        padding: 9px;
+        font-size: 12px;
+        display: none;
       }
-    }
-  </style>
-</head>
-<body>
-
-  <div id="app" class="dashboard-container">
-    <header class="workstation-header">
-      <div class="brand-lockup">
-        <div class="brand-mark" aria-hidden="true"></div>
-        <div class="brand-copy">
-          <div class="brand-kicker">NOR Flash · CP Test Analytics</div>
-          <h1 class="brand-title">Wafer Process Monitoring Station</h1>
-        </div>
+      .selection-bar {
+        margin: 6px 14px;
+        padding: 10px;
+        background: #f0f4f8;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .selection-bar strong {
+        color: var(--amber);
+        margin-right: auto;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 9px;
+        margin: 6px 14px 12px;
+      }
+      .stat {
+        border: 1px solid var(--line);
+        padding: 11px;
+        border-radius: 5px;
+      }
+      .stat:last-child {
+        border-color: #ead4ad;
+      }
+      .stat strong {
+        display: block;
+        margin-bottom: 7px;
+      }
+      .stat-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      details.data {
+        border-top: 1px solid var(--line);
+        margin-top: auto;
+      }
+      summary {
+        cursor: pointer;
+        padding: 10px 14px;
+        background: #f4f7fa;
+      }
+      .table-scroll {
+        overflow: auto;
+        max-height: 210px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 11px;
+      }
+      td,
+      th {
+        padding: 6px 10px;
+        border-bottom: 1px solid #e8edf3;
+        text-align: right;
+        white-space: nowrap;
+      }
+      th {
+        position: sticky;
+        top: 0;
+        background: #f3f6fa;
+        color: #51657e;
+      }
+      tr.selected {
+        background: #fff0d5;
+      }
+      tr[data-id] {
+        cursor: pointer;
+      }
+      .builder {
+        min-width: 0;
+        overflow: auto;
+        background: #f0f4f8;
+      }
+      .builder-head {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+      }
+      .builder-hint {
+        font-size: 11px;
+        color: var(--muted);
+        padding: 9px 14px;
+      }
+      .charts {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 11px;
+        padding: 0 12px 16px;
+        align-items: start;
+      }
+      .chart {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: #fff;
+        min-width: 0;
+        overflow: hidden;
+      }
+      .chart.wide {
+        grid-column: 1/-1;
+      }
+      .chart.focused {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 1px #1673dc15;
+      }
+      .chart-head {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        padding: 9px;
+        border-bottom: 1px solid #e1e8ef;
+        background: #fafcfe;
+      }
+      .chart-head select {
+        font-weight: 600;
+        max-width: 145px;
+      }
+      .chart-head .controls {
+        display: flex;
+        gap: 3px;
+        margin-left: auto;
+      }
+      .icon {
+        padding: 4px 7px;
+        font-size: 12px;
+      }
+      .shelves {
+        padding: 7px 9px;
+        border-bottom: 1px solid #e7edf3;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .shelf {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        min-height: 32px;
+        flex: 1;
+        min-width: 90px;
+        border: 1px dashed #c7d5e4;
+        border-radius: 4px;
+        padding: 4px;
+        flex-wrap: wrap;
+      }
+      .shelf:focus,
+      .shelf.dragover {
+        border-color: var(--blue);
+        background: #e9f3ff;
+      }
+      .shelf b {
+        font-size: 11px;
+        color: #61758e;
+        margin: 0 3px;
+      }
+      .chip {
+        background: #eaf3ff;
+        border: 1px solid #c2dbf8;
+        border-radius: 4px;
+        padding: 3px 5px;
+        color: #095ba9;
+        display: inline-flex;
+        gap: 5px;
+        max-width: 100%;
+        align-items: center;
+        font-size: 11px;
+      }
+      .chip span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .chip button {
+        padding: 0 2px;
+        border: 0;
+        background: none;
+        color: #477397;
+      }
+      .shelf .add-field {
+        padding: 1px 6px;
+        border-style: dashed;
+        color: #6485ab;
+      }
+      .chart-options {
+        padding: 6px 10px;
+        display: flex;
+        gap: 9px;
+        flex-wrap: wrap;
+        font-size: 11px;
+        color: var(--muted);
+        border-bottom: 1px solid #edf1f6;
+      }
+      .chart-options select,
+      .chart-options input[type="number"] {
+        padding: 2px;
+        max-width: 65px;
+      }
+      .facets {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 3px;
+      }
+      .facet {
+        min-width: 0;
+        padding: 9px 7px 2px;
+        border-bottom: 1px solid #edf2f7;
+      }
+      .facet-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 5px;
+        padding: 0 6px;
+        font-size: 11px;
+      }
+      .facet-title span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .plot-wrap {
+        height: 230px;
+        position: relative;
+      }
+      .chart.tall .plot-wrap {
+        height: 350px;
+      }
+      .plot-note {
+        font-size: 10px;
+        color: var(--muted);
+        padding: 3px 7px 6px;
+        min-height: 22px;
+      }
+      .legend {
+        font-size: 10px;
+        color: var(--muted);
+        padding: 0 7px 5px;
+        display: flex;
+        gap: 9px;
+        flex-wrap: wrap;
+      }
+      .legend span {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+      }
+      .legend i {
+        width: 7px;
+        height: 7px;
+        display: inline-block;
+        border-radius: 50%;
+      }
+      .empty {
+        padding: 35px 22px;
+        text-align: center;
+        color: var(--muted);
+        line-height: 1.9;
+      }
+      .notice {
+        font-size: 11px;
+        padding: 7px 14px;
+        background: #fff9ec;
+        color: #806023;
+        display: none;
+        white-space: pre-line;
+      }
+      .notice.show {
+        display: block;
+      }
+      .status {
+        font-size: 11px;
+        color: var(--muted);
+        max-width: 210px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .toast {
+        position: fixed;
+        bottom: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 50;
+        padding: 11px 20px;
+        max-width: 90vw;
+        border: 1px solid #b8cbe0;
+        border-radius: 6px;
+        background: #fff;
+        box-shadow: 0 5px 25px #17325125;
+        display: none;
+      }
+      .welcome {
+        display: grid;
+        place-content: center;
+        min-height: 280px;
+        padding: 22px;
+        text-align: center;
+        color: var(--muted);
+      }
+      .welcome h2 {
+        color: #2c4560;
+        font-size: 22px;
+      }
+      .welcome button {
+        margin: 6px;
+      }
+      .drop-active {
+        outline: 3px dashed #1673dc;
+        outline-offset: -6px;
+      }
+      dialog {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 24px;
+        max-width: 460px;
+        width: 90vw;
+        box-shadow: 0 20px 60px #223a5d30;
+      }
+      dialog::backdrop {
+        background: #24385444;
+      }
+      dialog select {
+        width: 100%;
+        margin: 16px 0;
+      }
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #a8b8ca;
+        border: 2px solid #f2f5f8;
+        border-radius: 5px;
+      }
+      @media (min-width: 1700px) {
+        .app {
+          grid-template-columns: 250px minmax(500px, 43fr) minmax(640px, 50fr);
+        }
+        .plot-wrap {
+          height: 290px;
+        }
+      }
+      @media (max-width: 1150px) {
+        .app {
+          grid-template-columns: 190px minmax(320px, 1fr) minmax(350px, 1fr);
+        }
+        .charts {
+          grid-template-columns: 1fr;
+        }
+        .chart {
+          grid-column: 1/-1;
+        }
+        .brand .muted,
+        .status {
+          display: none;
+        }
+        .facets {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 900px) {
+        header.app-header {
+          height: auto;
+          min-height: 62px;
+          padding: 12px;
+          flex-wrap: wrap;
+        }
+        .app {
+          height: auto;
+          min-height: 0;
+          grid-template-columns: 170px minmax(0, 1fr);
+        }
+        .sidebar {
+          grid-row: 1/3;
+          max-height: calc(100dvh - 100px);
+          position: sticky;
+          top: 0;
+        }
+        .wafer-pane {
+          grid-column: 2;
+        }
+        .builder {
+          grid-column: 2;
+          overflow: visible;
+        }
+        .builder-head {
+          position: static;
+        }
+        .wafer-wrap {
+          height: 400px;
+        }
+        .charts {
+          grid-template-columns: 1fr 1fr;
+        }
+        .chart {
+          grid-column: auto;
+        }
+        .chart.wide {
+          grid-column: 1/-1;
+        }
+      }
+      @media (max-width: 600px) {
+        .app {
+          display: flex;
+          flex-direction: column;
+        }
+        .sidebar {
+          position: static;
+          max-height: 250px;
+          border-bottom: 1px solid var(--line);
+        }
+        .sidebar-inner {
+          padding: 8px 12px;
+        }
+        .sidebar-footer {
+          display: none;
+        }
+        .field-group {
+          margin: 7px 0;
+        }
+        .field {
+          display: inline-flex;
+          width: auto;
+          max-width: 180px;
+          margin: 3px;
+          padding: 6px;
+        }
+        .assign {
+          padding: 7px;
+        }
+        .assign p {
+          display: none;
+        }
+        .wafer-wrap {
+          height: 360px;
+        }
+        .charts {
+          grid-template-columns: 1fr;
+        }
+        .brand {
+          gap: 8px;
+        }
+        h1 {
+          font-size: 18px;
+        }
+        .actions {
+          gap: 4px;
+        }
+        .actions button {
+          padding: 6px;
+        }
+        .stats {
+          font-size: 12px;
+        }
+        .wafer-pane {
+          overflow: visible;
+        }
+        .builder-head {
+          position: sticky;
+          top: 0;
+        }
+        .section-head {
+          padding: 10px 12px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <h1>CP DL Analysis</h1>
+        <span class="muted">晶圓電性分析</span>
       </div>
-      <div class="workstation-state">
-        <span class="state-label">Local processing · No data leaves this device</span>
-        <span class="status-pill" id="workstation-status">Awaiting Data</span>
+      <div class="actions">
+        <span class="status" id="status">完全離線 · 資料留在本機</span
+        ><button id="import" class="primary">匯入資料</button
+        ><button id="save-layout">儲存版面</button
+        ><button id="load-layout">載入版面</button
+        ><button id="export">匯出 CSV</button>
       </div>
     </header>
-
-    <aside class="sidebar">
-      <section class="upload-panel" aria-labelledby="upload-heading">
-        <div class="upload-heading">
-          <div>
-            <div class="section-kicker">Source Input</div>
-            <strong id="upload-heading">CP DL Data File</strong>
+    <input type="file" id="file" hidden /><input
+      type="file"
+      id="layout-file"
+      accept=".json"
+      hidden
+    />
+    <main class="app" id="app">
+      <aside class="sidebar">
+        <div class="section-head">
+          <h2>參數</h2>
+          <small id="field-count">0 項</small>
+        </div>
+        <div class="sidebar-inner">
+          <input
+            type="search"
+            id="search"
+            placeholder="搜尋參數…"
+            aria-label="搜尋參數"
+          />
+          <div class="file-label" id="filename">尚未載入資料</div>
+          <details id="filters-panel">
+            <summary>資料篩選 <span id="rule-count"></span></summary>
+            <div style="padding: 8px 0">
+              <select
+                id="filter-field"
+                aria-label="篩選參數"
+                style="width: 100%"
+              ></select>
+              <div id="filter-inputs" style="margin: 8px 0"></div>
+              <button id="apply-filter">套用條件</button>
+              <div id="filter-rules" style="margin-top: 8px"></div>
+            </div>
+          </details>
+          <div id="fields">
+            <p class="muted">匯入 CP DL 原始檔後，參數會顯示在這裡。</p>
           </div>
-          <span class="offline-label">OFFLINE</span>
         </div>
-        <div id="drop-zone" role="button" tabindex="0" aria-controls="file-input">
-          <svg class="upload-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="17 8 12 3 7 8"></polyline>
-            <line x1="12" y1="3" x2="12" y2="15"></line>
-          </svg>
-          <p id="upload-status">點擊或拖曳測試資料至此</p>
+        <div class="assign">
+          <p id="chosen-label">點選參數，再選擇加入位置</p>
+          <button data-assign="wafer">Wafer 著色</button
+          ><button data-assign="x">X 軸</button
+          ><button data-assign="y">Y 軸</button
+          ><button data-assign="group">分組</button>
         </div>
-        <input type="file" id="file-input" hidden />
+        <div class="sidebar-footer">
+          拖曳參數至圖表的 X、Y 或分組。<br />Shift＋框選可增加選取。<br />©
+          2026 PP00 · 本機離線分析
+        </div>
+      </aside>
+      <section class="wafer-pane">
+        <div class="section-head">
+          <h2>Wafer map <span class="pin">● 固定顯示</span></h2>
+          <button id="wafer-png" class="icon" title="匯出 Wafer map PNG">
+            PNG ↓
+          </button>
+        </div>
+        <div class="wafer-tools">
+          <label
+            >著色
+            <select
+              id="wafer-param"
+              aria-label="Wafer 著色參數"
+            ></select></label
+          ><label><input type="checkbox" id="wafer-log" /> Log</label
+          ><button id="zoom-in" class="icon" aria-label="放大 wafer">＋</button
+          ><button id="zoom-out" class="icon" aria-label="縮小 wafer">−</button
+          ><button id="zoom-reset" class="icon">重設視野</button
+          ><small id="zoom-label">100%</small>
+        </div>
+        <div class="notice" id="notice"></div>
+        <div class="wafer-wrap" id="wafer-wrap">
+          <canvas
+            id="wafer"
+            class="plot-canvas"
+            aria-label="Wafer map，拖曳框選 die"
+          ></canvas>
+          <div class="brush"></div>
+        </div>
+        <div class="selection-bar">
+          <span>已選取 <strong id="selected-count">0 dies</strong></span
+          ><button id="filter-selection">只看選取</button
+          ><button id="clear-selection">清除選取</button
+          ><button id="reset-filter">重設篩選</button>
+        </div>
+        <div class="stats" id="stats"></div>
+        <details class="data">
+          <summary id="table-title">Die 資料</summary>
+          <div class="table-scroll" id="table"></div>
+        </details>
       </section>
-
-      <nav class="tabs-header" aria-label="分析控制面板">
-        <button class="tab-btn active" data-code="01" data-tab="wafer">Wafer</button>
-        <button class="tab-btn" data-code="02" data-tab="correlation">Corr</button>
-        <button class="tab-btn" data-code="03" data-tab="distribution">Dist</button>
-      </nav>
-
-      <div class="tab-content" id="sidebar-controls-container">
-        <div class="control-empty">
-          請先載入測試資料<br />
-          參數、篩選器與尺度控制將顯示於此
+      <section class="builder">
+        <div class="section-head builder-head">
+          <h2>Graph Builder</h2>
+          <button id="add-chart" class="primary">＋ 新增圖表</button>
         </div>
-      </div>
-
-      <footer class="sidebar-footer">
-        <strong>CP DL Analysis Tool · PP32 YPLu</strong>
-        <div>Contact: <a href="mailto:yplu@winbond.com">yplu@winbond.com</a></div>
-        <div>Copyright © 2026 PP32 YPLu (Desmond) ｜ MIT License</div>
-      </footer>
-    </aside>
-
-    <main id="main-panel" class="main-panel">
-      <div class="welcome-container">
-        <section class="welcome-card">
-          <div class="wafer-standby" aria-hidden="true">
-            <div class="wafer-disc"></div>
-            <span class="standby-caption">Wafer Stage · Standby</span>
-          </div>
-          <div class="welcome-copy">
-            <div class="section-kicker">Process Analytics Workstation</div>
-            <h1>CP Wafer Map<br />& DL Analysis</h1>
+        <div class="builder-hint">跨圖同步選取 · 選取不會自動篩除資料</div>
+        <div class="charts" id="charts">
+          <div class="welcome chart wide">
+            <h2>從晶圓位置，找到電性關聯</h2>
             <p>
-              100% 本機離線運算。載入 CP DL 測試資料後，以晶圓圖為主視覺，
-              同步檢視相關性、箱形圖與直方圖。
+              匯入 CP DL 檔案，或先用示範資料體驗。<br />所有圖表都能追溯到同一顆
+              die。
             </p>
-            <div class="workflow-guide">
-              <div class="guide-item">
-                <span class="guide-number">WORKFLOW 01</span>
-                <strong>空間框選分析</strong>
-                <p>在 Wafer Map 拉框，限定其他統計圖表的分析區域。</p>
-              </div>
-              <div class="guide-item">
-                <span class="guide-number">WORKFLOW 02</span>
-                <strong>跨圖高亮追蹤</strong>
-                <p>由統計圖框選資料點，反向定位晶圓上的 Die 分佈。</p>
-              </div>
-            </div>
+            <div><button id="demo">載入示範資料</button></div>
+            <small>不會將資料傳送到網路</small>
           </div>
-        </section>
-      </div>
-    </main>
-  </div>
-
-  <!-- 原生 JavaScript 邏輯實作 -->
-  <script>
-    // =================================================================
-    // 1. 全域 State
-    // =================================================================
-    const state = {
-      rawData: null,          // 原始解析後的資料
-      availableParams: [],    // 可選參數清單
-      paramRanges: {},        // 各參數的真實 [min, max]
-      paramCategories: {},    // 分類參數的唯一值陣列 (CAT)
-      filename: "",           // 已載入檔案名稱
-
-      // 側邊欄與圖表設定
-      activeTab: "wafer",
-      selectedWaferParam: "",
-      selectedCorrX: "",
-      selectedCorrY: "",
-      showTrendline: false,
-      xScale: "linear",
-      yScale: "linear",
-      selectedDistParams: [],
-      distXScale: "linear",
-      distYScale: "linear",
-      distBoxYScale: "linear",
-
-      // 篩選與聯動狀態
-      filters: {},            // 參數值過濾設定 { param: {min, max, checkedCats: []} }
-      spatialFilterRange: null, // Wafer 空間選取框 [[gx0, gx1], [gy0, gy1]]
-      highlightIndices: new Set(), // 由其它圖表拉框框選高亮的點索引 Set
-
-      // 暫存資料
-      nonSpatialFilteredData: [],
-      filteredData: []
-    };
-
-    // 調色盤主色
-    const PALETTE_COLORS = ["#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4"];
-
-    // =================================================================
-    // 2. 檔案解析與數值統計
-    // =================================================================
-    function processFileContent(content) {
-      const lines = content.split(/\r?\n/);
-      if (lines.length < 6) {
-        throw new Error("檔案內容行數不足，無法解析。");
-      }
-
-      const headerLine = lines[5].trim();
-      const headerClean = headerLine.replace(/</g, "").replace(/>/g, "");
-      const cols = headerClean.replace(/\//g, " ").split(/\s+/).filter(Boolean);
-
-      const rawData = [];
-      const invalidMarkers = ["***", "N/A", "NULL", "nan", "NaN", "-", ""];
-      let skippedLines = 0;
-
-      for (let i = 6; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-
-        const lineClean = line.replace(/\//g, "");
-        const parts = lineClean.split(/\s+/).filter(Boolean);
-
-        if (parts.length !== cols.length) {
-          skippedLines++;
-          continue;
-        }
-
-        const record = {};
-        for (let j = 0; j < cols.length; j++) {
-          const col = cols[j];
-          const valStr = parts[j];
-
-          if (invalidMarkers.includes(valStr)) {
-            record[col] = NaN;
-          } else {
-            const num = Number(valStr);
-            if (!isNaN(num)) {
-              record[col] = num;
-            } else {
-              record[col] = valStr;
-            }
-          }
-        }
-        rawData.push(record);
-      }
-
-      if (rawData.length === 0) {
-        throw new Error("沒有解析出任何有效資料行。");
-      }
-
-      if (!("X" in rawData[0]) || !("Y" in rawData[0])) {
-        throw new Error("缺少 X 或 Y 欄位，無法作圖。");
-      }
-
-      const availableParams = cols.filter((col) => col !== "X" && col !== "Y");
-      const paramRanges = {};
-      const paramCategories = {};
-
-      availableParams.forEach((param) => {
-        const numericVals = rawData
-          .map((r) => r[param])
-          .filter((val) => typeof val === "number" && !isNaN(val));
-
-        if (numericVals.length > 0) {
-          const min = Math.min(...numericVals);
-          const max = Math.max(...numericVals);
-          paramRanges[param] = [min, max];
-        }
-
-        if (param === "CAT") {
-          const catVals = rawData
-            .map((r) => String(r[param]))
-            .filter((val) => val !== "undefined" && val !== "NaN" && val.trim() !== "");
-          const uniqueCats = Array.from(new Set(catVals)).sort();
-          if (uniqueCats.length > 0) {
-            paramCategories[param] = uniqueCats;
-          }
-        }
-      });
-
-      return { rawData, availableParams, paramRanges, paramCategories };
-    }
-
-    // 統計計算
-    function calculatePearsonR(x, y) {
-      const n = x.length;
-      if (n < 2) return NaN;
-      let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
-      for (let i = 0; i < n; i++) {
-        sumX += x[i];
-        sumY += y[i];
-        sumXY += x[i] * y[i];
-        sumX2 += x[i] * x[i];
-        sumY2 += y[i] * y[i];
-      }
-      const num = n * sumXY - sumX * sumY;
-      const den = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
-      return den === 0 ? 0 : num / den;
-    }
-
-    function calculateLinearRegression(x, y) {
-      const n = x.length;
-      if (n < 2) return null;
-      let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-      let minX = Infinity, maxX = -Infinity;
-      for (let i = 0; i < n; i++) {
-        sumX += x[i];
-        sumY += y[i];
-        sumXY += x[i] * y[i];
-        sumX2 += x[i] * x[i];
-        if (x[i] < minX) minX = x[i];
-        if (x[i] > maxX) maxX = x[i];
-      }
-      const denominator = n * sumX2 - sumX * sumX;
-      if (denominator === 0) return null;
-      const slope = (n * sumXY - sumX * sumY) / denominator;
-      const intercept = (sumY - slope * sumX) / n;
-      return { slope, intercept, xStart: minX, yStart: slope * minX + intercept, xEnd: maxX, yEnd: slope * maxX + intercept };
-    }
-
-    function calculateBoxPlotStats(values) {
-      if (values.length === 0) return null;
-      const sorted = [...values].sort((a, b) => a - b);
-      const n = sorted.length;
-      const getPercentile = (p) => {
-        if (n === 1) return sorted[0];
-        const pos = (n - 1) * p;
-        const base = Math.floor(pos);
-        const rest = pos - base;
-        return base + 1 < n ? sorted[base] + rest * (sorted[base + 1] - sorted[base]) : sorted[base];
-      };
-      return { min: sorted[0], q1: getPercentile(0.25), median: getPercentile(0.5), q3: getPercentile(0.75), max: sorted[n - 1] };
-    }
-
-    function estimateStep(values) {
-      if (values.length < 2) return 1.0;
-      const uniqueVals = Array.from(new Set(values)).sort((a, b) => a - b);
-      if (uniqueVals.length < 2) return 1.0;
-      const diffs = [];
-      for (let i = 0; i < uniqueVals.length - 1; i++) {
-        const d = uniqueVals[i + 1] - uniqueVals[i];
-        if (d > 0) diffs.push(d);
-      }
-      if (diffs.length === 0) return 1.0;
-      diffs.sort((a, b) => a - b);
-      const mid = Math.floor(diffs.length / 2);
-      return diffs.length % 2 !== 0 ? diffs[mid] : (diffs[mid - 1] + diffs[mid]) / 2;
-    }
-
-    function getQuantileAbsolute(values, q) {
-      const absVals = values.map(Math.abs).sort((a, b) => a - b);
-      if (absVals.length === 0) return 1.0;
-      const idx = Math.floor((absVals.length - 1) * q);
-      return absVals[idx] || 1.0;
-    }
-
-    // Jet/Turbo Colormap
-    function getTurboColor(value, min, max) {
-      if (isNaN(value) || value === null) return "rgba(42, 42, 42, 0.4)";
-      const range = max - min;
-      const t = range === 0 ? 0.5 : (value - min) / range;
-      const norm = Math.max(0, Math.min(1, t));
-      let r = 0, g = 0, b = 0;
-      if (norm < 0.25) {
-        const local = norm / 0.25;
-        b = 255;
-        g = Math.round(local * 255);
-      } else if (norm < 0.5) {
-        const local = (norm - 0.25) / 0.25;
-        g = 255;
-        b = Math.round((1 - local) * 255);
-      } else if (norm < 0.75) {
-        const local = (norm - 0.5) / 0.25;
-        g = 255;
-        r = Math.round(local * 255);
-      } else {
-        const local = (norm - 0.75) / 0.25;
-        r = 255;
-        g = Math.round((1 - local) * 255);
-      }
-      return `rgba(${r}, ${g}, ${b}, 0.85)`;
-    }
-
-    function remapHighlightIndices(sourceData, targetData, highlightIndices) {
-      if (highlightIndices.size === 0) return new Set();
-
-      const highlightedRows = new Set();
-      highlightIndices.forEach((index) => {
-        const row = sourceData[index];
-        if (row !== undefined) highlightedRows.add(row);
-      });
-
-      const remappedIndices = new Set();
-      targetData.forEach((row, index) => {
-        if (highlightedRows.has(row)) remappedIndices.add(index);
-      });
-      return remappedIndices;
-    }
-
-    function normalizeHistogramBrush(startX, endX, canvasWidth, margin, minWidth = 8) {
-      const plotMin = margin;
-      const plotMax = Math.max(plotMin, canvasWidth - margin);
-      let x1 = Math.max(plotMin, Math.min(plotMax, Math.min(startX, endX)));
-      let x2 = Math.max(plotMin, Math.min(plotMax, Math.max(startX, endX)));
-
-      if (x2 - x1 < minWidth) {
-        const center = (x1 + x2) / 2;
-        x1 = Math.max(plotMin, center - minWidth / 2);
-        x2 = Math.min(plotMax, x1 + minWidth);
-        x1 = Math.max(plotMin, x2 - minWidth);
-      }
-
-      return { x1, x2 };
-    }
-
-    // =================================================================
-    // 3. UI 渲染中心
-    // =================================================================
-    
-    // 初始化或更換檔案時觸發
-    function handleDataLoaded(newData, filename) {
-      state.rawData = newData.rawData;
-      state.availableParams = newData.availableParams;
-      state.paramRanges = newData.paramRanges;
-      state.paramCategories = newData.paramCategories;
-      state.filename = filename;
-
-      // 重設所有圖表尺度到 linear
-      state.xScale = "linear";
-      state.yScale = "linear";
-      state.distXScale = "linear";
-      state.distYScale = "linear";
-      state.distBoxYScale = "linear";
-
-      // 預設參數選擇
-      if (state.availableParams.length > 0) {
-        state.selectedWaferParam = state.availableParams[0];
-        state.selectedCorrX = state.availableParams[0];
-        state.selectedCorrY = state.availableParams[1] || state.availableParams[0];
-        state.selectedDistParams = [state.availableParams[0]];
-      }
-
-      // 初始化各參數的篩選極值
-      state.filters = {};
-      state.availableParams.forEach((param) => {
-        if (param === "CAT" && state.paramCategories[param]) {
-          state.filters[param] = { min: NaN, max: NaN, checkedCats: [...state.paramCategories[param]] };
-        } else if (state.paramRanges[param]) {
-          const [min, max] = state.paramRanges[param];
-          state.filters[param] = { min, max };
-        }
-      });
-
-      state.spatialFilterRange = null;
-      state.highlightIndices = new Set();
-
-      document.getElementById("upload-status").innerText = `已載入: ${filename}`;
-      const workstationStatus = document.getElementById("workstation-status");
-      if (workstationStatus) {
-        workstationStatus.innerText = "Data Online";
-        workstationStatus.classList.add("is-online");
-      }
-      
-      // 替換右側為製程監控儀表板
-      const mainPanel = document.getElementById("main-panel");
-      mainPanel.innerHTML = `
-        <section class="analysis-workspace">
-          <div class="workspace-toolbar">
-            <div class="workspace-dataset">
-              <span class="workspace-label">Active Lot File</span>
-              <span class="workspace-filename" id="workspace-filename">Loading...</span>
-            </div>
-            <div id="global-reset-container" class="chart-actions"></div>
-          </div>
-
-          <div class="metrics-strip" id="dashboard-metrics">
-            <div class="metric-card">
-              <span class="metric-label">Total Die</span>
-              <strong class="metric-value" id="metric-total-die">0</strong>
-            </div>
-            <div class="metric-card">
-              <span class="metric-label">Test Items</span>
-              <strong class="metric-value" id="metric-parameter-count">0</strong>
-            </div>
-            <div class="metric-card">
-              <span class="metric-label">Active / Filtered</span>
-              <strong class="metric-value" id="metric-active-die">0 / 0</strong>
-            </div>
-            <div class="metric-card">
-              <span class="metric-label">Highlighted Die</span>
-              <strong class="metric-value" id="metric-selected-die">0</strong>
-            </div>
-            <div class="metric-card is-accent">
-              <span class="metric-label">Pearson R</span>
-              <strong class="metric-value" id="metric-correlation">--</strong>
-            </div>
-          </div>
-
-          <div class="charts-grid">
-            <div class="chart-card wafer-card">
-              <div class="chart-header">
-                <span class="chart-title" id="wafer-title">MAP-01 · Wafer Map</span>
-                <div class="chart-actions" id="wafer-actions"></div>
-              </div>
-              <div class="chart-content">
-                <canvas id="wafer-canvas"></canvas>
-                <div id="wafer-selection-box" class="selection-overlay"></div>
-              </div>
-            </div>
-            <div class="chart-card correlation-card">
-              <div class="chart-header">
-                <span class="chart-title" id="corr-title">STAT-02 · Correlation</span>
-                <span class="chart-info" id="corr-info"></span>
-                <div class="chart-actions" id="corr-actions"></div>
-              </div>
-              <div class="chart-content">
-                <canvas id="corr-canvas"></canvas>
-                <div id="corr-selection-box" class="selection-overlay"></div>
-              </div>
-            </div>
-            <div class="chart-card boxplot-card">
-              <div class="chart-header">
-                <span class="chart-title" id="box-title">DIST-03 · Boxplot</span>
-                <div class="chart-actions" id="box-actions"></div>
-              </div>
-              <div class="chart-content">
-                <canvas id="box-canvas"></canvas>
-                <div id="box-selection-box" class="selection-overlay"></div>
-              </div>
-            </div>
-            <div class="chart-card histogram-card">
-              <div class="chart-header">
-                <span class="chart-title" id="hist-title">DIST-04 · Histogram</span>
-                <div class="chart-actions" id="hist-actions"></div>
-              </div>
-              <div class="chart-content">
-                <canvas id="hist-canvas"></canvas>
-                <div id="hist-selection-box" class="selection-overlay histogram-selection-overlay"></div>
-              </div>
-            </div>
-          </div>
-        </section>
-      `;
-      document.getElementById("workspace-filename").innerText = filename;
-
-      // 初始化 Canvas 事件
-      initWaferCanvasEvents();
-      initCorrCanvasEvents();
-      initBoxCanvasEvents();
-      initHistCanvasEvents();
-
-      // 監聽 Window Resize 隨時重繪
-      window.addEventListener("resize", triggerRedraw);
-
-      updateDataAndRender();
-    }
-
-    // 重新過濾數據並渲染所有區域
-    function updateDataAndRender() {
-      if (!state.rawData) return;
-      const previousFilteredData = state.filteredData;
-      const previousHighlightIndices = state.highlightIndices;
-
-      // 1. 僅套用參數值篩選 (用於 Wafer Map)
-      state.nonSpatialFilteredData = state.rawData.filter((row) => {
-        for (const [param, val] of Object.entries(state.filters)) {
-          if (param === "CAT" && state.paramCategories[param]) {
-            if (!(val.checkedCats || []).includes(String(row[param]))) return false;
-          } else {
-            const numVal = Number(row[param]);
-            if (!isNaN(numVal) && (numVal < val.min || numVal > val.max)) return false;
-          }
-        }
-        return true;
-      });
-
-      // 2. 空間篩選 (Wafer Map 框選，用於 Correlation 與統計分佈)
-      if (state.spatialFilterRange) {
-        const [xMin, xMax] = [...state.spatialFilterRange.x].sort((a, b) => a - b);
-        const [yMin, yMax] = [...state.spatialFilterRange.y].sort((a, b) => a - b);
-
-        state.filteredData = state.nonSpatialFilteredData.filter((row) => {
-          const x = Number(row.X);
-          const y = Number(row.Y);
-          return !isNaN(x) && !isNaN(y) && x >= xMin && x <= xMax && y >= yMin && y <= yMax;
-        });
-      } else {
-        state.filteredData = state.nonSpatialFilteredData;
-      }
-      state.highlightIndices = remapHighlightIndices(
-        previousFilteredData,
-        state.filteredData,
-        previousHighlightIndices
-      );
-
-      // 3. 渲染控制面板與圖表
-      renderSidebarControls();
-      triggerRedraw();
-
-      // 4. 動態更新全域重置按鈕
-      const resetContainer = document.getElementById("global-reset-container");
-      if (resetContainer) {
-        if (state.spatialFilterRange !== null || state.highlightIndices.size > 0) {
-          resetContainer.innerHTML = `
-            <button class="btn btn-secondary btn-danger" id="global-reset-btn">
-              重置框選 / 高亮
-            </button>
-          `;
-          document.getElementById("global-reset-btn").addEventListener("click", () => {
-            state.spatialFilterRange = null;
-            state.highlightIndices.clear();
-            updateDataAndRender();
-          });
-        } else {
-          resetContainer.innerHTML = "";
-        }
-      }
-    }
-
-    function updateDashboardMetrics() {
-      const totalDie = document.getElementById("metric-total-die");
-      const parameterCount = document.getElementById("metric-parameter-count");
-      const activeDie = document.getElementById("metric-active-die");
-      const selectedDie = document.getElementById("metric-selected-die");
-      const correlation = document.getElementById("metric-correlation");
-      if (!totalDie || !parameterCount || !activeDie || !selectedDie || !correlation) return;
-
-      totalDie.innerText = String(state.rawData?.length || 0);
-      parameterCount.innerText = String(state.availableParams.length);
-      activeDie.innerText = `${state.filteredData.length} / ${state.nonSpatialFilteredData.length}`;
-      selectedDie.innerText = String(state.highlightIndices.size);
-
-      const xValues = [];
-      const yValues = [];
-      if (state.selectedCorrX && state.selectedCorrY) {
-        state.filteredData.forEach((row) => {
-          const x = Number(row[state.selectedCorrX]);
-          const y = Number(row[state.selectedCorrY]);
-          if (!isNaN(x) && !isNaN(y)) {
-            xValues.push(x);
-            yValues.push(y);
-          }
-        });
-      }
-
-      const pearsonR = calculatePearsonR(xValues, yValues);
-      correlation.innerText = Number.isFinite(pearsonR) ? pearsonR.toFixed(3) : "--";
-    }
-
-    function triggerRedraw() {
-      updateDashboardMetrics();
-      drawWaferMap();
-      drawCorrelation();
-      drawBoxPlot();
-      drawHistogram();
-    }
-
-    // =================================================================
-    // 4. Sidebar Controls 渲染 (原生 DOM 操作)
-    // =================================================================
-    function renderSidebarControls() {
-      const container = document.getElementById("sidebar-controls-container");
-      if (!state.rawData) return;
-
-      // 根據當前 Tab 動態決定要顯示哪些參數篩選
-      let activeParams = [];
-      if (state.activeTab === "wafer") {
-        activeParams = state.selectedWaferParam ? [state.selectedWaferParam] : [];
-      } else if (state.activeTab === "correlation") {
-        const list = [];
-        if (state.selectedCorrX) list.push(state.selectedCorrX);
-        if (state.selectedCorrY && state.selectedCorrY !== state.selectedCorrX) list.push(state.selectedCorrY);
-        activeParams = list;
-      } else {
-        activeParams = state.selectedDistParams;
-      }
-
-      // 渲染主選單與篩選
-      let html = "";
-
-      if (state.activeTab === "wafer") {
-        html += `
-          <div class="form-group">
-            <label class="form-label">參數選擇</label>
-            <input type="text" class="form-control" id="wafer-search" placeholder="輸入關鍵字篩選參數" value="${waferSearchKeyword}" style="margin-bottom: 6px;" />
-            <select class="form-control" id="wafer-param-select">
-              ${getFilteredParams(waferSearchKeyword).map(p => `<option value="${p}" ${p === state.selectedWaferParam ? "selected" : ""}>${p}</option>`).join("")}
-            </select>
-          </div>
-        `;
-      } else if (state.activeTab === "correlation") {
-        html += `
-          <div class="form-group">
-            <label class="form-label">X 軸參數</label>
-            <input type="text" class="form-control" id="corr-x-search" placeholder="篩選 X 軸參數" value="${corrXSearchKeyword}" style="margin-bottom: 6px;" />
-            <select class="form-control" id="corr-x-select">
-              ${getFilteredParams(corrXSearchKeyword).map(p => `<option value="${p}" ${p === state.selectedCorrX ? "selected" : ""}>${p}</option>`).join("")}
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Y 軸參數</label>
-            <input type="text" class="form-control" id="corr-y-search" placeholder="篩選 Y 軸參數" value="${corrYSearchKeyword}" style="margin-bottom: 6px;" />
-            <select class="form-control" id="corr-y-select">
-              ${getFilteredParams(corrYSearchKeyword).map(p => `<option value="${p}" ${p === state.selectedCorrY ? "selected" : ""}>${p}</option>`).join("")}
-            </select>
-          </div>
-          <div class="form-group" style="display: flex; align-items: center; gap: 6px;">
-            <input type="checkbox" id="trendline-check" ${state.showTrendline ? "checked" : ""} />
-            <label htmlFor="trendline-check" style="font-size: 11px; cursor: pointer;">顯示趨勢線</label>
-          </div>
-          <div class="form-group">
-            <label class="form-label">X 軸 Scale</label>
-            <select class="form-control" id="corr-x-scale">
-              <option value="linear" ${state.xScale === "linear" ? "selected" : ""}>linear</option>
-              <option value="log" ${state.xScale === "log" ? "selected" : ""}>log</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Y 軸 Scale</label>
-            <select class="form-control" id="corr-y-scale">
-              <option value="linear" ${state.yScale === "linear" ? "selected" : ""}>linear</option>
-              <option value="log" ${state.yScale === "log" ? "selected" : ""}>log</option>
-            </select>
-          </div>
-        `;
-      } else {
-        html += `
-          <div class="form-group">
-            <label class="form-label">選擇參數 (可多選)</label>
-            <input type="text" class="form-control" id="dist-search" placeholder="輸入關鍵字篩選多選參數" value="${distSearchKeyword}" style="margin-bottom: 6px;" />
-            <div id="dist-checkboxes-list" style="max-height: 120px; overflow-y: auto; border: 1px solid #374151; border-radius: 4px; padding: 6px; background-color: #0b0f19; display: flex; flex-direction: column; gap: 4px;">
-              ${getFilteredParams(distSearchKeyword).map(param => {
-                const isChecked = state.selectedDistParams.includes(param);
-                return `
-                  <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
-                    <input type="checkbox" class="dist-param-checkbox" data-param="${param}" ${isChecked ? "checked" : ""} />
-                    <span>${param}</span>
-                  </label>
-                `;
-              }).join("")}
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Histogram X 軸 Scale</label>
-            <select class="form-control" id="dist-x-scale">
-              <option value="linear" ${state.distXScale === "linear" ? "selected" : ""}>linear</option>
-              <option value="log" ${state.distXScale === "log" ? "selected" : ""}>log</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Histogram Y 軸 Scale</label>
-            <select class="form-control" id="dist-y-scale">
-              <option value="linear" ${state.distYScale === "linear" ? "selected" : ""}>linear</option>
-              <option value="log" ${state.distYScale === "log" ? "selected" : ""}>log</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Box Plot Y 軸 Scale</label>
-            <select class="form-control" id="dist-box-y-scale">
-              <option value="linear" ${state.distBoxYScale === "linear" ? "selected" : ""}>linear</option>
-              <option value="log" ${state.distBoxYScale === "log" ? "selected" : ""}>log</option>
-            </select>
-          </div>
-        `;
-      }
-
-      // 參數值過濾區
-      html += `
-        <div style="margin-top: 20px;">
-          <span class="form-label" style="border-bottom: 1px solid #374151; padding-bottom: 4px; display: block; margin-bottom: 12px;">⚙️ 參數值篩選</span>
-          ${renderDynamicFilterControls(activeParams)}
         </div>
-      `;
-
-      container.innerHTML = html;
-      bindSidebarEvents();
-    }
-
-    function renderDynamicFilterControls(activeParams) {
-      if (activeParams.length === 0) {
-        return `<div style="font-size: 13px; color: #6b7280; font-style: italic;">請先選擇或勾選參數</div>`;
-      }
-
-      return activeParams.map((param) => {
-        const isCat = param === "CAT" && state.paramCategories[param];
-        const val = state.filters[param];
-
-        if (isCat) {
-          const categories = state.paramCategories[param];
-          const checkedCats = val?.checkedCats || categories;
-
-          return `
-            <div style="margin-bottom: 12px; border-bottom: 1px solid #1f2937; padding-bottom: 8px;">
-              <span class="form-label">${param} (分類篩選)</span>
-              <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-                <button class="btn btn-secondary btn-xs" id="cat-all-btn" data-param="${param}">全選</button>
-                <button class="btn btn-secondary btn-xs btn-danger" id="cat-none-btn" data-param="${param}">取消全選</button>
-              </div>
-              <div style="max-height: 100px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding: 4px; background-color: #0b0f19; border: 1px solid #374151; border-radius: 3px;">
-                ${categories.map(cat => `
-                  <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
-                    <input type="checkbox" class="cat-item-checkbox" data-param="${param}" data-cat="${cat}" ${checkedCats.includes(cat) ? "checked" : ""} />
-                    <span>${cat}</span>
-                  </label>
-                `).join("")}
-              </div>
-            </div>
-          `;
-        }
-
-        if (state.paramRanges[param]) {
-          const [minLimit, maxLimit] = state.paramRanges[param];
-          const currentMin = val ? val.min : minLimit;
-          const currentMax = val ? val.max : maxLimit;
-
-          return `
-            <div style="margin-bottom: 12px; border-bottom: 1px solid #1f2937; padding-bottom: 8px;">
-              <span class="form-label">${param} (值域篩選)</span>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <div>
-                  <label style="font-size: 11px; color: #6b7280;">MIN (${minLimit.toFixed(3)})</label>
-                  <input type="number" class="form-control range-min-input" data-param="${param}" step="0.001" value="${isNaN(currentMin) ? "" : currentMin}" />
-                </div>
-                <div>
-                  <label style="font-size: 11px; color: #6b7280;">MAX (${maxLimit.toFixed(3)})</label>
-                  <input type="number" class="form-control range-max-input" data-param="${param}" step="0.001" value="${isNaN(currentMax) ? "" : currentMax}" />
-                </div>
-              </div>
-            </div>
-          `;
-        }
-
-        return "";
-      }).join("");
-    }
-
-    // 關鍵字搜尋快取
-    let waferSearchKeyword = "";
-    let corrXSearchKeyword = "";
-    let corrYSearchKeyword = "";
-    let distSearchKeyword = "";
-
-    function getFilteredParams(keyword) {
-      if (!state.rawData) return [];
-      const lower = keyword.trim().toLowerCase();
-      if (!lower) return state.availableParams;
-      return state.availableParams.filter(p => p.toLowerCase().includes(lower));
-    }
-
-    // 綁定側邊欄事件
-    function bindSidebarEvents() {
-      // 輔助函式：綁定分佈參數多選框變更事件
-      function bindDistCheckboxEvents() {
-        const distCheckboxes = document.querySelectorAll(".dist-param-checkbox");
-        distCheckboxes.forEach(cb => {
-          cb.addEventListener("change", () => {
-            const params = [];
-            document.querySelectorAll(".dist-param-checkbox:checked").forEach(checkedCb => {
-              params.push(checkedCb.getAttribute("data-param"));
+      </section>
+    </main>
+    <div class="tooltip" id="tooltip"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <dialog id="field-dialog">
+      <h2 id="dialog-title">選擇參數</h2>
+      <select id="dialog-field" aria-label="加入圖表的參數"></select>
+      <div class="row">
+        <button id="dialog-add" class="primary">加入</button
+        ><button id="dialog-cancel">取消</button>
+      </div>
+    </dialog>
+    <script id="analysis-core">
+      "use strict";
+      const Analysis = (() => {
+        const finite = (v) => typeof v === "number" && Number.isFinite(v);
+        function parseDL(text) {
+          const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
+          if (lines.length < 7)
+            throw Error("檔案內容不足，請匯入 CP DL 原始檔。");
+          const cols = lines[5]
+            .replace(/[<>]/g, "")
+            .replace(/\//g, " ")
+            .trim()
+            .split(/\s+/);
+          if (!cols.includes("X") || !cols.includes("Y"))
+            throw Error("第 6 行缺少 X 或 Y 欄位。");
+          if (new Set(cols).size !== cols.length || cols.includes("_id"))
+            throw Error("欄位名稱重複或使用保留名稱 _id。");
+          const rows = [];
+          let skipped = 0,
+            missing = 0,
+            invalidCoordinates = 0,
+            duplicates = 0;
+          const seen = new Set(),
+            markers = new Set(["***", "N/A", "NULL", "nan", "NaN", "-", ""]);
+          for (let i = 6; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            // Preserve N/A before removing legacy slash separators.
+            const cells = lines[i]
+              .replace(/N\/A/gi, "NULL")
+              .replace(/\//g, " ")
+              .trim()
+              .split(/\s+/);
+            if (cells.length !== cols.length) {
+              skipped++;
+              continue;
+            }
+            const row = Object.create(null);
+            row._id = rows.length;
+            cols.forEach((col, j) => {
+              const v = cells[j];
+              if (markers.has(v)) {
+                row[col] = null;
+                missing++;
+              } else {
+                const n = Number(v);
+                row[col] = Number.isFinite(n)
+                  ? n
+                  : /^[+-]?(?:Infinity|NaN)$/i.test(v)
+                    ? null
+                    : v;
+              }
             });
-            state.selectedDistParams = params;
-            updateDataAndRender();
+            if (!finite(row.X) || !finite(row.Y)) invalidCoordinates++;
+            else {
+              const key = `${row.X},${row.Y}`;
+              if (seen.has(key)) duplicates++;
+              seen.add(key);
+            }
+            rows.push(row);
+          }
+          if (!rows.length)
+            throw Error("沒有可解析的資料行，請確認第 6 行欄位與資料行一致。");
+          const fields = cols.map((name) => ({
+            name,
+            type:
+              name === "CAT"
+                ? "category"
+                : rows.some((r) => finite(r[name]))
+                  ? "number"
+                  : "category",
+          }));
+          return {
+            rows,
+            fields,
+            skipped,
+            missing,
+            invalidCoordinates,
+            duplicates,
+          };
+        }
+        const transform = (v, scale) =>
+          finite(v) && (scale !== "log" || v > 0)
+            ? scale === "log"
+              ? Math.log10(v)
+              : v
+            : null;
+        function samples(rows, x, y, xScale = "linear", yScale = "linear") {
+          const out = [];
+          for (const row of rows) {
+            const a = transform(row[x], xScale),
+              b = transform(row[y], yScale);
+            if (a !== null && b !== null) out.push({ x: a, y: b, row });
+          }
+          return out;
+        }
+        function pairs(c) {
+          if (c.type === "hist") return c.x.map((x) => [x, null]);
+          if (c.type === "box") return c.y.map((y) => [null, y]);
+          return c.y.flatMap((y) => c.x.map((x) => [x, y]));
+        }
+        function extent(values) {
+          let min = Infinity,
+            max = -Infinity;
+          for (const v of values)
+            if (finite(v)) {
+              if (v < min) min = v;
+              if (v > max) max = v;
+            }
+          return min === Infinity ? null : [min, max];
+        }
+        function domain(values) {
+          let [lo, hi] = extent(values) || [0, 1];
+          if (lo === hi) {
+            const d = Math.abs(lo) * 0.05 || 0.5;
+            lo -= d;
+            hi += d;
+          }
+          return [lo, hi];
+        }
+        function histogram(items, count = 24) {
+          count = Math.max(2, Math.min(100, Math.round(Number(count) || 24)));
+          const [lo, hi] = domain(items.map((i) => i.v));
+          const step = (hi - lo) / count;
+          const bins = Array.from({ length: count }, (_, i) => ({
+            lo: lo + i * step,
+            hi: lo + (i + 1) * step,
+            items: [],
+          }));
+          for (const item of items)
+            if (finite(item.v))
+              bins[
+                Math.max(
+                  0,
+                  Math.min(count - 1, Math.floor((item.v - lo) / step)),
+                )
+              ].items.push(item);
+          return bins;
+        }
+        function selectRect(points, r) {
+          return points
+            .filter(
+              (p) =>
+                p.px >= r.x &&
+                p.px <= r.x + r.w &&
+                p.py >= r.y &&
+                p.py <= r.y + r.h,
+            )
+            .map((p) => p.row._id);
+        }
+        function summary(values) {
+          const a = values.filter(finite).sort((x, y) => x - y);
+          if (!a.length) return null;
+          const q = (p) => {
+            const i = (a.length - 1) * p,
+              b = Math.floor(i);
+            return a[b] + (a[Math.min(b + 1, a.length - 1)] - a[b]) * (i - b);
+          };
+          return {
+            n: a.length,
+            min: a[0],
+            max: a[a.length - 1],
+            mean: a.reduce((s, v) => s + v / a.length, 0),
+            median: q(0.5),
+            q1: q(0.25),
+            q3: q(0.75),
+          };
+        }
+        function correlation(items) {
+          if (items.length < 2) return null;
+          let mx = 0,
+            my = 0,
+            xx = 0,
+            yy = 0,
+            xy = 0,
+            n = 0;
+          for (const p of items) {
+            n++;
+            const dx = p.x - mx,
+              dy = p.y - my;
+            mx += dx / n;
+            my += dy / n;
+            xx += dx * (p.x - mx);
+            yy += dy * (p.y - my);
+            xy += dx * (p.y - my);
+          }
+          if (xx === 0 || yy === 0) return null;
+          return {
+            r: Math.max(-1, Math.min(1, xy / Math.sqrt(xx * yy))),
+            slope: xy / xx,
+            intercept: my - (xy / xx) * mx,
+          };
+        }
+        function validateLayout(raw, fields) {
+          if (
+            !raw ||
+            raw.version !== 1 ||
+            !Array.isArray(raw.charts) ||
+            raw.charts.length > 12
+          )
+            throw Error("版面版本或圖表數量不支援（最多 12 張）。");
+          const names = new Set(fields.map((f) => f.name)),
+            numeric = new Set(
+              fields.filter((f) => f.type === "number").map((f) => f.name),
+            );
+          const list = (v) =>
+            Array.isArray(v)
+              ? [...new Set(v.filter((n) => numeric.has(n)))].slice(0, 6)
+              : [];
+          const charts = raw.charts.map((c) => {
+            if (!c || !["scatter", "matrix", "hist", "box"].includes(c.type))
+              throw Error("版面包含不支援的圖表。");
+            return {
+              type: c.type,
+              x: list(c.x),
+              y: list(c.y),
+              group: names.has(c.group) ? c.group : "",
+              xScale: c.xScale === "log" ? "log" : "linear",
+              yScale: c.yScale === "log" ? "log" : "linear",
+              bins: Math.max(
+                2,
+                Math.min(100, Math.round(Number(c.bins) || 24)),
+              ),
+              trend: c.trend === true,
+              wide: c.wide !== false,
+              tall: c.tall === true,
+            };
           });
-        });
-      }
-
-      // Wafer Param
-      const waferSelect = document.getElementById("wafer-param-select");
-      if (waferSelect) {
-        waferSelect.addEventListener("change", (e) => {
-          state.selectedWaferParam = e.target.value;
-          updateDataAndRender();
-        });
-      }
-      const waferSearch = document.getElementById("wafer-search");
-      if (waferSearch) {
-        waferSearch.addEventListener("input", (e) => {
-          waferSearchKeyword = e.target.value;
-          const select = document.getElementById("wafer-param-select");
-          if (select) {
-            select.innerHTML = getFilteredParams(waferSearchKeyword).map(p => `<option value="${p}" ${p === state.selectedWaferParam ? "selected" : ""}>${p}</option>`).join("");
+          return {
+            version: 1,
+            wafer: names.has(raw.wafer)
+              ? raw.wafer
+              : fields.find(
+                  (f) => f.type === "number" && !["X", "Y"].includes(f.name),
+                )?.name || "X",
+            waferLog: raw.waferLog === true,
+            charts,
+          };
+        }
+        function groupCounts(items, keyOf) {
+          const counts = new Map();
+          for (const item of items) {
+            const key = keyOf(item);
+            counts.set(key, (counts.get(key) || 0) + 1);
           }
-        });
-      }
-
-      // Correlation Params
-      const corrXSelect = document.getElementById("corr-x-select");
-      if (corrXSelect) {
-        corrXSelect.addEventListener("change", (e) => {
-          state.selectedCorrX = e.target.value;
-          updateDataAndRender();
-        });
-      }
-      const corrYSelect = document.getElementById("corr-y-select");
-      if (corrYSelect) {
-        corrYSelect.addEventListener("change", (e) => {
-          state.selectedCorrY = e.target.value;
-          updateDataAndRender();
-        });
-      }
-      const corrXSearch = document.getElementById("corr-x-search");
-      if (corrXSearch) {
-        corrXSearch.addEventListener("input", (e) => {
-          corrXSearchKeyword = e.target.value;
-          const select = document.getElementById("corr-x-select");
-          if (select) {
-            select.innerHTML = getFilteredParams(corrXSearchKeyword).map(p => `<option value="${p}" ${p === state.selectedCorrX ? "selected" : ""}>${p}</option>`).join("");
-          }
-        });
-      }
-      const corrYSearch = document.getElementById("corr-y-search");
-      if (corrYSearch) {
-        corrYSearch.addEventListener("input", (e) => {
-          corrYSearchKeyword = e.target.value;
-          const select = document.getElementById("corr-y-select");
-          if (select) {
-            select.innerHTML = getFilteredParams(corrYSearchKeyword).map(p => `<option value="${p}" ${p === state.selectedCorrY ? "selected" : ""}>${p}</option>`).join("");
-          }
-        });
-      }
-      const trendlineCheck = document.getElementById("trendline-check");
-      if (trendlineCheck) {
-        trendlineCheck.addEventListener("change", (e) => {
-          state.showTrendline = e.target.checked;
-          triggerRedraw();
-        });
-      }
-      const corrXScale = document.getElementById("corr-x-scale");
-      if (corrXScale) {
-        corrXScale.addEventListener("change", (e) => {
-          state.xScale = e.target.value;
-          triggerRedraw();
-        });
-      }
-      const corrYScale = document.getElementById("corr-y-scale");
-      if (corrYScale) {
-        corrYScale.addEventListener("change", (e) => {
-          state.yScale = e.target.value;
-          triggerRedraw();
-        });
-      }
-
-      // Distribution Params
-      const distSearch = document.getElementById("dist-search");
-      if (distSearch) {
-        distSearch.addEventListener("input", (e) => {
-          distSearchKeyword = e.target.value;
-          const listDiv = document.getElementById("dist-checkboxes-list");
-          if (listDiv) {
-            listDiv.innerHTML = getFilteredParams(distSearchKeyword).map(param => {
-              const isChecked = state.selectedDistParams.includes(param);
-              return `
-                <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
-                  <input type="checkbox" class="dist-param-checkbox" data-param="${param}" ${isChecked ? "checked" : ""} />
-                  <span>${param}</span>
-                </label>
-              `;
-            }).join("");
-            bindDistCheckboxEvents();
-          }
-        });
-      }
-      bindDistCheckboxEvents();
-      const distXScale = document.getElementById("dist-x-scale");
-      if (distXScale) {
-        distXScale.addEventListener("change", (e) => {
-          state.distXScale = e.target.value;
-          triggerRedraw();
-        });
-      }
-      const distYScale = document.getElementById("dist-y-scale");
-      if (distYScale) {
-        distYScale.addEventListener("change", (e) => {
-          state.distYScale = e.target.value;
-          triggerRedraw();
-        });
-      }
-      const distBoxYScale = document.getElementById("dist-box-y-scale");
-      if (distBoxYScale) {
-        distBoxYScale.addEventListener("change", (e) => {
-          state.distBoxYScale = e.target.value;
-          triggerRedraw();
-        });
-      }
-
-      // 分類篩選 - 全選 / 取消全選
-      document.querySelectorAll("#cat-all-btn").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-          const param = e.target.getAttribute("data-param");
-          state.filters[param].checkedCats = [...(state.paramCategories[param] || [])];
-          updateDataAndRender();
-        });
-      });
-      document.querySelectorAll("#cat-none-btn").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-          const param = e.target.getAttribute("data-param");
-          state.filters[param].checkedCats = [];
-          updateDataAndRender();
-        });
-      });
-
-      // 分類篩選 - 個別勾選
-      document.querySelectorAll(".cat-item-checkbox").forEach(cb => {
-        cb.addEventListener("change", (e) => {
-          const param = e.target.getAttribute("data-param");
-          const cat = e.target.getAttribute("data-cat");
-          const checkedCats = state.filters[param].checkedCats;
-          if (e.target.checked) {
-            if (!checkedCats.includes(cat)) checkedCats.push(cat);
-          } else {
-            const idx = checkedCats.indexOf(cat);
-            if (idx > -1) checkedCats.splice(idx, 1);
-          }
-          updateDataAndRender();
-        });
-      });
-
-      // 數值篩選
-      document.querySelectorAll(".range-min-input, .range-max-input").forEach(input => {
-        input.addEventListener("change", (e) => {
-          const param = e.target.getAttribute("data-param");
-          const val = e.target.value;
-          if (e.target.classList.contains("range-min-input")) {
-            state.filters[param].min = val === "" ? state.paramRanges[param][0] : parseFloat(val);
-          } else {
-            state.filters[param].max = val === "" ? state.paramRanges[param][1] : parseFloat(val);
-          }
-          updateDataAndRender();
-        });
-      });
-
-      // Tab 切換
-      document.querySelectorAll(".tab-btn").forEach(btn => {
-        btn.onclick = (e) => {
-          document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-          e.currentTarget.classList.add("active");
-          state.activeTab = e.currentTarget.getAttribute("data-tab");
-          renderSidebarControls();
+          return counts;
+        }
+        function csvCell(v) {
+          let text = String(v ?? "");
+          if (typeof v === "string" && /^[\s]*[=+@\-\t\r]/.test(text))
+            text = "'" + text;
+          return '"' + text.replace(/"/g, '""') + '"';
+        }
+        function filterRows(rows, rules) {
+          return rows.filter((row) =>
+            rules.every((rule) =>
+              rule.type === "number"
+                ? finite(row[rule.field]) &&
+                  (rule.min === null || row[rule.field] >= rule.min) &&
+                  (rule.max === null || row[rule.field] <= rule.max)
+                : rule.values.includes(
+                    row[rule.field] === null ? "缺值" : String(row[rule.field]),
+                  ),
+            ),
+          );
+        }
+        return {
+          groupCounts,
+          csvCell,
+          filterRows,
+          finite,
+          parseDL,
+          transform,
+          samples,
+          pairs,
+          extent,
+          domain,
+          histogram,
+          selectRect,
+          summary,
+          correlation,
+          validateLayout,
         };
-      });
-    }
-
-    // =================================================================
-    // 5. Canvas 繪圖函式
-    // =================================================================
-
-    function drawWaferMap() {
-      const canvas = document.getElementById("wafer-canvas");
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-
-      if (state.nonSpatialFilteredData.length === 0) {
-        ctx.fillStyle = "#6b7280";
-        ctx.font = "14px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("沒有資料", canvas.width / 2, canvas.height / 2);
-        return;
+      })();
+      globalThis.Analysis = Analysis;
+    </script>
+    <script id="analysis-ui">
+      "use strict";
+      const $ = (id) => document.getElementById(id),
+        A = Analysis;
+      const esc = (s) =>
+        String(s ?? "").replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      const fmt = (v) =>
+        !A.finite(v)
+          ? "—"
+          : v === 0
+            ? "0"
+            : Math.abs(v) >= 1e5 || Math.abs(v) < 0.001
+              ? v.toExponential(2)
+              : Number(v.toPrecision(4)).toLocaleString("en-US", {
+                  maximumFractionDigits: 6,
+                });
+      const colors = [
+        "#287bc1",
+        "#639f92",
+        "#a17cc0",
+        "#d09448",
+        "#6488ac",
+        "#b6758c",
+        "#8a9b53",
+        "#6574bb",
+      ];
+      const S = {
+        rows: [],
+        fields: [],
+        charts: [],
+        selected: new Set(),
+        filter: null,
+        rules: [],
+        wafer: "",
+        waferLog: false,
+        chosen: "",
+        active: null,
+        zoom: 1,
+        filename: "",
+        serial: 0,
+      };
+      let plots = [],
+        waferPlot = null,
+        frame = 0,
+        toastTimer;
+      const activeRows = () =>
+        A.filterRows(
+          S.filter ? S.rows.filter((r) => S.filter.has(r._id)) : S.rows,
+          S.rules,
+        );
+      const selectedRows = () =>
+        activeRows().filter((r) => S.selected.has(r._id));
+      function toast(message) {
+        $("toast").textContent = message;
+        $("toast").style.display = "block";
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(
+          () => ($("toast").style.display = "none"),
+          5000,
+        );
       }
-
-      const param = state.selectedWaferParam;
-      const data = state.nonSpatialFilteredData;
-      const xvals = data.map(r => Number(r.X)).filter(x => !isNaN(x));
-      const yvals = data.map(r => Number(r.Y)).filter(y => !isNaN(y));
-      const paramVals = data.map(r => Number(r[param])).filter(v => !isNaN(v));
-
-      if (xvals.length === 0 || yvals.length === 0 || paramVals.length === 0) {
-        ctx.fillStyle = "#6b7280";
-        ctx.font = "14px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("資料不足", canvas.width / 2, canvas.height / 2);
-        return;
+      function chart(type = "scatter", extra = {}) {
+        return {
+          id: ++S.serial,
+          type,
+          x: [],
+          y: [],
+          group: "",
+          xScale: "linear",
+          yScale: "linear",
+          bins: 24,
+          trend: false,
+          wide: true,
+          tall: false,
+          ...extra,
+        };
       }
-
-      const xMin = Math.min(...xvals);
-      const xMax = Math.max(...xvals);
-      const yMin = Math.min(...yvals);
-      const yMax = Math.max(...yvals);
-      const paramMin = Math.min(...paramVals);
-      const paramMax = Math.max(...paramVals);
-
-      const margin = 40;
-      const plotW = canvas.width - 2 * margin;
-      const plotH = canvas.height - 2 * margin;
-
-      // 背景
-      ctx.fillStyle = "#0b0f19";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // 繪製網格和軸
-      ctx.strokeStyle = "#374151";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(margin, margin, plotW, plotH);
-
-      // X 軸標籤
-      ctx.fillStyle = "#9ca3af";
-      ctx.font = "11px Arial";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "top";
-      ctx.fillText(`${param} (Value)`, canvas.width / 2, canvas.height - 10);
-
-      // Y 軸標籤
-      ctx.save();
-      ctx.translate(10, canvas.height / 2);
-      ctx.rotate(-Math.PI / 2);
-      ctx.textAlign = "center";
-      ctx.fillText("Y", 0, 0);
-      ctx.restore();
-
-      // 繪製數據點
-      const pointRadius = 3;
-      const highlightedWaferIndices = remapHighlightIndices(
-        state.filteredData,
-        data,
-        state.highlightIndices
-      );
-
-      data.forEach((row, idx) => {
-        const x = Number(row.X);
-        const y = Number(row.Y);
-        const pval = Number(row[param]);
-
-        if (!isNaN(x) && !isNaN(y) && !isNaN(pval)) {
-          const px = margin + ((x - xMin) / (xMax - xMin)) * plotW;
-          const py = margin + plotH - ((y - yMin) / (yMax - yMin)) * plotH;
-
-          ctx.fillStyle = getTurboColor(pval, paramMin, paramMax);
-          ctx.beginPath();
-          ctx.arc(px, py, pointRadius, 0, 2 * Math.PI);
-          ctx.fill();
-
-          // 檢查是否在高亮集合中
-          if (highlightedWaferIndices.has(idx)) {
-            ctx.strokeStyle = "#ff0000";
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(px, py, pointRadius + 2, 0, 2 * Math.PI);
-            ctx.stroke();
-          }
+      function fieldOptions(fields, value) {
+        return fields
+          .map(
+            (f) =>
+              `<option value="${esc(f.name)}" ${f.name === value ? "selected" : ""}>${esc(f.name)}</option>`,
+          )
+          .join("");
+      }
+      function renderFields() {
+        const query = $("search").value.toLowerCase();
+        const groups = [
+          [
+            "數值參數",
+            (f) => f.type === "number" && !["X", "Y"].includes(f.name),
+          ],
+          ["類別參數", (f) => f.type === "category"],
+          ["座標參數", (f) => ["X", "Y"].includes(f.name)],
+        ];
+        $("fields").innerHTML = groups
+          .map(([name, filter]) => {
+            const fs = S.fields
+              .filter(filter)
+              .filter((f) => f.name.toLowerCase().includes(query));
+            return fs.length
+              ? `<h3 class="field-group">${name}</h3>` +
+                  fs
+                    .map(
+                      (f) =>
+                        `<button class="field ${S.chosen === f.name ? "selected" : ""}" draggable="true" data-field="${esc(f.name)}" title="${esc(f.name)}"><span class="handle">⠿</span><span class="muted">${f.type === "number" ? "#" : "A"}</span><span class="name">${esc(f.name)}</span></button>`,
+                    )
+                    .join("")
+              : "";
+          })
+          .join("");
+        $("field-count").textContent = `${S.fields.length} 項`;
+        $("fields")
+          .querySelectorAll("[data-field]")
+          .forEach((b) => {
+            b.onclick = () => {
+              S.chosen = b.dataset.field;
+              $("chosen-label").textContent = `已選：${S.chosen}`;
+              renderFields();
+            };
+            b.ondragstart = (e) => {
+              e.dataTransfer.setData("text/plain", b.dataset.field);
+              e.dataTransfer.effectAllowed = "copy";
+            };
+          });
+      }
+      function shelf(c, role) {
+        const fields = role === "group" ? (c.group ? [c.group] : []) : c[role];
+        return `<div class="shelf" data-role="${role}" tabindex="0" aria-label="${role} 參數放置區"><b>${role === "group" ? "分組" : role.toUpperCase()}</b>${fields.map((f) => `<span class="chip"><span title="${esc(f)}">${esc(f)}</span><button data-remove="${esc(f)}" aria-label="移除 ${esc(f)}">×</button></span>`).join("")}<button class="add-field" aria-label="加入 ${role} 參數">＋</button></div>`;
+      }
+      function renderCharts() {
+        plots = [];
+        $("charts").innerHTML = S.charts.length
+          ? S.charts
+              .map(
+                (c) =>
+                  `<article class="chart ${c.wide ? "wide" : ""} ${c.tall ? "tall" : ""} ${S.active === c.id ? "focused" : ""}" data-chart="${c.id}"><div class="chart-head"><select data-setting="type" aria-label="圖表類型">${[
+                    ["scatter", "散佈圖"],
+                    ["matrix", "關聯矩陣"],
+                    ["hist", "直方圖"],
+                    ["box", "箱型圖"],
+                  ]
+                    .map(
+                      ([v, l]) =>
+                        `<option value="${v}" ${c.type === v ? "selected" : ""}>${l}</option>`,
+                    )
+                    .join(
+                      "",
+                    )}</select><div class="controls"><button class="icon" data-action="wide" title="切換半寬／全寬">↔</button><button class="icon" data-action="tall" title="切換圖表高度">↕</button><button class="icon" data-action="copy" title="複製圖表">複製</button><button class="icon" data-action="delete" title="移除圖表">×</button></div></div><div class="shelves">${c.type !== "box" ? shelf(c, "x") : ""}${c.type !== "hist" ? shelf(c, "y") : ""}${shelf(c, "group")}</div><div class="chart-options">${c.type !== "box" ? `<label>X <select data-setting="xScale" aria-label="X 軸尺度"><option value="linear">Linear</option><option value="log" ${c.xScale === "log" ? "selected" : ""}>Log</option></select></label>` : ""}<label>Y <select data-setting="yScale" aria-label="Y 軸尺度"><option value="linear">Linear</option><option value="log" ${c.yScale === "log" ? "selected" : ""}>Log</option></select></label>${c.type === "hist" ? `<label>組數 <input type="number" min="2" max="100" value="${c.bins}" data-setting="bins" aria-label="直方圖組數"></label>` : ""}${["scatter", "matrix"].includes(c.type) ? `<label><input type="checkbox" data-setting="trend" ${c.trend ? "checked" : ""}>趨勢線</label>` : ""}${c.type === "box" ? "<span>鬚線：最小值至最大值</span>" : ""}</div><div class="facets"></div></article>`,
+              )
+              .join("")
+          : '<div class="empty chart wide">按「新增圖表」，再將參數加入 X／Y。</div>';
+        $("charts")
+          .querySelectorAll("[data-chart]")
+          .forEach((el) => {
+            const c = S.charts.find((c) => c.id === Number(el.dataset.chart));
+            el.addEventListener("pointerdown", () => {
+              S.active = c.id;
+              document
+                .querySelectorAll("[data-chart]")
+                .forEach((e) =>
+                  e.classList.toggle(
+                    "focused",
+                    Number(e.dataset.chart) === c.id,
+                  ),
+                );
+            });
+            el.querySelectorAll("[data-setting]").forEach(
+              (input) =>
+                (input.onchange = () => {
+                  const k = input.dataset.setting;
+                  c[k] =
+                    input.type === "checkbox"
+                      ? input.checked
+                      : k === "bins"
+                        ? Math.max(2, Math.min(100, Number(input.value) || 24))
+                        : input.value;
+                  renderCharts();
+                }),
+            );
+            el.querySelectorAll("[data-action]").forEach(
+              (b) =>
+                (b.onclick = () => {
+                  switch (b.dataset.action) {
+                    case "wide":
+                      c.wide = !c.wide;
+                      break;
+                    case "tall":
+                      c.tall = !c.tall;
+                      break;
+                    case "copy":
+                      if (S.charts.length >= 12)
+                        return toast("最多 12 張圖表。");
+                      S.charts.push(
+                        chart(c.type, {
+                          ...c,
+                          id: ++S.serial,
+                          x: [...c.x],
+                          y: [...c.y],
+                        }),
+                      );
+                      break;
+                    case "delete":
+                      S.charts = S.charts.filter((x) => x.id !== c.id);
+                      S.active = S.charts[0]?.id;
+                      break;
+                  }
+                  renderCharts();
+                }),
+            );
+            el.querySelectorAll(".shelf").forEach((s) => {
+              const role = s.dataset.role;
+              s.ondragover = (e) => {
+                e.preventDefault();
+                s.classList.add("dragover");
+              };
+              s.ondragleave = () => s.classList.remove("dragover");
+              s.ondrop = (e) => {
+                e.preventDefault();
+                s.classList.remove("dragover");
+                assign(c, role, e.dataTransfer.getData("text/plain"));
+              };
+              s.querySelector(".add-field").onclick = () => openPicker(c, role);
+              s.onkeydown = (e) => {
+                if (e.target === s && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  openPicker(c, role);
+                }
+              };
+              s.querySelectorAll("[data-remove]").forEach(
+                (b) =>
+                  (b.onclick = () => {
+                    if (role === "group") c.group = "";
+                    else
+                      c[role] = c[role].filter((v) => v !== b.dataset.remove);
+                    renderCharts();
+                  }),
+              );
+            });
+            const pairs = A.pairs(c),
+              container = el.querySelector(".facets");
+            if (!pairs.length) {
+              container.innerHTML =
+                '<div class="empty">將數值參數加入 ' +
+                (c.type === "hist" ? "X" : c.type === "box" ? "Y" : "X 與 Y") +
+                " 即可繪圖。</div>";
+              return;
+            }
+            pairs.forEach(([x, y]) => {
+              const f = document.createElement("section");
+              f.className = "facet";
+              const title =
+                c.type === "hist"
+                  ? `${x} 分布`
+                  : c.type === "box"
+                    ? `${y}${c.group ? " 依 " + c.group + " 分組" : ""}`
+                    : `${y} vs ${x}`;
+              f.innerHTML = `<div class="facet-title"><span title="${esc(title)}">${esc(title)}</span><button class="icon" title="匯出此圖 PNG">↓</button></div><div class="plot-wrap"><canvas class="plot-canvas" aria-label="${esc(title)}"></canvas><div class="brush"></div></div><div class="plot-note"></div><div class="legend"></div>`;
+              container.appendChild(f);
+              const plot = {
+                canvas: f.querySelector("canvas"),
+                wrap: f.querySelector(".plot-wrap"),
+                note: f.querySelector(".plot-note"),
+                legend: f.querySelector(".legend"),
+                c,
+                x,
+                y,
+                title,
+                points: [],
+                bins: [],
+              };
+              plots.push(plot);
+              bindBrush(plot);
+              f.querySelector("button").onclick = () =>
+                savePNG(plot.canvas, title);
+            });
+          });
+        observePlots();
+        scheduleDraw();
+      }
+      function assign(c, role, name) {
+        const f = S.fields.find((f) => f.name === name);
+        if (!f) return;
+        if (role === "wafer") {
+          S.wafer = name;
+          $("wafer-param").value = name;
+          scheduleDraw();
+          return;
         }
-      });
-
-      // 繪製選取框（如果有）
-      if (state.spatialFilterRange) {
-        const [xMin_sel, xMax_sel] = state.spatialFilterRange.x;
-        const [yMin_sel, yMax_sel] = state.spatialFilterRange.y;
-        const px1 = margin + ((xMin_sel - xMin) / (xMax - xMin)) * plotW;
-        const px2 = margin + ((xMax_sel - xMin) / (xMax - xMin)) * plotW;
-        const py1 = margin + plotH - ((yMax_sel - yMin) / (yMax - yMin)) * plotH;
-        const py2 = margin + plotH - ((yMin_sel - yMin) / (yMax - yMin)) * plotH;
-
-        ctx.strokeStyle = "#3b82f6";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(px1, py1, px2 - px1, py2 - py1);
+        if (!c) return toast("請先新增一張圖表。");
+        if (role !== "group" && f.type !== "number")
+          return toast("X／Y 請選擇數值參數；類別參數可放入分組。");
+        if (
+          (role === "x" && c.type === "box") ||
+          (role === "y" && c.type === "hist")
+        )
+          return toast(
+            c.type === "box"
+              ? "箱型圖請加入 Y 軸，或用分組區選擇類別。"
+              : "直方圖請加入 X 軸。",
+          );
+        if (role === "group") c.group = name;
+        else {
+          if (c[role].includes(name)) return;
+          if (c[role].length >= 6)
+            return toast("每軸最多 6 個參數，請另增圖表。");
+          c[role].push(name);
+        }
+        S.active = c.id;
+        renderCharts();
       }
-    }
-
-    // 簡化的繪圖函式，避免代碼過長
-    function drawCorrelation() {
-      const canvas = document.getElementById("corr-canvas");
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-
-      const xParam = state.selectedCorrX;
-      const yParam = state.selectedCorrY;
-      const data = state.filteredData;
-
-      if (!xParam || !yParam || data.length === 0) {
-        ctx.fillStyle = "#6b7280";
-        ctx.font = "14px Arial";
+      let pickerTarget;
+      function openPicker(c, role) {
+        pickerTarget = { c, role };
+        const fs = S.fields.filter(
+          (f) => role === "group" || f.type === "number",
+        );
+        $("dialog-title").textContent =
+          `加入 ${role === "group" ? "分組" : role.toUpperCase()} 參數`;
+        $("dialog-field").innerHTML = fieldOptions(fs, S.chosen);
+        $("field-dialog").showModal();
+      }
+      $("dialog-add").onclick = () => {
+        assign(pickerTarget.c, pickerTarget.role, $("dialog-field").value);
+        $("field-dialog").close();
+      };
+      $("dialog-cancel").onclick = () => $("field-dialog").close();
+      function setupCanvas(canvas) {
+        const rect = canvas.getBoundingClientRect(),
+          dpr = window.devicePixelRatio || 1,
+          w = Math.max(1, rect.width),
+          h = Math.max(1, rect.height);
+        if (
+          canvas.width !== Math.round(w * dpr) ||
+          canvas.height !== Math.round(h * dpr)
+        ) {
+          canvas.width = Math.round(w * dpr);
+          canvas.height = Math.round(h * dpr);
+        }
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, w, h);
+        ctx.font = '10px "Segoe UI",sans-serif';
+        return { ctx, w, h };
+      }
+      function axes(
+        canvas,
+        xd,
+        yd,
+        xlabel,
+        ylabel,
+        xlog = false,
+        ylog = false,
+        catLabels = null,
+      ) {
+        const { ctx, w, h } = setupCanvas(canvas),
+          r = {
+            l: 55,
+            t: 20,
+            w: Math.max(10, w - 73),
+            h: Math.max(10, h - 64),
+          };
+        const sx = (v) => r.l + ((v - xd[0]) / (xd[1] - xd[0])) * r.w,
+          sy = (v) => r.t + r.h - ((v - yd[0]) / (yd[1] - yd[0])) * r.h;
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+          const v = yd[0] + ((yd[1] - yd[0]) * i) / 4,
+            py = sy(v);
+          ctx.strokeStyle = "#e8edf3";
+          ctx.beginPath();
+          ctx.moveTo(r.l, py);
+          ctx.lineTo(r.l + r.w, py);
+          ctx.stroke();
+          ctx.fillStyle = "#62748a";
+          ctx.textAlign = "right";
+          ctx.fillText(fmt(ylog ? 10 ** v : v), r.l - 7, py + 3);
+        }
+        const xticks = catLabels
+          ? catLabels.map((v, i) => [i, v])
+          : Array.from({ length: 5 }, (_, i) => {
+              const v = xd[0] + ((xd[1] - xd[0]) * i) / 4;
+              return [v, fmt(xlog ? 10 ** v : v)];
+            });
         ctx.textAlign = "center";
-        ctx.fillText("沒有資料", canvas.width / 2, canvas.height / 2);
-        return;
-      }
-
-      const xvals = data.map(r => Number(r[xParam])).filter(v => !isNaN(v));
-      const yvals = data.map(r => Number(r[yParam])).filter(v => !isNaN(v));
-
-      if (xvals.length < 2 || yvals.length < 2) {
-        ctx.fillStyle = "#6b7280";
-        ctx.font = "14px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("資料不足", canvas.width / 2, canvas.height / 2);
-        return;
-      }
-
-      let xMin = Math.min(...xvals);
-      let xMax = Math.max(...xvals);
-      let yMin = Math.min(...yvals);
-      let yMax = Math.max(...yvals);
-
-      if (state.xScale === "log" && xMin > 0) {
-        xMin = Math.log10(xMin);
-        xMax = Math.log10(xMax);
-      }
-      if (state.yScale === "log" && yMin > 0) {
-        yMin = Math.log10(yMin);
-        yMax = Math.log10(yMax);
-      }
-
-      const margin = 40;
-      const plotW = canvas.width - 2 * margin;
-      const plotH = canvas.height - 2 * margin;
-
-      ctx.fillStyle = "#0b0f19";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.strokeStyle = "#374151";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(margin, margin, plotW, plotH);
-
-      // 繪製數據點
-      const r = calculatePearsonR(
-        data.map(r => Number(r[xParam])).filter(v => !isNaN(v)),
-        data.map(r => Number(r[yParam])).filter(v => !isNaN(v))
-      );
-      const infoElem = document.getElementById("corr-info");
-      if (infoElem) {
-        infoElem.innerText = `r=${r.toFixed(3)}`;
-      }
-
-      data.forEach((row, idx) => {
-        let x = Number(row[xParam]);
-        let y = Number(row[yParam]);
-
-        if (isNaN(x) || isNaN(y)) return;
-
-        if (state.xScale === "log" && x > 0) x = Math.log10(x);
-        if (state.yScale === "log" && y > 0) y = Math.log10(y);
-
-        const px = margin + ((x - xMin) / (xMax - xMin)) * plotW;
-        const py = margin + plotH - ((y - yMin) / (yMax - yMin)) * plotH;
-
-        ctx.fillStyle = "#3b82f6";
+        for (const [v, label] of xticks) {
+          ctx.fillStyle = "#62748a";
+          ctx.fillText(
+            String(label).slice(0, 15),
+            sx(v),
+            r.t + r.h + 16,
+            Math.max(18, r.w / (xticks.length || 1)),
+          );
+        }
+        ctx.strokeStyle = "#91a3b7";
         ctx.beginPath();
-        ctx.arc(px, py, 3, 0, 2 * Math.PI);
+        ctx.moveTo(r.l, r.t);
+        ctx.lineTo(r.l, r.t + r.h);
+        ctx.lineTo(r.l + r.w, r.t + r.h);
+        ctx.stroke();
+        ctx.fillStyle = "#344a63";
+        ctx.fillText(
+          xlabel + (xlog ? " · Log" : ""),
+          r.l + r.w / 2,
+          h - 7,
+          r.w,
+        );
+        ctx.save();
+        ctx.translate(12, r.t + r.h / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText(ylabel + (ylog ? " · Log" : ""), 0, 0, r.h);
+        ctx.restore();
+        return { ctx, w, h, r, sx, sy };
+      }
+      function category(row, name) {
+        return name
+          ? row[name] === null || row[name] === undefined
+            ? "缺值"
+            : String(row[name])
+          : "全部";
+      }
+      const groupCache = new Map();
+      function groupInfo(rows, name) {
+        if (!groupCache.has(name)) {
+          const keys = [...new Set(S.rows.map((r) => category(r, name)))].sort(
+            (a, b) => a.localeCompare(b, undefined, { numeric: true }),
+          );
+          groupCache.set(
+            name,
+            new Map(keys.map((key, i) => [key, colors[i % colors.length]])),
+          );
+        }
+        const map = groupCache.get(name);
+        const present = new Set(rows.map((r) => category(r, name)));
+        return {
+          keys: [...map.keys()].filter((k) => present.has(k)),
+          color: (key) => map.get(key) || colors[0],
+        };
+      }
+      function drawLegend(p, g) {
+        p.legend.innerHTML = p.c.group
+          ? g.keys
+              .slice(0, 24)
+              .map(
+                (k) =>
+                  `<span><i style="background:${g.color(k)}"></i>${esc(k)}</span>`,
+              )
+              .join("") +
+            (g.keys.length > 24
+              ? `<span>另 ${g.keys.length - 24} 組</span>`
+              : "")
+          : "";
+      }
+      function point(ctx, x, y, selected, color, r = 2) {
+        ctx.beginPath();
+        ctx.arc(x, y, selected ? r + 1 : r, 0, 2 * Math.PI);
+        ctx.fillStyle = selected ? "#ffb342" : color;
         ctx.fill();
-
-        if (state.highlightIndices.has(idx)) {
-          ctx.strokeStyle = "#ff0000";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(px, py, 5, 0, 2 * Math.PI);
-          ctx.stroke();
-        }
-      });
-
-      // 趨勢線
-      if (state.showTrendline) {
-        const xData = data.map(r => Number(r[xParam])).filter(v => !isNaN(v));
-        const yData = data.map(r => Number(r[yParam])).filter(v => !isNaN(v));
-        const reg = calculateLinearRegression(xData, yData);
-        if (reg) {
-          let x1 = reg.xStart;
-          let y1 = reg.yStart;
-          let x2 = reg.xEnd;
-          let y2 = reg.yEnd;
-
-          if (state.xScale === "log" && x1 > 0 && x2 > 0) {
-            x1 = Math.log10(x1);
-            x2 = Math.log10(x2);
-          }
-          if (state.yScale === "log" && y1 > 0 && y2 > 0) {
-            y1 = Math.log10(y1);
-            y2 = Math.log10(y2);
-          }
-
-          const px1 = margin + ((x1 - xMin) / (xMax - xMin)) * plotW;
-          const py1 = margin + plotH - ((y1 - yMin) / (yMax - yMin)) * plotH;
-          const px2 = margin + ((x2 - xMin) / (xMax - xMin)) * plotW;
-          const py2 = margin + plotH - ((y2 - yMin) / (yMax - yMin)) * plotH;
-
-          ctx.strokeStyle = "#ef4444";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(px1, py1);
-          ctx.lineTo(px2, py2);
+        if (selected) {
+          ctx.strokeStyle = "#bd7000";
+          ctx.lineWidth = 1;
           ctx.stroke();
         }
       }
-    }
-
-    function drawBoxPlot() {
-      const canvas = document.getElementById("box-canvas");
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-
-      const params = state.selectedDistParams;
-      const data = state.filteredData;
-
-      if (params.length === 0 || data.length === 0) {
-        ctx.fillStyle = "#6b7280";
-        ctx.font = "14px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("請選擇參數", canvas.width / 2, canvas.height / 2);
-        return;
+      function note(p, n, total, extra = "") {
+        p.note.textContent = `有效 N=${n.toLocaleString()} · 排除 ${total - n} 筆缺值／不適用尺度${extra ? " · " + extra : ""}`;
       }
-
-      const margin = 40;
-      const plotW = canvas.width - 2 * margin;
-      const plotH = canvas.height - 2 * margin;
-
-      ctx.fillStyle = "#0b0f19";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      const boxStats = params.map(param => ({
-        param,
-        stats: calculateBoxPlotStats(data.map(r => Number(r[param])).filter(v => !isNaN(v)))
-      })).filter(b => b.stats !== null);
-
-      if (boxStats.length === 0) {
-        ctx.fillStyle = "#6b7280";
-        ctx.font = "14px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("無有效資料", canvas.width / 2, canvas.height / 2);
-        return;
-      }
-
-      const allVals = boxStats.flatMap(b => [b.stats.min, b.stats.max]);
-      let yMin = Math.min(...allVals);
-      let yMax = Math.max(...allVals);
-
-      if (yMin === yMax) { yMin -= 0.5; yMax += 0.5; }
-
-      if (state.distBoxYScale === "log" && yMin > 0) {
-        yMin = Math.log10(yMin);
-        yMax = Math.log10(yMax);
-      }
-
-      const boxWidth = plotW / boxStats.length * 0.6;
-      const boxSpacing = plotW / boxStats.length;
-
-      boxStats.forEach((item, idx) => {
-        const x = margin + (idx + 0.5) * boxSpacing;
-        let min = item.stats.min;
-        let q1 = item.stats.q1;
-        let median = item.stats.median;
-        let q3 = item.stats.q3;
-        let max = item.stats.max;
-
-        if (state.distBoxYScale === "log") {
-          if (min > 0) min = Math.log10(min);
-          if (q1 > 0) q1 = Math.log10(q1);
-          if (median > 0) median = Math.log10(median);
-          if (q3 > 0) q3 = Math.log10(q3);
-          if (max > 0) max = Math.log10(max);
+      function drawScatter(p, rows) {
+        const c = p.c,
+          items = A.samples(rows, p.x, p.y, c.xScale, c.yScale),
+          xd = A.domain(items.map((i) => i.x)),
+          yd = A.domain(items.map((i) => i.y));
+        const { ctx, r, sx, sy } = axes(
+          p.canvas,
+          xd,
+          yd,
+          p.x,
+          p.y,
+          c.xScale === "log",
+          c.yScale === "log",
+        );
+        const g = groupInfo(
+          items.map((i) => i.row),
+          c.group,
+        );
+        p.points = items.map((i) => ({ ...i, px: sx(i.x), py: sy(i.y) }));
+        p.bins = [];
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(r.l, r.t, r.w, r.h);
+        ctx.clip();
+        for (const selected of [false, true])
+          for (const item of p.points)
+            if (S.selected.has(item.row._id) === selected)
+              point(
+                ctx,
+                item.px,
+                item.py,
+                selected,
+                g.color(category(item.row, c.group)) +
+                  (S.selected.size && !selected ? "45" : "90"),
+              );
+        const reg = A.correlation(items);
+        if (c.trend && reg) {
+          ctx.strokeStyle = "#405b7b";
+          ctx.lineWidth = 1.3;
+          ctx.beginPath();
+          ctx.moveTo(sx(xd[0]), sy(reg.slope * xd[0] + reg.intercept));
+          ctx.lineTo(sx(xd[1]), sy(reg.slope * xd[1] + reg.intercept));
+          ctx.stroke();
         }
-
-        const py_min = margin + plotH - ((min - yMin) / (yMax - yMin)) * plotH;
-        const py_q1 = margin + plotH - ((q1 - yMin) / (yMax - yMin)) * plotH;
-        const py_median = margin + plotH - ((median - yMin) / (yMax - yMin)) * plotH;
-        const py_q3 = margin + plotH - ((q3 - yMin) / (yMax - yMin)) * plotH;
-        const py_max = margin + plotH - ((max - yMin) / (yMax - yMin)) * plotH;
-
-        ctx.strokeStyle = PALETTE_COLORS[idx % PALETTE_COLORS.length];
-        ctx.lineWidth = 2;
-
-        // 鬍子
+        ctx.restore();
+        note(
+          p,
+          items.length,
+          rows.length,
+          `r=${reg ? reg.r.toFixed(3) : "—"}${c.xScale === "log" || c.yScale === "log" ? "（對數轉換後）" : ""}`,
+        );
+        drawLegend(p, g);
+      }
+      function drawHist(p, rows) {
+        const c = p.c,
+          items = [];
+        for (const row of rows) {
+          const v = A.transform(row[p.x], c.xScale);
+          if (v !== null) items.push({ v, row });
+        }
+        const bins = A.histogram(items, c.bins),
+          g = groupInfo(
+            items.map((i) => i.row),
+            c.group,
+          ),
+          max = Math.max(1, ...bins.map((b) => b.items.length));
+        const yd =
+          c.yScale === "log"
+            ? [Math.log10(0.5), Math.log10(Math.max(2, max) * 1.15)]
+            : [0, max * 1.12];
+        const { ctx, r, sx, sy } = axes(
+          p.canvas,
+          [bins[0].lo, bins[bins.length - 1].hi],
+          yd,
+          p.x,
+          "Die count",
+          c.xScale === "log",
+          c.yScale === "log",
+        );
+        p.points = [];
+        p.bins = [];
+        for (const b of bins) {
+          const x = sx(b.lo) + 1,
+            w = Math.max(1, sx(b.hi) - sx(b.lo) - 2),
+            base = r.t + r.h;
+          let sum = 0;
+          const counts = A.groupCounts(b.items, (item) =>
+            category(item.row, c.group),
+          );
+          for (const [key, n] of counts) {
+            const top = sy(c.yScale === "log" ? Math.log10(sum + n) : sum + n),
+              bottom = sum
+                ? sy(c.yScale === "log" ? Math.log10(sum) : sum)
+                : base;
+            ctx.fillStyle = g.color(key);
+            ctx.globalAlpha = S.selected.size ? 0.45 : 0.85;
+            ctx.fillRect(x, top, w, Math.max(0, bottom - top));
+            ctx.globalAlpha = 1;
+            sum += n;
+          }
+          const selected = b.items.filter((i) =>
+            S.selected.has(i.row._id),
+          ).length;
+          if (selected) {
+            const top = sy(
+              c.yScale === "log" ? Math.log10(selected) : selected,
+            );
+            ctx.fillStyle = "#f4ab3b";
+            ctx.fillRect(x, top, w, base - top);
+          }
+          p.bins.push({ ...b, px: x, pw: w });
+        }
+        note(p, items.length, rows.length);
+        drawLegend(p, g);
+      }
+      function drawBox(p, rows) {
+        const c = p.c,
+          items = [];
+        for (const row of rows) {
+          const v = A.transform(row[p.y], c.yScale);
+          if (v !== null) items.push({ v, row });
+        }
+        const g = groupInfo(
+          items.map((i) => i.row),
+          c.group,
+        );
+        // A high-cardinality grouping is not silently collapsed into misleading boxes.
+        if (g.keys.length > 40) {
+          setupCanvas(p.canvas);
+          p.note.textContent = "分組超過 40 類，請改用較少類別的欄位或先篩選。";
+          p.points = [];
+          p.bins = [];
+          p.legend.innerHTML = "";
+          return;
+        }
+        const { ctx, sx, sy, r } = axes(
+          p.canvas,
+          [-0.5, Math.max(0.5, g.keys.length - 0.5)],
+          A.domain(items.map((i) => i.v)),
+          c.group || "全部",
+          p.y,
+          false,
+          c.yScale === "log",
+          g.keys,
+        );
+        p.points = [];
+        p.bins = [];
+        g.keys.forEach((key, i) => {
+          const subset = items.filter((v) => category(v.row, c.group) === key),
+            s = A.summary(subset.map((v) => v.row[p.y])),
+            x = sx(i),
+            bw = Math.min(38, (r.w / Math.max(1, g.keys.length)) * 0.5),
+            ty = (v) => sy(A.transform(v, c.yScale));
+          ctx.strokeStyle = g.color(key);
+          ctx.fillStyle = g.color(key) + "30";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x, ty(s.min));
+          ctx.lineTo(x, ty(s.max));
+          ctx.moveTo(x - bw / 3, ty(s.min));
+          ctx.lineTo(x + bw / 3, ty(s.min));
+          ctx.moveTo(x - bw / 3, ty(s.max));
+          ctx.lineTo(x + bw / 3, ty(s.max));
+          ctx.stroke();
+          ctx.fillRect(x - bw / 2, ty(s.q3), bw, ty(s.q1) - ty(s.q3));
+          ctx.strokeRect(x - bw / 2, ty(s.q3), bw, ty(s.q1) - ty(s.q3));
+          ctx.beginPath();
+          ctx.moveTo(x - bw / 2, ty(s.median));
+          ctx.lineTo(x + bw / 2, ty(s.median));
+          ctx.stroke();
+          for (const item of subset) {
+            const px = x + (((item.row._id * 37) % 101) / 100 - 0.5) * bw * 0.7,
+              py = sy(item.v);
+            p.points.push({ px, py, row: item.row });
+            point(
+              ctx,
+              px,
+              py,
+              S.selected.has(item.row._id),
+              g.color(key) + "30",
+              1.5,
+            );
+          }
+        });
+        note(p, items.length, rows.length);
+        drawLegend(p, g);
+      }
+      function drawWafer() {
+        const visibleIDs = new Set(activeRows().map((r) => r._id));
+        const p = waferPlot,
+          { ctx, w, h } = setupCanvas(p.canvas),
+          rows = S.rows.filter((r) => A.finite(r.X) && A.finite(r.Y));
+        p.points = [];
+        p.bins = [];
+        if (!rows.length) {
+          ctx.fillStyle = "#7a8da4";
+          ctx.textAlign = "center";
+          ctx.font = "14px sans-serif";
+          ctx.fillText(
+            S.rows.length ? "沒有有效 X／Y 座標" : "匯入資料後顯示 Wafer map",
+            w / 2,
+            h / 2,
+          );
+          return;
+        }
+        const xd = A.domain(rows.map((r) => r.X)),
+          yd = A.domain(rows.map((r) => r.Y));
+        const l = 45,
+          t = 20,
+          pw = Math.max(1, w - 125),
+          ph = h - 65,
+          cx = l + pw / 2,
+          cy = t + ph / 2;
+        const step = (vals) => {
+          const a = [...new Set(vals)].sort((a, b) => a - b);
+          let m = Infinity;
+          for (let i = 1; i < a.length; i++)
+            if (a[i] - a[i - 1] < m) m = a[i] - a[i - 1];
+          return m === Infinity ? 1 : m;
+        };
+        const dx = step(rows.map((r) => r.X)),
+          dy = step(rows.map((r) => r.Y)),
+          unit =
+            Math.min(
+              pw / (xd[1] - xd[0] + 2 * dx),
+              ph / (yd[1] - yd[0] + 2 * dy),
+            ) * S.zoom;
+        const sx = (x) => cx + (x - (xd[0] + xd[1]) / 2) * unit,
+          sy = (y) => cy - (y - (yd[0] + yd[1]) / 2) * unit;
+        const field = S.fields.find((f) => f.name === S.wafer),
+          categorical = field?.type === "category",
+          g = categorical ? groupInfo(rows, S.wafer) : null,
+          scale = S.waferLog ? "log" : "linear",
+          range = A.domain(rows.map((r) => A.transform(r[S.wafer], scale))),
+          color = (v) => {
+            const n = A.transform(v, scale);
+            if (n === null) return "#d6dce3";
+            const u = Math.max(
+              0,
+              Math.min(1, (n - range[0]) / (range[1] - range[0])),
+            );
+            return `rgb(${Math.round(220 - 195 * u)},${Math.round(239 - 126 * u)},${Math.round(239 - 66 * u)})`;
+          };
+        ctx.save();
         ctx.beginPath();
-        ctx.moveTo(x, py_min);
-        ctx.lineTo(x, py_q1);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(x, py_q3);
-        ctx.lineTo(x, py_max);
-        ctx.stroke();
-
-        // 箱子
-        ctx.fillStyle = PALETTE_COLORS[idx % PALETTE_COLORS.length];
-        ctx.globalAlpha = 0.3;
-        ctx.fillRect(x - boxWidth / 2, py_q3, boxWidth, py_q1 - py_q3);
-        ctx.globalAlpha = 1;
-
-        ctx.strokeStyle = PALETTE_COLORS[idx % PALETTE_COLORS.length];
-        ctx.strokeRect(x - boxWidth / 2, py_q3, boxWidth, py_q1 - py_q3);
-
-        // 中位數
-        ctx.strokeStyle = "#ef4444";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(x - boxWidth / 2, py_median);
-        ctx.lineTo(x + boxWidth / 2, py_median);
-        ctx.stroke();
-      });
-
-      // 繪製高亮抖動點雲
-      if (state.highlightIndices.size > 0) {
-        boxStats.forEach((item, idx) => {
-          const x = margin + (idx + 0.5) * boxSpacing;
-
-          data.forEach((row, rowIdx) => {
-            if (state.highlightIndices.has(rowIdx)) {
-              let val = Number(row[item.param]);
-              if (isNaN(val)) return;
-
-              if (state.distBoxYScale === "log") {
-                if (val > 0) val = Math.log10(val);
-                else return;
+        ctx.rect(l, t, pw, ph);
+        ctx.clip();
+        for (const selected of [false, true])
+          for (const row of rows) {
+            if (S.selected.has(row._id) !== selected) continue;
+            const px = sx(row.X),
+              py = sy(row.Y),
+              bw = Math.max(1, dx * unit * 0.9),
+              bh = Math.max(1, dy * unit * 0.9),
+              included = visibleIDs.has(row._id);
+            ctx.globalAlpha = included ? 1 : 0.13;
+            ctx.fillStyle = categorical
+              ? row[S.wafer] === null
+                ? "#d6dce3"
+                : g.color(category(row, S.wafer))
+              : color(row[S.wafer]);
+            ctx.fillRect(px - bw / 2, py - bh / 2, bw, bh);
+            if (selected && included) {
+              ctx.strokeStyle = "#df8b09";
+              ctx.lineWidth = 1.8;
+              ctx.strokeRect(px - bw / 2, py - bh / 2, bw, bh);
+            }
+            ctx.globalAlpha = 1;
+            if (included && px >= l && px <= l + pw && py >= t && py <= t + ph)
+              p.points.push({ px, py, row });
+          }
+        ctx.restore();
+        ctx.strokeStyle = "#acbac9";
+        ctx.strokeRect(l, t, pw, ph);
+        ctx.fillStyle = "#60768f";
+        ctx.font = "10px sans-serif";
+        ctx.textAlign = "center";
+        for (let i = 0; i <= 4; i++) {
+          const x = xd[0] + ((xd[1] - xd[0]) * i) / 4,
+            y = yd[0] + ((yd[1] - yd[0]) * i) / 4;
+          if (sx(x) >= l && sx(x) <= l + pw)
+            ctx.fillText(fmt(x), sx(x), t + ph + 16);
+          if (sy(y) >= t && sy(y) <= t + ph) {
+            ctx.textAlign = "right";
+            ctx.fillText(fmt(y), l - 6, sy(y) + 3);
+            ctx.textAlign = "center";
+          }
+        }
+        ctx.fillText("Die X", cx, h - 5);
+        ctx.save();
+        ctx.translate(11, cy);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText("Die Y", 0, 0);
+        ctx.restore();
+        const lx = l + pw + 16;
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#39546e";
+        ctx.fillText(S.wafer.slice(0, 16), lx, 16, 62);
+        if (categorical) {
+          g.keys.slice(0, 16).forEach((key, i) => {
+            ctx.fillStyle = g.color(key);
+            ctx.fillRect(lx, 30 + i * 18, 9, 9);
+            ctx.fillStyle = "#60768f";
+            ctx.fillText(key.slice(0, 10), lx + 13, 38 + i * 18, 48);
+          });
+          if (g.keys.length > 16)
+            ctx.fillText(`+${g.keys.length - 16} 類`, lx, 330);
+        } else {
+          for (let i = 0; i < 120; i++) {
+            const v = range[1] - ((range[1] - range[0]) * i) / 119;
+            ctx.fillStyle = color(scale === "log" ? 10 ** v : v);
+            ctx.fillRect(lx, 32 + i, 12, 1);
+          }
+          ctx.fillStyle = "#60768f";
+          [0, 0.5, 1].forEach((f) => {
+            const v = range[1] - (range[1] - range[0]) * f;
+            ctx.fillText(
+              fmt(scale === "log" ? 10 ** v : v),
+              lx + 17,
+              36 + 120 * f,
+              45,
+            );
+          });
+          if (S.waferLog) ctx.fillText("Log", lx, 176);
+        }
+        ctx.fillStyle = "#d6dce3";
+        ctx.fillRect(lx, Math.min(ph - 5, 350), 9, 9);
+        ctx.fillStyle = "#60768f";
+        ctx.fillText("缺值", lx + 13, Math.min(ph + 3, 358));
+      }
+      function bindBrush(p) {
+        const canvas = p.canvas,
+          brush = p.wrap.querySelector(".brush");
+        let start = null,
+          add = false,
+          pointer = null;
+        const pos = (e) => {
+          const r = canvas.getBoundingClientRect();
+          return {
+            x: Math.max(0, Math.min(r.width, e.clientX - r.left)),
+            y: Math.max(0, Math.min(r.height, e.clientY - r.top)),
+          };
+        };
+        canvas.addEventListener("pointerdown", (e) => {
+          if (e.button !== 0 || !S.rows.length) return;
+          start = pos(e);
+          add = e.shiftKey;
+          pointer = e.pointerId;
+          canvas.setPointerCapture(pointer);
+          $("tooltip").style.display = "none";
+        });
+        canvas.addEventListener("pointermove", (e) => {
+          const v = pos(e);
+          if (start) {
+            brush.style.cssText = `display:block;left:${Math.min(start.x, v.x)}px;top:${p.c?.type === "hist" ? 20 : Math.min(start.y, v.y)}px;width:${Math.abs(v.x - start.x)}px;height:${p.c?.type === "hist" ? canvas.clientHeight - 64 : Math.abs(v.y - start.y)}px`;
+            return;
+          }
+          let near = null,
+            best = 64;
+          for (const pt of p.points) {
+            const d = (pt.px - v.x) ** 2 + (pt.py - v.y) ** 2;
+            if (d < best) {
+              near = pt;
+              best = d;
+            }
+          }
+          if (near) {
+            $("tooltip").textContent =
+              `Die (${near.row.X}, ${near.row.Y})\n` +
+              [...new Set([S.wafer, p.x, p.y, p.c?.group].filter(Boolean))]
+                .map((n) => `${n}: ${near.row[n] ?? "缺值"}`)
+                .join("\n");
+            $("tooltip").style.display = "block";
+            $("tooltip").style.left =
+              Math.min(e.clientX + 14, window.innerWidth - 250) + "px";
+            $("tooltip").style.top =
+              Math.max(5, Math.min(e.clientY + 12, window.innerHeight - 160)) +
+              "px";
+          } else $("tooltip").style.display = "none";
+        });
+        canvas.addEventListener(
+          "pointerleave",
+          () => ($("tooltip").style.display = "none"),
+        );
+        canvas.addEventListener("pointerup", (e) => {
+          if (!start || e.pointerId !== pointer) return;
+          const end = pos(e),
+            r = {
+              x: Math.min(start.x, end.x),
+              y: Math.min(start.y, end.y),
+              w: Math.abs(start.x - end.x),
+              h: Math.abs(start.y - end.y),
+            };
+          let ids = [];
+          if (p.c?.type === "hist") {
+            const lo = r.x,
+              hi = r.x + Math.max(2, r.w);
+            ids = p.bins
+              .filter((b) => b.px <= hi && b.px + b.pw >= lo)
+              .flatMap((b) => b.items.map((i) => i.row._id));
+          } else if (r.w < 4 && r.h < 4) {
+            let nearest = null,
+              distance = 144;
+            for (const pt of p.points) {
+              const d = (pt.px - end.x) ** 2 + (pt.py - end.y) ** 2;
+              if (d < distance) {
+                nearest = pt;
+                distance = d;
               }
-
-              const py = margin + plotH - ((val - yMin) / (yMax - yMin)) * plotH;
-              
-              // 水平隨機抖動
-              const jitter = (Math.random() - 0.5) * (boxWidth * 0.6);
-              const px = x + jitter;
-
-              ctx.strokeStyle = "#ef4444";
-              ctx.lineWidth = 1.5;
-              ctx.beginPath();
-              ctx.arc(px, py, 3, 0, 2 * Math.PI);
-              ctx.stroke();
             }
-          });
+            if (nearest)
+              ids = p.points
+                .filter((pt) => pt.px === nearest.px && pt.py === nearest.py)
+                .map((pt) => pt.row._id);
+          } else ids = A.selectRect(p.points, r);
+          S.selected = add ? new Set([...S.selected, ...ids]) : new Set(ids);
+          start = null;
+          brush.style.display = "none";
+          if (canvas.hasPointerCapture(pointer))
+            canvas.releasePointerCapture(pointer);
+          pointer = null;
+          scheduleDraw();
+        });
+        const cancel = () => {
+          start = null;
+          pointer = null;
+          brush.style.display = "none";
+        };
+        canvas.addEventListener("pointercancel", cancel);
+        canvas.addEventListener("lostpointercapture", cancel);
+      }
+      function renderStats() {
+        const rows = activeRows(),
+          sel = selectedRows();
+        $("selected-count").textContent = `${sel.length.toLocaleString()} dies`;
+        $("filter-selection").disabled = !sel.length;
+        $("reset-filter").disabled = !S.filter && !S.rules.length;
+        $("stats").innerHTML = [
+          [S.filter || S.rules.length ? "篩選後" : "全體", rows],
+          ["選取", sel],
+        ]
+          .map(([label, data]) => {
+            const s = A.summary(data.map((r) => r[S.wafer]));
+            return `<div class="stat"><strong>${label} ${data.length.toLocaleString()} dies</strong><small>${esc(S.wafer)}</small><div class="stat-grid"><span>平均 ${fmt(s?.mean)}</span><span>中位數 ${fmt(s?.median)}</span><span>最小 ${fmt(s?.min)}</span><span>最大 ${fmt(s?.max)}</span></div></div>`;
+          })
+          .join("");
+        $("table-title").textContent =
+          `Die 資料 · ${sel.length ? "選取" : "目前"} ${sel.length || rows.length} 筆（預覽前 200 筆，CSV 匯出完整資料）`;
+        if (document.querySelector("details.data").open) renderTable();
+      }
+      function renderTable() {
+        const chosen = selectedRows(),
+          rows = (chosen.length ? chosen : activeRows()).slice(0, 200),
+          fields = S.fields;
+        $("table").innerHTML =
+          "<table><thead><tr>" +
+          fields.map((f) => `<th>${esc(f.name)}</th>`).join("") +
+          "</tr></thead><tbody>" +
+          rows
+            .map(
+              (r) =>
+                `<tr data-id="${r._id}" class="${S.selected.has(r._id) ? "selected" : ""}">${fields.map((f) => `<td>${esc(r[f.name] ?? "—")}</td>`).join("")}</tr>`,
+            )
+            .join("") +
+          "</tbody></table>";
+        $("table")
+          .querySelectorAll("[data-id]")
+          .forEach(
+            (tr) =>
+              (tr.onclick = (e) => {
+                const id = Number(tr.dataset.id);
+                S.selected = e.shiftKey
+                  ? new Set([...S.selected, id])
+                  : new Set([id]);
+                scheduleDraw();
+              }),
+          );
+      }
+      function scheduleDraw() {
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => {
+          const rows = activeRows();
+          drawWafer();
+          plots.forEach((p) =>
+            p.c.type === "hist"
+              ? drawHist(p, rows)
+              : p.c.type === "box"
+                ? drawBox(p, rows)
+                : drawScatter(p, rows),
+          );
+          renderStats();
         });
       }
-
-      // 軸
-      ctx.strokeStyle = "#374151";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(margin, margin, plotW, plotH);
-    }
-
-    function drawHistogram() {
-      const canvas = document.getElementById("hist-canvas");
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-
-      const params = state.selectedDistParams;
-      const data = state.filteredData;
-
-      if (params.length === 0 || data.length === 0) {
-        ctx.fillStyle = "#6b7280";
-        ctx.font = "14px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("請選擇參數", canvas.width / 2, canvas.height / 2);
-        return;
+      const observer = new ResizeObserver(scheduleDraw);
+      function observePlots() {
+        observer.disconnect();
+        observer.observe($("wafer-wrap"));
+        plots.forEach((p) => observer.observe(p.wrap));
       }
-
-      const margin = 40;
-      const plotW = canvas.width - 2 * margin;
-      const plotH = canvas.height - 2 * margin;
-
-      ctx.fillStyle = "#0b0f19";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.strokeStyle = "#374151";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(margin, margin, plotW, plotH);
-
-      const histograms = params.map((param, idx) => {
-        const vals = data.map(r => Number(r[param])).filter(v => !isNaN(v));
-        if (vals.length === 0) return null;
-
-        let min = Math.min(...vals);
-        let max = Math.max(...vals);
-
-        if (state.distXScale === "log" && min > 0) {
-          vals.forEach((v, i) => { if (v > 0) vals[i] = Math.log10(v); });
-          min = Math.min(...vals.filter(v => !isNaN(v)));
-          max = Math.max(...vals.filter(v => !isNaN(v)));
-        }
-
-        if (min === max) { min -= 0.5; max += 0.5; }
-
-        const bins = 15;
-        const binSize = (max - min) / bins;
-        const histogram = new Array(bins).fill(0);
-
-        vals.forEach(v => {
-          if (!isNaN(v)) {
-            const binIdx = Math.floor((v - min) / binSize);
-            if (binIdx >= 0 && binIdx < bins) histogram[binIdx]++;
-          }
+      waferPlot = {
+        canvas: $("wafer"),
+        wrap: $("wafer-wrap"),
+        points: [],
+        bins: [],
+      };
+      bindBrush(waferPlot);
+      observer.observe(waferPlot.wrap);
+      function loadData(text, filename) {
+        const d = A.parseDL(text);
+        groupCache.clear();
+        Object.assign(S, {
+          rows: d.rows,
+          fields: d.fields,
+          filename,
+          selected: new Set(),
+          filter: null,
+          rules: [],
+          zoom: 1,
+          chosen: "",
+          waferLog: false,
         });
-
-        return { param, vals, min, max, histogram, idx };
-      }).filter(h => h !== null);
-
-      if (histograms.length === 0) {
-        ctx.fillStyle = "#6b7280";
-        ctx.font = "14px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("無有效資料", canvas.width / 2, canvas.height / 2);
-        return;
+        const nums = d.fields
+            .filter((f) => f.type === "number" && !["X", "Y"].includes(f.name))
+            .map((f) => f.name),
+          a = nums[0] || "X",
+          b = nums[1] || a;
+        S.wafer = a;
+        S.charts = [
+          chart("scatter", { x: [a], y: [b] }),
+          chart("hist", { x: [a], wide: false }),
+          chart("box", {
+            y: [b],
+            group: d.fields.some((f) => f.name === "CAT") ? "CAT" : "",
+            wide: false,
+          }),
+        ];
+        S.active = S.charts[0].id;
+        $("wafer-param").innerHTML = fieldOptions(S.fields, a);
+        $("wafer-log").checked = false;
+        $("search").value = "";
+        $("filename").textContent = filename;
+        $("status").textContent =
+          `${S.rows.length.toLocaleString()} 筆 · 完全離線`;
+        $("chosen-label").textContent = "點選參數，再選擇加入位置";
+        $("zoom-label").textContent = "100%";
+        const notices = [];
+        if (d.skipped) notices.push(`略過 ${d.skipped} 行欄位數不符的資料。`);
+        if (d.missing) notices.push(`${d.missing} 個缺值，不當成 0。`);
+        if (d.invalidCoordinates)
+          notices.push(
+            `${d.invalidCoordinates} 筆無有效座標，不顯示在 map；有效電性仍可參與統計。`,
+          );
+        if (d.duplicates)
+          notices.push(
+            `${d.duplicates} 筆重複座標：map 會重疊顯示；統計保留所有紀錄，請確認是否混入多片 wafer／重測資料。`,
+          );
+        $("notice").textContent = notices.join("\n");
+        $("notice").classList.toggle("show", !!notices.length);
+        renderFields();
+        renderFilters();
+        renderCharts();
+        document.querySelector(".builder").scrollTop = 0;
+        document.querySelector(".wafer-pane").scrollTop = 0;
+        toast(`已載入 ${filename}`);
       }
-
-      histograms.forEach(h => {
-        const maxCount = Math.max(...h.histogram);
-        let yMax = maxCount;
-
-        if (state.distYScale === "log" && maxCount > 0) {
-          yMax = Math.log10(maxCount);
-        }
-
-        const barW = plotW / (h.histogram.length * (histograms.length + 1));
-        const offset = h.idx * barW;
-
-        h.histogram.forEach((count, binIdx) => {
-          let barH = state.distYScale === "log" && count > 0 ? Math.log10(count) : count;
-          barH = (barH / yMax) * plotH;
-
-          const x = margin + binIdx * plotW / h.histogram.length + offset;
-          const y = margin + plotH - barH;
-
-          ctx.fillStyle = PALETTE_COLORS[h.idx % PALETTE_COLORS.length];
-          ctx.globalAlpha = 0.7;
-          ctx.fillRect(x, y, barW * 0.8, barH);
-          ctx.globalAlpha = 1;
-        });
-      });
-
-      // 繪製高亮點的直方柱 (紅色空心框)
-      if (state.highlightIndices.size > 0 && histograms.length > 0) {
-        histograms.forEach(h => {
-          const maxCount = Math.max(...h.histogram);
-          let yMax = maxCount;
-          if (state.distYScale === "log" && maxCount > 0) {
-            yMax = Math.log10(maxCount);
-          }
-
-          // 收集高亮點的值並計算高亮分箱
-          const highlightVals = [];
-          data.forEach((row, rowIdx) => {
-            if (state.highlightIndices.has(rowIdx)) {
-              let v = Number(row[h.param]);
-              if (!isNaN(v)) {
-                if (state.distXScale === "log" && v > 0) v = Math.log10(v);
-                highlightVals.push(v);
-              }
-            }
-          });
-
-          const bins = 15;
-          const binSize = (h.max - h.min) / bins;
-          const highlightHist = new Array(bins).fill(0);
-          highlightVals.forEach(v => {
-            const binIdx = Math.floor((v - h.min) / binSize);
-            if (binIdx >= 0 && binIdx < bins) highlightHist[binIdx]++;
-          });
-
-          const barW = plotW / (bins * (histograms.length + 1));
-          const offset = h.idx * barW;
-
-          highlightHist.forEach((count, binIdx) => {
-            if (count === 0) return;
-            let barH = state.distYScale === "log" && count > 0 ? Math.log10(count) : count;
-            barH = (barH / yMax) * plotH;
-
-            const x = margin + binIdx * plotW / bins + offset;
-            const y = margin + plotH - barH;
-
-            ctx.strokeStyle = "#ef4444";
-            ctx.lineWidth = 1.5;
-            ctx.strokeRect(x, y, barW * 0.8, barH);
-          });
-        });
-      }
-    }
-
-    // =================================================================
-    // 6. Canvas 事件 (框選互動)
-    // =================================================================
-
-    function initWaferCanvasEvents() {
-      const canvas = document.getElementById("wafer-canvas");
-      const box = document.getElementById("wafer-selection-box");
-      if (!canvas || !box) return;
-
-      let isSelecting = false;
-      let startX, startY;
-
-      canvas.addEventListener("mousedown", (e) => {
-        if (!state.nonSpatialFilteredData || state.nonSpatialFilteredData.length === 0) return;
-        const rect = canvas.getBoundingClientRect();
-        startX = e.clientX - rect.left;
-        startY = e.clientY - rect.top;
-        isSelecting = true;
-
-        box.style.left = startX + "px";
-        box.style.top = startY + "px";
-        box.style.width = "0px";
-        box.style.height = "0px";
-        box.style.display = "block";
-      });
-
-      canvas.addEventListener("mousemove", (e) => {
-        if (!isSelecting) return;
-        const rect = canvas.getBoundingClientRect();
-        const curX = Math.max(0, Math.min(canvas.width, e.clientX - rect.left));
-        const curY = Math.max(0, Math.min(canvas.height, e.clientY - rect.top));
-
-        const left = Math.min(startX, curX);
-        const top = Math.min(startY, curY);
-        const width = Math.abs(startX - curX);
-        const height = Math.abs(startY - curY);
-
-        box.style.left = left + "px";
-        box.style.top = top + "px";
-        box.style.width = width + "px";
-        box.style.height = height + "px";
-      });
-
-      canvas.addEventListener("mouseup", (e) => {
-        if (!isSelecting) return;
-        isSelecting = false;
-        box.style.display = "none";
-
-        const rect = canvas.getBoundingClientRect();
-        const endX = e.clientX - rect.left;
-        const endY = e.clientY - rect.top;
-
-        const margin = 40;
-        const plotW = canvas.width - 2 * margin;
-        const plotH = canvas.height - 2 * margin;
-
-        if (startX < margin || startX > canvas.width - margin || startY < margin || startY > canvas.height - margin ||
-            endX < margin || endX > canvas.width - margin || endY < margin || endY > canvas.height - margin) {
-          return;
-        }
-
-        const data = state.nonSpatialFilteredData;
-        if (!data || data.length === 0) return;
-
-        const xvals = data.map(r => Number(r.X)).filter(x => !isNaN(x));
-        const yvals = data.map(r => Number(r.Y)).filter(y => !isNaN(y));
-
-        if (xvals.length === 0 || yvals.length === 0) return;
-
-        const xMin = Math.min(...xvals);
-        const xMax = Math.max(...xvals);
-        const yMin = Math.min(...yvals);
-        const yMax = Math.max(...yvals);
-
-        const xRangeDiff = xMax - xMin;
-        const yRangeDiff = yMax - yMin;
-
-        const x1_norm = (Math.min(startX, endX) - margin) / plotW * xRangeDiff + xMin;
-        const x2_norm = (Math.max(startX, endX) - margin) / plotW * xRangeDiff + xMin;
-        const y1_norm = yMax - (Math.max(startY, endY) - margin) / plotH * yRangeDiff;
-        const y2_norm = yMax - (Math.min(startY, endY) - margin) / plotH * yRangeDiff;
-
-        // Fail-safe: 檢查是否有任何點在框選範圍內
-        const hasPoints = data.some(row => {
-          const x = Number(row.X);
-          const y = Number(row.Y);
-          return !isNaN(x) && !isNaN(y) && x >= x1_norm && x <= x2_norm && y >= y1_norm && y <= y2_norm;
-        });
-
-        if (!hasPoints) return;
-
-        state.spatialFilterRange = { x: [x1_norm, x2_norm], y: [y1_norm, y2_norm] };
-        updateDataAndRender();
-      });
-    }
-
-    function initCorrCanvasEvents() {
-      const canvas = document.getElementById("corr-canvas");
-      const box = document.getElementById("corr-selection-box");
-      if (!canvas || !box) return;
-
-      let isSelecting = false;
-      let startX, startY;
-
-      canvas.addEventListener("mousedown", (e) => {
-        if (!state.filteredData || state.filteredData.length === 0) return;
-        const rect = canvas.getBoundingClientRect();
-        startX = e.clientX - rect.left;
-        startY = e.clientY - rect.top;
-        isSelecting = true;
-
-        box.style.left = startX + "px";
-        box.style.top = startY + "px";
-        box.style.width = "0px";
-        box.style.height = "0px";
-        box.style.display = "block";
-      });
-
-      canvas.addEventListener("mousemove", (e) => {
-        if (!isSelecting) return;
-        const rect = canvas.getBoundingClientRect();
-        const curX = Math.max(0, Math.min(canvas.width, e.clientX - rect.left));
-        const curY = Math.max(0, Math.min(canvas.height, e.clientY - rect.top));
-
-        const left = Math.min(startX, curX);
-        const top = Math.min(startY, curY);
-        const width = Math.abs(startX - curX);
-        const height = Math.abs(startY - curY);
-
-        box.style.left = left + "px";
-        box.style.top = top + "px";
-        box.style.width = width + "px";
-        box.style.height = height + "px";
-      });
-
-      canvas.addEventListener("mouseup", (e) => {
-        if (!isSelecting) return;
-        isSelecting = false;
-        box.style.display = "none";
-
-        const rect = canvas.getBoundingClientRect();
-        const endX = e.clientX - rect.left;
-        const endY = e.clientY - rect.top;
-
-        const margin = 40;
-        const plotW = canvas.width - 2 * margin;
-        const plotH = canvas.height - 2 * margin;
-
-        if (startX < margin || startX > canvas.width - margin || startY < margin || startY > canvas.height - margin ||
-            endX < margin || endX > canvas.width - margin || endY < margin || endY > canvas.height - margin) {
-          return;
-        }
-
-        const xParam = state.selectedCorrX;
-        const yParam = state.selectedCorrY;
-        const data = state.filteredData;
-        if (!data || data.length === 0) return;
-
-        let xvals = data.map(r => Number(r[xParam])).filter(v => !isNaN(v));
-        let yvals = data.map(r => Number(r[yParam])).filter(v => !isNaN(v));
-
-        if (xvals.length === 0 || yvals.length === 0) return;
-
-        let xMin = Math.min(...xvals);
-        let xMax = Math.max(...xvals);
-        let yMin = Math.min(...yvals);
-        let yMax = Math.max(...yvals);
-
-        if (xMin === xMax) { xMin -= 0.5; xMax += 0.5; }
-        if (yMin === yMax) { yMin -= 0.5; yMax += 0.5; }
-
-        if (state.xScale === "log" && xMin > 0) {
-          xMin = Math.log10(xMin);
-          xMax = Math.log10(xMax);
-        }
-        if (state.yScale === "log" && yMin > 0) {
-          yMin = Math.log10(yMin);
-          yMax = Math.log10(yMax);
-        }
-
-        const xRangeDiff = xMax - xMin;
-        const yRangeDiff = yMax - yMin;
-
-        const x1_norm = (Math.min(startX, endX) - margin) / plotW * xRangeDiff + xMin;
-        const x2_norm = (Math.max(startX, endX) - margin) / plotW * xRangeDiff + xMin;
-        const y1_norm = yMax - (Math.max(startY, endY) - margin) / plotH * yRangeDiff;
-        const y2_norm = yMax - (Math.min(startY, endY) - margin) / plotH * yRangeDiff;
-
-        // Fail-safe: 檢查是否有任何點在範圍內
-        const hasPoints = data.some(row => {
-          let x = Number(row[xParam]);
-          let y = Number(row[yParam]);
-          if (isNaN(x) || isNaN(y)) return false;
-          if (state.xScale === "log" && x > 0) x = Math.log10(x);
-          if (state.yScale === "log" && y > 0) y = Math.log10(y);
-          return x >= x1_norm && x <= x2_norm && y >= y1_norm && y <= y2_norm;
-        });
-
-        if (!hasPoints) {
-          state.highlightIndices.clear();
-          triggerRedraw();
-          return;
-        }
-
-        state.highlightIndices.clear();
-        data.forEach((row, idx) => {
-          let x = Number(row[xParam]);
-          let y = Number(row[yParam]);
-
-          if (state.xScale === "log" && x > 0) x = Math.log10(x);
-          if (state.yScale === "log" && y > 0) y = Math.log10(y);
-
-          if (x >= x1_norm && x <= x2_norm && y >= y1_norm && y <= y2_norm) {
-            state.highlightIndices.add(idx);
-          }
-        });
-
-        triggerRedraw();
-      });
-    }
-
-    function initBoxCanvasEvents() {
-      const canvas = document.getElementById("box-canvas");
-      const box = document.getElementById("box-selection-box");
-      if (!canvas || !box) return;
-
-      let isSelecting = false;
-      let startX, startY;
-
-      canvas.addEventListener("mousedown", (e) => {
-        if (!state.filteredData || state.filteredData.length === 0) return;
-        const rect = canvas.getBoundingClientRect();
-        startX = e.clientX - rect.left;
-        startY = e.clientY - rect.top;
-        isSelecting = true;
-
-        box.style.left = startX + "px";
-        box.style.top = startY + "px";
-        box.style.width = "0px";
-        box.style.height = "0px";
-        box.style.display = "block";
-      });
-
-      canvas.addEventListener("mousemove", (e) => {
-        if (!isSelecting) return;
-        const rect = canvas.getBoundingClientRect();
-        const curX = Math.max(0, Math.min(canvas.width, e.clientX - rect.left));
-        const curY = Math.max(0, Math.min(canvas.height, e.clientY - rect.top));
-
-        const left = Math.min(startX, curX);
-        const top = Math.min(startY, curY);
-        const width = Math.abs(startX - curX);
-        const height = Math.abs(startY - curY);
-
-        box.style.left = left + "px";
-        box.style.top = top + "px";
-        box.style.width = width + "px";
-        box.style.height = height + "px";
-      });
-
-      canvas.addEventListener("mouseup", (e) => {
-        if (!isSelecting) return;
-        isSelecting = false;
-        box.style.display = "none";
-
-        const rect = canvas.getBoundingClientRect();
-        const endX = e.clientX - rect.left;
-        const endY = e.clientY - rect.top;
-
-        const margin = 40;
-        const plotW = canvas.width - 2 * margin;
-        const plotH = canvas.height - 2 * margin;
-
-        if (startX < margin || startX > canvas.width - margin || startY < margin || startY > canvas.height - margin ||
-            endX < margin || endX > canvas.width - margin || endY < margin || endY > canvas.height - margin) {
-          return;
-        }
-
-        const params = state.selectedDistParams;
-        const data = state.filteredData;
-        if (params.length === 0 || data.length === 0) return;
-
-        const boxStats = params.map(param => ({
-          param,
-          stats: calculateBoxPlotStats(data.map(r => Number(r[param])).filter(v => !isNaN(v)))
-        })).filter(b => b.stats !== null);
-
-        if (boxStats.length === 0) return;
-
-        const allVals = boxStats.flatMap(b => [b.stats.min, b.stats.max]);
-        let yMin = Math.min(...allVals);
-        let yMax = Math.max(...allVals);
-        if (yMin === yMax) { yMin -= 0.5; yMax += 0.5; }
-
-        if (state.distBoxYScale === "log" && yMin > 0) {
-          yMin = Math.log10(yMin);
-          yMax = Math.log10(yMax);
-        }
-
-        const yRangeDiff = yMax - yMin;
-        const y1_norm = yMax - (Math.max(startY, endY) - margin) / plotH * yRangeDiff;
-        const y2_norm = yMax - (Math.min(startY, endY) - margin) / plotH * yRangeDiff;
-
-        // 判斷選中哪些參數箱位
-        const boxSpacing = plotW / boxStats.length;
-        const selectedParams = [];
-        boxStats.forEach((item, idx) => {
-          const x = margin + (idx + 0.5) * boxSpacing;
-          const leftBox = x - boxSpacing / 2;
-          const rightBox = x + boxSpacing / 2;
-          
-          const selMinX = Math.min(startX, endX);
-          const selMaxX = Math.max(startX, endX);
-
-          if (rightBox >= selMinX && leftBox <= selMaxX) {
-            selectedParams.push(item.param);
-          }
-        });
-
-        if (selectedParams.length === 0) {
-          state.highlightIndices.clear();
-          triggerRedraw();
-          return;
-        }
-
-        // Fail-safe: 判斷是否有任何點在框選範圍內
-        const hasPoints = data.some(row => {
-          for (const param of selectedParams) {
-            let val = Number(row[param]);
-            if (isNaN(val)) continue;
-            if (state.distBoxYScale === "log" && val > 0) val = Math.log10(val);
-            if (val >= y1_norm && val <= y2_norm) return true;
-          }
-          return false;
-        });
-
-        if (!hasPoints) {
-          state.highlightIndices.clear();
-          triggerRedraw();
-          return;
-        }
-
-        state.highlightIndices.clear();
-        data.forEach((row, idx) => {
-          for (const param of selectedParams) {
-            let val = Number(row[param]);
-            if (isNaN(val)) continue;
-            if (state.distBoxYScale === "log" && val > 0) val = Math.log10(val);
-            if (val >= y1_norm && val <= y2_norm) {
-              state.highlightIndices.add(idx);
-              break;
-            }
-          }
-        });
-
-        triggerRedraw();
-      });
-    }
-
-    function initHistCanvasEvents() {
-      const canvas = document.getElementById("hist-canvas");
-      const box = document.getElementById("hist-selection-box");
-      if (!canvas || !box) return;
-
-      let isSelecting = false;
-      let startX = 0;
-      let activePointerId = null;
-      const margin = 40;
-
-      function clampToPlotX(clientX) {
-        const rect = canvas.getBoundingClientRect();
-        return Math.max(margin, Math.min(canvas.width - margin, clientX - rect.left));
-      }
-
-      function updateBrushVisual(currentX) {
-        const x1 = Math.min(startX, currentX);
-        const x2 = Math.max(startX, currentX);
-        box.style.left = `${x1}px`;
-        box.style.top = `${margin}px`;
-        box.style.width = `${Math.max(2, x2 - x1)}px`;
-        box.style.height = `${Math.max(0, canvas.height - 2 * margin)}px`;
-        box.style.display = "block";
-      }
-
-      canvas.addEventListener("pointerdown", (e) => {
-        if (e.button !== 0 || !state.filteredData || state.filteredData.length === 0) return;
-        e.preventDefault();
-        activePointerId = e.pointerId;
-        startX = clampToPlotX(e.clientX);
-        isSelecting = true;
-        canvas.setPointerCapture(e.pointerId);
-        updateBrushVisual(startX);
-      });
-
-      canvas.addEventListener("pointermove", (e) => {
-        if (!isSelecting || e.pointerId !== activePointerId) return;
-        updateBrushVisual(clampToPlotX(e.clientX));
-      });
-
-      function finishSelection(e) {
-        if (!isSelecting || e.pointerId !== activePointerId) return;
-        isSelecting = false;
-        const endX = clampToPlotX(e.clientX);
-        const brush = normalizeHistogramBrush(startX, endX, canvas.width, margin);
-        activePointerId = null;
-        box.style.display = "none";
-
-        if (canvas.hasPointerCapture(e.pointerId)) {
-          canvas.releasePointerCapture(e.pointerId);
-        }
-
-        const plotW = canvas.width - 2 * margin;
-
-        const params = state.selectedDistParams;
-        const data = state.filteredData;
-        if (params.length === 0 || data.length === 0) return;
-
-        const activeHistograms = params.map(param => {
-          const vals = data.map(r => Number(r[param])).filter(v => !isNaN(v));
-          if (vals.length === 0) return null;
-          let min = Math.min(...vals);
-          let max = Math.max(...vals);
-          if (state.distXScale === "log" && min > 0) {
-            const logVals = vals.filter(v => v > 0).map(Math.log10);
-            min = Math.min(...logVals);
-            max = Math.max(...logVals);
-          }
-          return { min, max };
-        }).filter(h => h !== null);
-
-        if (activeHistograms.length === 0) return;
-
-        let globalMin = Math.min(...activeHistograms.map(h => h.min));
-        let globalMax = Math.max(...activeHistograms.map(h => h.max));
-        if (globalMin === globalMax) { globalMin -= 0.5; globalMax += 0.5; }
-
-        const xRangeDiff = globalMax - globalMin;
-        const x1_norm = (brush.x1 - margin) / plotW * xRangeDiff + globalMin;
-        const x2_norm = (brush.x2 - margin) / plotW * xRangeDiff + globalMin;
-
-        // Fail-safe: 判斷是否有任何點在範圍內
-        const hasPoints = data.some(row => {
-          for (const param of params) {
-            let val = Number(row[param]);
-            if (isNaN(val)) continue;
-            if (state.distXScale === "log" && val > 0) val = Math.log10(val);
-            if (val >= x1_norm && val <= x2_norm) return true;
-          }
-          return false;
-        });
-
-        if (!hasPoints) {
-          state.highlightIndices.clear();
-          triggerRedraw();
-          return;
-        }
-
-        state.highlightIndices.clear();
-        data.forEach((row, idx) => {
-          for (const param of params) {
-            let val = Number(row[param]);
-            if (isNaN(val)) continue;
-            if (state.distXScale === "log" && val > 0) val = Math.log10(val);
-            if (val >= x1_norm && val <= x2_norm) {
-              state.highlightIndices.add(idx);
-              break;
-            }
-          }
-        });
-
-        triggerRedraw();
-      }
-
-      canvas.addEventListener("pointerup", finishSelection);
-      canvas.addEventListener("pointercancel", (e) => {
-        if (e.pointerId !== activePointerId) return;
-        isSelecting = false;
-        activePointerId = null;
-        box.style.display = "none";
-      });
-    }
-
-    // =================================================================
-    // 7. 檔案上傳與初始化
-    // =================================================================
-
-    const dropZone = document.getElementById("drop-zone");
-    const fileInput = document.getElementById("file-input");
-
-    if (dropZone) {
-      dropZone.addEventListener("click", () => fileInput?.click());
-      dropZone.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          fileInput?.click();
-        }
-      });
-
-      ["dragenter", "dragover", "dragleave", "drop"].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (eventName === "dragenter" || eventName === "dragover") {
-            dropZone.classList.add("is-dragging");
-          } else {
-            dropZone.classList.remove("is-dragging");
-          }
-        });
-      });
-
-      dropZone.addEventListener("drop", (e) => {
-        dropZone.classList.remove("is-dragging");
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-          handleFile(files[0]);
-        }
-      });
-    }
-
-    if (fileInput) {
-      fileInput.addEventListener("change", (e) => {
-        if (e.target.files.length > 0) {
-          handleFile(e.target.files[0]);
-        }
-      });
-    }
-
-    function handleFile(file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
+      async function readData(file) {
+        if (!file) return;
         try {
-          const content = e.target.result;
-          const parsedData = processFileContent(content);
-          handleDataLoaded(parsedData, file.name);
-        } catch (err) {
-          alert("檔案解析失敗: " + err.message);
+          loadData(await file.text(), file.name);
+        } catch (e) {
+          toast(`匯入失敗：${e.message}`);
+        } finally {
+          $("file").value = "";
+        }
+      }
+      $("import").onclick = () => $("file").click();
+      $("file").onchange = (e) => readData(e.target.files[0]);
+      $("app").addEventListener("dragover", (e) => {
+        if ([...e.dataTransfer.types].includes("Files")) {
+          e.preventDefault();
+          $("app").classList.add("drop-active");
+        }
+      });
+      $("app").addEventListener("dragleave", (e) => {
+        if (!$("app").contains(e.relatedTarget))
+          $("app").classList.remove("drop-active");
+      });
+      $("app").addEventListener("drop", (e) => {
+        if (e.dataTransfer.files.length) {
+          e.preventDefault();
+          $("app").classList.remove("drop-active");
+          readData(e.dataTransfer.files[0]);
+        }
+      });
+      $("wafer-wrap").ondragover = (e) => {
+        if ([...e.dataTransfer.types].includes("text/plain"))
+          e.preventDefault();
+      };
+      $("wafer-wrap").ondrop = (e) => {
+        if (!e.dataTransfer.files.length) {
+          e.preventDefault();
+          assign(null, "wafer", e.dataTransfer.getData("text/plain"));
         }
       };
-      reader.readAsText(file);
-    }
-  </script>
-</body>
+      function renderFilterInputs() {
+        const name = $("filter-field").value,
+          f = S.fields.find((f) => f.name === name),
+          rule = S.rules.find((r) => r.field === name);
+        if (!f) {
+          $("filter-inputs").innerHTML = "";
+          return;
+        }
+        if (f.type === "number")
+          $("filter-inputs").innerHTML =
+            `<label>下限<input id="filter-min" type="number" step="any" placeholder="不限" value="${rule?.min ?? ""}" style="width:100%"></label><label>上限<input id="filter-max" type="number" step="any" placeholder="不限" value="${rule?.max ?? ""}" style="width:100%"></label>`;
+        else {
+          const keys = groupInfo(S.rows, name).keys;
+          $("filter-inputs").innerHTML =
+            '<div style="max-height:150px;overflow:auto">' +
+            keys
+              .map(
+                (k) =>
+                  `<label style="display:block"><input type="checkbox" data-category="${esc(k)}" ${!rule || rule.values.includes(k) ? "checked" : ""}>${esc(k)}</label>`,
+              )
+              .join("") +
+            "</div>";
+        }
+      }
+      function renderFilters() {
+        const name = $("filter-field").value;
+        $("filter-field").innerHTML = fieldOptions(S.fields, name);
+        $("rule-count").textContent = S.rules.length
+          ? "(" + S.rules.length + ")"
+          : "";
+        $("filter-rules").innerHTML = S.rules
+          .map(
+            (r, i) =>
+              `<div class="chip" style="margin:3px 0"><span>${esc(r.field)}: ${r.type === "number" ? esc((r.min ?? "不限") + " ~ " + (r.max ?? "不限")) : r.values.length + " 類"}</span><button data-rule="${i}" aria-label="移除篩選條件">×</button></div>`,
+          )
+          .join("");
+        $("filter-rules")
+          .querySelectorAll("[data-rule]")
+          .forEach(
+            (b) =>
+              (b.onclick = () => {
+                S.rules.splice(Number(b.dataset.rule), 1);
+                renderFilters();
+                scheduleDraw();
+              }),
+          );
+        renderFilterInputs();
+      }
+      $("filter-field").onchange = renderFilterInputs;
+      $("apply-filter").onclick = () => {
+        const field = $("filter-field").value,
+          f = S.fields.find((f) => f.name === field);
+        if (!f) return;
+        const rule = { field, type: f.type };
+        if (f.type === "number") {
+          const low = $("filter-min"),
+            high = $("filter-max");
+          if (!low.validity.valid || !high.validity.valid)
+            return toast("請輸入有效數值。");
+          rule.min = low.value === "" ? null : Number(low.value);
+          rule.max = high.value === "" ? null : Number(high.value);
+          if (rule.min !== null && rule.max !== null && rule.min > rule.max)
+            return toast("下限不得大於上限。");
+        } else
+          rule.values = [
+            ...$("filter-inputs").querySelectorAll("[data-category]:checked"),
+          ].map((b) => b.dataset.category);
+        S.rules = S.rules.filter((r) => r.field !== field);
+        S.rules.push(rule);
+        renderFilters();
+        scheduleDraw();
+      };
+      $("search").oninput = renderFields;
+      document.querySelectorAll("[data-assign]").forEach(
+        (b) =>
+          (b.onclick = () => {
+            if (!S.chosen) return toast("請先點選左側參數。");
+            assign(
+              S.charts.find((c) => c.id === S.active),
+              b.dataset.assign,
+              S.chosen,
+            );
+          }),
+      );
+      $("wafer-param").onchange = (e) => {
+        S.wafer = e.target.value;
+        scheduleDraw();
+      };
+      $("wafer-log").onchange = (e) => {
+        S.waferLog = e.target.checked;
+        scheduleDraw();
+      };
+      function zoom(v) {
+        S.zoom = Math.max(1, Math.min(4, v));
+        $("zoom-label").textContent = Math.round(S.zoom * 100) + "%";
+        scheduleDraw();
+      }
+      $("zoom-in").onclick = () => zoom(S.zoom * 1.25);
+      $("zoom-out").onclick = () => zoom(S.zoom / 1.25);
+      $("zoom-reset").onclick = () => zoom(1);
+      $("clear-selection").onclick = () => {
+        S.selected.clear();
+        scheduleDraw();
+      };
+      $("reset-filter").onclick = () => {
+        S.filter = null;
+        S.rules = [];
+        renderFilters();
+        scheduleDraw();
+      };
+      $("filter-selection").onclick = () => {
+        const rows = selectedRows();
+        if (!rows.length) return;
+        S.filter = new Set(rows.map((r) => r._id));
+        scheduleDraw();
+      };
+      $("add-chart").onclick = () => {
+        if (!S.rows.length) return toast("請先匯入資料。");
+        if (S.charts.length >= 12) return toast("最多 12 張圖表。");
+        const c = chart();
+        S.charts.push(c);
+        S.active = c.id;
+        renderCharts();
+        $("charts").lastElementChild.scrollIntoView({ block: "nearest" });
+      };
+      document.querySelector("details.data").addEventListener("toggle", () => {
+        if (document.querySelector("details.data").open) renderTable();
+      });
+      function download(blob, name) {
+        const a = document.createElement("a"),
+          url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = name;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      function savePNG(canvas, name) {
+        if (!S.rows.length) return toast("請先匯入資料。");
+        const out = document.createElement("canvas");
+        out.width = canvas.width;
+        out.height = canvas.height + 42;
+        const ctx = out.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, out.width, out.height);
+        ctx.fillStyle = "#34475e";
+        ctx.font = "16px sans-serif";
+        ctx.fillText(name, 12, 27);
+        ctx.drawImage(canvas, 0, 42);
+        out.toBlob((blob) => {
+          if (blob)
+            download(blob, name.replace(/[^\w\u4e00-\u9fff.-]/g, "_") + ".png");
+        });
+      }
+      $("wafer-png").onclick = () =>
+        savePNG($("wafer"), `Wafer map · ${S.wafer}`);
+      $("export").onclick = () => {
+        if (!S.rows.length) return toast("請先匯入資料。");
+        const selected = selectedRows(),
+          rows = selected.length ? selected : activeRows();
+        const csv = A.csvCell;
+        const content = [
+          S.fields.map((f) => csv(f.name)).join(","),
+          ...rows.map((r) => S.fields.map((f) => csv(r[f.name])).join(",")),
+        ].join("\r\n");
+        download(
+          new Blob(["\uFEFF" + content], { type: "text/csv;charset=utf-8" }),
+          `CP_DL_${selected.length ? "selected" : "filtered"}.csv`,
+        );
+        toast(
+          `匯出 ${rows.length} 筆${selected.length ? "選取" : "目前"}資料。`,
+        );
+      };
+      const layoutKey = "cp-dl-layout-v1";
+      $("save-layout").onclick = () => {
+        if (!S.rows.length) return toast("請先匯入資料。");
+        const layout = A.validateLayout(
+            {
+              version: 1,
+              wafer: S.wafer,
+              waferLog: S.waferLog,
+              charts: S.charts,
+            },
+            S.fields,
+          ),
+          text = JSON.stringify(layout, null, 2);
+        try {
+          localStorage.setItem(layoutKey, text);
+        } catch {}
+        download(
+          new Blob([text], { type: "application/json" }),
+          "CP_DL_layout.json",
+        );
+        toast("版面已儲存，不包含原始資料或選取紀錄。");
+      };
+      function restoreLayout(raw) {
+        const layout = A.validateLayout(raw, S.fields);
+        S.wafer = layout.wafer;
+        S.waferLog = layout.waferLog;
+        S.charts = layout.charts.map((c) => chart(c.type, c));
+        S.active = S.charts[0]?.id;
+        $("wafer-param").value = S.wafer;
+        $("wafer-log").checked = S.waferLog;
+        renderCharts();
+        toast("已載入版面；不存在的參數已略過。");
+      }
+      $("load-layout").onclick = () => {
+        if (!S.rows.length) return toast("請先匯入資料，才能對應版面參數。");
+        $("layout-file").click();
+      };
+      $("layout-file").onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+          if (file.size > 100000) throw Error("版面檔案過大。");
+          restoreLayout(JSON.parse(await file.text()));
+        } catch (err) {
+          toast("版面載入失敗：" + err.message);
+        }
+        e.target.value = "";
+      };
+      function demo() {
+        let seed = 43;
+        const random = () => {
+          seed = (seed * 1664525 + 1013904223) >>> 0;
+          return seed / 4294967296;
+        };
+        const lines = [
+          "CP DL Demo",
+          "Synthetic data",
+          "Not production data",
+          "Single wafer",
+          "Units: ISB uA; ICC mA; VTH V; TCLQX ns",
+          "<X> <Y> <ISB> <ICC> <VTH> <TCLQX> <CAT>",
+        ];
+        for (let y = -24; y <= 24; y++)
+          for (let x = -24; x <= 24; x++) {
+            if (x * x + y * y > 24 * 24 || (y < -22 && Math.abs(x) < 2))
+              continue;
+            const edge = x > 13 && y < -8,
+              isb = 0.2 + random() * 0.6 + (edge ? random() * 3 : 0),
+              icc = 0.3 + isb * 0.25 + random() * 0.15;
+            lines.push(
+              `${x} ${y} ${isb.toFixed(4)} ${icc.toFixed(4)} ${(2.4 + isb * 0.12 + random() * 0.2).toFixed(4)} ${(10 + random() * 3).toFixed(3)} ${edge ? 3 : x > 0 ? 2 : 1}`,
+            );
+          }
+        loadData(lines.join("\n"), "示範資料（非實際量測）");
+      }
+      $("demo").onclick = demo;
+      window.addEventListener("resize", scheduleDraw);
+      scheduleDraw();
+    </script>
+  </body>
 </html>
