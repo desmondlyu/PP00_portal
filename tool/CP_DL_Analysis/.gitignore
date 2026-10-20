@@ -9,3 +9,7 @@
 !.gitignore
 !index.html
 !README.md
+
+# Behavior and offline-browser regression tests (no measurement data)
+!analysis.test.mjs
+!browser.test.mjs
