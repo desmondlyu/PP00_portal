@@ -60,11 +60,12 @@
     *   **自訂 SPEC **：支援啟用 CP_Mapping 規格對照表自訂 SPEC 注入，並可切換「僅填補空白」或「覆蓋所有」模式。
 
 ### 8. [Dongle Auto Summary]
-*   **定位**：Dongle Auto loader 自動化平台。
+*   **定位**：Dongle Web Console 自動化平台，頁首分頁切換 **Auto Loader** 與 **Program Generator**（切換分頁不會中斷 Serial 連線；網址加 `#generator` 可直接開啟產生器）。
 *   **核心功能與特色**：
     *   **多裝置匯出與 Cycling 整理**：支援多個 USB Device 匯出資料，並依據 Cycling 類型一次性整理產生報表。
     *   **本地日誌直接分析**：支援直接整理個人電腦上的 Dongle log 檔案，自動過濾符合 `COM*_log.txt` 命名的日誌檔案。
     *   **即時硬體狀態監控與寫檔**：整合 Web Serial API 建立多埠硬體即時監控，並利用 File System Access API 將日誌即時儲存至本機指定目錄。
+    *   **Program Generator**：設定 Vcc／CLK／Cycling 次數／128 單位 Range 矩陣與 Select／Unselect Pattern，輸出或讀取相容 `Dongle_UserSetting_V2` 的 0x3000 `.bin` 設定檔（純瀏覽器運算，不上傳）。
 
 ### 9. [WRITER 按鍵錄製精靈]
 *   **定位**：專為 LP56 燒錄控制設計，支援 CH340 自動連線、按鍵操作錄製與回放功能。
