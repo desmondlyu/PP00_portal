@@ -624,9 +624,9 @@ export default function App() {
     },
     {
       id: 'dongle-summary',
-      title: 'Dongle Auto loader 自動化平台',
+      title: 'Dongle Auto Summary/Generator',
       badge: 'Active',
-      desc: '透過Hub快速收集所有Dongle測試資料，並自動彙整測試報告。',
+      desc: '支援自動化Donlge資料匯出整理/Dongle程式建立',
       icon: '🔐',
       gradient: 'var(--grad-purple-pink)',
       gridClass: 'col-4',
@@ -636,7 +636,8 @@ export default function App() {
       status: 'active',
       details: [
         '支援多個USB Device匯出資料，並依據Cycling類型一次性整理產生報表',
-        '支援直接整理個人電腦上的Dongle log檔案，請留意 log 檔案名稱需要是 COM*_log.txt (*為數字)'
+        '支援直接整理個人電腦上的Dongle log檔案，請留意 log 檔案名稱需要是 COM*_log.txt (*為數字)',
+        '支援Dongle (.bin) 測試程式建立'
       ]
     },
     {
@@ -707,7 +708,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
-    { version: 'v2.0.3', date: '2026-10-21', text: '⚡ CP DL Log 分析工具：介面更新、效能優化。', isNew: true },
+    { version: 'v2.0.3', date: '2026-10-21', text: '⚡ CP DL Log 分析工具：介面更新、效能優化。🧩 更新Dongle自動化平台：Dongle Auto Summary/Generator，支援產生建立Dongle測試程式。', isNew: true },
     { version: 'v2.0.2', date: '2026-09-09', text: '🛠️ NOR Flash Rawdata/TTO 分析平台：修正上傳壓縮檔解析模式，新增支援上傳多個 .TXT 檔案功能。', isNew: true },
     { version: 'v2.0.1', date: '2026-09-04', text: '🔒 增加入口網站需輸入帳號密碼登入限制。', isNew: true },
     { version: 'v2.0.0', date: '2026-09-01', text: '🆕 NOR Flash FT 特性系統新增 DATASHEET SPEC 分頁，可即時調整 Min／Typ／Max 規格並同步分析結果。', isNew: true },
