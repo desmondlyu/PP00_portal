@@ -707,6 +707,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
+    { version: 'v2.0.3', date: '2026-10-21', text: '⚡ CP DL Log 分析工具：介面更新、效能優化。', isNew: true },
     { version: 'v2.0.2', date: '2026-09-09', text: '🛠️ NOR Flash Rawdata/TTO 分析平台：修正上傳壓縮檔解析模式，新增支援上傳多個 .TXT 檔案功能。', isNew: true },
     { version: 'v2.0.1', date: '2026-09-04', text: '🔒 增加入口網站需輸入帳號密碼登入限制。', isNew: true },
     { version: 'v2.0.0', date: '2026-09-01', text: '🆕 NOR Flash FT 特性系統新增 DATASHEET SPEC 分頁，可即時調整 Min／Typ／Max 規格並同步分析結果。', isNew: true },
