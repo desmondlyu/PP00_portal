@@ -607,7 +607,7 @@ export default function App() {
     },
     {
       id: 'cp-mss-converter',
-      title: 'NOR Flash CP MSS 轉換工具',
+      title: 'NOR Flash CP MSS 工具',
       badge: 'Active',
       desc: '將原始 Testing Team CP MSS 轉換為 Product Team 格式。支援自動解合併儲存格、Comment 解析、迴圈偵測與格式防呆驗證。',
       icon: '📝',
@@ -619,7 +619,8 @@ export default function App() {
       status: 'active',
       details: [
         '使用者可自訂 DATASHEET SPEC 條件後，同步匯入各站點測試項目',
-        '使用者可自訂義並顏色 HIGHLIGHT 測試像有迴圈的項目'
+        '使用者可自訂義並顏色 HIGHLIGHT 測試像有迴圈的項目',
+        '提供不同版本CP MSS差異性比對功能'
       ]
     },
     {
@@ -708,6 +709,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
+    { version: 'v2.0.4', date: '2026-10-22', text: 'NOR Flash CP MSS 支援新舊版本MSS差異比對功能', isNew: true },
     { version: 'v2.0.3', date: '2026-10-21', text: '⚡ CP DL Log 分析工具：介面更新、效能優化。🧩 更新Dongle自動化平台：Dongle Auto Summary/Generator，支援產生建立Dongle測試程式。', isNew: true },
     { version: 'v2.0.2', date: '2026-09-09', text: '🛠️ NOR Flash Rawdata/TTO 分析平台：修正上傳壓縮檔解析模式，新增支援上傳多個 .TXT 檔案功能。', isNew: true },
     { version: 'v2.0.1', date: '2026-09-04', text: '🔒 增加入口網站需輸入帳號密碼登入限制。', isNew: true },
