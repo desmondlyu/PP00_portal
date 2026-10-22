@@ -709,6 +709,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
+    { version: 'v2.0.5', date: '2026-10-22', text: '🔄 NOR Flash FT 特性系統新增新舊版別比對：載入舊版報告、自訂差異 % 門檻，即可揪出「雖符合規格但改版落差過大」的風險項目，並可匯出 Excel！', isNew: true },
     { version: 'v2.0.4', date: '2026-10-22', text: 'NOR Flash CP MSS 支援新舊版本MSS差異比對功能', isNew: true },
     { version: 'v2.0.3', date: '2026-10-21', text: '⚡ CP DL Log 分析工具：介面更新、效能優化。🧩 更新Dongle自動化平台：Dongle Auto Summary/Generator，支援產生建立Dongle測試程式。', isNew: true },
     { version: 'v2.0.2', date: '2026-09-09', text: '🛠️ NOR Flash Rawdata/TTO 分析平台：修正上傳壓縮檔解析模式，新增支援上傳多個 .TXT 檔案功能。', isNew: true },
