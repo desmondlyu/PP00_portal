@@ -12,7 +12,449 @@
     <meta name="description" content="PP00 Tool Portal - 整合多功能線上工具的 Bento Grid 入口網頁，由 PP32 YPLu (Desmond Lyu) 開發。" />
   </head>
   <body>
-    <div id="root"></div>
+        <div id="root"></div>
+
+    <!-- =====================================================================
+         PP00 SECRET EASTER EGG (Konami 方向密技解鎖進入虛擬辦公室)
+         ===================================================================== -->
+    <style>
+      .brand-logo {
+        cursor: pointer !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+      }
+      #pp00-secret-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9999999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(8, 12, 22, 0.88);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        padding: 20px;
+        opacity: 0;
+        transition: opacity 0.25s ease;
+      }
+      #pp00-secret-overlay.active {
+        display: flex;
+        opacity: 1;
+      }
+      .pp00-secret-card {
+        background: linear-gradient(145deg, #0d1527 0%, #080d1a 100%);
+        border: 1px solid rgba(56, 189, 248, 0.35);
+        border-radius: 20px;
+        box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.8), 0 0 50px rgba(14, 165, 233, 0.2);
+        width: 100%;
+        max-width: 620px;
+        padding: 32px 28px 28px;
+        position: relative;
+        color: #f1f5f9;
+        font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        text-align: center;
+        transform: scale(0.92);
+        transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      #pp00-secret-overlay.active .pp00-secret-card {
+        transform: scale(1);
+      }
+      .pp00-secret-close {
+        position: absolute;
+        top: 16px;
+        right: 18px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #94a3b8;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+      }
+      .pp00-secret-close:hover {
+        background: rgba(239, 68, 68, 0.2);
+        border-color: #ef4444;
+        color: #f87171;
+      }
+      .pp00-secret-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 14px;
+        background: rgba(14, 165, 233, 0.12);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        color: #38bdf8;
+        margin-bottom: 14px;
+      }
+      .pp00-secret-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #38bdf8;
+        box-shadow: 0 0 8px #38bdf8;
+        animation: pp00Pulse 1.5s infinite;
+      }
+      .pp00-secret-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0 0 6px;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .pp00-secret-subtitle {
+        font-size: 0.85rem;
+        color: #94a3b8;
+        margin: 0 0 24px;
+      }
+      .pp00-secret-slots {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .pp00-secret-slot {
+        width: 54px;
+        height: 64px;
+        background: rgba(15, 23, 42, 0.7);
+        border: 2px solid rgba(148, 163, 184, 0.25);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: #38bdf8;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+        transition: all 0.18s ease;
+        user-select: none;
+      }
+      .pp00-secret-slot.active {
+        border-color: #38bdf8;
+        box-shadow: 0 0 16px rgba(56, 189, 248, 0.5), inset 0 2px 4px rgba(0, 0, 0, 0.4);
+        animation: pp00SlotGlow 1.2s infinite alternate;
+      }
+      .pp00-secret-slot.filled {
+        border-color: #0ea5e9;
+        background: rgba(14, 165, 233, 0.15);
+        color: #38bdf8;
+        text-shadow: 0 0 12px rgba(56, 189, 248, 0.7);
+      }
+      .pp00-secret-slots.error .pp00-secret-slot {
+        border-color: #ef4444 !important;
+        background: rgba(239, 68, 68, 0.2) !important;
+        color: #f87171 !important;
+        text-shadow: 0 0 10px rgba(239, 68, 68, 0.8) !important;
+      }
+      .pp00-secret-slots.success .pp00-secret-slot {
+        border-color: #22c55e !important;
+        background: rgba(34, 197, 94, 0.25) !important;
+        color: #4ade80 !important;
+        text-shadow: 0 0 14px rgba(34, 197, 94, 0.9) !important;
+        box-shadow: 0 0 20px rgba(34, 197, 94, 0.5) !important;
+      }
+      .pp00-shake {
+        animation: pp00Shake 0.4s ease-in-out;
+      }
+      .pp00-success-pulse {
+        animation: pp00SuccessPulse 0.5s ease-out;
+      }
+      .pp00-secret-status {
+        min-height: 24px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #94a3b8;
+        margin-bottom: 22px;
+        letter-spacing: 0.02em;
+        transition: color 0.15s ease;
+      }
+      .pp00-secret-keypad {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 14px;
+        padding: 14px;
+      }
+      .pp00-keypad-row {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+      }
+      .pp00-btn-arrow {
+        width: 48px;
+        height: 44px;
+        background: rgba(30, 41, 59, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 10px;
+        color: #e2e8f0;
+        font-size: 1.25rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+        user-select: none;
+      }
+      .pp00-btn-arrow:hover {
+        background: #0284c7;
+        border-color: #38bdf8;
+        color: #ffffff;
+        box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+        transform: translateY(-2px);
+      }
+      .pp00-btn-arrow:active {
+        transform: translateY(0);
+      }
+      .pp00-btn-clear {
+        padding: 6px 16px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        color: #94a3b8;
+        font-size: 0.78rem;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .pp00-btn-clear:hover {
+        background: rgba(239, 68, 68, 0.15);
+        border-color: rgba(239, 68, 68, 0.4);
+        color: #f87171;
+      }
+      @keyframes pp00Pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.85); }
+      }
+      @keyframes pp00SlotGlow {
+        from { box-shadow: 0 0 8px rgba(56, 189, 248, 0.3); }
+        to { box-shadow: 0 0 18px rgba(56, 189, 248, 0.6); }
+      }
+      @keyframes pp00Shake {
+        0%, 100% { transform: translateX(0); }
+        20% { transform: translateX(-9px); }
+        40% { transform: translateX(9px); }
+        60% { transform: translateX(-6px); }
+        80% { transform: translateX(6px); }
+      }
+      @keyframes pp00SuccessPulse {
+        0% { transform: scale(0.96); }
+        50% { transform: scale(1.03); }
+        100% { transform: scale(1); }
+      }
+      @media (max-width: 540px) {
+        .pp00-secret-card { padding: 24px 16px 20px; }
+        .pp00-secret-slot { width: 34px; height: 48px; font-size: 1.35rem; border-radius: 8px; }
+        .pp00-secret-slots { gap: 5px; }
+        .pp00-secret-title { font-size: 1.25rem; }
+        .pp00-btn-arrow { width: 42px; height: 38px; font-size: 1.1rem; }
+      }
+    </style>
+
+    <div id="pp00-secret-overlay" role="dialog" aria-modal="true" aria-label="秘密指令輸入視窗">
+      <div class="pp00-secret-card">
+        <button type="button" class="pp00-secret-close" id="pp00-egg-close" aria-label="關閉視窗">&times;</button>
+        <div class="pp00-secret-badge">
+          <span class="pp00-secret-dot"></span>
+          <span>🔒 SECRET TERMINAL</span>
+        </div>
+        <h3 class="pp00-secret-title">秘密指令解鎖</h3>
+        <p class="pp00-secret-subtitle">請依序輸入 8 碼方向解鎖指令（支援鍵盤 ↑ ↓ ← → 或下方觸控按鈕）</p>
+
+        <!-- 8 個大空格 -->
+        <div class="pp00-secret-slots" id="pp00-egg-slots">
+          <div class="pp00-secret-slot active" data-idx="0"></div>
+          <div class="pp00-secret-slot" data-idx="1"></div>
+          <div class="pp00-secret-slot" data-idx="2"></div>
+          <div class="pp00-secret-slot" data-idx="3"></div>
+          <div class="pp00-secret-slot" data-idx="4"></div>
+          <div class="pp00-secret-slot" data-idx="5"></div>
+          <div class="pp00-secret-slot" data-idx="6"></div>
+          <div class="pp00-secret-slot" data-idx="7"></div>
+        </div>
+
+        <!-- 狀態提示 -->
+        <div class="pp00-secret-status" id="pp00-egg-status">等待輸入指令... (第 1 / 8 碼)</div>
+
+        <!-- 虛擬方向鍵觸控區 -->
+        <div class="pp00-secret-keypad">
+          <div class="pp00-keypad-row">
+            <button type="button" class="pp00-btn-arrow" data-key="ArrowUp" aria-label="上">&uarr;</button>
+          </div>
+          <div class="pp00-keypad-row">
+            <button type="button" class="pp00-btn-arrow" data-key="ArrowLeft" aria-label="左">&larr;</button>
+            <button type="button" class="pp00-btn-arrow" data-key="ArrowDown" aria-label="下">&darr;</button>
+            <button type="button" class="pp00-btn-arrow" data-key="ArrowRight" aria-label="右">&rarr;</button>
+          </div>
+          <div class="pp00-keypad-row" style="margin-top: 4px;">
+            <button type="button" class="pp00-btn-clear" id="pp00-egg-clear">⌫ 清除重來 (Esc 關閉)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const TARGET_SEQ = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowLeft', 'ArrowRight', 'ArrowRight'];
+        const SYMBOL_MAP = {
+          'ArrowUp': '↑',
+          'ArrowDown': '↓',
+          'ArrowLeft': '←',
+          'ArrowRight': '→'
+        };
+
+        let currentIdx = 0;
+        let isLocked = false;
+        let logoClicks = 0;
+        let logoTimer = null;
+
+        const overlay = document.getElementById('pp00-secret-overlay');
+        const closeBtn = document.getElementById('pp00-egg-close');
+        const clearBtn = document.getElementById('pp00-egg-clear');
+        const slotsContainer = document.getElementById('pp00-egg-slots');
+        const slots = Array.from(document.querySelectorAll('.pp00-secret-slot'));
+        const statusEl = document.getElementById('pp00-egg-status');
+        const card = overlay.querySelector('.pp00-secret-card');
+
+        function openModal() {
+          overlay.classList.add('active');
+          document.body.style.overflow = 'hidden';
+          resetSlots();
+          window.addEventListener('keydown', onKeyDown);
+        }
+
+        function closeModal() {
+          overlay.classList.remove('active');
+          document.body.style.overflow = '';
+          window.removeEventListener('keydown', onKeyDown);
+          resetSlots();
+        }
+
+        function resetSlots() {
+          currentIdx = 0;
+          isLocked = false;
+          slotsContainer.classList.remove('error', 'success');
+          card.classList.remove('pp00-shake', 'pp00-success-pulse');
+          slots.forEach((slot, idx) => {
+            slot.textContent = '';
+            slot.className = 'pp00-secret-slot' + (idx === 0 ? ' active' : '');
+          });
+          statusEl.style.color = '#94a3b8';
+          statusEl.textContent = '等待輸入指令... (第 1 / 8 碼)';
+        }
+
+        function handleInput(key) {
+          if (isLocked || !TARGET_SEQ.includes(key)) return;
+
+          const expected = TARGET_SEQ[currentIdx];
+          const symbol = SYMBOL_MAP[key] || '?';
+
+          const curSlot = slots[currentIdx];
+          curSlot.textContent = symbol;
+          curSlot.classList.remove('active');
+          curSlot.classList.add('filled');
+
+          if (key === expected) {
+            currentIdx++;
+            if (currentIdx < TARGET_SEQ.length) {
+              slots[currentIdx].classList.add('active');
+              statusEl.style.color = '#38bdf8';
+              statusEl.textContent = `輸入正確！等待下一碼... (第 ${currentIdx + 1} / 8 碼)`;
+            } else {
+              isLocked = true;
+              slotsContainer.classList.add('success');
+              card.classList.add('pp00-success-pulse');
+              statusEl.style.color = '#4ade80';
+              statusEl.textContent = '🎉 ACCESS GRANTED！指令正確，正在開啟 PP00 虛擬辦公室...';
+              if (navigator.vibrate) navigator.vibrate([40, 40, 100]);
+
+              setTimeout(() => {
+                window.location.href = './tool/PP00_Gather/index.html';
+              }, 700);
+            }
+          } else {
+            isLocked = true;
+            slotsContainer.classList.add('error');
+            card.classList.add('pp00-shake');
+            statusEl.style.color = '#f87171';
+            statusEl.textContent = '❌ 指令錯誤！請重新輸入';
+            if (navigator.vibrate) navigator.vibrate(120);
+
+            setTimeout(() => {
+              resetSlots();
+            }, 550);
+          }
+        }
+
+        function onKeyDown(e) {
+          if (!overlay.classList.contains('active')) return;
+
+          if (e.key === 'Escape') {
+            closeModal();
+            return;
+          }
+          if (e.key === 'Backspace') {
+            e.preventDefault();
+            resetSlots();
+            return;
+          }
+          if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault();
+            handleInput(e.key);
+          }
+        }
+
+        document.addEventListener('click', function(e) {
+          const logo = e.target.closest('.brand-logo');
+          if (!logo) return;
+
+          logo.style.transform = 'scale(0.88)';
+          logo.style.transition = 'transform 0.12s ease';
+          setTimeout(() => {
+            logo.style.transform = '';
+          }, 120);
+
+          logoClicks++;
+          clearTimeout(logoTimer);
+          logoTimer = setTimeout(() => {
+            logoClicks = 0;
+          }, 1800);
+
+          if (logoClicks >= 3) {
+            logoClicks = 0;
+            clearTimeout(logoTimer);
+            openModal();
+          }
+        });
+
+        overlay.querySelectorAll('.pp00-btn-arrow').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const key = btn.getAttribute('data-key');
+            handleInput(key);
+          });
+        });
+
+        closeBtn.addEventListener('click', closeModal);
+        clearBtn.addEventListener('click', resetSlots);
+
+        overlay.addEventListener('click', function(e) {
+          if (e.target === overlay) {
+            closeModal();
+          }
+        });
+      })();
+    </script>
     <script type="module" src="./main.jsx"></script>
   </body>
 </html>
