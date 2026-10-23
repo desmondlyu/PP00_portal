@@ -318,6 +318,7 @@
         let isLocked = false;
         let logoClicks = 0;
         let logoTimer = null;
+        let launchTimer = null;
 
         const overlay = document.getElementById('pp00-secret-overlay');
         const closeBtn = document.getElementById('pp00-egg-close');
@@ -335,10 +336,46 @@
         }
 
         function closeModal() {
+          clearTimeout(launchTimer);
           overlay.classList.remove('active');
           document.body.style.overflow = '';
           window.removeEventListener('keydown', onKeyDown);
           resetSlots();
+        }
+
+        function openOffice() {
+          closeModal();
+          const previousFocus = document.activeElement;
+          const previousOverflow = document.body.style.overflow;
+          const dialog = document.createElement('dialog');
+          dialog.setAttribute('aria-label', 'PP00 虛擬辦公室');
+          dialog.style.cssText = 'position:fixed;inset:0;margin:0;width:100%;max-width:none;height:100%;height:100dvh;max-height:none;border:0;padding:0;background:#0f172a;color:white;overflow:hidden;';
+          const toolbar = document.createElement('div');
+          toolbar.style.cssText = 'height:44px;display:flex;align-items:center;padding:0 12px;box-sizing:border-box;background:#0f172a;';
+          const back = document.createElement('button');
+          back.type = 'button';
+          back.textContent = '← 返回入口網站';
+          back.style.cssText = 'font:inherit;color:white;background:#334155;border:1px solid #64748b;border-radius:6px;padding:5px 12px;cursor:pointer;';
+          const frame = document.createElement('iframe');
+          frame.title = 'PP00 虛擬辦公室';
+          frame.src = './tool/PP00_Gather/index.html';
+          frame.allow = 'camera; microphone; autoplay; fullscreen; display-capture';
+          frame.style.cssText = 'display:block;width:100%;height:calc(100% - 44px);border:0;background:#0f172a;';
+          toolbar.append(back);
+          dialog.append(toolbar, frame);
+          document.body.append(dialog);
+          document.body.style.overflow = 'hidden';
+          back.addEventListener('click', () => dialog.close());
+          // Escape is used by the game; closing is an explicit return-button action.
+          dialog.addEventListener('cancel', (event) => event.preventDefault());
+          dialog.addEventListener('close', () => {
+            frame.src = 'about:blank';
+            dialog.remove();
+            document.body.style.overflow = previousOverflow;
+            if (previousFocus && previousFocus.isConnected) previousFocus.focus();
+          }, { once: true });
+          dialog.showModal();
+          frame.addEventListener('load', () => frame.focus(), { once: true });
         }
 
         function resetSlots() {
@@ -379,9 +416,7 @@
               statusEl.textContent = '🎉 ACCESS GRANTED！指令正確，正在開啟 PP00 虛擬辦公室...';
               if (navigator.vibrate) navigator.vibrate([40, 40, 100]);
 
-              setTimeout(() => {
-                window.location.href = './tool/PP00_Gather/index.html';
-              }, 700);
+              launchTimer = setTimeout(openOffice, 700);
             }
           } else {
             isLocked = true;

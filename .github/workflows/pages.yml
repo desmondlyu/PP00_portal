@@ -4,9 +4,10 @@ on:
   push:
     branches: [main]
   schedule:
-    # 臺灣時間週一至週五 14:30 (UTC 06:30) 與 15:30 (UTC 07:30，備援重試)
-    - cron: '30 6 * * 1-5'
-    - cron: '30 7 * * 1-5'
+    # 每天臺灣時間 09:00–13:30（UTC 01:00–05:30），含週末。
+    # 資料來源仍是盤後收盤資料，不是盤中即時行情。
+    - cron: '*/5 1-4 * * *'
+    - cron: '0-30/5 5 * * *'
   workflow_dispatch:
 
 permissions:
@@ -39,6 +40,12 @@ jobs:
       # 自動抓取最新 TWSE 盤後加權指數資料並寫入 static/data/taiex.json
       - name: Fetch latest TWSE stock data
         run: |
+          # 排隊延遲、push 或手動部署也不可在指定時段外抓取行情。
+          utc_minutes=$((10#$(date -u +%H) * 60 + 10#$(date -u +%M)))
+          if (( utc_minutes < 60 || utc_minutes > 330 )); then
+            echo "Outside Taiwan 09:00–13:30; keeping cached stock data"
+            exit 0
+          fi
           node tool/PP00_Gather/scripts/update_taiex.js || echo "TWSE fetch warning, continuing with existing cache"
 
       # 若有新收盤數據，自動 commit 回 main 分支保持專案資料庫同步
