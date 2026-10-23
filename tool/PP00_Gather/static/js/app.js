@@ -115,6 +115,8 @@
     actionState: null, // 12 種情境動作 ID (含 sleep_bed)
     isInjured: false,  // 🚑 重傷狀態
     injuredUntil: 0,   // 🚑 重傷截止時間戳
+    isRestrained: false, // 🚨 受警衛管教拘禁狀態 (無法移動與反擊 10 秒)
+    restrainedUntil: 0,
     birdCommanderExiled: false, // 🦩 鳥人指揮官是否已被永久擊退放逐
     x: 880,
     y: 525,
@@ -184,6 +186,9 @@
         localPlayer.actionState = 'sleep_bed';
       }
       syncPlayerActiveWeaponState();
+      if (window.gatherSupabase) {
+        window.gatherSupabase.syncDurability(localPlayer.equippedSlots);
+      }
     } else {
       // 首次登入無存檔：依強度生成率 (5%~20%) 配發 1 把武器 + 1 個伴手禮道具
       const initWeapon = getRandomWeaponMeta();
@@ -206,18 +211,38 @@
     network = new window.EphemeralOfficeNetwork({
       onPlayerJoin: (player) => {
         pushStatusLog('系統', `🟢 ${player.name} (${player.unit}) 已上線進入辦公室！`);
+        showToast(`🟢 <b>${escapeHtml(player.name)}</b> (${escapeHtml(player.unit)}) 上線進入辦公室！`, 'join');
         renderSidebarRoster();
       },
       onPlayerLeave: (player) => {
         pushStatusLog('系統', `👋 ${player.name} 已離開（資料已銷毀）`);
+        showToast(`👋 <b>${escapeHtml(player.name)}</b> 已離開辦公室`, 'leave');
         renderSidebarRoster();
       },
+      onRemoteMurmur: (pkt) => {
+        pushStatusLog(pkt.senderName, `💭 碎碎念：「${pkt.text}」`);
+        renderUnifiedChatAndStatus();
+      },
       onProximityChat: (msg) => {
-        pushUserChat(msg.senderName, msg.senderUnit, msg.text, false);
+        const suffix = msg.isNearby ? ' (身邊)' : '';
+        pushUserChat(msg.senderName + suffix, msg.senderUnit, msg.text, false);
+        if (document.hidden) {
+          triggerDesktopNotification(msg.senderName, msg.senderUnit, msg.text);
+        }
       },
       onPrivateChat: (msg) => {
         pushUserChat(msg.senderName, msg.senderUnit, msg.text, false, true, localPlayer.name);
+        showToast(`🔒 收到來自 <b>${escapeHtml(msg.senderName)}</b> 的私人對談！`, 'join');
+        if (document.hidden) {
+          triggerDesktopNotification(msg.senderName, msg.senderUnit, `[私人對談] ${msg.text}`);
+        }
       },
+      onGuardHitMob: (guard, mob) => {
+        spawnConfetti(mob.x, mob.y - 16);
+        pushStatusLog(guard.name, `🏏 警棍命中【${mob.name}】！成功消滅方塊怪！`);
+        showToast(`🏏 夜間警衛擊退了【${mob.name}】！`, 'security');
+      },
+      getMobs: () => (officeEcosystem && officeEcosystem.mobs ? officeEcosystem.mobs : []),
       onRemoteSkill: (pkt) => {
         handleIncomingSkillEffect(pkt);
       },
@@ -302,6 +327,14 @@
     handleResize();
     window.addEventListener('resize', handleResize);
     window.visualViewport?.addEventListener('resize', handleResize);
+    window.addEventListener('beforeunload', () => {
+      savePersistentState();
+      if (window.gatherSupabase) window.gatherSupabase.logoutUser();
+    });
+    window.addEventListener('pagehide', () => {
+      savePersistentState();
+      if (window.gatherSupabase) window.gatherSupabase.logoutUser();
+    });
 
     requestAnimationFrame(gameLoop);
   }
@@ -1070,6 +1103,20 @@
       isLoggedIn = true;
       network.connect(localPlayer, roomCode);
 
+      if (window.gatherSupabase) {
+        window.gatherSupabase.init({
+          callbacks: {
+            onAuditLogInsert: (log) => {
+              if (log && log.client_id !== network.clientId) {
+                const action = log.event_type === 'login' ? '上線進入' : '離線離開';
+                showToast(`🔔 <b>${escapeHtml(log.user_name)}</b> (${escapeHtml(log.unit)}) 已${action}辦公室！`, 'join');
+              }
+            },
+          },
+        });
+        window.gatherSupabase.registerUser(localPlayer);
+      }
+
       // 若鳥人指揮官已被永久流放，確保即刻自清單中移除
       if (localPlayer.birdCommanderExiled && network) {
         network.npcPlayers.delete('npc_bird_commander');
@@ -1364,6 +1411,19 @@
 
       const k = e.key.toLowerCase();
 
+      // 🚨 檢查受夜間警衛管教拘禁狀態：無法動彈與反擊 10 秒
+      if (localPlayer.isRestrained && Date.now() < (localPlayer.restrainedUntil || 0)) {
+        if (
+          ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'f', 'e', ' ', '1', '2', '3', '4', '5', '6'].includes(k) ||
+          e.altKey
+        ) {
+          e.preventDefault();
+          const leftSec = Math.max(1, Math.ceil((localPlayer.restrainedUntil - Date.now()) / 1000));
+          showToast(`🚨 正在受夜間警衛管教拘禁中，無法移動與反擊！（剩餘 ${leftSec} 秒）`, 'error');
+          return;
+        }
+      }
+
       // 🚑 檢查重傷休養狀態：無法動彈
       if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
         if (
@@ -1536,6 +1596,15 @@
         camera.overviewMode = !camera.overviewMode;
         e.currentTarget.classList.toggle('active', camera.overviewMode);
         handleResize();
+      });
+    }
+
+    const exitOfficeBtn = document.getElementById('btnExitOffice');
+    if (exitOfficeBtn) {
+      exitOfficeBtn.addEventListener('click', () => {
+        if (confirm('確定要登出並返回入口網站嗎？')) {
+          window.logoutAndLeaveOffice();
+        }
       });
     }
 
@@ -1821,6 +1890,14 @@
       });
     }
 
+    // 🚨 檢查是否正在受警衛管教拘禁中：10 秒無法反擊
+    if (localPlayer.isRestrained && now < (localPlayer.restrainedUntil || 0)) {
+      const leftSec = Math.max(1, Math.ceil((localPlayer.restrainedUntil - now) / 1000));
+      pushStatusLog('系統', `⚠️ 正在受夜間警衛管教拘禁中，無法反擊！（剩餘 ${leftSec} 秒）`);
+      showToast(`⚠️ 襲警管教懲處中，無法反擊！（剩餘 ${leftSec} 秒）`, 'error');
+      return;
+    }
+
     // 2. 檢查並擊退附近的 NPC (若為 VP 大老闆或 PP00 處長，觸發閉門訓話 10 秒)
     network.npcPlayers.forEach((npc) => {
       const d = Math.hypot(npc.x - localPlayer.x, npc.y - localPlayer.y);
@@ -1833,6 +1910,56 @@
 
       if (d <= effectiveRadius) {
         hitCount++;
+
+        // 🏏 規則：攻擊夜間巡邏警衛，警衛發怒狂暴，把玩家帶去廁所攻擊 10 秒，玩家無法反擊
+        if (npc.id === 'npc_security_guard' || npc.isSecurityGuard) {
+          const stall = window.WORLD_MAP?.toiletStalls?.[0];
+          const roomX = stall ? stall.seatX : 2465;
+          const roomY = stall ? stall.seatY : 745;
+
+          localPlayer.x = roomX;
+          localPlayer.y = roomY;
+          npc.x = roomX + 32;
+          npc.y = roomY;
+          localPlayer.autoWalkTarget = null;
+          localPlayer.knockback = null;
+
+          if (stall) {
+            stall.occupiedBy = localPlayer.id;
+            stall.kickShakeTicks = 35;
+          }
+
+          localPlayer.isRestrained = true;
+          localPlayer.restrainedUntil = now + 10000;
+          localPlayer.actionState = 'toilet';
+
+          const scoldPool =
+            window.GATHER_CONFIG?.bossScoldDialogues?.security_guard || [
+              '💢 敢襲警妨礙公務？抓去廁所管教10秒！',
+              '💢 拿武器敲警衛？進廁所好好反省10秒不准動！',
+              '💢 造反了！襲擊夜間保全，關在廁所面壁10秒！',
+              '💢 體力旺盛來打警衛？在廁所乖乖挨棍10秒！',
+              '💢 保全警棍比你的武器硬多了！在廁所受罰10秒！',
+            ];
+          const scoldLine = scoldPool[Math.floor(Math.random() * scoldPool.length)];
+          npc.murmur = {
+            text: scoldLine,
+            mood: 'fire',
+            createdAt: now,
+            expiresAt: now + 10000,
+          };
+          npc.jumpOffset = 16;
+          npc.emote = { emoji: '💢', expiresAt: now + 10000 };
+          spawnConfetti(localPlayer.x, localPlayer.y - 20);
+
+          pushStatusLog('夜間警衛', `💢 ${scoldLine}`);
+          showToast(`🚨 襲警被老李抓進廁所管教 10 秒！無法反擊！`, 'error');
+          network.broadcastPacket('status_log', {
+            senderName: npc.name,
+            text: `💢 ${scoldLine}`,
+          });
+          return;
+        }
 
         // 👑 規則 6：攻擊 VP 大老闆或 PP00 處長時，被拉去他們的獨立辦公室關緊閉訓話 10 秒
         if (npc.id === 'npc_vp_boss' || npc.id === 'npc_dir_pp00') {
@@ -3403,7 +3530,57 @@
 
   function showToast(htmlText, type = 'info', onAction = null) {
     pushStatusLog('系統', String(htmlText).replace(/<[^>]*>/g, ''));
+    if (typeof document === 'undefined') return;
+    let container = document.getElementById('gatherToastContainer');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'gatherToastContainer';
+      container.className = 'gather-toast-container';
+      if (document.body) document.body.appendChild(container);
+    }
+    if (container) {
+      const toast = document.createElement('div');
+      toast.className = `gather-toast-item ${type}`;
+      toast.innerHTML = htmlText;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(() => toast.remove(), 320);
+      }, 3500);
+    }
   }
+
+  window.logoutAndLeaveOffice = function () {
+    if (localPlayer.actionState === 'toilet') {
+      const activeStall = window.WORLD_MAP.toiletStalls.find((s) => s.occupiedBy === localPlayer.id);
+      if (activeStall) {
+        activeStall.occupiedBy = null;
+        activeStall.doorOpen = 0;
+      }
+    }
+    window.WORLD_MAP.toiletStalls.forEach((s) => {
+      if (s.occupiedBy === localPlayer.id) s.occupiedBy = null;
+    });
+    localPlayer.occupiedSpotId = null;
+    localPlayer.actionState = null;
+
+    if (window.gatherSupabase) {
+      window.gatherSupabase.logoutUser();
+    }
+    if (network && typeof network.disconnect === 'function') {
+      network.disconnect();
+    }
+    isLoggedIn = false;
+
+    if (window.parent && window.parent !== window) {
+      try {
+        window.parent.postMessage({ type: 'close_gather_office' }, '*');
+      } catch (_) {}
+    } else {
+      window.location.href = '../../index.html';
+    }
+  };
 
   function updateSelfHudCard() {
     const av = window.getAvatarMetaById
@@ -3706,6 +3883,33 @@
       }
       if (tick % 3 === 0) {
         network.broadcastPacket('move', { player: network.getPublicState() });
+      }
+    }
+
+    // 🚨 檢查受夜間警衛管教拘禁狀態：在廁所被管教 10 秒無法動彈與反擊
+    if (localPlayer.isRestrained) {
+      if (Date.now() < (localPlayer.restrainedUntil || 0)) {
+        localPlayer.isMoving = false;
+        localPlayer.autoWalkTarget = null;
+        localPlayer.knockback = null;
+        if (tick % 20 === 0) {
+          spawnConfetti(localPlayer.x, localPlayer.y - 12);
+        }
+        return;
+      } else {
+        localPlayer.isRestrained = false;
+        localPlayer.actionState = null;
+        for (const s of window.WORLD_MAP.toiletStalls) {
+          if (s.occupiedBy === localPlayer.id) {
+            s.occupiedBy = null;
+            break;
+          }
+        }
+        pushStatusLog('系統', '👮 警衛管教結束！反省完畢，恢復行動與反擊自由！');
+        showToast('👮 警衛管教結束，恢復行動與反擊自由！', 'success');
+        if (network) {
+          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        }
       }
     }
 

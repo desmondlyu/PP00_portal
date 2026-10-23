@@ -342,6 +342,76 @@ html {
   border-color: #60a5fa;
 }
 
+.hud-mini-btn.hud-exit-btn {
+  background: rgba(220, 38, 38, 0.85);
+  border-color: #ef4444;
+  color: #fff;
+  font-weight: 700;
+}
+
+.hud-mini-btn.hud-exit-btn:hover {
+  background: #dc2626;
+  border-color: #f87171;
+}
+
+/* 浮動上線/下線與系統通知橫幅 */
+.gather-toast-container {
+  position: fixed;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.gather-toast-item {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(12px);
+  border: 1.5px solid rgba(56, 189, 248, 0.6);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.3);
+  animation: toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.gather-toast-item.join {
+  border-color: #22c55e;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 18px rgba(34, 197, 94, 0.4);
+}
+
+.gather-toast-item.leave {
+  border-color: #f97316;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 18px rgba(249, 115, 22, 0.4);
+}
+
+.gather-toast-item.error {
+  border-color: #ef4444;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 18px rgba(239, 68, 68, 0.4);
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* =========================================================================
    3. 左側「🏢 PP00 虛擬辦公室」可縮合面板（預設縮合）
    ========================================================================= */

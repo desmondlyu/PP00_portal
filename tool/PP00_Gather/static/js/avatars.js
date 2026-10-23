@@ -140,6 +140,15 @@ window.NPC_AVATAR_CATALOG = [
     secondary: '#fbcfe8',
     desc: '特殊 NPC 鳥人指揮官專屬形象：頭戴超吸睛立體粉紅紅鶴頭套，奔跑時雙翼狂拍！',
   },
+  {
+    id: 'npc_security_guard',
+    name: '深藍制服安保警衛 (夜間警衛老李專屬)',
+    tag: '金徽大盤帽・深藍防暴制服・手持黑色警棍',
+    badge: '🏏',
+    primary: '#1e3a8a',
+    secondary: '#facc15',
+    desc: '夜間巡邏警衛專屬形象：頭戴金屬警徽大盤帽、身穿深藍安保制服與防暴背心、手持黑色警棍巡視全場守護辦公室。',
+  },
 ];
 
 window.getAvatarMetaById = function (avatarId) {
@@ -974,7 +983,97 @@ window.drawWackyAvatar = function (ctx, opts) {
       break;
     }
 
-    case 'crt_bot':
+        case 'npc_security_guard': {
+      // 🏏 夜間巡邏警衛・老李：深藍防暴安保制服 + 金徽大盤帽 + 黑色警棍
+      const batonSwing = Math.sin(tick * 0.35) * 6;
+
+      // 1. 軀幹：深藍色制服與黑色戰術防暴背心
+      ctx.fillStyle = '#1e3a8a';
+      fillRoundRect(ctx, -11, -4, 22, 16, 4);
+      ctx.fillStyle = '#0f172a';
+      fillRoundRect(ctx, -8, -2, 16, 12, 3);
+
+      // 金色肩章與警衛標籤
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(-12, -4, 4, 3);
+      ctx.fillRect(8, -4, 4, 3);
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(-6, 0, 5, 2.5);
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(3, 1, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 戰術腰帶與對講機
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(-11, 8, 22, 4);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(-2, 8, 4, 4);
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(-10, 6, 3, 6);
+
+      // 2. 右手手持黑色防暴警棍
+      ctx.save();
+      ctx.translate(13, 2 + batonSwing * 0.3);
+      ctx.rotate(((25 + batonSwing * 3) * Math.PI) / 180);
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(-2, -2, 4, 6);
+      ctx.fillStyle = '#020617';
+      fillRoundRect(ctx, -2.5, -20, 5, 19, 2);
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(-3, -16, 6, 2);
+      ctx.restore();
+
+      // 3. 臉部與大盤帽
+      ctx.fillStyle = '#fed7aa';
+      fillRoundRect(ctx, -9, -21, 18, 17, 5);
+
+      // 俐落鬢角
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(-10, -20, 3, 6);
+      ctx.fillRect(7, -20, 3, 6);
+
+      // 威嚴濃眉與雙眼
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(-6, -17, 4, 1.5);
+      ctx.fillRect(2, -17, 4, 1.5);
+      ctx.beginPath();
+      ctx.arc(-4, -13.5, 1.6, 0, Math.PI * 2);
+      ctx.arc(4, -13.5, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 微閉沉穩嘴唇
+      ctx.strokeStyle = '#78350f';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-2, -9);
+      ctx.lineTo(2, -9);
+      ctx.stroke();
+
+      // 4. 金徽深藍大盤帽
+      ctx.fillStyle = '#1e3a8a';
+      fillRoundRect(ctx, -13, -31, 26, 12, 5);
+      ctx.fillStyle = '#020617';
+      fillRoundRect(ctx, -14, -22, 28, 4, 2);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(-11, -22, 22, 2);
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.moveTo(0, -28);
+      ctx.lineTo(4, -25);
+      ctx.lineTo(3, -21);
+      ctx.lineTo(-3, -21);
+      ctx.lineTo(-4, -25);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.arc(0, -24.5, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+
+case 'crt_bot':
     default: {
       ctx.fillStyle = '#475569';
       fillRoundRect(ctx, -11, -3, 22, 15, 4);
