@@ -523,8 +523,11 @@ ${g}`}class se extends Error{constructor({message:e,code:r,cause:n,name:s}){var 
           toolbar.style.cssText = 'height:44px;display:flex;align-items:center;padding:0 12px;box-sizing:border-box;background:#0f172a;';
           const back = document.createElement('button');
           back.type = 'button';
-          back.textContent = '← 返回入口網站';
-          back.style.cssText = 'font:inherit;color:white;background:#334155;border:1px solid #64748b;border-radius:6px;padding:5px 12px;cursor:pointer;';
+          back.textContent = '← 登出/返回入口網站';
+          back.setAttribute('title', '安全登出並返回入口網站');
+          back.style.cssText = 'font:inherit;font-weight:600;color:white;background:#dc2626;border:1px solid #ef4444;border-radius:6px;padding:5px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background 0.2s;';
+          back.addEventListener('mouseenter', () => { back.style.background = '#b91c1c'; });
+          back.addEventListener('mouseleave', () => { back.style.background = '#dc2626'; });
           const frame = document.createElement('iframe');
           frame.title = 'PP00 虛擬辦公室';
           frame.src = './tool/PP00_Gather/index.html';
@@ -534,10 +537,29 @@ ${g}`}class se extends Error{constructor({message:e,code:r,cause:n,name:s}){var 
           dialog.append(toolbar, frame);
           document.body.append(dialog);
           document.body.style.overflow = 'hidden';
-          back.addEventListener('click', () => dialog.close());
+          const doClose = () => {
+            try {
+              if (frame.contentWindow && frame.contentWindow.logoutAndLeaveOffice) {
+                frame.contentWindow.logoutAndLeaveOffice();
+              }
+            } catch (e) {
+              console.warn('Logout error:', e);
+            }
+            setTimeout(() => {
+              try { dialog.close(); } catch (_) {}
+            }, 120);
+          };
+          back.addEventListener('click', doClose);
+          const onFrameMsg = (event) => {
+            if (event.data && event.data.type === 'close_gather_office') {
+              try { dialog.close(); } catch (_) {}
+            }
+          };
+          window.addEventListener('message', onFrameMsg);
           // Escape is used by the game; closing is an explicit return-button action.
           dialog.addEventListener('cancel', (event) => event.preventDefault());
           dialog.addEventListener('close', () => {
+            window.removeEventListener('message', onFrameMsg);
             frame.src = 'about:blank';
             dialog.remove();
             document.body.style.overflow = previousOverflow;

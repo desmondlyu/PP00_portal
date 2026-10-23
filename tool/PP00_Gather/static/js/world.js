@@ -1315,86 +1315,133 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
 };
 
 /**
- * 背景自動執行的真實系統時間光影引擎
+ * 背景自動執行的真實系統時間光影與辦公室電燈系統
+ * - 傍晚 17:00 至清晨 05:00：辦公室天花板電燈全面打開，照亮整個室內辦公空間
+ * - 05:00 至 17:00：辦公室電燈關閉，接受大自然正常日照（含清晨日出柔光）
  */
 window.renderRealTimeLighting = function (ctx, hourFloat, players) {
   const { width, height } = window.WORLD_MAP;
+  const isLightsOn = hourFloat >= 17 || hourFloat < 5;
 
-  ctx.save();
-  const night = hourFloat < 6 || hourFloat >= 19;
-  window.WORLD_MAP.workstations.filter((ws) => ws.hasLamp).forEach((ws) => {
-    const x = ws.x + ws.w - 20, y = ws.y + 14;
-    const glow = ctx.createRadialGradient(x, y, 2, x, y, 52);
-    glow.addColorStop(0, night ? 'rgba(255, 221, 155, 0.24)' : 'rgba(255, 232, 177, 0.13)');
-    glow.addColorStop(1, 'rgba(255, 221, 155, 0)');
-    ctx.fillStyle = glow; ctx.fillRect(x - 52, y - 52, 104, 104);
-  });
-  ctx.restore();
-
-  if (hourFloat >= 6 && hourFloat < 9) {
-    const intensity = 1 - Math.abs(hourFloat - 7.5) / 1.5;
-    ctx.save();
-    const dawnGrad = ctx.createLinearGradient(0, 0, width * 0.7, height * 0.7);
-    dawnGrad.addColorStop(0, `rgba(251, 191, 36, ${0.2 * intensity})`);
-    dawnGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.fillStyle = dawnGrad;
-    ctx.fillRect(0, 0, width, height);
-    ctx.restore();
+  // 1. 若非開燈時段 (05:00 ~ 17:00)：電燈關閉，接受正常大自然採光
+  if (!isLightsOn) {
+    if (hourFloat >= 5 && hourFloat < 8) {
+      // 05:00 ~ 08:00 晨曦日出漸層 (柔和金色陽光透入)
+      const intensity = 1 - Math.abs(hourFloat - 6.5) / 1.5;
+      ctx.save();
+      const dawnGrad = ctx.createLinearGradient(0, 0, width * 0.75, height * 0.75);
+      dawnGrad.addColorStop(0, 'rgba(251, 191, 36, ' + (0.16 * intensity) + ')');
+      dawnGrad.addColorStop(0.5, 'rgba(253, 230, 138, ' + (0.08 * intensity) + ')');
+      dawnGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = dawnGrad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+    }
+    // 08:00 ~ 17:00 晴天自然採光，電燈維持關閉，無須疊加夜間頂燈
     return;
   }
 
-  if (hourFloat >= 9 && hourFloat < 17) return;
-
-  if (hourFloat >= 17 && hourFloat < 19) {
-    const progress = (hourFloat - 17) / 2;
-    ctx.save();
-    const duskGrad = ctx.createLinearGradient(0, 0, width, height);
-    duskGrad.addColorStop(0, `rgba(249, 115, 22, ${0.15 + progress * 0.1})`);
-    duskGrad.addColorStop(1, `rgba(30, 27, 75, ${0.2 + progress * 0.2})`);
-    ctx.fillStyle = duskGrad;
-    ctx.fillRect(0, 0, width, height);
-    ctx.restore();
-    return;
-  }
-
+  // 2. 傍晚 17:00 至清晨 05:00：辦公室電燈全面打開！
   ctx.save();
-  ctx.fillStyle = 'rgba(19, 30, 51, 0.32)';
+
+  // (A) 室外與辦公室夜幕底色
+  const nightIntensity = (hourFloat >= 17 && hourFloat < 19)
+    ? 0.22 + ((hourFloat - 17) / 2) * 0.16
+    : 0.38;
+  ctx.fillStyle = 'rgba(15, 23, 42, ' + nightIntensity + ')';
   ctx.fillRect(0, 0, width, height);
+
+  // (B) 切換至 screen 混合模式，渲染室內明亮日光燈照明陣列
   ctx.globalCompositeOperation = 'screen';
 
+  // 均勻分佈在辦公室各天花板頂部的日光燈矩陣
+  const ceilingLamps = [
+    // VP 與 處長辦公室
+    { x: 380, y: 310, r: 190, intensity: 0.32 },
+    { x: 760, y: 330, r: 190, intensity: 0.32 },
+    { x: 1240, y: 350, r: 180, intensity: 0.30 },
+    // PE 辦公區頂燈 (雙排)
+    { x: 480, y: 720, r: 195, intensity: 0.35 },
+    { x: 720, y: 720, r: 195, intensity: 0.35 },
+    { x: 480, y: 960, r: 195, intensity: 0.35 },
+    { x: 720, y: 960, r: 195, intensity: 0.35 },
+    // TE 辦公區頂燈 (雙排)
+    { x: 1540, y: 720, r: 195, intensity: 0.35 },
+    { x: 1780, y: 720, r: 195, intensity: 0.35 },
+    { x: 1540, y: 960, r: 195, intensity: 0.35 },
+    { x: 1780, y: 960, r: 195, intensity: 0.35 },
+    // 中央穿堂與主管走廊
+    { x: 1120, y: 520, r: 210, intensity: 0.32 },
+    { x: 1120, y: 840, r: 210, intensity: 0.34 },
+    { x: 1120, y: 1160, r: 210, intensity: 0.34 },
+    { x: 1120, y: 1480, r: 210, intensity: 0.34 },
+    // 會議室 A 與 會議室 B
+    { x: 400, y: 1380, r: 210, intensity: 0.36 },
+    { x: 920, y: 1380, r: 210, intensity: 0.36 },
+    // Lab 晶圓量測實驗室
+    { x: 1680, y: 1420, r: 220, intensity: 0.36 },
+    { x: 2020, y: 1420, r: 220, intensity: 0.36 },
+    // 茶水間與廁所外走道
+    { x: 2350, y: 340, r: 185, intensity: 0.34 },
+    { x: 2340, y: 820, r: 185, intensity: 0.34 },
+  ];
+
+  ceilingLamps.forEach((lamp) => {
+    // 繪製圓形擴散日光燈暈
+    const g = ctx.createRadialGradient(lamp.x, lamp.y, 14, lamp.x, lamp.y, lamp.r);
+    g.addColorStop(0, 'rgba(254, 252, 232, ' + lamp.intensity + ')');
+    g.addColorStop(0.45, 'rgba(224, 242, 254, ' + (lamp.intensity * 0.6) + ')');
+    g.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(lamp.x, lamp.y, lamp.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 繪製天花板日光燈管本體發光條
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.fillRect(lamp.x - 22, lamp.y - 4, 44, 8);
+    ctx.fillStyle = 'rgba(254, 240, 138, 0.95)';
+    ctx.fillRect(lamp.x - 18, lamp.y - 2, 36, 4);
+  });
+
+  // (C) 工位個人螢幕與檯燈發光
   window.WORLD_MAP.workstations.forEach((ws) => {
     const cx = ws.x + 70;
     const cy = ws.y + 10;
-    const g = ctx.createRadialGradient(cx, cy, 8, cx, cy, 125);
-    g.addColorStop(0, 'rgba(167, 218, 204, 0.20)');
-    g.addColorStop(1, 'rgba(34, 197, 94, 0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 125, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  window.WORLD_MAP.labEquipments.forEach((eq) => {
-    const cx = eq.x + eq.w / 2;
-    const cy = eq.y + eq.h / 2;
-    const g = ctx.createRadialGradient(cx, cy, 12, cx, cy, 155);
-    g.addColorStop(0, 'rgba(151, 205, 226, 0.22)');
+    const g = ctx.createRadialGradient(cx, cy, 6, cx, cy, 110);
+    g.addColorStop(0, 'rgba(186, 230, 253, 0.22)');
     g.addColorStop(1, 'rgba(56, 189, 248, 0)');
     ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(cx, cy, 155, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 110, 0, Math.PI * 2);
     ctx.fill();
   });
 
-  players.forEach((p) => {
-    const pg = ctx.createRadialGradient(p.x, p.y - 12, 8, p.x, p.y - 12, 110);
-    pg.addColorStop(0, 'rgba(220, 230, 242, 0.16)');
-    pg.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.fillStyle = pg;
+  // (D) 實驗室機台指示燈與屏幕發光
+  window.WORLD_MAP.labEquipments.forEach((eq) => {
+    const cx = eq.x + eq.w / 2;
+    const cy = eq.y + eq.h / 2;
+    const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, 140);
+    g.addColorStop(0, 'rgba(167, 243, 208, 0.25)');
+    g.addColorStop(1, 'rgba(16, 185, 129, 0)');
+    ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(p.x, p.y - 12, 110, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 140, 0, Math.PI * 2);
     ctx.fill();
   });
+
+  // (E) 每位在場角色頭頂柔和微光，提升夜間清晰度
+  if (players && players.length > 0) {
+    players.forEach((p) => {
+      const pg = ctx.createRadialGradient(p.x, p.y - 12, 6, p.x, p.y - 12, 85);
+      pg.addColorStop(0, 'rgba(255, 255, 255, 0.20)');
+      pg.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = pg;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - 12, 85, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
 
   ctx.restore();
 };
