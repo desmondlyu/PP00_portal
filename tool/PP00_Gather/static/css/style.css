@@ -1,0 +1,1693 @@
+/* PP00 Gather Office — 3D 像素園區 + 可縮合雙面板 + 10 種情境動作 + 暴走攻擊警告樣式 */
+
+:root {
+  --bg-deep: #0b1120;
+  --panel-glass: rgba(15, 23, 42, 0.9);
+  --grad-primary: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 55%, #ec4899 100%);
+  --grad-emerald: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+  --grad-amber: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  --text-light: #f8fafc;
+  --text-muted: #94a3b8;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+body,
+html {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden !important;
+  font-family: 'Outfit', 'Microsoft JhengHei', system-ui, -apple-system, sans-serif;
+  background: var(--bg-deep);
+  color: var(--text-light);
+  user-select: none;
+}
+
+#officeCanvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  cursor: crosshair;
+  image-rendering: pixelated;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* =========================================================================
+   1. 登入與 10 款誇張人物選擇視窗
+   ========================================================================= */
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.28), transparent 45%),
+    radial-gradient(circle at 80% 80%, rgba(236, 72, 153, 0.25), transparent 45%),
+    rgba(11, 17, 32, 0.92);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.login-modal-card {
+  width: 100%;
+  max-width: 940px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 2px solid rgba(56, 189, 248, 0.35);
+  border-radius: 22px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.65), 0 0 40px rgba(59, 130, 246, 0.2);
+  display: grid;
+  grid-template-columns: 330px 1fr;
+  overflow: hidden;
+}
+
+.login-left-showcase {
+  background: linear-gradient(165deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+  border-right: 1px solid rgba(148, 163, 184, 0.18);
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.brand-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: var(--grad-primary);
+  font-size: 11.5px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.showcase-title {
+  font-size: 21px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.showcase-sub {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.avatar-stage-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 4px 0 10px;
+}
+
+#loginAvatarCanvas {
+  background: rgba(15, 23, 42, 0.78);
+  border: 2px solid rgba(56, 189, 248, 0.5);
+  border-radius: 18px;
+}
+
+.stage-nav-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.9);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.preview-avatar-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #38bdf8;
+  margin-bottom: 4px;
+}
+
+.preview-avatar-desc {
+  font-size: 12px;
+  color: #cbd5e1;
+  line-height: 1.45;
+  min-height: 34px;
+  margin-bottom: 12px;
+}
+
+.ephemeral-security-box {
+  margin-top: auto;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #a7f3d0;
+}
+
+.login-right-form {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form-row-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin-bottom: 5px;
+}
+
+.form-field input,
+.form-field select {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(30, 41, 59, 0.88);
+  color: #fff;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.avatar-grid-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+.avatar-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 7px;
+}
+
+.avatar-pick-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 7px 4px;
+  border-radius: 11px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(30, 41, 59, 0.68);
+  color: #f8fafc;
+  cursor: pointer;
+}
+
+.avatar-pick-card.active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.35), rgba(139, 92, 246, 0.35));
+  border: 2px solid #38bdf8;
+}
+
+.avatar-pick-badge {
+  font-size: 20px;
+  margin-bottom: 2px;
+}
+
+.avatar-pick-name {
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.avatar-pick-tag {
+  font-size: 9px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.login-error-msg {
+  display: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid #ef4444;
+  color: #fecaca;
+  font-size: 12px;
+}
+
+.btn-enter-office {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--grad-primary);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* =========================================================================
+   2. 頂部精簡狀態列與靠近設備互動提示按鈕
+   ========================================================================= */
+.top-hud-bar {
+  position: fixed;
+  top: 12px;
+  left: 300px;
+  right: 16px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.hud-pill-group {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: var(--panel-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.facility-trigger-btn {
+  pointer-events: auto;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 2px solid #facc15;
+  background: linear-gradient(135deg, #059669, #0284c7);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.55);
+  animation: pulseFacility 1.2s infinite alternate;
+}
+
+@keyframes pulseFacility {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.05);
+  }
+}
+
+.hud-mini-btn {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.92);
+  color: #f8fafc;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hud-mini-btn:hover,
+.hud-mini-btn.active {
+  background: #2563eb;
+  border-color: #60a5fa;
+}
+
+/* =========================================================================
+   3. 左側「🏢 PP00 虛擬辦公室」可縮合面板（預設縮合）
+   ========================================================================= */
+.left-gather-panel {
+  position: fixed;
+  top: 12px;
+  left: 14px;
+  max-height: calc(100vh - 460px);
+  width: 295px;
+  z-index: 45;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(14px);
+  color: #f8fafc;
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  padding: 9px 12px;
+  overflow: hidden;
+  transition: height 0.22s ease, width 0.22s ease;
+}
+
+.left-gather-panel.minimized {
+  bottom: auto;
+  height: 44px;
+  width: 295px;
+}
+
+.left-gather-panel.minimized .campus-collapsible-body {
+  display: none !important;
+}
+
+.gather-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+
+.gather-panel-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #f8fafc;
+  white-space: nowrap;
+}
+
+.panel-collapse-btn {
+  padding: 3px 8px;
+  border-radius: 7px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(30, 41, 59, 0.9);
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.panel-collapse-btn:hover {
+  background: #2563eb;
+  border-color: #60a5fa;
+  color: #ffffff;
+}
+
+.online-count-pill {
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  color: #4ade80;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.campus-collapsible-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.roster-section-title {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #94a3b8;
+  margin: 2px 0 6px;
+}
+
+.online-roster-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.roster-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  background: rgba(30, 41, 59, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.roster-item:hover {
+  background: rgba(37, 99, 235, 0.25);
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.roster-item.is-self {
+  background: rgba(37, 99, 235, 0.22);
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
+.roster-avatar-canvas {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+.roster-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.roster-name-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-dot-mini {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.roster-unit {
+  font-size: 9.5px;
+  background: rgba(51, 65, 85, 0.9);
+  color: #cbd5e1;
+  padding: 1px 5px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.roster-join-btn {
+  padding: 3px 7px;
+  border-radius: 6px;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.roster-you-tag {
+  font-size: 10px;
+  font-weight: 700;
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+/* =========================================================================
+   4. 底部置中整合控制列：點選展開式情境動作選單 + 數字鍵快捷欄 + 聊天工具條 + 個人狀態卡
+   ========================================================================= */
+.action-pose-menu-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.action-pose-toggle-btn {
+  background: linear-gradient(135deg, #0284c7, #2563eb) !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+.action-pose-dropdown {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 0;
+  width: 390px;
+  max-width: 90vw;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(56, 189, 248, 0.55);
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.65);
+  z-index: 80;
+}
+
+.action-pose-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #38bdf8;
+  margin-bottom: 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.pose-dropdown-close-btn {
+  border: none;
+  background: rgba(51, 65, 85, 0.85);
+  color: #f8fafc;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.action-pose-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.pose-btn {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(30, 41, 59, 0.9);
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.pose-btn:hover,
+.pose-btn.active {
+  background: var(--grad-emerald);
+  border-color: #34d399;
+  color: #fff;
+}
+
+.bottom-hud-dock {
+  position: fixed;
+  left: 378px;
+  right: 14px;
+  bottom: 10px;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* 置中整合工具條：將情境互動選單、快捷鍵互動功能與 Murmur 工具條放在下方中間 */
+.bottom-center-command-dock {
+  pointer-events: auto;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(56, 189, 248, 0.42);
+  border-radius: 18px;
+  padding: 8px 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  max-width: 100%;
+}
+
+.self-avatar-badge {
+  font-size: 20px;
+}
+
+.murmur-bar-card {
+  display: flex;
+  align-items: center;
+  min-width: 310px;
+  border-left: 1px solid rgba(148, 163, 184, 0.25);
+  padding-left: 10px;
+}
+
+.murmur-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.murmur-mood-select {
+  padding: 6px 8px;
+  border-radius: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(30, 41, 59, 0.9);
+  color: #fff;
+  font-size: 11.5px;
+}
+
+.murmur-input {
+  flex: 1;
+  min-width: 150px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(30, 41, 59, 0.9);
+  color: #fff;
+  font-size: 12px;
+  outline: none;
+}
+
+.murmur-send-btn {
+  padding: 6px 12px;
+  border-radius: 9px;
+  border: none;
+  background: var(--grad-emerald);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.proximity-skill-dock {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 2px 4px;
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.proximity-skill-dock.nearby-active {
+  background: rgba(34, 197, 94, 0.12);
+  box-shadow: 0 0 18px rgba(34, 197, 94, 0.28);
+}
+
+.prox-target-label {
+  font-size: 10.5px;
+  color: #cbd5e1;
+  text-align: center;
+}
+
+.prox-target-label kbd {
+  background: rgba(56, 189, 248, 0.2);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  border-radius: 4px;
+  padding: 0 4px;
+  color: #7dd3fc;
+  font-size: 10px;
+}
+
+.skill-btn-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.skill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(30, 41, 59, 0.92);
+  color: #f8fafc;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.15s, border-color 0.15s;
+}
+
+.skill-btn:hover,
+.skill-btn.hotkey-flash {
+  background: #2563eb;
+  border-color: #60a5fa;
+  transform: translateY(-2px);
+}
+
+.hk-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(250, 204, 21, 0.65);
+  color: #fde047;
+  font-family: monospace;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+/* =========================================================================
+   5. 左下角獨立深色主題「聊天與個人經驗狀態整合視窗」
+      - 整合個人頭像、名稱、經驗等級、線上狀態切換 (上線/閒置/離開/忙碌)
+      - 真實使用者對談上限 20 行 + NPC與狀態動作上限 10 行
+      - 支援勾選「只看聊天訊息」過濾器，單行精簡排版不雜亂
+   ========================================================================= */
+.prox-chat-panel {
+  position: fixed;
+  left: 14px;
+  bottom: 10px;
+  right: auto;
+  width: 410px;
+  z-index: 48;
+  background: rgba(9, 14, 26, 0.96);
+  backdrop-filter: blur(18px);
+  border: 1.5px solid rgba(56, 189, 248, 0.45);
+  border-radius: 16px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.68);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.prox-chat-panel.chat-minimized .prox-chat-body-wrap {
+  display: none !important;
+}
+
+/* 整合在聊天室頂部的個人經驗與線上狀態列 */
+.chat-user-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 11px;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.95));
+  border-bottom: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.chat-user-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.self-avatar-canvas {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+.chat-user-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-user-title-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-self-item {
+  font-size: 13px;
+}
+
+.chat-self-exp {
+  font-size: 10px;
+  color: #34d399;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-user-right {
+  flex-shrink: 0;
+}
+
+.self-status-select {
+  padding: 4px 7px;
+  border-radius: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(15, 23, 42, 0.95);
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+}
+
+.self-status-select:hover {
+  border-color: #38bdf8;
+}
+
+/* 聊天室標題與「只看聊天訊息」勾選列 */
+.prox-chat-header {
+  padding: 6px 11px;
+  background: rgba(15, 23, 42, 0.96);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-title-text {
+  color: #e2e8f0;
+  font-weight: 800;
+}
+
+.chat-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #7dd3fc;
+  cursor: pointer;
+  user-select: none;
+}
+
+.chat-filter-toggle input[type='checkbox'] {
+  accent-color: #38bdf8;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+
+.chat-header-btns {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pip-btn,
+.burn-btn,
+.chat-collapse-btn {
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pip-btn {
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(14, 165, 233, 0.16);
+  color: #7dd3fc;
+}
+
+.pip-btn:hover {
+  background: rgba(14, 165, 233, 0.32);
+  color: #ffffff;
+  border-color: #38bdf8;
+}
+
+.pip-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+}
+
+.burn-btn {
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+}
+
+.chat-collapse-btn {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(51, 65, 85, 0.8);
+  color: #f8fafc;
+}
+
+.prox-chat-messages {
+  height: 256px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  background: rgba(7, 11, 21, 0.95);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prox-chat-empty {
+  font-size: 11px;
+  color: #64748b;
+  text-align: center;
+  margin: auto 0;
+  line-height: 1.45;
+}
+
+/* 精簡單行化的聊天與狀態訊息列，避免過度換行或雜亂 */
+.prox-chat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: rgba(30, 41, 59, 0.72);
+  border-left: 3px solid #38bdf8;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: #f8fafc;
+}
+
+.prox-chat-item.self {
+  background: rgba(37, 99, 235, 0.24);
+  border-left-color: #60a5fa;
+}
+
+.prox-chat-item.kind-status {
+  background: rgba(15, 23, 42, 0.82);
+  border-left-color: #fbbf24;
+  font-size: 11px;
+  color: #cbd5e1;
+  padding: 3px 7px;
+}
+
+.prox-chat-time {
+  font-size: 9.5px;
+  color: #64748b;
+  font-family: monospace;
+  flex-shrink: 0;
+}
+
+.prox-chat-author {
+  font-weight: 700;
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+.prox-chat-item.self .prox-chat-author {
+  color: #93c5fd;
+}
+
+.prox-chat-item.kind-status .prox-chat-author {
+  color: #fde047;
+}
+
+.prox-chat-text {
+  flex: 1;
+  min-width: 0;
+  color: #f1f5f9;
+  word-break: break-word;
+}
+
+.prox-chat-item.kind-status .prox-chat-text {
+  color: #cbd5e1;
+}
+
+.prox-chat-form {
+  display: flex;
+  padding: 6px 8px;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.98);
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  align-items: center;
+}
+
+.chat-send-mode-select {
+  padding: 6px 6px;
+  border-radius: 7px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(30, 41, 59, 0.95);
+  color: #38bdf8;
+  font-size: 11px;
+  font-weight: 700;
+  outline: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.chat-send-mode-select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.4);
+}
+
+.prox-chat-form input {
+  flex: 1;
+  padding: 6px 9px;
+  border-radius: 7px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(7, 11, 21, 0.92);
+  color: #fff;
+  font-size: 12px;
+  outline: none;
+}
+
+.prox-chat-form input:focus {
+  border-color: #38bdf8;
+}
+
+.prox-chat-form button {
+  padding: 6px 12px;
+  border-radius: 7px;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.prox-chat-form button:hover {
+  background: #3b82f6;
+}
+
+/* =========================================================================
+   6. NPC 暴走攻擊擊飛提示橫幅 (非阻斷式，絕不定身)
+   ========================================================================= */
+.berserk-warning-modal {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 160;
+  pointer-events: none;
+}
+
+.berserk-modal-box {
+  max-width: 460px;
+  width: 92vw;
+  background: rgba(15, 23, 42, 0.94);
+  border: 2.5px solid #ef4444;
+  border-radius: 18px;
+  padding: 16px 20px;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(239, 68, 68, 0.65);
+  animation: shakeBerserk 0.18s infinite alternate;
+}
+
+@media (max-width: 1180px) {
+  .bottom-center-command-dock {
+    flex-direction: column;
+    max-width: calc(100vw - 24px);
+    gap: 6px;
+  }
+  .murmur-bar-card {
+    border-left: none;
+    border-top: 1px solid rgba(148, 163, 184, 0.25);
+    padding-left: 0;
+    padding-top: 6px;
+    min-width: 260px;
+  }
+  .self-status-card {
+    display: none;
+  }
+}
+
+@keyframes shakeBerserk {
+  from {
+    transform: translateX(-3px);
+  }
+  to {
+    transform: translateX(3px);
+  }
+}
+
+.berserk-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #f87171;
+  margin-bottom: 10px;
+}
+
+.berserk-reason {
+  font-size: 14px;
+  color: #fef2f2;
+  line-height: 1.55;
+  margin-bottom: 14px;
+}
+
+.berserk-countdown {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.25);
+  border: 1px solid #f87171;
+  color: #fde047;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* 整合在左下角聊天室內的對象人物小卡 */
+.colleague-profile-card {
+  padding: 8px 11px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98));
+  border-bottom: 1.5px solid rgba(56, 189, 248, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  animation: slideDownFade 0.18s ease-out;
+}
+
+.colleague-profile-card.hidden {
+  display: none !important;
+}
+
+.profile-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-avatar-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  flex-shrink: 0;
+}
+
+.profile-meta-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-target-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: #38bdf8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-target-status {
+  font-size: 11px;
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.profile-target-role {
+  font-size: 11px;
+  color: #cbd5e1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-close-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.profile-close-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
+.profile-actions-row {
+  display: flex;
+  gap: 6px;
+}
+
+.profile-btn {
+  flex: 1;
+  padding: 5.5px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.profile-btn.wave-btn {
+  background: rgba(14, 165, 233, 0.2);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+.profile-btn.wave-btn:hover {
+  background: rgba(14, 165, 233, 0.35);
+}
+
+.profile-btn.private-btn {
+  background: rgba(168, 85, 247, 0.25);
+  color: #d8b4fe;
+  border-color: rgba(168, 85, 247, 0.5);
+}
+.profile-btn.private-btn:hover,
+.profile-btn.private-btn.active {
+  background: rgba(168, 85, 247, 0.45);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+}
+.profile-btn.private-btn.disabled,
+.profile-btn.private-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(0.8);
+  box-shadow: none;
+  background: rgba(100, 116, 139, 0.2);
+  color: #94a3b8;
+  border-color: rgba(100, 116, 139, 0.3);
+}
+
+.profile-btn.walk-btn {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.4);
+}
+.profile-btn.walk-btn:hover {
+  background: rgba(34, 197, 94, 0.35);
+}
+
+/* 🔒 私人密語對談訊息樣式 */
+.prox-chat-item.whisper {
+  background: rgba(147, 51, 234, 0.18);
+  border-left: 3px solid #a855f7;
+  border-radius: 4px;
+}
+
+.whisper-badge {
+  font-size: 9.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.whisper-badge.to {
+  background: #7e22ce;
+  color: #f3e8ff;
+}
+
+.whisper-badge.from {
+  background: #9333ea;
+  color: #ffffff;
+}
+
+.whisper-target-label {
+  color: #c084fc !important;
+  font-weight: 700;
+}
+
+/* =========================================================================
+   7.5 右下角純文字動態訊息列 (無方塊背景外框、保留純文字、最多 10 則自動洗掉最舊訊息)
+   ========================================================================= */
+.toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 252px;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  max-width: 480px;
+  width: auto;
+  pointer-events: none;
+}
+
+.gather-toast {
+  pointer-events: auto;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 2px 4px;
+  color: #f8fafc;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.38;
+  text-align: right;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.98),
+    0 0 8px rgba(15, 23, 42, 0.96),
+    1px 1px 0 #020617;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.gather-toast.toast-join {
+  color: #4ade80;
+}
+
+.gather-toast.toast-security {
+  color: #fca5a5;
+}
+
+.gather-toast.fade-out {
+  opacity: 0;
+  transform: translateX(12px);
+  transition: all 0.25s;
+}
+
+.toast-action-btn {
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid rgba(96, 165, 250, 0.7);
+  background: rgba(37, 99, 235, 0.85);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* =========================================================================
+   8. 像素方塊裝備與持有物品欄 UI (上限 3 格隨身裝備 + 27 格持有物品儲物欄)
+   ========================================================================= */
+.weapon-atk-btn {
+  background: linear-gradient(135deg, #b91c1c, #ea580c) !important;
+  border-color: #fde047 !important;
+  color: #ffffff !important;
+}
+
+.weapon-atk-btn.disabled-no-equip {
+  background: rgba(51, 65, 85, 0.75) !important;
+  border-color: rgba(148, 163, 184, 0.35) !important;
+  color: #94a3b8 !important;
+  opacity: 0.75;
+}
+
+.mc-inv-btn {
+  background: #52525b !important;
+  border: 2px solid #d4d4d8 !important;
+  box-shadow: inset -2px -2px 0 #27272a, inset 2px 2px 0 #a1a1aa;
+}
+
+.mc-inventory-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.mc-window-frame {
+  width: min(580px, 95vw);
+  background: #c6c6c6;
+  color: #262626;
+  border: 4px solid #000000;
+  box-shadow: inset 4px 4px 0 #ffffff, inset -4px -4px 0 #555555, 0 24px 60px rgba(0, 0, 0, 0.75);
+  padding: 14px 16px 18px;
+  font-family: "Courier New", "Outfit", "Microsoft JhengHei", monospace;
+  image-rendering: pixelated;
+}
+
+.mc-window-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #262626;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #8b8b8b;
+}
+
+.mc-close-btn {
+  width: 28px;
+  height: 28px;
+  background: #8b8b8b;
+  color: #ffffff;
+  border: 2px solid #000000;
+  box-shadow: inset 2px 2px 0 #d4d4d4, inset -2px -2px 0 #373737;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.mc-close-btn:hover {
+  background: #ef4444;
+}
+
+.mc-top-equip-row {
+  margin-bottom: 10px;
+}
+
+.mc-equip-preview-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #8b8b8b;
+  border-top: 3px solid #373737;
+  border-left: 3px solid #373737;
+  border-right: 3px solid #ffffff;
+  border-bottom: 3px solid #ffffff;
+}
+
+.mc-equipped-icon {
+  width: 54px;
+  height: 54px;
+  background: #4b4b4b;
+  border: 2px solid #1f1f1f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  flex-shrink: 0;
+}
+
+.mc-equipped-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fef08a;
+  text-shadow: 2px 2px 0 #1f1f1f;
+}
+
+.mc-equipped-desc {
+  font-size: 11.5px;
+  color: #f4f4f5;
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.mc-total-bonus-badge {
+  margin-top: 5px;
+  display: inline-block;
+  padding: 3px 8px;
+  background: #1f2937;
+  border: 1px solid #facc15;
+  color: #fde047;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mc-section-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #262626;
+  margin: 8px 0 5px;
+}
+
+.mc-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 4px;
+  background: #b0b0b0;
+  padding: 6px;
+  border-top: 2px solid #373737;
+  border-left: 2px solid #373737;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+}
+
+/* 3 格專屬隨身裝備欄 */
+.mc-equip-three-grid {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: #9e9e9e;
+  margin-bottom: 8px;
+}
+
+.mc-equip-slot-card {
+  position: relative;
+  min-height: 62px;
+  background: #7c7c7c;
+  border-top: 3px solid #373737;
+  border-left: 3px solid #373737;
+  border-right: 3px solid #ffffff;
+  border-bottom: 3px solid #ffffff;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mc-equip-slot-card.mc-selected {
+  outline: 3px solid #facc15;
+  background: #5b5b5b;
+}
+
+.mc-equip-slot-icon {
+  font-size: 26px;
+  width: 36px;
+  height: 36px;
+  background: #4b4b4b;
+  border: 1.5px solid #1f1f1f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mc-equip-slot-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mc-equip-slot-title {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mc-equip-slot-meta {
+  font-size: 10px;
+  color: #fde047;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.mc-equip-slot-dur {
+  font-size: 10px;
+  color: #86efac;
+  font-weight: 800;
+}
+
+.mc-unequip-mini-btn {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #000;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mc-slot {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  background: #8b8b8b;
+  border-top: 3px solid #373737;
+  border-left: 3px solid #373737;
+  border-right: 3px solid #ffffff;
+  border-bottom: 3px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mc-slot:hover {
+  background: #a8a8a8;
+}
+
+.mc-slot.mc-selected {
+  outline: 3px solid #facc15;
+  background: #737373;
+  z-index: 2;
+}
+
+.mc-slot.mc-weapon-slot::before {
+  content: '⚔';
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  font-size: 9px;
+  color: #fde047;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.mc-slot-count {
+  position: absolute;
+  right: 2px;
+  bottom: 0px;
+  font-size: 11px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 1.5px 1.5px 0 #000000;
+  font-family: monospace;
+}

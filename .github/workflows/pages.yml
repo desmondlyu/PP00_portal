@@ -3,10 +3,14 @@ name: Deploy portal to GitHub Pages
 on:
   push:
     branches: [main]
+  schedule:
+    # 臺灣時間週一至週五 14:30 (UTC 06:30) 與 15:30 (UTC 07:30，備援重試)
+    - cron: '30 6 * * 1-5'
+    - cron: '30 7 * * 1-5'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -23,8 +27,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
+      # 自動抓取最新 TWSE 盤後加權指數資料並寫入 static/data/taiex.json
+      - name: Fetch latest TWSE stock data
+        run: |
+          node tool/PP00_Gather/scripts/update_taiex.js || echo "TWSE fetch warning, continuing with existing cache"
+
+      # 若有新收盤數據，自動 commit 回 main 分支保持專案資料庫同步
+      - name: Commit updated stock data
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add tool/PP00_Gather/static/data/taiex.json
+          git diff --staged --quiet || (git commit -m "📈 自動更新台股大盤盤後指數 [skip ci]" && git push || echo "Push skipped")
+
       # The portal and tools are already built and committed as static files.
       - name: Stage website
         run: |

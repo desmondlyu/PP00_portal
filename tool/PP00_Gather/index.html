@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PP00 虛擬辦公室 — 3D 像素園區即時互動系統</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./static/css/style.css?v=20261023-v7" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <!-- =====================================================================
+       1. 登入與 10 款使用者專屬誇張人物造型選擇視窗 (NPC 角色造型完全獨立不重複)
+       ===================================================================== -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-modal-card">
+      <div class="login-left-showcase">
+        <span class="brand-pill">✨ PP00 3D-PIXEL CAMPUS · V5</span>
+        <h1 class="showcase-title">選擇你的誇張化身</h1>
+        <p class="showcase-sub">牛頭套、青蛙裝、晶圓鋼彈、神聖綠乖乖等 10 款專屬造型任你挑</p>
+
+        <div class="avatar-stage-wrap">
+          <button type="button" id="prevAvatarBtn" class="stage-nav-btn" aria-label="上一款造型">&lsaquo;</button>
+          <canvas id="loginAvatarCanvas" width="140" height="135"></canvas>
+          <button type="button" id="nextAvatarBtn" class="stage-nav-btn" aria-label="下一款造型">&rsaquo;</button>
+        </div>
+
+        <div id="previewAvatarTitle" class="preview-avatar-title">🐸 青蛙裝工程師</div>
+        <p id="previewAvatarDesc" class="preview-avatar-desc">
+          全身綠油油充氣青蛙裝，胸前還掛著 PP00 工程師識別證。
+        </p>
+
+        <div class="ephemeral-security-box">
+          <strong>🔒 100% 閱後即焚・零留存安全機制：</strong><br />
+          • WebSocket 記憶體瞬時廣播 (Pub/Sub)<br />
+          • <b>絕不寫入任何資料庫或本地儲存</b><br />
+          • 支援上線次數經驗加成、10 種情境動作與隨機伴手禮
+        </div>
+      </div>
+
+      <form id="loginForm" class="login-right-form">
+        <div class="form-row-grid">
+          <div class="form-field">
+            <label for="loginName">使用者名稱 (User Name) *</label>
+            <input
+              type="text"
+              id="loginName"
+              maxlength="16"
+              placeholder="例如：Desmond / YPLu"
+              value="Desmond"
+              required
+            />
+          </div>
+          <div class="form-field">
+            <label for="loginPasscode">辦公室安全通行碼 (Room Code) *</label>
+            <input
+              type="password"
+              id="loginPasscode"
+              maxlength="16"
+              value="PP00"
+              placeholder="預設 PP00"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-row-grid">
+          <div class="form-field">
+            <label for="loginUnit">所屬工程部門 / 主管區</label>
+            <select id="loginUnit"></select>
+          </div>
+          <div class="form-field">
+            <label for="loginStatus">初始上線狀態</label>
+            <select id="loginStatus"></select>
+          </div>
+        </div>
+
+        <div>
+          <div class="avatar-grid-label">🎭 十種花俏誇張造型（點擊立即切換預覽）</div>
+          <div id="avatarSelectorGrid" class="avatar-selector-grid"></div>
+        </div>
+
+        <div id="loginErrorMsg" class="login-error-msg" role="alert"></div>
+
+        <button type="submit" class="btn-enter-office">
+          🚀 登入並領取隨機手持道具進入園區（累積上線經驗加成）
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       2. 頂部精簡狀態列與靠近設備互動觸發提示 (光影已改為背景自動執行)
+       ===================================================================== -->
+  <header class="top-hud-bar">
+    <div class="hud-pill-group">
+      <span id="netModeBadge">📡 瞬時加密頻道連線中</span>
+      <span>｜</span>
+      <span>🌓 真實時間光影自動運行中</span>
+    </div>
+
+    <button type="button" id="facilityTriggerBtn" class="facility-trigger-btn">
+      💻 啟動設備互動 [按E]
+    </button>
+
+    <div class="hud-pill-group">
+      <button type="button" id="toggleOverviewBtn" class="hud-mini-btn">
+        🗺️ 全景視角
+      </button>
+    </div>
+  </header>
+
+  <!-- =====================================================================
+       3. 左側「🏢 PP00 虛擬辦公室」可縮合面板（預設縮合，僅保留園區人物清單：使用者/NPC/怪物）
+       ===================================================================== -->
+  <aside id="leftGatherPanel" class="left-gather-panel minimized">
+    <div class="gather-panel-header">
+      <span class="gather-panel-title">🏢 PP00 虛擬辦公室</span>
+      <span class="online-count-pill"><span id="onlineCountBadge">5</span> 單位</span>
+      <button type="button" id="toggleCampusPanelBtn" class="panel-collapse-btn">展開 ▶</button>
+    </div>
+
+    <div class="campus-collapsible-body">
+      <div class="roster-section-title">👥 園區人物 (使用者 · NPC · 怪物)</div>
+      <div id="onlineRosterList" class="online-roster-list"></div>
+    </div>
+  </aside>
+
+
+  <!-- =====================================================================
+       5. 左下角獨立深色主題「聊天與狀態整合視窗」
+          - 整合個人頭像、名稱、線上狀態切換 (上線/閒置/離開/忙碌)、等級經驗值
+          - 真實使用者對談紀錄上限 20 行 (自動洗掉舊訊息)
+          - NPC 與狀態動作紀錄上限 10 行 (自動洗掉舊訊息)
+          - 支援勾選「只看聊天訊息」過濾器
+       ===================================================================== -->
+  <section id="proxChatPanel" class="prox-chat-panel">
+    <!-- 整合式個人狀態與經驗資訊列 -->
+    <div class="chat-user-status-bar">
+      <div class="chat-user-left">
+        <canvas id="hudSelfAvatarCanvas" class="self-avatar-canvas" width="32" height="32"></canvas>
+        <span id="hudSelfAvatarBadge" class="self-avatar-badge hidden">🐸</span>
+        <div class="chat-user-meta">
+          <div class="chat-user-title-row">
+            <span id="hudSelfName" class="chat-self-name">Desmond (PP32)</span>
+            <span id="hudSelfHeldItem" class="chat-self-item" title="當前主手裝備（按[F]揮擊，3次損毀）">🪑</span>
+          </div>
+          <div id="hudExpBadge" class="chat-self-exp">
+            Lv.1 實習小鮮肉 · 50 EXP (移速+0%)
+          </div>
+        </div>
+      </div>
+      <div class="chat-user-right">
+        <select id="selfStatusSelect" class="self-status-select" title="切換線上狀態（30秒無動作自動轉為閒置）">
+          <option value="active">🟢 上線</option>
+          <option value="idle">🟡 閒置</option>
+          <option value="away">🟠 離開</option>
+          <option value="busy">🔴 忙碌</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 聊天室標題與過濾控制列 -->
+    <div class="prox-chat-header">
+      <div class="chat-header-left">
+        <span class="chat-title-text">💬 對談與動態紀錄</span>
+        <label class="chat-filter-toggle" title="勾選後僅顯示真實使用者聊天對談，隱藏NPC與狀態動作紀錄">
+          <input type="checkbox" id="chatFilterOnlyChat" />
+          <span>只看聊天訊息</span>
+        </label>
+      </div>
+      <div class="chat-header-btns">
+        <button
+          type="button"
+          id="togglePipChatBtn"
+          class="pip-btn"
+          title="開啟獨立浮動畫中畫子視窗（系統永遠置頂·摸魚防查崗·僅顯示真實同事對談）"
+        >
+          📌 浮動置頂
+        </button>
+        <button type="button" id="burnAllMsgBtn" class="burn-btn" title="立即清空視窗內所有暫態訊息">
+          🔥 清空
+        </button>
+        <button type="button" id="toggleChatCollapseBtn" class="chat-collapse-btn">
+          ➖ 縮合
+        </button>
+      </div>
+    </div>
+
+    <div class="prox-chat-body-wrap">
+      <!-- 點選人物整合對象互動小卡 (原右上角卡片整合至聊天室內) -->
+      <div id="colleagueProfileCard" class="colleague-profile-card hidden">
+        <div class="profile-card-top">
+          <div id="profileCardBadge" class="profile-avatar-circle">🐮</div>
+          <div class="profile-meta-wrap">
+            <div class="profile-name-row">
+              <span id="profileCardName" class="profile-target-name">NPC:VP大老闆</span>
+              <span id="profileCardStatus" class="profile-target-status"></span>
+            </div>
+            <div id="profileCardRole" class="profile-target-role"></div>
+          </div>
+          <button type="button" id="closeProfileCardBtn" class="profile-close-btn" title="關閉對象互動">&times;</button>
+        </div>
+        <div class="profile-actions-row">
+          <button type="button" id="profileWaveBtn" class="profile-btn wave-btn">👋 揮手呼叫</button>
+          <button type="button" id="profilePrivateChatBtn" class="profile-btn private-btn">🔒 私人對談</button>
+          <button type="button" id="profileWalkBtn" class="profile-btn walk-btn">🚀 走向他</button>
+        </div>
+      </div>
+
+      <div id="proxChatMessages" class="prox-chat-messages">
+        <div class="prox-chat-empty">
+          🔒 對談上限20行 · 狀態/NPC上限10行 · 記憶體瞬時廣播不留存
+        </div>
+      </div>
+      <form id="proxChatForm" class="prox-chat-form">
+        <select id="chatSendModeSelect" class="chat-send-mode-select" title="切換發送模式：💬 對談聊天 / 💭 頭頂碎碎念 Murmur / 🔒 私人對談 (熱鍵 M)">
+          <option value="chat">💬 對談</option>
+          <option value="private">🔒 私人對談</option>
+          <option value="murmur_normal">💭 Murmur</option>
+          <option value="murmur_idea">💡 靈感</option>
+          <option value="murmur_fire">🔥 抓狂</option>
+        </select>
+        <input
+          type="text"
+          id="proxChatInput"
+          maxlength="100"
+          placeholder="輸入對談訊息 (按 Enter 發送)..."
+          autocomplete="off"
+        />
+        <button type="submit" id="proxChatSubmitBtn">發送</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- =====================================================================
+       6. 底部置中整合控制列：情境動作展開選單 (含睡覺與快捷鍵) + 快捷鍵互動 (1~6 / F揮擊 / I裝備欄)
+       ===================================================================== -->
+  <footer class="bottom-hud-dock">
+    <!-- 置中整合：情境互動展開選單 + 快捷鍵互動功能欄 (1~6 / F擊退 / I裝備與物品) -->
+    <div id="bottomCenterCommandDock" class="bottom-center-command-dock">
+      <div id="proximitySkillDock" class="proximity-skill-dock">
+        <div id="proxTargetName" class="prox-target-label">
+          📡 <kbd>1</kbd>～<kbd>6</kbd> 互動｜<kbd>Z</kbd> 情境選單 (<kbd>Alt+1</kbd>~<kbd>=</kbd>)｜<kbd>F</kbd> 擊退｜<kbd>I</kbd> 裝備欄｜<kbd>E</kbd> 設備互動/踹門｜<kbd>M</kbd> 切換Murmur
+        </div>
+        <div class="skill-btn-row">
+          <!-- 點選展開/收合的 12 種情境動作選單 (含睡覺與快捷鍵) -->
+          <div class="action-pose-menu-wrap">
+            <button
+              type="button"
+              id="btnToggleActionPoseMenu"
+              class="skill-btn action-pose-toggle-btn"
+              title="按 [Z] 或點選展開 12 種情境動作（含睡覺，支援 Alt+1~Alt+= 快捷鍵）"
+            >
+              <kbd class="hk-badge">Z</kbd> 🎬 情境：<span id="currentPoseLabel">🚶 一般行走</span> ▾
+            </button>
+            <div id="actionPoseDropdown" class="action-pose-dropdown hidden">
+              <div class="action-pose-dropdown-header">
+                <span>🎬 角色情境動作（支援 Alt+數字鍵 或靠近設備按 [E]）</span>
+                <button type="button" id="closeActionPoseDropdownBtn" class="pose-dropdown-close-btn">✕</button>
+              </div>
+              <div id="actionAnimGrid" class="action-pose-grid"></div>
+            </div>
+          </div>
+
+          <button type="button" class="skill-btn" data-skill="chat" data-hotkey="1">
+            <kbd class="hk-badge">1</kbd> 💬 聊天
+          </button>
+          <button type="button" class="skill-btn" data-skill="exchange" data-hotkey="2">
+            <kbd class="hk-badge">2</kbd> 🎁 交換禮物
+          </button>
+          <button type="button" class="skill-btn" data-skill="wave" data-hotkey="3">
+            <kbd class="hk-badge">3</kbd> 👋 揮手
+          </button>
+          <button type="button" class="skill-btn" data-skill="zap" data-hotkey="4">
+            <kbd class="hk-badge">4</kbd> ⚡ 靜電戳
+          </button>
+          <button type="button" class="skill-btn" data-skill="cheer" data-hotkey="5">
+            <kbd class="hk-badge">5</kbd> 🍻 乾杯
+          </button>
+          <button type="button" class="skill-btn" data-skill="follow" data-hotkey="6">
+            <kbd class="hk-badge">6</kbd> 🎯 跟隨
+          </button>
+          <button type="button" id="btnWeaponAttack" class="skill-btn weapon-atk-btn" title="揮動目前已裝備的主手武器道具擊退敵人（需先裝備道具，擊退 3 次後損毀消失；攻擊VP或處長會被關緊閉訓話10秒）">
+            <kbd class="hk-badge">F</kbd> ⚔️ 擊退 <span id="hudActiveWeaponDurability">(3/3)</span>
+          </button>
+          <button type="button" id="btnToggleMcInv" class="skill-btn mc-inv-btn" title="按 [I] 或點選開啟裝備與持有物品欄（一次最多裝備 3 個）">
+            <kbd class="hk-badge">I</kbd> 🎒 裝備/物品 <span id="hudEquipCountBadge">(1/3)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- =====================================================================
+       7. 像素方塊裝備與持有物品視窗 (按 [I] 或點選開啟，最多裝備 3 個，擊退 3 次損毀)
+       ===================================================================== -->
+  <div id="mcInventoryModal" class="mc-inventory-modal hidden" role="dialog" aria-label="裝備與持有物品欄">
+    <div class="mc-window-frame">
+      <div class="mc-window-header">
+        <span>⚒️ PP00 工程師裝備與持有物品欄（最多裝備 3 個｜擊退 3 次損毀）</span>
+        <button type="button" id="closeMcInvBtn" class="mc-close-btn">✕</button>
+      </div>
+
+      <div class="mc-top-equip-row">
+        <div class="mc-equip-preview-box">
+          <div id="mcEquippedIcon" class="mc-equipped-icon">🪑</div>
+          <div class="mc-equipped-meta">
+            <div id="mcEquippedName" class="mc-equipped-name">工程師折疊板凳</div>
+            <div id="mcEquippedDesc" class="mc-equipped-desc">點擊下方「持有物品」即可裝入 3 格裝備槽；沒有裝備時無法使用 [F] 擊退功能！</div>
+            <div id="mcTotalBonusBadge" class="mc-total-bonus-badge">
+              ✨ 已裝備 1/3｜裝備總經驗加成：+15%｜主手擊退敵人獲得：+35 EXP｜耐久度：3/3
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mc-section-label">
+        🛡️ 隨身裝備欄（上限 3 格 — 點擊左鍵設為主手武器，點擊右上「✕」卸下回背包；擊退 3 次自動損毀消失）
+      </div>
+      <div id="mcModalHotbarGrid" class="mc-slot-grid mc-equip-three-grid"></div>
+
+      <div class="mc-section-label">
+        🎒 持有物品儲物欄（27 格 — 點擊物品即可裝備至上方空位，不同道具有不同經驗加成與擊退敵人經驗值）
+      </div>
+      <div id="mcInventoryGrid" class="mc-slot-grid"></div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       8. NPC 暴走攻擊命中擊飛提示橫幅 (非阻斷式，角色自動被打飛、絕不定身)
+       ===================================================================== -->
+  <div id="berserkWarningModal" class="berserk-warning-modal hidden" role="alert">
+    <div class="berserk-modal-box">
+      <div id="berserkModalAttacker" class="berserk-title">🚨 遭受 NPC 暴走突襲！</div>
+      <p id="berserkModalReason" class="berserk-reason"></p>
+      <div id="berserkModalCountdown" class="berserk-countdown">
+        🚀 您已被暴走擊飛！（不會定身，可立即自由移動閃避或按 [F] 拿武器反擊）
+      </div>
+    </div>
+  </div>
+
+  <canvas id="officeCanvas"></canvas>
+
+  <script src="./static/js/config.js?v=20261023-v7"></script>
+  <script src="./static/js/avatars.js?v=20261023-v7"></script>
+  <script src="./static/js/world.js?v=20261023-v7"></script>
+  <script src="./static/js/network.js?v=20261023-v7"></script>
+  <script src="./static/js/app.js?v=20261023-v7"></script>
+</body>
+</html>
