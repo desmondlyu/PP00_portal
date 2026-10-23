@@ -19,6 +19,8 @@ class EphemeralOfficeNetwork {
     this.lastChatAt = 0;
     this.lastSkillAt = 0;
     this.seenNonces = new Set();
+    this.departedPlayers = new Set();
+    this.disconnectPromise = null;
 
     this.initNPCs();
 
@@ -28,27 +30,35 @@ class EphemeralOfficeNetwork {
     }
   }
 
+  markPlayerLeft(id, permanent = true) {
+    const player = this.remotePlayers.get(id);
+    if (permanent) this.departedPlayers.add(id);
+    if (this.departedPlayers.size > 1000) this.departedPlayers.delete(this.departedPlayers.values().next().value);
+    this.remotePlayers.delete(id);
+    if (player && this.callbacks.onPlayerLeave) this.callbacks.onPlayerLeave(player);
+  }
+
   disconnect() {
-    if (this._hasDisconnected) return;
-    this._hasDisconnected = true;
-    try {
-      this.broadcastPacket('leave_announce', {
-        player: this.getPublicState(),
-      });
-      if (this.realtimeChannel && this.isCloudConnected) {
-        try {
-          this.realtimeChannel.untrack();
-          this.realtimeChannel.unsubscribe();
-        } catch (_) {}
+    if (this.disconnectPromise) return this.disconnectPromise;
+    const bounded = async (work) => {
+      let timer;
+      try { await Promise.race([Promise.resolve().then(work), new Promise((resolve) => { timer = setTimeout(resolve, 500); })]); }
+      catch (_) { /* Presence expiry remains the fallback for interrupted connections. */ }
+      finally { clearTimeout(timer); }
+    };
+    this.disconnectPromise = (async () => {
+      if (this.localPlayer) await bounded(() => this.broadcastPacket('leave_announce', { player: this.getPublicState() }));
+      if (this.realtimeChannel) {
+        await bounded(() => this.realtimeChannel.untrack());
+        await bounded(() => this.supabaseClient.removeChannel(this.realtimeChannel));
       }
-      if (this.broadcastChannel) {
-        try {
-          this.broadcastChannel.close();
-        } catch (_) {}
-      }
-    } catch (e) {
-      console.warn('Network disconnect error:', e);
-    }
+      this.broadcastChannel?.close();
+      this.isCloudConnected = false;
+      this.localPlayer = null;
+      this.realtimeChannel = null;
+      this.broadcastChannel = null;
+    })();
+    return this.disconnectPromise;
   }
 
   generateSessionSign(id) {
@@ -391,20 +401,19 @@ class EphemeralOfficeNetwork {
           })
           .on('presence', { event: 'leave' }, ({ key }) => {
             if (key === this.clientId) return;
-            const leaving = this.remotePlayers.get(key);
-            if (leaving) {
-              this.remotePlayers.delete(key);
-              if (this.callbacks.onPlayerLeave) this.callbacks.onPlayerLeave(leaving);
-            }
+            this.markPlayerLeft(key, false);
           })
           .subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
+            if (status === 'SUBSCRIBED' && !this.disconnectPromise) {
               this.isCloudConnected = true;
               if (this.callbacks.onConnectionChange) {
                 this.callbacks.onConnectionChange(true, 'Supabase Realtime 雲端瞬時頻道');
               }
               await this.realtimeChannel.track(this.getPublicState());
               this.broadcastPacket('join_announce', { player: this.getPublicState() });
+            } else if (status !== 'SUBSCRIBED') {
+              this.isCloudConnected = false;
+              this.callbacks.onConnectionChange?.(false, '雲端連線中斷，正在重連');
             }
           });
       } catch (e) {
@@ -434,6 +443,7 @@ class EphemeralOfficeNetwork {
   }
 
   broadcastPacket(type, data = {}) {
+    if (type === 'private_chat') return Promise.resolve(false);
     const nonce = Math.random().toString(36).slice(2, 10) + '_' + Date.now();
     const packet = {
       type,
@@ -452,7 +462,7 @@ class EphemeralOfficeNetwork {
 
     if (this.realtimeChannel && this.isCloudConnected) {
       try {
-        this.realtimeChannel.send({
+        return this.realtimeChannel.send({
           type: 'broadcast',
           event: 'ephemeral_pkt',
           payload: packet,
@@ -462,8 +472,7 @@ class EphemeralOfficeNetwork {
   }
 
   upsertRemotePlayer(pData, notifyJoin = false) {
-    if (!pData || !pData.id || pData.id === this.clientId) return;
-    const isNew = !this.remotePlayers.has(pData.id);
+    if (!pData || !pData.id || pData.id === this.clientId || this.departedPlayers.has(pData.id)) return;
     const existing = this.remotePlayers.get(pData.id) || {};
     // 確保線上使用者僅能使用 10 款使用者專屬造型，禁止與 NPC 獨立造型衝突
     const validUserAvatar =
@@ -491,7 +500,8 @@ class EphemeralOfficeNetwork {
     };
     this.remotePlayers.set(pData.id, merged);
 
-    if (isNew && notifyJoin && this.callbacks.onPlayerJoin) {
+    if (notifyJoin && !existing.joinNotified && this.callbacks.onPlayerJoin) {
+      merged.joinNotified = true;
       this.callbacks.onPlayerJoin(merged);
     }
   }
@@ -506,13 +516,8 @@ class EphemeralOfficeNetwork {
 
     switch (pkt.type) {
       case 'leave_announce': {
-        if (!pkt || !pkt.player || !pkt.player.id) return;
-        const leavingId = pkt.player.id;
-        const leaving = this.remotePlayers.get(leavingId) || pkt.player;
-        this.remotePlayers.delete(leavingId);
-        if (this.callbacks.onPlayerLeave) {
-          this.callbacks.onPlayerLeave(leaving);
-        }
+        if (pkt.player && pkt.player.id !== pkt.senderId) return;
+        this.markPlayerLeft(pkt.senderId);
         break;
       }
       case 'join_announce': {
@@ -575,27 +580,8 @@ class EphemeralOfficeNetwork {
         }
         break;
       }
-      case 'private_chat': {
-        if (!this.localPlayer) return;
-        // 🔒 私人對談：只要 targetId 匹配本機 clientId 或 localPlayer.id 即可收取
-        const isMe = pkt.targetId === this.clientId || pkt.targetId === this.localPlayer.id;
-        if (isMe) {
-          if (this.callbacks.onPrivateChat) {
-            this.callbacks.onPrivateChat({
-              id: pkt.nonce,
-              senderId: pkt.senderId,
-              senderName: this.sanitizeText(pkt.senderName || '同事', 16),
-              senderUnit: this.sanitizeText(pkt.senderUnit || 'PP00', 8),
-              targetId: pkt.targetId,
-              targetName: this.sanitizeText(pkt.targetName || this.localPlayer.name, 16),
-              text: this.sanitizeText(pkt.text, 100),
-              createdAt: Date.now(),
-              expiresAt: Date.now() + (window.GATHER_CONFIG?.security?.chatMessageTtlMs || 30000),
-            });
-          }
-        }
-        break;
-      }
+      case 'private_chat':
+        return; // No room-wide transport for confidential messages.
       case 'skill_action': {
         if (this.callbacks.onRemoteSkill) {
           this.callbacks.onRemoteSkill(pkt);
