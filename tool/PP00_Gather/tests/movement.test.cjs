@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const root = path.join(__dirname, '../static/js');
-function game() {
+function game(realCollision = false) {
   const nodes = new Map(); const listeners = {};
   const node = (id) => {
     if (!nodes.has(id)) nodes.set(id, {style: {}, textContent: '', events: {},
@@ -23,11 +23,11 @@ function game() {
     isLoggedIn = true;
     network = {broadcastPacket() {}, getPublicState: () => localPlayer, getAllOtherPlayers: () => []};
     ecosystem = {groundItems: []};
-    updatePoseLabelUI = () => {}; updateInjuryCountdownHUD = () => {}; pushStatusLog = () => {};
+    updatePoseLabelUI = () => {}; updateInjuryCountdownHUD = () => {}; pushStatusLog = () => {}; showToast = () => {};
     window.game = {player: localPlayer, keys, move: updateLocalPlayerMovement, start: startContextualAction, setupTouch: setupTouchControls};
   `);
   vm.runInContext(source, context);
-  context.window.isPositionBlocked = () => false;
+  if (!realCollision) context.window.isPositionBlocked = () => false;
   const g = context.window.game;
   g.player.x = 1100; g.player.y = 800;
   return {g, window: context.window, nodes, listeners};
@@ -68,4 +68,36 @@ test('window blur clears both keyboard and touch movement', () => {
 test('injury recovery cannot be bypassed by keyboard movement', () => {
   const {g} = game(); g.player.isInjured = true; g.player.injuredUntil = Date.now() + 100000;
   g.keys.d = true; g.move(); assert.equal(g.player.x, 400); assert.equal(g.player.actionState, 'sleep_bed');
+});
+
+test('expired guard detention exits a closed stall and clears occupancy before movement', () => {
+  const {g, window} = game(true);
+  const stall = window.WORLD_MAP.toiletStalls[0];
+  g.player.x = stall.seatX; g.player.y = stall.seatY;
+  stall.occupiedBy = g.player.id; stall.doorOpen = 0;
+  g.player.actionState = 'toilet'; g.player.occupiedSpotId = stall.id;
+  g.player.isRestrained = true; g.player.restrainedUntil = Date.now() - 1;
+  g.move();
+  assert.equal(g.player.isRestrained, false);
+  assert.equal(g.player.restrainedUntil, 0);
+  assert.equal(g.player.actionState, null);
+  assert.equal(g.player.occupiedSpotId, null);
+  assert.equal(stall.occupiedBy, null);
+  assert.equal(g.player.x, stall.x - 28);
+  assert.equal(g.player.y, stall.y + 48);
+  assert.equal(window.isPositionBlocked(g.player.x, g.player.y, 14, g.player.id), false);
+  const x = g.player.x; g.keys.a = true; g.move();
+  assert(g.player.x < x, 'movement resumes outside the stall');
+});
+test('guard detention still prevents early movement', () => {
+  const {g, window} = game(true);
+  const stall = window.WORLD_MAP.toiletStalls[0];
+  g.player.x = stall.seatX; g.player.y = stall.seatY;
+  stall.occupiedBy = g.player.id;
+  g.player.actionState = 'toilet'; g.player.isRestrained = true;
+  g.player.restrainedUntil = Date.now() + 10000;
+  g.keys.a = true; g.move();
+  assert.equal(g.player.x, stall.seatX);
+  assert.equal(g.player.isRestrained, true);
+  assert.equal(stall.occupiedBy, g.player.id);
 });
