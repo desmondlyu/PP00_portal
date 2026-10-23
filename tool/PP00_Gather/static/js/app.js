@@ -139,6 +139,7 @@
   };
 
   const keys = {};
+  const touchMove = { x: 0, y: 0 };
   let marketPollTimer = null;
   let berserkBannerTimer = null;
 
@@ -288,6 +289,7 @@
     setupCollapsiblePanels();
     setupMinecraftInventoryEvents();
     setupGameControls();
+    setupTouchControls();
     setupUnifiedChatUI();
 
     // TWSE 盤後指數輪詢（維持會議室 A 大螢幕資料更新，每 5 分鐘輪詢一次）
@@ -299,6 +301,7 @@
 
     handleResize();
     window.addEventListener('resize', handleResize);
+    window.visualViewport?.addEventListener('resize', handleResize);
 
     requestAnimationFrame(gameLoop);
   }
@@ -1191,6 +1194,22 @@
     updatePoseLabelUI();
   }
 
+  function cancelContextualAction() {
+    if (!localPlayer.actionState && !localPlayer.occupiedSpotId) return;
+    window.WORLD_MAP.toiletStalls.forEach((stall) => {
+      if (stall.occupiedBy !== localPlayer.id) return;
+      stall.occupiedBy = null;
+      stall.doorOpen = 1;
+      localPlayer.x = stall.x - 28;
+      localPlayer.y = stall.y + 48;
+      setTimeout(() => { stall.doorOpen = 0; }, 420);
+    });
+    localPlayer.occupiedSpotId = null;
+    localPlayer.actionState = null;
+    updatePoseLabelUI();
+    network.broadcastPacket('state_sync', { player: network.getPublicState() });
+  }
+
   function startContextualAction(actionId) {
     if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
       showToast('🚑 身受重傷休養中，無法動彈或切換動作！', 'error');
@@ -1199,7 +1218,11 @@
     const actMeta = window.GATHER_CONFIG.contextualActions.find((a) => a.id === actionId);
     if (!actMeta) return;
 
-    if (localPlayer.actionState === actionId || !actionId) {
+    localPlayer.autoWalkTarget = null;
+    localPlayer.isMoving = false;
+    const sameAction = localPlayer.actionState === actionId;
+    cancelContextualAction();
+    if (sameAction || !actionId) {
       localPlayer.actionState = null;
       pushStatusLog('你', '已恢復一般行走狀態');
     } else {
@@ -1242,6 +1265,64 @@
   // =========================================================================
   // 5. 遊戲控制、置中互動技能、情境 Alt 快捷鍵與安全冷卻 (1200ms)
   // =========================================================================
+  function setupTouchControls() {
+    const more = document.getElementById('touchMoreBtn');
+    more.addEventListener('click', () => {
+      const expanded = document.getElementById('proximitySkillDock').classList.toggle('touch-expanded');
+      more.setAttribute('aria-expanded', String(expanded));
+      more.textContent = expanded ? '收合' : '更多';
+    });
+    const pad = document.getElementById('touchMovePad');
+    const knob = document.getElementById('touchMoveKnob');
+    let activePointer = null;
+    function clearMovement() {
+      Object.keys(keys).forEach((key) => { keys[key] = false; });
+      touchMove.x = 0; touchMove.y = 0;
+      activePointer = null;
+      knob.style.transform = 'translate(0, 0)';
+    }
+    function move(event) {
+      if (event.pointerId !== activePointer) return;
+      event.preventDefault();
+      const rect = pad.getBoundingClientRect();
+      const x = event.clientX - rect.left - rect.width / 2;
+      const y = event.clientY - rect.top - rect.height / 2;
+      const distance = Math.hypot(x, y);
+      const radius = rect.width * 0.32;
+      const factor = Math.min(1, radius / (distance || 1));
+      touchMove.x = distance > 10 ? x / distance : 0;
+      touchMove.y = distance > 10 ? y / distance : 0;
+      knob.style.transform = `translate(${x * factor}px, ${y * factor}px)`;
+      lastUserActionAt = Date.now();
+    }
+    pad.addEventListener('pointerdown', (event) => {
+      if (!isLoggedIn || activePointer !== null) return;
+      activePointer = event.pointerId;
+      pad.setPointerCapture(event.pointerId);
+      move(event);
+    });
+    pad.addEventListener('pointermove', move);
+    for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      pad.addEventListener(name, (event) => { if (event.pointerId === activePointer) clearMovement(); });
+    }
+    window.addEventListener('blur', clearMovement);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) clearMovement(); });
+    document.addEventListener('focusin', (event) => {
+      if (event.target.matches('input, textarea, select')) clearMovement();
+    });
+    document.getElementById('touchInteractBtn').addEventListener('click', () => {
+      if (!isLoggedIn) return;
+      const now = Date.now();
+      if (now - lastInteractAt < (window.GATHER_CONFIG.security.interactCooldownMs || 1200)) return;
+      lastInteractAt = now; lastUserActionAt = now;
+      tryInteractWithEnvironment();
+    });
+    if (window.matchMedia('(max-width: 900px), (pointer: coarse)').matches) {
+      document.getElementById('proxChatPanel').classList.add('chat-minimized');
+      document.getElementById('toggleChatCollapseBtn').textContent = '➕ 展開';
+    }
+  }
+
   function flashSkillHotkeyButton(hotkeyNum) {
     const btn = document.querySelector(`.skill-btn[data-hotkey="${hotkeyNum}"]`);
     if (!btn) return;
@@ -1259,20 +1340,7 @@
       '6': 'follow',
     };
 
-    const altPoseMap = {
-      '1': 'sit_code',
-      '2': 'drink_coffee',
-      '3': 'slack_nap',
-      '4': 'pray_kuaikuai',
-      '5': 'watch_stock',
-      '6': 'sleep_bed',
-      '7': 'victory_dance',
-      '8': 'daydream',
-      '9': 'lab_inspect',
-      '0': 'toilet',
-      '-': 'wash_hands',
-      '=': 'sweep_floor',
-    };
+    const altPoseMap = Object.fromEntries(window.GATHER_CONFIG.contextualActions.map((a) => [a.altKey, a.id]));
 
     window.addEventListener('keydown', (e) => {
       if (!isLoggedIn) return;
@@ -1390,7 +1458,8 @@
       keys[e.key.toLowerCase()] = false;
     });
 
-    canvas.addEventListener('mousedown', (e) => {
+    canvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
       if (!isLoggedIn) return;
 
       // 🚑 檢查重傷休養狀態：無法點擊地面移動
@@ -1421,7 +1490,7 @@
       if (sx >= mm.x && sx <= mm.x + mm.w && sy >= mm.y && sy <= mm.y + mm.h) {
         const worldX = ((sx - mm.x) / mm.w) * window.WORLD_MAP.width;
         const worldY = ((sy - mm.y) / mm.h) * window.WORLD_MAP.height;
-        localPlayer.actionState = null;
+        cancelContextualAction();
         localPlayer.autoWalkTarget = { x: worldX, y: worldY, followId: null };
         pushStatusLog('系統', '已透過雷達設定導航目標點');
         return;
@@ -1440,6 +1509,7 @@
         return;
       }
 
+      cancelContextualAction();
       localPlayer.autoWalkTarget = { x: clickX, y: clickY, followId: null };
       vfxList.push({
         type: 'click_ring',
@@ -3565,7 +3635,9 @@
       const scaleY = canvas.height / window.WORLD_MAP.height;
       camera.zoom = Math.min(scaleX, scaleY) * 0.96;
     } else {
-      camera.zoom = Math.max(0.82, Math.min(1.12, window.innerWidth / 1440));
+      camera.zoom = window.innerWidth <= 900
+        ? Math.max(0.62, Math.min(0.9, Math.min(canvas.width, canvas.height) / 550))
+        : Math.max(0.82, Math.min(1.12, window.innerWidth / 1440));
     }
   }
 
@@ -3676,46 +3748,17 @@
     if (keys['s'] || keys['arrowdown']) dy += 1;
     if (keys['a'] || keys['arrowleft']) dx -= 1;
     if (keys['d'] || keys['arrowright']) dx += 1;
+    dx += touchMove.x;
+    dy += touchMove.y;
 
     if (dx !== 0 || dy !== 0) {
+      lastUserActionAt = Date.now();
       localPlayer.autoWalkTarget = null;
-      // 若離開電腦座位、馬桶、洗手台、會議室或股市看盤定點，自動解除定點動作並釋放佔用 (規則 11)
-      const interactiveActions = [
-        'sit_code',
-        'toilet',
-        'wash_hands',
-        'drink_coffee',
-        'slack_nap',
-        'watch_stock',
-        'cry',
-        'cheer_stock',
-        'golf_putt',
-        'meeting_discuss',
-      ];
-      if (interactiveActions.includes(localPlayer.actionState)) {
-        if (localPlayer.actionState === 'toilet') {
-          const activeStall = window.WORLD_MAP.toiletStalls.find((s) => s.occupiedBy === localPlayer.id);
-          if (activeStall) {
-            activeStall.occupiedBy = null;
-            activeStall.doorOpen = 1;
-            localPlayer.x = activeStall.x - 28;
-            localPlayer.y = activeStall.y + 48;
-            setTimeout(() => {
-              activeStall.doorOpen = 0;
-            }, 420);
-          }
-        }
-        window.WORLD_MAP.toiletStalls.forEach((s) => {
-          if (s.occupiedBy === localPlayer.id) s.occupiedBy = null;
-        });
-        localPlayer.occupiedSpotId = null;
-        localPlayer.actionState = null;
-        updatePoseLabelUI();
-      }
+      cancelContextualAction();
       const len = Math.hypot(dx, dy);
       dx = (dx / len) * localPlayer.speed;
       dy = (dy / len) * localPlayer.speed;
-    } else if (localPlayer.autoWalkTarget) {
+    } else if (!localPlayer.actionState && localPlayer.autoWalkTarget) {
       if (localPlayer.autoWalkTarget.followId) {
         const followTarget = network
           .getAllOtherPlayers()
@@ -3833,8 +3876,8 @@
   }
 
   function getMinimapRect() {
-    const w = 195;
-    const h = 132;
+    const w = window.innerWidth <= 900 ? 100 : 195;
+    const h = Math.round(w * 132 / 195);
     return {
       x: canvas.width - w - 16,
       y: 58,

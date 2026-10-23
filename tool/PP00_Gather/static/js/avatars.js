@@ -195,7 +195,7 @@ window.drawWackyAvatar = function (ctx, opts) {
     poseOffsetY = 5;
     poseOffsetX = Math.sin(tick * 0.7) * 0.8; // 高速打字微震動
   } else if (actionState === 'toilet') {
-    poseOffsetY = 6 + Math.sin(tick * 0.35) * 1.2; // 蹲坐馬桶微幅用力晃動
+    poseOffsetY = 4 + Math.sin(tick * 0.15) * 1.2; // 蹲坐馬桶微幅用力晃動
   } else if (actionState === 'wash_hands') {
     poseOffsetY = 1;
     poseRotate = Math.sin(tick * 0.35) * 0.08; // 前傾搓手律動
@@ -203,7 +203,7 @@ window.drawWackyAvatar = function (ctx, opts) {
     poseRotate = -Math.abs(Math.sin(tick * 0.12)) * 0.16; // 仰頭暢飲咖啡
   } else if (actionState === 'slack_nap') {
     poseOffsetY = 4;
-    poseRotate = 0.24 * Math.sin(tick * 0.06); // 打瞌睡歪頭搖晃
+    poseRotate = 0.16 + 0.06 * Math.sin(tick * 0.06); // 打瞌睡歪頭搖晃
   } else if (actionState === 'sleep_bed') {
     poseOffsetY = 10;
     poseRotate = -Math.PI / 2 + Math.sin(tick * 0.05) * 0.03; // 躺平熟睡呼吸起伏
@@ -214,6 +214,14 @@ window.drawWackyAvatar = function (ctx, opts) {
     poseOffsetY = -Math.abs(Math.sin(tick * 0.35)) * 12; // 狂歡熱舞彈跳
     poseOffsetX = Math.sin(tick * 0.18) * 6;
     poseRotate = Math.sin(tick * 0.18) * 0.2;
+  } else if (actionState === 'daydream') {
+    poseRotate = 0.12;
+  } else if (actionState === 'cry') {
+    poseOffsetY = 3; poseRotate = Math.sin(tick * .3) * .06;
+  } else if (actionState === 'meeting_discuss' || actionState === 'watch_stock' || actionState === 'golf_putt') {
+    poseRotate = Math.sin(tick * .1) * .025;
+  } else if (actionState === 'cheer_stock') {
+    poseOffsetY = -Math.abs(Math.sin(tick * .18)) * 8;
   } else if (actionState === 'zen_debug') {
     poseOffsetY = -12 + Math.sin(tick * 0.1) * 4; // 盤腿懸浮離地
   }
@@ -282,8 +290,8 @@ window.drawWackyAvatar = function (ctx, opts) {
     ctx.restore();
   }
 
-  const walkCycle = isMoving ? Math.sin(tick * 0.28) : 0;
-  const bobY = isMoving ? Math.abs(Math.sin(tick * 0.28)) * -4 : Math.sin(tick * 0.07) * 1.5;
+  const walkCycle = isMoving && !actionState ? Math.sin(tick * 0.28) : 0;
+  const bobY = actionState ? 0 : isMoving ? Math.abs(Math.sin(tick * 0.28)) * -4 : Math.sin(tick * 0.07) * 1.5;
   const flipX = dir === 'left' ? -1 : 1;
 
   // 1. 底部角色立體陰影
@@ -983,7 +991,7 @@ window.drawWackyAvatar = function (ctx, opts) {
   }
 
   // 4. 若是打掃阿姨或啟動「🧹 揮汗大掃除」動作，在手上畫出動態揮舞的黃金長柄掃把
-  if (isSweeper || actionState === 'sweep_floor') {
+  if ((isSweeper && !actionState) || actionState === 'sweep_floor') {
     ctx.save();
     const sweepAng = Math.sin(tick * 0.28) * 0.45;
     ctx.translate(14, -2);
@@ -1047,255 +1055,9 @@ window.drawWackyAvatar = function (ctx, opts) {
   // =========================================================================
   if (actionState) {
     ctx.save();
-    ctx.translate(x, y - jumpOffset);
-    ctx.textAlign = 'center';
-
-    switch (actionState) {
-      case 'sit_code': {
-        // 💻 坐下寫 Code：懸浮發光全息鍵盤 + 左右雙手高速敲擊殘影 + 往上飄的程式碼粒子
-        const keyBounceL = Math.sin(tick * 0.85) * 3;
-        const keyBounceR = Math.cos(tick * 0.85) * 3;
-        // 全息鍵盤底座
-        ctx.fillStyle = 'rgba(14, 165, 233, 0.88)';
-        fillRoundRect(ctx, -16, -3, 32, 6, 2);
-        ctx.fillStyle = '#bae6fd';
-        ctx.fillRect(-13, -2, 26, 2);
-        // 左右雙手高速敲鍵盤小圓手
-        ctx.fillStyle = '#fde047';
-        ctx.beginPath();
-        ctx.arc(-8, -5 + keyBounceL, 3.2, 0, Math.PI * 2);
-        ctx.arc(8, -5 + keyBounceR, 3.2, 0, Math.PI * 2);
-        ctx.fill();
-        // 雙層程式碼粒子往上飄
-        ctx.font = 'bold 10.5px monospace';
-        ctx.fillStyle = '#38bdf8';
-        const codeY1 = -38 - ((tick * 0.75) % 24);
-        const codeY2 = -38 - (((tick + 15) * 0.75) % 24);
-        ctx.fillText(tick % 24 < 12 ? '{ YIELD: 99.9% }' : '</> PASS!', -8, codeY1);
-        ctx.fillStyle = '#4ade80';
-        ctx.fillText('0101', 14, codeY2);
-        break;
-      }
-      case 'toilet': {
-        // 🚽 關門上廁所：雙手攤開看報紙 📰 (隨呼吸上下動) + 臉紅用力冒汗珠 💦 + 潔淨閃光
-        const paperBob = Math.sin(tick * 0.22) * 2.2;
-        ctx.fillStyle = '#f8fafc';
-        fillRoundRect(ctx, -11, -7 + paperBob, 22, 13, 2);
-        ctx.strokeStyle = '#64748b';
-        ctx.lineWidth = 1;
-        strokeRoundRect(ctx, -11, -7 + paperBob, 22, 13, 2);
-        ctx.fillStyle = '#334155';
-        ctx.fillRect(-8, -4 + paperBob, 16, 2);
-        ctx.fillRect(-8, 0 + paperBob, 12, 2);
-        ctx.font = '16px sans-serif';
-        ctx.fillText('💦', -17, -30 + ((tick * 0.45) % 12));
-        ctx.fillText('🧻', 18, 4);
-        ctx.font = 'bold 10px "Microsoft JhengHei", sans-serif';
-        ctx.fillStyle = '#38bdf8';
-        ctx.fillText('🚽 解放思考中...', 0, -44);
-        break;
-      }
-      case 'wash_hands': {
-        // 🧼 洗手搓泡泡：雙手在胸前快速左右搓揉 + 豐富白色泡沫圈 + 飛濺水珠 💧 與泡泡 🫧
-        const rubX = Math.sin(tick * 0.75) * 5.5;
-        // 雙手搓揉與肥皂泡沫團
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-        ctx.beginPath();
-        ctx.arc(-5 + rubX, -3, 5.5, 0, Math.PI * 2);
-        ctx.arc(5 - rubX, -3, 5.5, 0, Math.PI * 2);
-        ctx.arc(0, -6 + Math.cos(tick * 0.6) * 2, 4.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-
-        // 往上飄的潔淨泡泡與水珠
-        const b1Y = -28 - ((tick * 0.65) % 24);
-        const b2Y = -26 - (((tick + 12) * 0.65) % 24);
-        ctx.font = '15px sans-serif';
-        ctx.fillText('🫧', -14 + Math.sin(tick * 0.25) * 4, b1Y);
-        ctx.fillText('💧', 14 - Math.sin(tick * 0.25) * 4, b2Y);
-        ctx.fillText('🧼', 0, -14);
-        ctx.font = 'bold 10.5px "Microsoft JhengHei", sans-serif';
-        ctx.fillStyle = '#67e8f9';
-        ctx.fillText('✨ 洗手搓泡泡・清潔溜溜 ✨', 0, -48);
-        break;
-      }
-      case 'drink_coffee': {
-        // ☕ 喝咖啡提神：腳下金色能量充能光環 + 手舉馬克杯暢飲 + 裊裊上升白色蒸氣
-        const sipY = -15 + Math.sin(tick * 0.18) * 4;
-        ctx.strokeStyle = 'rgba(250, 204, 21, 0.65)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.ellipse(0, 14, 18 + (tick % 10), 6 + (tick % 10) * 0.3, 0, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.font = '21px sans-serif';
-        ctx.fillText('☕', 14, sipY);
-        // 咖啡熱蒸氣曲線
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        const steamOffset = (tick * 0.4) % 10;
-        ctx.moveTo(14, sipY - 10 - steamOffset);
-        ctx.quadraticCurveTo(18, sipY - 15 - steamOffset, 13, sipY - 20 - steamOffset);
-        ctx.stroke();
-
-        ctx.font = 'bold 10.5px "Microsoft JhengHei", sans-serif';
-        ctx.fillStyle = '#fde047';
-        ctx.fillText('⚡ 咖啡因充能 100%!', 0, -45 - ((tick * 0.4) % 10));
-        break;
-      }
-      case 'slack_nap': {
-        // 🐟 摸魚打瞌睡：鼻子呼吸睡眠泡泡 + 漸大飄升的 Zzz 符號
-        const bubbleR = 3.5 + Math.abs(Math.sin(tick * 0.08)) * 4.5;
-        ctx.fillStyle = 'rgba(186, 230, 253, 0.65)';
-        ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.arc(9, -13, bubbleR, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.font = 'bold 13px monospace';
-        ctx.fillStyle = '#c084fc';
-        const zOffset = (tick * 0.45) % 24;
-        ctx.fillText('Zzz..🐟', 16, -30 - zOffset);
-        break;
-      }
-      case 'sleep_bed': {
-        // 🛌 睡覺：蓋在身上的暖被 + 呼吸睡眠泡泡 + 月亮與雙層 Zzz 飄升特效
-        ctx.fillStyle = 'rgba(59, 130, 246, 0.85)';
-        fillRoundRect(ctx, -10, 0 + Math.sin(tick * 0.08) * 1.2, 28, 15, 5);
-        ctx.strokeStyle = '#93c5fd';
-        ctx.lineWidth = 1.2;
-        strokeRoundRect(ctx, -10, 0 + Math.sin(tick * 0.08) * 1.2, 28, 15, 5);
-
-        const sleepBubble = 4 + Math.abs(Math.sin(tick * 0.07)) * 5;
-        ctx.fillStyle = 'rgba(191, 219, 254, 0.72)';
-        ctx.beginPath();
-        ctx.arc(-14, -4, sleepBubble, 0, Math.PI * 2);
-        ctx.fill();
-
-        const zShift = (tick * 0.4) % 26;
-        ctx.font = 'bold 12px monospace';
-        ctx.fillStyle = '#fde047';
-        ctx.fillText('🌙 Zzz...🛌', 0, -26 - zShift);
-        break;
-      }
-      case 'daydream': {
-        // 發呆放空：蚊香圈與靈魂出竅半透明小幽靈
-        const ghostY = -44 + Math.sin(tick * 0.12) * 7;
-        ctx.font = '20px sans-serif';
-        ctx.globalAlpha = 0.72;
-        ctx.fillText('👻', 0, ghostY);
-        ctx.globalAlpha = 1;
-        ctx.font = 'bold 11px monospace';
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText('@_@ 放空中...', 0, -28);
-        break;
-      }
-      case 'pray_kuaikuai': {
-        // 高舉綠乖乖虔誠膜拜 + 萬丈神聖綠光
-        const prayY = -42 + Math.sin(tick * 0.25) * 5;
-        ctx.fillStyle = 'rgba(16, 185, 129, 0.28)';
-        ctx.beginPath();
-        ctx.arc(0, prayY, 18, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.font = '24px sans-serif';
-        ctx.fillText('🟢', 0, prayY);
-        ctx.font = 'bold 10px sans-serif';
-        ctx.fillStyle = '#10b981';
-        ctx.fillText('✨機台乖乖✨', 0, prayY - 18);
-        break;
-      }
-      case 'watch_stock': {
-        // 拿放大鏡盯台股 + K線噴發
-        ctx.font = '19px sans-serif';
-        ctx.fillText('🔍', 14, -18);
-        ctx.fillText('📈', -16, -38 + Math.sin(tick * 0.25) * 4);
-        break;
-      }
-      case 'golf_putt': {
-        // 🏌️ VP 獨立室高爾夫推桿練習：桿頭擺動、小白球滾動進洞
-        const swingAngle = Math.sin(tick * 0.18) * 0.45;
-        ctx.save();
-        ctx.translate(12, -4);
-        ctx.rotate(swingAngle);
-        ctx.strokeStyle = '#94a3b8';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(0, -18);
-        ctx.lineTo(0, 14);
-        ctx.stroke();
-        ctx.fillStyle = '#f8fafc';
-        ctx.fillRect(-3, 14, 8, 4);
-        ctx.restore();
-
-        const ballProgress = (Math.sin(tick * 0.08) + 1) / 2;
-        const ballX = 14 + ballProgress * 18;
-        const ballY = 12 - ballProgress * 24;
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(ballX, ballY, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.font = '16px sans-serif';
-        ctx.fillText('⛳', 36, -16);
-        break;
-      }
-      case 'meeting_discuss': {
-        // 📑 圍桌開會/專案審查：討論筆記與討論氣泡
-        ctx.font = '16px sans-serif';
-        ctx.fillText('📑', -14, -22 + Math.sin(tick * 0.2) * 3);
-        ctx.fillText('💬', 14, -32 + Math.cos(tick * 0.2) * 3);
-        break;
-      }
-      case 'cry': {
-        // 😭 股市下跌大哭：眼淚噴湧與向下紅箭頭
-        const tearY = (tick * 1.5) % 18;
-        ctx.fillStyle = '#38bdf8';
-        ctx.fillRect(-10, -12 + tearY, 3, 6);
-        ctx.fillRect(8, -12 + tearY, 3, 6);
-        ctx.font = '20px sans-serif';
-        ctx.fillText('😭', 0, -32);
-        ctx.font = '16px sans-serif';
-        ctx.fillText('📉', -20, -18);
-        break;
-      }
-      case 'cheer_stock': {
-        // 🚀 股市上漲慶祝：跳躍噴射、彩帶與金幣火箭
-        ctx.font = '20px sans-serif';
-        ctx.fillText('🎉', -20, -38 + Math.sin(tick * 0.3) * 6);
-        ctx.fillText('🚀', 20, -38 + Math.cos(tick * 0.3) * 6);
-        ctx.fillText('💰', 0, -48);
-        break;
-      }
-      case 'sweep_floor': {
-        // 掃地揚起潔淨閃亮星星
-        ctx.font = '15px sans-serif';
-        ctx.fillText('✨', -18 + Math.sin(tick * 0.3) * 12, 14);
-        ctx.fillText('🫧', 18 - Math.sin(tick * 0.3) * 12, 16);
-        break;
-      }
-      case 'victory_dance': {
-        // 狂歡熱舞霓虹音符
-        ctx.font = '18px sans-serif';
-        ctx.fillText('🎵', -22, -32 + Math.sin(tick * 0.3) * 6);
-        ctx.fillText('🎶', 22, -32 + Math.cos(tick * 0.3) * 6);
-        break;
-      }
-      case 'zen_debug': {
-        // 盤腿通靈光環
-        ctx.font = '16px sans-serif';
-        ctx.fillText('🪷', 0, 12);
-        ctx.font = 'bold 10px monospace';
-        ctx.fillStyle = '#facc15';
-        ctx.fillText('✨通靈Debug中✨', 0, -46);
-        break;
-      }
-    }
-
+    ctx.translate(x + poseOffsetX, y - jumpOffset + poseOffsetY);
+    ctx.scale(scale, scale);
+    drawContextAction(ctx, actionState, tick);
     ctx.restore();
   }
 };
@@ -1402,3 +1164,110 @@ window.drawMinecraftMob = function (ctx, mob, tick) {
   }
   ctx.restore();
 };
+
+// Pixel props use local coordinates, so previews and remote players scale together.
+function drawContextAction(ctx, action, tick) {
+  const wave = Math.sin(tick * 0.18);
+  const phase = (tick % 120) / 120;
+  const px = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
+  const hand = (x, y) => px(x - 3, y - 2, 6, 5, '#f5cba7');
+  const arm = (x, y, xx, yy) => {
+    ctx.strokeStyle = '#526a88'; ctx.lineWidth = 5; ctx.lineCap = 'square';
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(xx, yy); ctx.stroke(); hand(xx, yy);
+  };
+  const paper = (x, y) => {
+    px(x, y, 24, 18, '#e8eef1'); px(x + 11, y + 1, 1, 16, '#94a3b8');
+    for (let i = 0; i < 3; i++) { px(x + 3, y + 4 + i * 4, 6, 1, '#64748b'); px(x + 14, y + 4 + i * 4, 7, 1, '#64748b'); }
+  };
+  const zzz = () => {
+    ctx.font = 'bold 11px monospace'; ctx.fillStyle = '#c4d8f1';
+    for (let i = 0; i < 3; i++) { const t = (phase + i / 3) % 1; ctx.globalAlpha = 1 - t; ctx.fillText('z', 15 + t * 10, -28 - t * 24); }
+    ctx.globalAlpha = 1;
+  };
+  switch (action) {
+    case 'sit_code': {
+      px(-23, 5, 46, 5, '#a88463'); px(-20, 10, 4, 13, '#655b56'); px(16, 10, 4, 13, '#655b56');
+      px(-18, -2, 36, 8, '#334155');
+      for (let row = 0; row < 2; row++) for (let k = 0; k < 8; k++) px(-15 + k * 4, row * 3, 2, 1, '#cbd5e1');
+      arm(-12, -1, -8, -3 + Math.sin(tick * .7) * 2); arm(12, -1, 9, -3 + Math.cos(tick * .7) * 2);
+      break;
+    }
+    case 'toilet': {
+      // A tiny cartoon drop falls into the bowl, splashes, then disappears each cycle.
+      px(-12, 24, 24, 6, '#e2e8f0'); px(-8, 30, 16, 7, '#94a3b8'); px(-9, 24, 18, 3, '#7dd3fc');
+      paper(-12, -5); hand(-14, 2); hand(14, 2);
+      if (phase < .65) {
+        const dropY = 16 + (phase / .65) ** 2 * 9;
+        px(-2, dropY - 4, 4, 3, '#a66a3c'); px(-4, dropY - 1, 8, 3, '#80502f'); px(-5, dropY + 2, 10, 3, '#68432d');
+      } else {
+        const splash = (phase - .65) / .35;
+        ctx.globalAlpha = 1 - splash;
+        px(-8 - splash * 8, 24 - Math.sin(splash * Math.PI) * 8, 3, 3, '#7dd3fc');
+        px(6 + splash * 8, 24 - Math.sin(splash * Math.PI) * 8, 3, 3, '#7dd3fc');
+        ctx.globalAlpha = 1;
+      }
+      px(22, 2, 8, 11, '#f1f5f9'); px(24, 4, 4, 3, '#94a3b8');
+      break;
+    }
+    case 'wash_hands': {
+      const rub = Math.sin(tick * .5) * 3;
+      arm(-12, 0, -3 + rub, 2); arm(12, 0, 3 - rub, 3);
+      px(-9, 7, 18, 3, '#94c9db');
+      for (let i = 0; i < 5; i++) { const t = (phase + i / 5) % 1; px(-10 + i * 5, 3 - t * 17, 3, 3, '#e0f7ff'); }
+      break;
+    }
+    case 'drink_coffee': {
+      const lift = Math.max(0, wave) * 13;
+      arm(12, 0, 16, 2 - lift);
+      px(12, -3 - lift, 11, 10, '#f1e2c6'); px(23, -1 - lift, 4, 5, '#c6a783');
+      px(14, -3 - lift, 7, 2, '#664536');
+      for (let i = 0; i < 2; i++) px(15 + i * 5, -8 - lift - ((tick + i * 14) % 25) / 3, 2, 4, '#d9e2e5');
+      break;
+    }
+    case 'slack_nap': arm(12, 0, 15, -14); zzz(); break;
+    case 'sleep_bed':
+      px(-6, -1 + Math.sin(tick * .07), 33, 15, '#446ea8'); px(-4, 1, 29, 3, '#92b7e3'); zzz(); break;
+    case 'daydream': {
+      arm(-12, 0, -6, -10);
+      px(15, -33, 3, 3, '#dce6f5'); px(21, -40, 5, 4, '#dce6f5');
+      px(22, -57, 28, 14, '#e2e8f0');
+      for (let i = 0; i < 3; i++) px(27 + i * 7, -51 + (Math.floor(tick / 20) % 3 === i ? -2 : 0), 3, 3, '#64748b');
+      break;
+    }
+    case 'pray_kuaikuai': {
+      const bow = Math.max(0, wave) * 4;
+      px(-12, 15, 24, 4, '#b59160'); px(-8, 8, 16, 7, '#23865e'); px(-4, 10, 8, 3, '#f2e9b3');
+      arm(-12, 0, -2, -7 + bow); arm(12, 0, 2, -7 + bow); break;
+    }
+    case 'watch_stock': {
+      px(-18, 0, 36, 20, '#203346'); px(-15, 3, 30, 14, '#0e202d');
+      for (let i = 0; i < 5; i++) px(-12 + i * 5, 6 + (i % 2) * 3, 3, 7 - i % 3, i % 2 ? '#ed8585' : '#6ad9b4');
+      hand(-19, 7); hand(19, 7); break;
+    }
+    case 'sweep_floor': {
+      arm(12, 0, 17 + wave * 7, 8);
+      for (let i = 0; i < 4; i++) { const t = (phase + i / 4) % 1; ctx.globalAlpha = 1 - t; px(20 + t * 18, 18 - Math.sin(t * Math.PI) * 7, 3, 2, '#c4b69d'); }
+      ctx.globalAlpha = 1; break;
+    }
+    case 'victory_dance': case 'cheer_stock': {
+      arm(-12, 0, -20, -12 + wave * 7); arm(12, 0, 20, -12 - wave * 7);
+      const colors = ['#f4d285', '#7dd3fc', '#e7a5cd'];
+      for (let i = 0; i < 6; i++) { const t = (phase + i / 6) % 1; px(-30 + i * 11, -44 + t * 40, 3, 4, colors[i % 3]); }
+      break;
+    }
+    case 'zen_debug': {
+      px(-15, 10, 30, 5, '#526388'); px(-11, 15, 22, 3, '#26364a');
+      hand(-17, 5); hand(17, 5);
+      ctx.strokeStyle = '#d4bf7f'; ctx.lineWidth = 1; ctx.strokeRect(-25, 22 + wave, 50, 3);
+      ctx.font = '10px monospace'; ctx.fillStyle = '#95dec5'; ctx.fillText('{ }', -8, -43); break;
+    }
+    case 'meeting_discuss': paper(-20, 5); arm(12, 0, 20, -12 + wave * 4); px(20, -33, 22, 12, '#d9e5ef'); px(22, -21, 4, 4, '#d9e5ef'); break;
+    case 'cry': arm(-12, 0, -8, -15); arm(12, 0, 8, -15); for (let i = 0; i < 2; i++) px(i ? 10 : -12, -8 + ((tick + i * 9) % 24), 2, 5, '#7dd3fc'); break;
+    case 'golf_putt': {
+      const p = phase < .3 ? 0 : Math.min(1, (phase - .3) / .6);
+      ctx.save(); ctx.translate(15, 0); ctx.rotate(phase < .3 ? -.5 + phase * 2 : .12);
+      px(0, -8, 2, 30, '#b5c6d2'); px(-2, 20, 10, 4, '#cbd5e1'); ctx.restore();
+      arm(12, 0, 16, 2); px(18 + p * 27, 19 - p * 12, 4, 4, '#ffffff'); px(45, 8, 9, 3, '#23372f'); break;
+    }
+  }
+}
