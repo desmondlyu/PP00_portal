@@ -242,7 +242,7 @@
         pushStatusLog(guard.name, `🏏 警棍命中【${mob.name}】！成功消滅方塊怪！`);
         showToast(`🏏 夜間警衛擊退了【${mob.name}】！`, 'security');
       },
-      getMobs: () => (officeEcosystem && officeEcosystem.mobs ? officeEcosystem.mobs : []),
+      getMobs: () => (typeof ecosystem !== 'undefined' && ecosystem && ecosystem.mobs ? ecosystem.mobs : []),
       onRemoteSkill: (pkt) => {
         handleIncomingSkillEffect(pkt);
       },
