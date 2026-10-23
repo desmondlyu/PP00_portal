@@ -2,10 +2,10 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>PP00 虛擬辦公室 — 3D 像素園區即時互動系統</title>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./static/css/style.css?v=20261023-v7" />
+  <link rel="stylesheet" href="./static/css/style.css?v=20261023-v8" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
@@ -244,6 +244,7 @@
           📡 <kbd>1</kbd>～<kbd>6</kbd> 互動｜<kbd>Z</kbd> 情境選單 (<kbd>Alt+1</kbd>~<kbd>=</kbd>)｜<kbd>F</kbd> 擊退｜<kbd>I</kbd> 裝備欄｜<kbd>E</kbd> 設備互動/踹門｜<kbd>M</kbd> 切換Murmur
         </div>
         <div class="skill-btn-row">
+          <button type="button" id="touchMoreBtn" class="skill-btn touch-more-btn" aria-expanded="false">更多</button>
           <!-- 點選展開/收合的 12 種情境動作選單 (含睡覺與快捷鍵) -->
           <div class="action-pose-menu-wrap">
             <button
@@ -340,12 +341,19 @@
     </div>
   </div>
 
+  <div class="touch-controls" aria-label="觸控操作">
+    <div id="touchMovePad" class="touch-move-pad" role="group" aria-label="拖曳方向盤移動；移動會取消情境動作">
+      <span class="touch-pad-arrows" aria-hidden="true">＋</span>
+      <span id="touchMoveKnob" class="touch-move-knob"></span>
+    </div>
+    <button id="touchInteractBtn" type="button" class="touch-interact-btn">互動 E</button>
+  </div>
   <canvas id="officeCanvas"></canvas>
 
-  <script src="./static/js/config.js?v=20261023-v7"></script>
-  <script src="./static/js/avatars.js?v=20261023-v7"></script>
-  <script src="./static/js/world.js?v=20261023-v7"></script>
-  <script src="./static/js/network.js?v=20261023-v7"></script>
-  <script src="./static/js/app.js?v=20261023-v7"></script>
+  <script src="./static/js/config.js?v=20261023-v8"></script>
+  <script src="./static/js/avatars.js?v=20261023-v8"></script>
+  <script src="./static/js/world.js?v=20261023-v8"></script>
+  <script src="./static/js/network.js?v=20261023-v8"></script>
+  <script src="./static/js/app.js?v=20261023-v8"></script>
 </body>
 </html>
