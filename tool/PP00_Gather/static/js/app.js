@@ -1912,13 +1912,17 @@
 
           localPlayer.x = roomX;
           localPlayer.y = roomY;
-          npc.x = roomX + 32;
-          npc.y = roomY;
+          // Occupied stalls reject NPC movement; keep the guard in the corridor.
+          npc.x = stall ? stall.x - 38 : roomX - 160;
+          npc.y = stall ? stall.y + 48 : roomY;
+          npc.targetX = npc.x;
+          npc.targetY = npc.y;
           localPlayer.autoWalkTarget = null;
           localPlayer.knockback = null;
 
           if (stall) {
             stall.occupiedBy = localPlayer.id;
+            localPlayer.occupiedSpotId = stall.id;
             stall.kickShakeTicks = 35;
           }
 
@@ -3865,13 +3869,11 @@
         return;
       } else {
         localPlayer.isRestrained = false;
-        localPlayer.actionState = null;
-        for (const s of window.WORLD_MAP.toiletStalls) {
-          if (s.occupiedBy === localPlayer.id) {
-            s.occupiedBy = null;
-            break;
-          }
-        }
+        localPlayer.restrainedUntil = 0;
+        // Exit while action/occupancy still identify the stall; clearing them first
+        // strands the player behind its closed, collidable door.
+        cancelContextualAction();
+        ensurePlayerNotStuck();
         pushStatusLog('系統', '👮 警衛管教結束！反省完畢，恢復行動與反擊自由！');
         showToast('👮 警衛管教結束，恢復行動與反擊自由！', 'success');
         if (network) {
