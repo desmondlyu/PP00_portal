@@ -195,10 +195,73 @@ window.WORLD_MAP = {
   ],
 };
 
+// Small reusable tiles keep material detail deterministic and avoid per-frame noise.
+// All decorations are visual only; WORLD_MAP remains the collision source of truth.
+const officeMaterialPatterns = new WeakMap();
+function drawOfficeMaterial(ctx, x, y, w, h, kind, base, accent) {
+  let patterns = officeMaterialPatterns.get(ctx);
+  if (!patterns) { patterns = new Map(); officeMaterialPatterns.set(ctx, patterns); }
+  const key = `${kind}:${base}:${accent}`;
+  if (!patterns.has(key)) {
+    const tile = document.createElement('canvas');
+    tile.width = 64; tile.height = 64;
+    const t = tile.getContext('2d');
+    t.fillStyle = base; t.fillRect(0, 0, 64, 64);
+    t.fillStyle = accent;
+    if (kind === 'wood') {
+      t.fillRect(0, 0, 64, 2); t.fillRect(0, 32, 64, 2);
+      t.fillRect(0, 0, 2, 32); t.fillRect(32, 32, 2, 32);
+      t.globalAlpha = 0.25;
+      t.fillRect(8, 10, 32, 2); t.fillRect(22, 22, 34, 2);
+      t.fillRect(4, 44, 20, 2); t.fillRect(40, 54, 18, 2);
+    } else if (kind === 'carpet') {
+      t.globalAlpha = 0.22;
+      for (let yy = 0; yy < 64; yy += 8) {
+        for (let xx = 0; xx < 64; xx += 8) t.fillRect(xx + (yy % 16 ? 2 : 0), yy, 2, 2);
+      }
+      t.globalAlpha = 0.15; t.fillRect(0, 0, 64, 1); t.fillRect(0, 0, 1, 64);
+    } else {
+      t.globalAlpha = 0.35;
+      t.fillRect(0, 0, 64, 2); t.fillRect(0, 0, 2, 64);
+      t.globalAlpha = 0.12; t.fillRect(3, 3, 58, 2);
+      t.fillRect(6, 56, 4, 2); t.fillRect(56, 6, 2, 4);
+    }
+    patterns.set(key, ctx.createPattern(tile, 'repeat'));
+  }
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = patterns.get(key); ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+function drawOfficeWayfinding(ctx) {
+  ctx.save();
+  // Clear horizontal circulation routes between the existing room entrances.
+  for (const y of [510, 1160]) {
+    ctx.fillStyle = '#c7bca6'; ctx.fillRect(180, y - 22, 2480, 44);
+    ctx.fillStyle = '#e7ddc8'; ctx.fillRect(180, y - 20, 2480, 38);
+    for (let x = 220; x < 2630; x += 120) {
+      ctx.fillStyle = '#b0a58e'; ctx.fillRect(x, y + 12, 24, 2);
+    }
+  }
+  const signs = [[340, 510, 'OFFICES', '#78624b'], [2260, 510, 'PANTRY', '#946330'],
+    [350, 1160, 'MEETING', '#756287'], [1780, 1160, 'LAB', '#397d78']];
+  ctx.font = 'bold 14px monospace'; ctx.textAlign = 'left';
+  for (const [x, y, label, color] of signs) {
+    ctx.fillStyle = color; ctx.fillRect(x, y - 7, 4, 14);
+    ctx.fillRect(x + 4, y - 4, 4, 8); ctx.fillRect(x + 8, y - 1, 4, 2);
+    ctx.fillText(label, x + 22, y + 5);
+  }
+  ctx.restore();
+}
+
 function draw3DPixelBox(ctx, x, y, w, h, depth, topColor, frontColor, sideColor, drawBorder = true) {
   ctx.save();
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.28)';
-  ctx.fillRect(Math.round(x + 8), Math.round(y + 10), Math.round(w + 6), Math.round(h + 6));
+  // Stepped cast shadow follows the same upper-left light for every prop.
+  const reach = Math.max(4, Math.min(18, Math.round(depth * 0.45)));
+  ctx.fillStyle = 'rgba(28, 39, 48, 0.10)';
+  ctx.fillRect(Math.round(x + reach), Math.round(y + reach), Math.round(w + 4), Math.round(h));
+  ctx.fillStyle = 'rgba(28, 39, 48, 0.16)';
+  ctx.fillRect(Math.round(x + 4), Math.round(y + h - 3), Math.round(w), 7);
 
   if (sideColor) {
     ctx.fillStyle = sideColor;
@@ -220,8 +283,14 @@ function draw3DPixelBox(ctx, x, y, w, h, depth, topColor, frontColor, sideColor,
   ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
   ctx.fillRect(Math.round(x + 2), Math.round(y - depth + 2), Math.round(w - 4), 4);
 
+  // Dark lower lip and a bright left edge separate top, front and side faces.
+  ctx.fillStyle = 'rgba(16, 29, 43, 0.16)';
+  ctx.fillRect(Math.round(x), Math.round(y + h - 3), Math.round(w), 3);
+  ctx.fillRect(Math.round(x), Math.round(y + h - depth), Math.round(w), 2);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+  ctx.fillRect(Math.round(x + 2), Math.round(y - depth + 3), 2, Math.max(1, Math.round(h - 5)));
   if (drawBorder) {
-    ctx.strokeStyle = '#0f172a';
+    ctx.strokeStyle = '#334155';
     ctx.lineWidth = 2;
     ctx.strokeRect(Math.round(x), Math.round(y - depth), Math.round(w), Math.round(h + depth));
   }
@@ -694,27 +763,12 @@ window.OfficeEcosystem = OfficeEcosystem;
  * 繪製 3D 效果化像素風格 (2.5D Voxel-Pixel) 巨型園區
  */
 window.renderOfficeWorld = function (ctx, ecosystem, tick) {
-  const { width, height, tileSize } = window.WORLD_MAP;
+  const { width, height } = window.WORLD_MAP;
 
-  // 1. 戶外像素草地花園與室內淺暖橡木像素磚
-  ctx.fillStyle = '#86efac';
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.fillStyle = '#f3e5d0';
-  ctx.fillRect(158, 68, 2524, 1744);
-
-  ctx.strokeStyle = 'rgba(203, 179, 147, 0.45)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let x = 160; x < 2682; x += tileSize) {
-    ctx.moveTo(x, 68);
-    ctx.lineTo(x, 1812);
-  }
-  for (let y = 68; y < 1812; y += tileSize) {
-    ctx.moveTo(158, y);
-    ctx.lineTo(2682, y);
-  }
-  ctx.stroke();
+  // Quiet material detail lets characters, entrances and equipment remain legible.
+  drawOfficeMaterial(ctx, 0, 0, width, height, 'carpet', '#78a884', '#315d47');
+  drawOfficeMaterial(ctx, 158, 68, 2524, 1744, 'wood', '#e8ddc7', '#cec0a6');
+  drawOfficeWayfinding(ctx);
 
   // 左側戶外 3D 像素搖曳樹木
   for (let ty = 160; ty <= 1720; ty += 220) {
@@ -722,11 +776,16 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
     draw3DPixelBox(ctx, 48, ty + 16, 24, 28, 12, '#92400e', '#78350f', '#451a03');
     draw3DPixelBox(ctx, 22 + sway, ty - 30, 76, 56, 18, '#4ade80', '#16a34a', '#15803d');
     draw3DPixelBox(ctx, 34 + sway * 1.3, ty - 52, 52, 38, 14, '#86efac', '#22c55e', '#16a34a');
+    ctx.fillStyle = '#b5e6a5';
+    ctx.fillRect(Math.round(40 + sway), ty - 60, 12, 6);
+    ctx.fillRect(Math.round(36 + sway), ty - 54, 6, 10);
+    ctx.fillStyle = '#23714c';
+    ctx.fillRect(Math.round(74 + sway), ty - 12, 12, 6);
+    ctx.fillRect(Math.round(84 + sway), ty - 6, 8, 8);
   }
 
   // 2.1 VP 大老闆獨立辦公室 (x: 158..620, y: 68..440)
-  ctx.fillStyle = '#1e1b4b';
-  ctx.fillRect(158, 68, 462, 372);
+  drawOfficeMaterial(ctx, 158, 68, 462, 372, 'carpet', '#343b50', '#a6adbf');
   ctx.strokeStyle = '#f59e0b';
   ctx.lineWidth = 4;
   ctx.strokeRect(172, 82, 434, 344);
@@ -744,8 +803,7 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
 
   // 2.2 六位處級主管獨立 BLOCK 空間
   window.WORLD_MAP.directorBlocks.forEach((blk) => {
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(blk.x, blk.y, blk.w, blk.h);
+    drawOfficeMaterial(ctx, blk.x, blk.y, blk.w, blk.h, 'carpet', '#354657', '#bccad5');
     ctx.fillStyle = blk.accent + '28';
     ctx.fillRect(blk.x + 8, blk.y + 8, blk.w - 16, blk.h - 16);
 
@@ -764,16 +822,13 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
   });
 
   // 2.3 右上茶水間 (Pantry & Coffee Bar，接近可喝咖啡/摸魚)
-  ctx.fillStyle = '#fffbeb';
-  ctx.fillRect(2100, 68, 582, 372);
-  ctx.fillStyle = '#fef3c7';
-  for (let py = 68; py < 440; py += 32) {
-    for (let px = 2100; px < 2680; px += 32) {
-      if (((px + py) / 32) % 2 === 0) ctx.fillRect(px, py, 32, 32);
-    }
-  }
+  drawOfficeMaterial(ctx, 2100, 68, 582, 372, 'wood', '#f0dfba', '#d4bd96');
   draw3DPixelBox(ctx, 2180, 115, 430, 68, 24, '#f8fafc', '#94a3b8', '#64748b');
   draw3DPixelBox(ctx, 2265, 98, 55, 42, 22, '#10b981', '#047857', '#064e3b');
+  // Espresso machine: recessed dispenser, twin cups and a metal drip tray.
+  ctx.fillStyle = '#173d39'; ctx.fillRect(2274, 89, 36, 22);
+  ctx.fillStyle = '#dce9e0'; ctx.fillRect(2279, 98, 9, 9); ctx.fillRect(2295, 98, 9, 9);
+  ctx.fillStyle = '#91aaa4'; ctx.fillRect(2274, 113, 36, 3);
   draw3DPixelBox(ctx, 2345, 92, 42, 48, 26, '#38bdf8', '#0284c7', '#0369a1');
   draw3DPixelBox(ctx, 2420, 88, 75, 58, 32, '#e2e8f0', '#cbd5e1', '#94a3b8');
   draw3DPixelBox(ctx, 2515, 92, 75, 54, 28, '#10b981', '#059669', '#047857');
@@ -787,27 +842,18 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
   ctx.fillText('☕ 靠近吧台按 [E] 啟動：喝咖啡提神 / 摸魚打瞌睡', 2385, 225);
 
   // 2.4 Product Engineer (PE) & Testing Engineer (TE) 專區地毯
-  ctx.fillStyle = '#cbd5e1';
-  ctx.fillRect(190, 610, 890, 480);
+  drawOfficeMaterial(ctx, 190, 610, 890, 480, 'carpet', '#b9cbd1', '#54798a');
   ctx.strokeStyle = '#0284c7';
   ctx.lineWidth = 3;
   ctx.strokeRect(190, 610, 890, 480);
 
-  ctx.fillStyle = '#d1fae5';
-  ctx.fillRect(1230, 610, 870, 480);
+  drawOfficeMaterial(ctx, 1230, 610, 870, 480, 'carpet', '#bfd5c7', '#567b67');
   ctx.strokeStyle = '#059669';
   ctx.lineWidth = 3;
   ctx.strokeRect(1230, 610, 870, 480);
 
   // 2.5 廁所 (Restrooms：支援按 [E] 開門進隔間蹲馬桶 & 按 [E] 洗手台搓泡泡洗手)
-  ctx.fillStyle = '#ecfeff';
-  ctx.fillRect(2170, 580, 510, 520);
-  ctx.fillStyle = '#cffafe';
-  for (let py = 580; py < 1100; py += 32) {
-    for (let px = 2170; px < 2680; px += 32) {
-      if (((px + py) / 32) % 2 === 0) ctx.fillRect(px, py, 32, 32);
-    }
-  }
+  drawOfficeMaterial(ctx, 2170, 580, 510, 520, 'tile', '#d8e8e6', '#82aaa9');
   // 3D 像素雙槽洗手台與鏡面
   draw3DPixelBox(ctx, 2210, 615, 160, 48, 20, '#f8fafc', '#94a3b8', '#64748b');
   draw3DPixelBox(ctx, 2220, 584, 140, 12, 18, '#bae6fd', '#0284c7', '#0369a1');
@@ -885,8 +931,7 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
 
   // 2.6 兩間獨立會議室 (已修正卡片重疊，且會議室 A 搭載台灣加權股價指數盤後資訊大螢幕)
   // 會議室 A (左：158..665)
-  ctx.fillStyle = '#ede9fe';
-  ctx.fillRect(158, 1252, 507, 560);
+  drawOfficeMaterial(ctx, 158, 1252, 507, 560, 'carpet', '#d3ccdf', '#807195');
   draw3DPixelBox(ctx, 280, 1450, 250, 135, 22, '#c084fc', '#6b21a8', '#4c1d95');
   [305, 365, 425, 485].forEach((cx) => {
     draw3DPixelBox(ctx, cx, 1405, 34, 26, 14, '#475569', '#1e293b', '#0f172a');
@@ -922,8 +967,7 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
   ctx.fillText('資料來源：臺灣證券交易所｜最近交易日收盤資料 [靠近按E看盤]', sc.x + 18, sc.y + 66);
 
   // 會議室 B (中左：685..1180)
-  ctx.fillStyle = '#fce7f3';
-  ctx.fillRect(685, 1252, 495, 560);
+  drawOfficeMaterial(ctx, 685, 1252, 495, 560, 'carpet', '#dfcdd3', '#986d80');
   draw3DPixelBox(ctx, 810, 1450, 250, 135, 22, '#f472b6', '#9d174d', '#831843');
   [835, 895, 955, 1015].forEach((cx) => {
     draw3DPixelBox(ctx, cx, 1405, 34, 26, 14, '#475569', '#1e293b', '#0f172a');
@@ -936,22 +980,14 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
   ctx.fillText('MEETING B · PP00 CHIP ARCHITECTURE', 935, 1288);
 
   // 2.7 Lab 半導體無塵實驗室 (右下：x: 1242..2682, y: 1252..1812)
-  ctx.fillStyle = '#0f172a';
-  ctx.fillRect(1242, 1252, 1440, 560);
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.16)';
-  ctx.lineWidth = 1;
-  for (let lx = 1242; lx < 2682; lx += 32) {
-    ctx.beginPath();
-    ctx.moveTo(lx, 1252);
-    ctx.lineTo(lx, 1812);
-    ctx.stroke();
-  }
-  for (let ly = 1252; ly < 1812; ly += 32) {
-    ctx.beginPath();
-    ctx.moveTo(1242, ly);
-    ctx.lineTo(2682, ly);
-    ctx.stroke();
-  }
+  drawOfficeMaterial(ctx, 1242, 1252, 1440, 560, 'tile', '#344953', '#75999d');
+  // Equipment service bays stay inside existing furniture footprints.
+  ctx.save();
+  window.WORLD_MAP.labEquipments.forEach((eq) => {
+    ctx.strokeStyle = '#a9bfae'; ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]); ctx.strokeRect(eq.x - 8, eq.y - 6, eq.w + 16, eq.h + 18);
+  });
+  ctx.restore();
 
   // 繪製 Lab 3D 像素重型設備 (支援隨機正常運轉與校準狀態)
   window.WORLD_MAP.labEquipments.forEach((eq, idx) => {
@@ -1005,6 +1041,15 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
       ctx.fillStyle = '#e2e8f0';
       ctx.fillText(eq.name, eq.x + eq.w / 2, eq.y + eq.h - 18);
     }
+
+    // Cabinet seams, recessed vents and feet give the machines a readable scale.
+    ctx.fillStyle = 'rgba(8, 24, 35, 0.48)';
+    for (let vent = 0; vent < 4; vent++) ctx.fillRect(eq.x + 12 + vent * 7, eq.y + eq.h - 12, 4, 5);
+    ctx.fillRect(eq.x + eq.w - 13, eq.y + 40, 3, 18);
+    ctx.fillRect(eq.x + 8, eq.y + eq.h, 12, 4);
+    ctx.fillRect(eq.x + eq.w - 20, eq.y + eq.h, 12, 4);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+    ctx.fillRect(eq.x + 8, eq.y - 28, eq.w - 16, 2);
 
     // 💥 若實驗室機台遭像素方塊怪物破壞，繪製黑煙火花與【按E修復即升級】提示
     if (eq.isBroken) {
@@ -1158,6 +1203,15 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
       ctx.fillText('GOOD', ws.x + 100, ws.y + 10);
     }
 
+    // Pixel keyboard, mouse and desk-front trim; no additional interactive objects.
+    ctx.fillStyle = '#647c8b'; ctx.fillRect(ws.x + 28, ws.y + 38, 68, 13);
+    ctx.fillStyle = '#dce5e7';
+    for (let row = 0; row < 2; row++) {
+      for (let key = 0; key < 10; key++) ctx.fillRect(ws.x + 31 + key * 6, ws.y + 40 + row * 4, 4, 2);
+    }
+    ctx.fillRect(ws.x + 48, ws.y + 49, 27, 2);
+    ctx.fillStyle = '#526a7a'; ctx.fillRect(ws.x + 105, ws.y + 39, 9, 12);
+    ctx.fillStyle = '#a6bac5'; ctx.fillRect(ws.x + 108, ws.y + 40, 2, 4);
     if (ws.hasKuaiKuai) {
       draw3DPixelBox(ctx, ws.x + 132, ws.y + 14, 18, 20, 12, '#10b981', '#047857', '#064e3b');
     }
@@ -1237,6 +1291,17 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
 window.renderRealTimeLighting = function (ctx, hourFloat, players) {
   const { width, height } = window.WORLD_MAP;
 
+  ctx.save();
+  const night = hourFloat < 6 || hourFloat >= 19;
+  window.WORLD_MAP.workstations.filter((ws) => ws.hasLamp).forEach((ws) => {
+    const x = ws.x + ws.w - 20, y = ws.y + 14;
+    const glow = ctx.createRadialGradient(x, y, 2, x, y, 52);
+    glow.addColorStop(0, night ? 'rgba(255, 221, 155, 0.24)' : 'rgba(255, 232, 177, 0.13)');
+    glow.addColorStop(1, 'rgba(255, 221, 155, 0)');
+    ctx.fillStyle = glow; ctx.fillRect(x - 52, y - 52, 104, 104);
+  });
+  ctx.restore();
+
   if (hourFloat >= 6 && hourFloat < 9) {
     const intensity = 1 - Math.abs(hourFloat - 7.5) / 1.5;
     ctx.save();
@@ -1264,7 +1329,7 @@ window.renderRealTimeLighting = function (ctx, hourFloat, players) {
   }
 
   ctx.save();
-  ctx.fillStyle = 'rgba(8, 12, 26, 0.54)';
+  ctx.fillStyle = 'rgba(19, 30, 51, 0.32)';
   ctx.fillRect(0, 0, width, height);
   ctx.globalCompositeOperation = 'screen';
 
@@ -1272,7 +1337,7 @@ window.renderRealTimeLighting = function (ctx, hourFloat, players) {
     const cx = ws.x + 70;
     const cy = ws.y + 10;
     const g = ctx.createRadialGradient(cx, cy, 8, cx, cy, 125);
-    g.addColorStop(0, 'rgba(34, 197, 94, 0.45)');
+    g.addColorStop(0, 'rgba(167, 218, 204, 0.20)');
     g.addColorStop(1, 'rgba(34, 197, 94, 0)');
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -1284,7 +1349,7 @@ window.renderRealTimeLighting = function (ctx, hourFloat, players) {
     const cx = eq.x + eq.w / 2;
     const cy = eq.y + eq.h / 2;
     const g = ctx.createRadialGradient(cx, cy, 12, cx, cy, 155);
-    g.addColorStop(0, 'rgba(56, 189, 248, 0.48)');
+    g.addColorStop(0, 'rgba(151, 205, 226, 0.22)');
     g.addColorStop(1, 'rgba(56, 189, 248, 0)');
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -1294,7 +1359,7 @@ window.renderRealTimeLighting = function (ctx, hourFloat, players) {
 
   players.forEach((p) => {
     const pg = ctx.createRadialGradient(p.x, p.y - 12, 8, p.x, p.y - 12, 110);
-    pg.addColorStop(0, 'rgba(255, 255, 255, 0.38)');
+    pg.addColorStop(0, 'rgba(220, 230, 242, 0.16)');
     pg.addColorStop(1, 'rgba(255, 255, 255, 0)');
     ctx.fillStyle = pg;
     ctx.beginPath();
