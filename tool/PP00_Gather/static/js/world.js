@@ -367,6 +367,36 @@ window.isPositionBlocked = function (x, y, radius = 14, entityId = null) {
 };
 
 /**
+ * 依照 24 小時時段與武器強度階梯 (5%~20%) 計算加權隨機道具
+ */
+window.getWeightedRandomItem = function(pool = window.GATHER_CONFIG?.items) {
+  if (!pool || pool.length === 0) return window.GATHER_CONFIG?.items?.[0];
+  const hour = new Date().getHours();
+  // 24小時制時段動態調變：中午後與下午茶 (11:30~13:30, 15:00~16:00) 補給品微增；夜間大夜班 (21:00~07:00) 咖啡與神聖乖乖機率微增
+  const isLunchOrTea = (hour >= 11 && hour <= 13) || (hour >= 15 && hour <= 16);
+  const isNightShift = hour >= 21 || hour < 7;
+
+  const weightedPool = pool.map((item) => {
+    let rate = item.spawnRate || 0.10;
+    if (isLunchOrTea && (item.id === 'pizza' || item.id === 'boba' || item.id === 'coffee')) {
+      rate *= 1.2;
+    }
+    if (isNightShift && (item.id === 'coffee' || item.id === 'kuaikuai')) {
+      rate *= 1.25;
+    }
+    return { item, rate };
+  });
+
+  const totalRate = weightedPool.reduce((sum, p) => sum + p.rate, 0);
+  let r = Math.random() * totalRate;
+  for (const p of weightedPool) {
+    if (r < p.rate) return p.item;
+    r -= p.rate;
+  }
+  return pool[pool.length - 1];
+};
+
+/**
  * 動態辦公室生態系統管理器 (已移除移動表情方塊、降低小怪物生成機率至 0.5% 且上限 3 隻)
  */
 class OfficeEcosystem {
@@ -431,12 +461,12 @@ class OfficeEcosystem {
     return mob;
   }
 
+
   /**
    * 在指定座標生成一個掉落武器或道具 (例如擊退鳥人指揮官 20% 掉落)
    */
   spawnDropAt(x, y, customMeta = null) {
-    const pool = window.GATHER_CONFIG.items;
-    const meta = customMeta || pool[Math.floor(Math.random() * pool.length)];
+    const meta = customMeta || window.getWeightedRandomItem(window.GATHER_CONFIG.items);
     const item = {
       uid: 'drop_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       x: Math.round(x + (Math.random() - 0.5) * 36),
@@ -468,16 +498,14 @@ class OfficeEcosystem {
   }
 
   /**
-   * 一次隨機產生 count 種不重複或隨機掉落物 (每 10 分鐘自動執行一次)
+   * 一次隨機產生 count 種加權掉落物 (依強度 5%~20% 機率，並納入 24 小時制計算)
    */
   spawnBatchRandomDrops(count = 5) {
-    const items = [...window.GATHER_CONFIG.items];
-    // 洗牌挑選 5 種
-    for (let i = items.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [items[i], items[j]] = [items[j], items[i]];
+    const pool = window.GATHER_CONFIG.items;
+    const selected = [];
+    for (let i = 0; i < count; i++) {
+      selected.push(window.getWeightedRandomItem(pool));
     }
-    const selected = items.slice(0, count);
     selected.forEach((meta) => {
       if (this.groundItems.length >= 15) return;
       let rx = 700 + Math.random() * 800;

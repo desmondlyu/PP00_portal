@@ -14,27 +14,27 @@ window.GATHER_CONFIG = {
     { id: 'away', label: '離開', dot: '#f97316', icon: '🟠' },
     { id: 'busy', label: '忙碌', dot: '#ef4444', icon: '🔴' },
   ],
-  // 6 種隨機戰鬥武器 + 5 種辦公室補給道具（依照物品功能設計擊退次數能力：最強 1 次 ~ 最弱 10 次，命中滿 3 次固定損毀）
+  // 6 種隨機戰鬥武器 + 5 種辦公室補給道具（依照強度由強到弱，生成機率 5%~20%，擊退次數能力 1~10次，命中滿 3 次固定損毀）
   weapons: [
-    { id: 'rma_report', category: 'weapon', name: '客退報告', emoji: '📋', power: 35, expBonusPct: 35, knockbackExp: 48, hitsToRepel: 1, maxDurability: 3, desc: '經驗+35%｜1次擊退｜耐久3次' },
-    { id: 'bench', category: 'weapon', name: '折疊板凳', emoji: '🪑', power: 32, expBonusPct: 25, knockbackExp: 38, hitsToRepel: 2, maxDurability: 3, desc: '經驗+25%｜2次擊退｜耐久3次' },
-    { id: 'wrench', category: 'weapon', name: '機台板手', emoji: '🔧', power: 29, expBonusPct: 22, knockbackExp: 34, hitsToRepel: 3, maxDurability: 3, desc: '經驗+22%｜3次擊退｜耐久3次' },
-    { id: 'wafer_blade', category: 'weapon', name: 'WAFER晶圓', emoji: '💿', power: 28, expBonusPct: 30, knockbackExp: 42, hitsToRepel: 4, maxDurability: 3, desc: '經驗+30%｜4次擊退｜耐久3次' },
-    { id: 'keyboard', category: 'weapon', name: '機械鍵盤', emoji: '⌨️', power: 26, expBonusPct: 18, knockbackExp: 28, hitsToRepel: 5, maxDurability: 3, desc: '經驗+18%｜5次擊退｜耐久3次' },
-    { id: 'ic_pkg', category: 'weapon', name: 'IC Package', emoji: '🔲', power: 24, expBonusPct: 20, knockbackExp: 30, hitsToRepel: 6, maxDurability: 3, desc: '經驗+20%｜6次擊退｜耐久3次' },
+    { id: 'rma_report', category: 'weapon', name: '客退報告', emoji: '📋', power: 35, expBonusPct: 35, knockbackExp: 48, hitsToRepel: 1, maxDurability: 3, spawnRate: 0.05, desc: '經驗+35%｜1次擊退｜耐久3次｜生成率5%' },
+    { id: 'bench', category: 'weapon', name: '折疊板凳', emoji: '🪑', power: 32, expBonusPct: 25, knockbackExp: 38, hitsToRepel: 2, maxDurability: 3, spawnRate: 0.06, desc: '經驗+25%｜2次擊退｜耐久3次｜生成率6%' },
+    { id: 'wrench', category: 'weapon', name: '機台板手', emoji: '🔧', power: 29, expBonusPct: 22, knockbackExp: 34, hitsToRepel: 3, maxDurability: 3, spawnRate: 0.075, desc: '經驗+22%｜3次擊退｜耐久3次｜生成率7.5%' },
+    { id: 'wafer_blade', category: 'weapon', name: 'WAFER晶圓', emoji: '💿', power: 28, expBonusPct: 30, knockbackExp: 42, hitsToRepel: 4, maxDurability: 3, spawnRate: 0.09, desc: '經驗+30%｜4次擊退｜耐久3次｜生成率9%' },
+    { id: 'keyboard', category: 'weapon', name: '機械鍵盤', emoji: '⌨️', power: 26, expBonusPct: 18, knockbackExp: 28, hitsToRepel: 5, maxDurability: 3, spawnRate: 0.105, desc: '經驗+18%｜5次擊退｜耐久3次｜生成率10.5%' },
+    { id: 'ic_pkg', category: 'weapon', name: 'IC Package', emoji: '🔲', power: 24, expBonusPct: 20, knockbackExp: 30, hitsToRepel: 6, maxDurability: 3, spawnRate: 0.12, desc: '經驗+20%｜6次擊退｜耐久3次｜生成率12%' },
   ],
   items: [
-    { id: 'rma_report', category: 'weapon', name: '客退報告', emoji: '📋', power: 35, expBonusPct: 35, knockbackExp: 48, hitsToRepel: 1, maxDurability: 3, desc: '經驗+35%｜1次擊退｜耐久3次' },
-    { id: 'bench', category: 'weapon', name: '折疊板凳', emoji: '🪑', power: 32, expBonusPct: 25, knockbackExp: 38, hitsToRepel: 2, maxDurability: 3, desc: '經驗+25%｜2次擊退｜耐久3次' },
-    { id: 'wrench', category: 'weapon', name: '機台板手', emoji: '🔧', power: 29, expBonusPct: 22, knockbackExp: 34, hitsToRepel: 3, maxDurability: 3, desc: '經驗+22%｜3次擊退｜耐久3次' },
-    { id: 'wafer_blade', category: 'weapon', name: 'WAFER晶圓', emoji: '💿', power: 28, expBonusPct: 30, knockbackExp: 42, hitsToRepel: 4, maxDurability: 3, desc: '經驗+30%｜4次擊退｜耐久3次' },
-    { id: 'keyboard', category: 'weapon', name: '機械鍵盤', emoji: '⌨️', power: 26, expBonusPct: 18, knockbackExp: 28, hitsToRepel: 5, maxDurability: 3, desc: '經驗+18%｜5次擊退｜耐久3次' },
-    { id: 'ic_pkg', category: 'weapon', name: 'IC Package', emoji: '🔲', power: 24, expBonusPct: 20, knockbackExp: 30, hitsToRepel: 6, maxDurability: 3, desc: '經驗+20%｜6次擊退｜耐久3次' },
-    { id: 'duck', category: 'item', name: 'Debug小黃鴨', emoji: '🦆', power: 19, expBonusPct: 20, knockbackExp: 24, hitsToRepel: 7, maxDurability: 3, desc: '經驗+20%｜7次擊退｜耐久3次' },
-    { id: 'coffee', category: 'item', name: '特濃冰美式', emoji: '☕', power: 18, expBonusPct: 16, knockbackExp: 22, hitsToRepel: 8, maxDurability: 3, desc: '經驗+16%｜8次擊退｜耐久3次' },
-    { id: 'boba', category: 'item', name: '波霸珍奶', emoji: '🧋', power: 17, expBonusPct: 15, knockbackExp: 20, hitsToRepel: 9, maxDurability: 3, desc: '經驗+15%｜9次擊退｜耐久3次' },
-    { id: 'pizza', category: 'item', name: '熱騰騰披薩', emoji: '🍕', power: 16, expBonusPct: 12, knockbackExp: 18, hitsToRepel: 10, maxDurability: 3, desc: '經驗+12%｜10次擊退｜耐久3次' },
-    { id: 'kuaikuai', category: 'item', name: '神聖綠乖乖', emoji: '🟢', power: 20, expBonusPct: 28, knockbackExp: 26, hitsToRepel: 10, maxDurability: 3, desc: '經驗+28%｜10次擊退｜耐久3次' },
+    { id: 'rma_report', category: 'weapon', name: '客退報告', emoji: '📋', power: 35, expBonusPct: 35, knockbackExp: 48, hitsToRepel: 1, maxDurability: 3, spawnRate: 0.05, desc: '經驗+35%｜1次擊退｜耐久3次｜生成率5%' },
+    { id: 'bench', category: 'weapon', name: '折疊板凳', emoji: '🪑', power: 32, expBonusPct: 25, knockbackExp: 38, hitsToRepel: 2, maxDurability: 3, spawnRate: 0.06, desc: '經驗+25%｜2次擊退｜耐久3次｜生成率6%' },
+    { id: 'wrench', category: 'weapon', name: '機台板手', emoji: '🔧', power: 29, expBonusPct: 22, knockbackExp: 34, hitsToRepel: 3, maxDurability: 3, spawnRate: 0.075, desc: '經驗+22%｜3次擊退｜耐久3次｜生成率7.5%' },
+    { id: 'wafer_blade', category: 'weapon', name: 'WAFER晶圓', emoji: '💿', power: 28, expBonusPct: 30, knockbackExp: 42, hitsToRepel: 4, maxDurability: 3, spawnRate: 0.09, desc: '經驗+30%｜4次擊退｜耐久3次｜生成率9%' },
+    { id: 'keyboard', category: 'weapon', name: '機械鍵盤', emoji: '⌨️', power: 26, expBonusPct: 18, knockbackExp: 28, hitsToRepel: 5, maxDurability: 3, spawnRate: 0.105, desc: '經驗+18%｜5次擊退｜耐久3次｜生成率10.5%' },
+    { id: 'ic_pkg', category: 'weapon', name: 'IC Package', emoji: '🔲', power: 24, expBonusPct: 20, knockbackExp: 30, hitsToRepel: 6, maxDurability: 3, spawnRate: 0.12, desc: '經驗+20%｜6次擊退｜耐久3次｜生成率12%' },
+    { id: 'duck', category: 'item', name: 'Debug小黃鴨', emoji: '🦆', power: 19, expBonusPct: 20, knockbackExp: 24, hitsToRepel: 7, maxDurability: 3, spawnRate: 0.14, desc: '經驗+20%｜7次擊退｜耐久3次｜生成率14%' },
+    { id: 'coffee', category: 'item', name: '特濃冰美式', emoji: '☕', power: 18, expBonusPct: 16, knockbackExp: 22, hitsToRepel: 8, maxDurability: 3, spawnRate: 0.16, desc: '經驗+16%｜8次擊退｜耐久3次｜生成率16%' },
+    { id: 'boba', category: 'item', name: '波霸珍奶', emoji: '🧋', power: 17, expBonusPct: 15, knockbackExp: 20, hitsToRepel: 9, maxDurability: 3, spawnRate: 0.18, desc: '經驗+15%｜9次擊退｜耐久3次｜生成率18%' },
+    { id: 'pizza', category: 'item', name: '熱騰騰披薩', emoji: '🍕', power: 16, expBonusPct: 12, knockbackExp: 18, hitsToRepel: 10, maxDurability: 3, spawnRate: 0.20, desc: '經驗+12%｜10次擊退｜耐久3次｜生成率20%' },
+    { id: 'kuaikuai', category: 'item', name: '神聖綠乖乖', emoji: '🟢', power: 20, expBonusPct: 28, knockbackExp: 26, hitsToRepel: 10, maxDurability: 3, spawnRate: 0.20, desc: '經驗+28%｜10次擊退｜耐久3次｜生成率20%' },
   ],
 
   // 5 種像素方塊怪 (生成機率 0.5%，場上最多 3 隻，1% 機率暴走破壞設備)
@@ -217,6 +217,10 @@ window.GATHER_CONFIG = {
     birdFollowChance: 0.10, // 鳥人指揮官 10% 機率跟隨線上使用者並持續 Murmur
     birdMeetingPullChance: 0.10, // 鳥人指揮官視線內 10% 機率拉進會議室 10 秒（觸發後機率遞減）
     birdDropChance: 0.20, // 鳥人指揮官被武器擊退後 20% 機率獲得道具與經驗
+    birdExileChance: 0.10, // 攻擊鳥人指揮官 10% 機率永久不再出現（被打飛至太空永久退場）
+    userCritInjuryChance: 0.05, // 攻擊線上使用者 5% 機率造成重傷
+    userInjuryLockMs: 5 * 60 * 1000, // 重傷休養 5 分鐘無法動彈 (300 秒)
+    npcContextualActionChance: 0.30, // VP / PP00處長 / 打掃阿姨 隨機情境動作機率 30%
     meetingLockMs: 10000, // 會議室或主管室關緊閉 10 秒
     weaponMaxDurability: 3, // 裝備擊退 3 次損毀消失
     maxUserChatLines: 20, // 真實使用者對談訊息紀錄上限 20 行
