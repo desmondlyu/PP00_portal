@@ -22,11 +22,11 @@ window.WORLD_MAP = {
   zones: [
     { id: 'vp_room', name: 'VP Office', sub: '大老闆室', x: 380, y: 92, spawnX: 380, spawnY: 350, color: '#f59e0b' },
     { id: 'dir_pp00', name: 'PP00', sub: '處長室', x: 760, y: 92, spawnX: 760, spawnY: 350, color: '#ec4899' },
-    { id: 'dir_pp10', name: 'PP10', sub: '處長室', x: 1000, y: 92, spawnX: 1000, spawnY: 350, color: '#8b5cf6' },
-    { id: 'dir_pp20', name: 'PP20', sub: '處長室', x: 1240, y: 92, spawnX: 1240, spawnY: 350, color: '#6366f1' },
-    { id: 'dir_pp30', name: 'PP30', sub: '處長室', x: 1480, y: 92, spawnX: 1480, spawnY: 350, color: '#3b82f6' },
-    { id: 'dir_pp40', name: 'PP40', sub: '處長室', x: 1720, y: 92, spawnX: 1720, spawnY: 350, color: '#0ea5e9' },
-    { id: 'dir_pp50', name: 'PP50', sub: '處長室', x: 1965, y: 92, spawnX: 1965, spawnY: 350, color: '#14b8a6' },
+    { id: 'dir_pp10', name: 'PP10', sub: '主管會議室', x: 1000, y: 92, spawnX: 1000, spawnY: 350, color: '#8b5cf6' },
+    { id: 'dir_pp20', name: 'PP20', sub: '主管會議室', x: 1240, y: 92, spawnX: 1240, spawnY: 350, color: '#6366f1' },
+    { id: 'dir_pp30', name: 'PP30', sub: '主管會議室', x: 1480, y: 92, spawnX: 1480, spawnY: 350, color: '#3b82f6' },
+    { id: 'dir_pp40', name: 'PP40', sub: '主管會議室', x: 1720, y: 92, spawnX: 1720, spawnY: 350, color: '#0ea5e9' },
+    { id: 'dir_pp50', name: 'PP50', sub: '主管會議室', x: 1965, y: 92, spawnX: 1965, spawnY: 350, color: '#14b8a6' },
     { id: 'pantry', name: 'Pantry', sub: '茶水休憩區', x: 2400, y: 92, spawnX: 2350, spawnY: 350, color: '#f97316' },
     { id: 'pe_zone', name: 'PE Zone', sub: '產品工程區', x: 640, y: 595, spawnX: 640, spawnY: 840, color: '#0284c7' },
     { id: 'te_zone', name: 'TE Zone', sub: '測試工程區', x: 1660, y: 595, spawnX: 1660, spawnY: 840, color: '#059669' },
@@ -98,12 +98,12 @@ window.WORLD_MAP = {
   ],
 
   directorBlocks: [
-    { unit: 'PP00', title: 'PP00 處級主管', x: 645, y: 70, w: 225, h: 370, accent: '#ec4899', manager: 'PP00 處長' },
-    { unit: 'PP10', title: 'PP10 處級主管', x: 886, y: 70, w: 224, h: 370, accent: '#8b5cf6', manager: 'PP10 處長' },
-    { unit: 'PP20', title: 'PP20 處級主管', x: 1126, y: 70, w: 224, h: 370, accent: '#6366f1', manager: 'PP20 處長' },
-    { unit: 'PP30', title: 'PP30 處級主管', x: 1366, y: 70, w: 224, h: 370, accent: '#3b82f6', manager: 'PP30 處長' },
-    { unit: 'PP40', title: 'PP40 處級主管', x: 1606, y: 70, w: 224, h: 370, accent: '#0ea5e9', manager: 'PP40 處長' },
-    { unit: 'PP50', title: 'PP50 處級主管', x: 1846, y: 70, w: 234, h: 370, accent: '#14b8a6', manager: 'PP50 處長' },
+    { unit: 'PP00', title: 'PP00 處長室', x: 645, y: 70, w: 225, h: 370, accent: '#ec4899', manager: 'PP00 處長' },
+    { unit: 'PP10', title: 'PP10 主管會議室', x: 886, y: 70, w: 224, h: 370, accent: '#8b5cf6', manager: 'PP10 主管會議室' },
+    { unit: 'PP20', title: 'PP20 主管會議室', x: 1126, y: 70, w: 224, h: 370, accent: '#6366f1', manager: 'PP20 主管會議室' },
+    { unit: 'PP30', title: 'PP30 主管會議室', x: 1366, y: 70, w: 224, h: 370, accent: '#3b82f6', manager: 'PP30 主管會議室' },
+    { unit: 'PP40', title: 'PP40 主管會議室', x: 1606, y: 70, w: 224, h: 370, accent: '#0ea5e9', manager: 'PP40 主管會議室' },
+    { unit: 'PP50', title: 'PP50 主管會議室', x: 1846, y: 70, w: 234, h: 370, accent: '#14b8a6', manager: 'PP50 主管會議室' },
   ],
 
   // 4 間可開門走進去上廁所的獨立廁所隔間 (支援開門動畫 doorOpen: 0~1，熱鍵 [E])
@@ -846,7 +846,8 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
     ctx.fillStyle = blk.accent + 'bb';
     ctx.font = '800 15px "Outfit", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(`${blk.unit} 處長室`, blk.x + blk.w / 2, blk.y + 295);
+    const roomTitle = blk.unit === 'PP00' ? 'PP00 處長室' : `${blk.unit} 主管會議室`;
+    ctx.fillText(roomTitle, blk.x + blk.w / 2, blk.y + 295);
   });
 
   // 2.3 右上茶水間 (Pantry & Coffee Bar，接近可喝咖啡/摸魚)

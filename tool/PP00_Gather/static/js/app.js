@@ -2177,13 +2177,14 @@
       triggerDist: 36,
     });
 
-    // 2. 六位處級主管獨立辦公室 (各 3 張獨立椅子：處長主座 + 訪客 A + 訪客 B)
+    // 2. 六間主管獨立辦公室/會議室 (各 3 張獨立椅子：主座 + 訪客 A + 訪客 B)
     window.WORLD_MAP.directorBlocks.forEach((blk) => {
+      const roomLabel = blk.title;
       spots.push({
         id: `seat_dir_${blk.unit}_main`,
-        name: `${blk.title} 主座`,
-        shortHint: `[按 E] 💻 入座${blk.unit}主管轉椅`,
-        label: `💻 入座【${blk.title} 主管轉椅】辦公寫 Code [按E]`,
+        name: `${roomLabel} 主座`,
+        shortHint: `[按 E] 💻 入座${roomLabel}轉椅`,
+        label: `💻 入座【${roomLabel} 轉椅】辦公寫 Code [按E]`,
         actionId: 'sit_code',
         standX: blk.x + 112,
         standY: blk.y + 86,
@@ -2194,7 +2195,7 @@
         id: `seat_dir_${blk.unit}_g1`,
         name: `${blk.unit} 訪客座 A`,
         shortHint: `[按 E] 🪑 入座訪客座 A`,
-        label: `🪑 入座【${blk.unit} 處長室 訪客座 A】[按E]`,
+        label: `🪑 入座【${roomLabel} 訪客座 A】[按E]`,
         actionId: 'sit_code',
         standX: blk.x + 84,
         standY: blk.y + 205,
@@ -2205,7 +2206,7 @@
         id: `seat_dir_${blk.unit}_g2`,
         name: `${blk.unit} 訪客座 B`,
         shortHint: `[按 E] 🪑 入座訪客座 B`,
-        label: `🪑 入座【${blk.unit} 處長室 訪客座 B】[按E]`,
+        label: `🪑 入座【${roomLabel} 訪客座 B】[按E]`,
         actionId: 'sit_code',
         standX: blk.x + 140,
         standY: blk.y + 205,
