@@ -178,7 +178,15 @@ class EphemeralOfficeNetwork {
       },
     ];
 
+    // 檢查持久化狀態：若鳥人指揮官已被永久擊退流放，不予生成
+    let birdExiled = false;
+    try {
+      const persisted = JSON.parse(localStorage.getItem('PP00_GATHER_PERSISTENCE_v1') || '{}');
+      birdExiled = !!persisted.birdCommanderExiled;
+    } catch (e) {}
+
     npcTemplates.forEach((tpl) => {
+      if (tpl.id === 'npc_bird_commander' && birdExiled) return;
       this.npcPlayers.set(tpl.id, {
         ...tpl,
         isNpc: true,
@@ -189,6 +197,7 @@ class EphemeralOfficeNetwork {
         dir: 'down',
         jumpOffset: 0,
         actionState: tpl.isSweeper ? 'sweep_floor' : null,
+        actionUntil: 0,
         isBerserk: false,
         berserkUntil: 0,
         berserkCooldownUntil: Date.now() + 18000,
@@ -703,38 +712,145 @@ class EphemeralOfficeNetwork {
           }
         }
       } else if (!npc.isBirdCommander || now >= npc.followPlayerUntil) {
-        // 正常巡視狀態：鳥人指揮官每 2 秒隨機奔跑切換各區塊並做出與使用者相同的情境動作
-        const switchPeriod = npc.isBirdCommander ? 125 : 170;
-        if (tick % switchPeriod === (idx * 43) % switchPeriod) {
-          if (npc.isBirdCommander) {
-            npc.waypointIdx = Math.floor(Math.random() * npc.waypoints.length);
-            const birdActions = [
-              'sit_code',
-              'drink_coffee',
-              'slack_nap',
-              'sleep_bed',
-              'pray_kuaikuai',
-              'watch_stock',
-              'victory_dance',
-              'daydream',
-              'lab_inspect',
-              null,
-            ];
-            npc.actionState = birdActions[Math.floor(Math.random() * birdActions.length)];
-          } else {
-            npc.waypointIdx = (npc.waypointIdx + 1) % npc.waypoints.length;
-          }
-          const wp = npc.waypoints[npc.waypointIdx];
-          const jitterX = (Math.random() - 0.5) * 90;
-          const jitterY = (Math.random() - 0.5) * 90;
-          const tx = wp.x + jitterX;
-          const ty = wp.y + jitterY;
-          if (!window.isPositionBlocked(tx, ty, 16)) {
-            npc.targetX = tx;
-            npc.targetY = ty;
-          } else {
-            npc.targetX = wp.x;
-            npc.targetY = wp.y;
+        // 若 NPC 正在專注進行情境動作，維持目前位置與動作狀態
+        if (now < (npc.actionUntil || 0)) {
+          // 正在情境動作持續中，不隨意切換巡視
+        } else {
+          // 正常巡視與情境動作決策
+          const switchPeriod = npc.isBirdCommander ? 125 : 170;
+          if (tick % switchPeriod === (idx * 43) % switchPeriod) {
+            const hour = new Date().getHours();
+            const isNightShift = hour >= 21 || hour < 7;
+            const isLunch = hour >= 12 && hour <= 13;
+            const actionChance = window.GATHER_CONFIG?.security?.npcContextualActionChance ?? 0.30;
+
+            if (npc.isBirdCommander) {
+              npc.waypointIdx = Math.floor(Math.random() * npc.waypoints.length);
+              const birdActions = [
+                'sit_code',
+                'drink_coffee',
+                'slack_nap',
+                'sleep_bed',
+                'pray_kuaikuai',
+                'watch_stock',
+                'victory_dance',
+                'daydream',
+                null,
+              ];
+              npc.actionState = birdActions[Math.floor(Math.random() * birdActions.length)];
+              const wp = npc.waypoints[npc.waypointIdx];
+              npc.targetX = wp.x + (Math.random() - 0.5) * 80;
+              npc.targetY = wp.y + (Math.random() - 0.5) * 80;
+            } else if (
+              (npc.id === 'npc_vp_boss' || npc.id === 'npc_dir_pp00' || npc.isSweeper) &&
+              Math.random() < actionChance
+            ) {
+              // 👑 規則 2：VP、PP00 處長、打掃阿姨 30% 機率觸發隨機情境動作（結合 24 小時制）
+              npc.actionUntil = now + (12000 + Math.random() * 8000); // 持續 12~20 秒
+
+              if (npc.id === 'npc_vp_boss') {
+                // VP: 在自己辦公室打高爾夫球、睡覺、坐在主管位置上辦公
+                const weights = isNightShift
+                  ? [{ act: 'sleep_bed', w: 0.65 }, { act: 'sit_code', w: 0.25 }, { act: 'golf_putt', w: 0.10 }]
+                  : isLunch
+                  ? [{ act: 'sleep_bed', w: 0.40 }, { act: 'golf_putt', w: 0.35 }, { act: 'sit_code', w: 0.25 }]
+                  : [{ act: 'golf_putt', w: 0.45 }, { act: 'sit_code', w: 0.35 }, { act: 'sleep_bed', w: 0.20 }];
+
+                const totalW = weights.reduce((s, o) => s + o.w, 0);
+                let rnd = Math.random() * totalW;
+                let picked = weights[0].act;
+                for (const o of weights) {
+                  if (rnd < o.w) { picked = o.act; break; }
+                  rnd -= o.w;
+                }
+                npc.actionState = picked;
+
+                if (picked === 'golf_putt') {
+                  npc.targetX = 260; // VP 辦公室高爾夫球墊
+                  npc.targetY = 350;
+                  npc.emote = { emoji: '⛳', expiresAt: now + 5000 };
+                  npc.murmur = { text: '⛳ 趁著空檔在辦公室推幾桿高爾夫！維持手感！', mood: 'idea', createdAt: now, expiresAt: now + 6000 };
+                } else if (picked === 'sleep_bed') {
+                  npc.targetX = 535; // VP 辦公室沙發
+                  npc.targetY = 245;
+                  npc.emote = { emoji: '💤', expiresAt: now + 5000 };
+                  npc.murmur = { text: '🛌 剛看完財報有點睏，在沙發瞇一下補眠...', mood: 'normal', createdAt: now, expiresAt: now + 6000 };
+                } else {
+                  npc.targetX = 380; // VP 專屬主管大桌
+                  npc.targetY = 265;
+                  npc.emote = { emoji: '💻', expiresAt: now + 5000 };
+                  npc.murmur = { text: '💻 坐在VP主管桌前審查下一代NOR Flash Roadmap！', mood: 'idea', createdAt: now, expiresAt: now + 6000 };
+                }
+              } else if (npc.id === 'npc_dir_pp00') {
+                // PP00處長: 在自己辦公室睡覺、坐在座位上辦公
+                const weights = isNightShift
+                  ? [{ act: 'sleep_bed', w: 0.70 }, { act: 'sit_code', w: 0.30 }]
+                  : isLunch
+                  ? [{ act: 'sleep_bed', w: 0.50 }, { act: 'sit_code', w: 0.50 }]
+                  : [{ act: 'sit_code', w: 0.70 }, { act: 'sleep_bed', w: 0.30 }];
+
+                const totalW = weights.reduce((s, o) => s + o.w, 0);
+                let rnd = Math.random() * totalW;
+                let picked = weights[0].act;
+                for (const o of weights) {
+                  if (rnd < o.w) { picked = o.act; break; }
+                  rnd -= o.w;
+                }
+                npc.actionState = picked;
+
+                if (picked === 'sleep_bed') {
+                  npc.targetX = 860; // 處長室沙發
+                  npc.targetY = 250;
+                  npc.emote = { emoji: '💤', expiresAt: now + 5000 };
+                  npc.murmur = { text: '🛌 盯了一上午機台，在處長室沙發小瞇片刻...', mood: 'normal', createdAt: now, expiresAt: now + 6000 };
+                } else {
+                  npc.targetX = 755; // 處長辦公椅
+                  npc.targetY = 275;
+                  npc.emote = { emoji: '💻', expiresAt: now + 5000 };
+                  npc.murmur = { text: '💻 坐在席位審核最新一批 CZ/FT 良率統計報表！', mood: 'idea', createdAt: now, expiresAt: now + 6000 };
+                }
+              } else if (npc.isSweeper) {
+                // 打掃阿姨: 50% 認真打掃 (sweep_floor)，50% 摸魚 (slack_nap, drink_coffee, daydream)
+                const isSlack = Math.random() < 0.5;
+                if (!isSlack) {
+                  npc.actionState = 'sweep_floor';
+                  npc.emote = { emoji: '🧹', expiresAt: now + 5000 };
+                  npc.murmur = { text: '🧹 黃金掃把出擊，走廊地毯掃得乾乾淨淨！', mood: 'normal', createdAt: now, expiresAt: now + 6000 };
+                  npc.targetX = npc.x + (Math.random() - 0.5) * 60;
+                  npc.targetY = npc.y + (Math.random() - 0.5) * 60;
+                } else {
+                  const slackActs = isLunch ? ['slack_nap', 'drink_coffee'] : ['drink_coffee', 'daydream', 'slack_nap'];
+                  const act = slackActs[Math.floor(Math.random() * slackActs.length)];
+                  npc.actionState = act;
+                  const toPantry = Math.random() < 0.6;
+                  npc.targetX = toPantry ? 2350 : 1820;
+                  npc.targetY = toPantry ? 350 : 520;
+                  npc.emote = { emoji: act === 'drink_coffee' ? '☕' : (act === 'slack_nap' ? '💤' : '🤦'), expiresAt: now + 5000 };
+                  npc.murmur = {
+                    text: act === 'drink_coffee' ? '☕ 趁主管在開會，去茶水間喝杯美式摸魚一下～' : (act === 'slack_nap' ? '🐟 掃了一上午腰痠，坐著摸魚打個瞌睡...' : '🤦 站在窗邊看風景放空一下～'),
+                    mood: 'idea',
+                    createdAt: now,
+                    expiresAt: now + 6000,
+                  };
+                }
+              }
+            } else {
+              // 70% 正常巡視各部門與走廊
+              npc.actionState = npc.isSweeper ? 'sweep_floor' : null;
+              npc.waypointIdx = (npc.waypointIdx + 1) % npc.waypoints.length;
+              const wp = npc.waypoints[npc.waypointIdx];
+              const jitterX = (Math.random() - 0.5) * 90;
+              const jitterY = (Math.random() - 0.5) * 90;
+              const tx = wp.x + jitterX;
+              const ty = wp.y + jitterY;
+              if (!window.isPositionBlocked(tx, ty, 16)) {
+                npc.targetX = tx;
+                npc.targetY = ty;
+              } else {
+                npc.targetX = wp.x;
+                npc.targetY = wp.y;
+              }
+            }
           }
         }
       }

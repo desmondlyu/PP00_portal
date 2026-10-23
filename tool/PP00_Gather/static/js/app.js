@@ -19,18 +19,85 @@
   let chatOnlyFilter = false;
   let activePipWindow = null;
 
-  // 隨機挑選初始手持道具或隨機武器
+  const PERSISTENCE_KEY = 'PP00_GATHER_PERSISTENCE_v1';
+
+  // 儲存持久化狀態（包含裝備、持有道具、耐久度、重傷休養計時、鳥人指揮官流放狀態）
+  function savePersistentState() {
+    try {
+      const state = {
+        equippedSlots: localPlayer.equippedSlots,
+        backpack: localPlayer.inventory,
+        heldItem: localPlayer.heldItem,
+        activeEquipIndex: localPlayer.activeEquipIndex,
+        isInjured: !!localPlayer.isInjured,
+        injuredUntil: localPlayer.injuredUntil || 0,
+        birdCommanderExiled: !!localPlayer.birdCommanderExiled,
+      };
+      localStorage.setItem(PERSISTENCE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.warn('儲存持久化狀態失敗：', e);
+    }
+  }
+
+  function loadPersistentState() {
+    try {
+      const raw = localStorage.getItem(PERSISTENCE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // 浮動提示重傷休養 5 分鐘倒數 HUD
+  function updateInjuryCountdownHUD() {
+    let hud = document.getElementById('injuryHudBanner');
+    if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
+      if (!hud) {
+        hud = document.createElement('div');
+        hud.id = 'injuryHudBanner';
+        hud.style.position = 'fixed';
+        hud.style.top = '14px';
+        hud.style.left = '50%';
+        hud.style.transform = 'translateX(-50%)';
+        hud.style.zIndex = '99999';
+        hud.style.background = 'rgba(220, 38, 38, 0.92)';
+        hud.style.color = '#ffffff';
+        hud.style.padding = '8px 22px';
+        hud.style.borderRadius = '30px';
+        hud.style.fontWeight = '700';
+        hud.style.fontSize = '14px';
+        hud.style.boxShadow = '0 8px 24px rgba(220, 38, 38, 0.55)';
+        hud.style.border = '2px solid #fecaca';
+        hud.style.letterSpacing = '0.04em';
+        hud.style.backdropFilter = 'blur(8px)';
+        hud.style.userSelect = 'none';
+        document.body.appendChild(hud);
+      }
+      const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - Date.now()) / 1000));
+      const m = String(Math.floor(remSec / 60)).padStart(2, '0');
+      const s = String(remSec % 60).padStart(2, '0');
+      hud.innerHTML = `🚑 <strong>身受重傷休養中（會議室）</strong>｜無法動彈剩餘：<span style="font-variant-numeric:tabular-nums; color:#fef08a; font-weight:800;">${m}:${s}</span>`;
+      hud.style.display = 'block';
+    } else if (hud) {
+      hud.style.display = 'none';
+    }
+  }
+
+  // 依照 24 小時時段與武器強度階梯 (5%~20%) 計算加權隨機道具與武器
   function getRandomHeldItemMeta() {
-    const items = window.GATHER_CONFIG.items;
-    return items[Math.floor(Math.random() * items.length)];
+    return window.getWeightedRandomItem
+      ? window.getWeightedRandomItem(window.GATHER_CONFIG.items)
+      : window.GATHER_CONFIG.items[0];
   }
 
   function getRandomWeaponMeta() {
-    const weapons = window.GATHER_CONFIG.weapons || window.GATHER_CONFIG.items;
-    return weapons[Math.floor(Math.random() * weapons.length)];
+    return window.getWeightedRandomItem
+      ? window.getWeightedRandomItem(window.GATHER_CONFIG.weapons)
+      : window.GATHER_CONFIG.weapons[0];
   }
 
-  // 玩家本機狀態 (僅存於 RAM)
+  // 玩家本機狀態 (支援持久化存檔)
   const localPlayer = {
     id: 'local',
     name: '',
@@ -46,6 +113,9 @@
     inventory: [],
     weaponSwing: null, // { emoji, ticksLeft, totalTicks }
     actionState: null, // 12 種情境動作 ID (含 sleep_bed)
+    isInjured: false,  // 🚑 重傷狀態
+    injuredUntil: 0,   // 🚑 重傷截止時間戳
+    birdCommanderExiled: false, // 🦩 鳥人指揮官是否已被永久擊退放逐
     x: 880,
     y: 525,
     dir: 'down',
@@ -90,11 +160,38 @@
     canvas = document.getElementById('officeCanvas');
     ctx = canvas.getContext('2d');
 
-    // 初始配發 1 把隨機武器（自動裝入第 1 格裝備欄）+ 1 個隨機伴手禮道具（放入持有物品欄）
-    const initWeapon = getRandomWeaponMeta();
-    const initGift = window.GATHER_CONFIG.items.find((i) => i.category === 'item') || getRandomHeldItemMeta();
-    addItemToInventory(initWeapon, true);
-    addItemToInventory(initGift, false);
+    // 檢查持久化記憶：包含身上裝備、持有道具、耐久度、受傷休養計時與鳥人流放狀態
+    const saved = loadPersistentState();
+    if (
+      saved &&
+      Array.isArray(saved.equippedSlots) &&
+      (saved.equippedSlots.some(Boolean) || (saved.backpack && saved.backpack.length > 0))
+    ) {
+      localPlayer.equippedSlots = saved.equippedSlots;
+      localPlayer.inventory = saved.backpack || [];
+      localPlayer.activeEquipIndex =
+        typeof saved.activeEquipIndex === 'number' ? saved.activeEquipIndex : 0;
+      localPlayer.heldItem = saved.heldItem || '🪑';
+      if (saved.birdCommanderExiled) {
+        localPlayer.birdCommanderExiled = true;
+      }
+      if (saved.isInjured && saved.injuredUntil > Date.now()) {
+        localPlayer.isInjured = true;
+        localPlayer.injuredUntil = saved.injuredUntil;
+        localPlayer.x = 400; // 會議室 A
+        localPlayer.y = 1350;
+        localPlayer.actionState = 'sleep_bed';
+      }
+      syncPlayerActiveWeaponState();
+    } else {
+      // 首次登入無存檔：依強度生成率 (5%~20%) 配發 1 把武器 + 1 個伴手禮道具
+      const initWeapon = getRandomWeaponMeta();
+      const initGift =
+        window.GATHER_CONFIG.items.find((i) => i.category === 'item') || getRandomHeldItemMeta();
+      addItemToInventory(initWeapon, true);
+      addItemToInventory(initGift, false);
+      savePersistentState();
+    }
 
     ecosystem = new window.OfficeEcosystem({
       onMobBerserk: (mob, target) => {
@@ -295,6 +392,7 @@
     }
     updateSelfHudCard();
     renderMinecraftInventoryUI();
+    savePersistentState();
     if (isLoggedIn && network) {
       network.broadcastPacket('state_sync', { player: network.getPublicState() });
     }
@@ -950,8 +1048,11 @@
       localPlayer.unit = document.getElementById('loginUnit').value || 'PP32';
       localPlayer.status = document.getElementById('loginStatus').value || 'active';
       localPlayer.avatarId = chosenAvatar.id;
-      const startWpn = getRandomWeaponMeta();
-      addItemToInventory(startWpn, true);
+      const hasEquipped = localPlayer.equippedSlots.some(Boolean);
+      if (!hasEquipped) {
+        const startWpn = getRandomWeaponMeta();
+        addItemToInventory(startWpn, true);
+      }
 
       // 計算上線次數與經驗加成
       initAndIncrementLoginExp(cleanName);
@@ -966,6 +1067,29 @@
       isLoggedIn = true;
       network.connect(localPlayer, roomCode);
 
+      // 若鳥人指揮官已被永久流放，確保即刻自清單中移除
+      if (localPlayer.birdCommanderExiled && network) {
+        network.npcPlayers.delete('npc_bird_commander');
+      }
+
+      // 若處於重傷休養狀態，強制定位於會議室休養
+      if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
+        localPlayer.x = 400; // 會議室 A
+        localPlayer.y = 1350;
+        localPlayer.actionState = 'sleep_bed';
+        updateInjuryCountdownHUD();
+        const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - Date.now()) / 1000));
+        const m = String(Math.floor(remSec / 60)).padStart(2, '0');
+        const s = String(remSec % 60).padStart(2, '0');
+        pushStatusLog(
+          '系統',
+          `🚑 登入偵測：你仍處於重傷休養狀態，正在會議室休息無法動彈（剩餘 ${m}:${s}）！`
+        );
+        showToast(`🚑 處於重傷休養中（剩餘 ${m}:${s}）`, 'error');
+      }
+
+      savePersistentState();
+
       if (selfStatusSel) selfStatusSel.value = localPlayer.status;
       updateSelfHudCard();
       renderMinecraftInventoryUI();
@@ -975,10 +1099,13 @@
         '系統',
         `🎉 歡迎 ${localPlayer.name} 第 ${progression.loginCount} 次上線！打卡獎勵 +50 EXP（${progression.title}）`
       );
-      pushStatusLog(
-        '系統',
-        `⚔️ 配發隨機裝備：${localPlayer.heldItem} ${startWpn.name}（按 [F] 揮擊擊退｜按 [I] 開啟裝備欄）`
-      );
+      const activeWpn = getActiveEquippedItem();
+      if (activeWpn) {
+        pushStatusLog(
+          '系統',
+          `⚔️ 當前隨身裝備：${activeWpn.emoji} ${activeWpn.name}（耐久 ${activeWpn.durability}/${activeWpn.maxDurability || 3}｜按 [F] 揮擊擊退｜按 [I] 開啟裝備欄）`
+        );
+      }
     });
   }
 
@@ -1065,6 +1192,10 @@
   }
 
   function startContextualAction(actionId) {
+    if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
+      showToast('🚑 身受重傷休養中，無法動彈或切換動作！', 'error');
+      return;
+    }
     const actMeta = window.GATHER_CONFIG.contextualActions.find((a) => a.id === actionId);
     if (!actMeta) return;
 
@@ -1164,6 +1295,22 @@
       }
 
       const k = e.key.toLowerCase();
+
+      // 🚑 檢查重傷休養狀態：無法動彈
+      if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
+        if (
+          ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'f', 'e', ' ', '1', '2', '3', '4', '5', '6'].includes(k) ||
+          e.altKey
+        ) {
+          e.preventDefault();
+          const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - Date.now()) / 1000));
+          const m = String(Math.floor(remSec / 60)).padStart(2, '0');
+          const s = String(remSec % 60).padStart(2, '0');
+          showToast(`🚑 身受重傷休養中（會議室無法動彈，剩餘 ${m}:${s}）`, 'error');
+          return;
+        }
+      }
+
       keys[k] = true;
 
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) {
@@ -1245,6 +1392,16 @@
 
     canvas.addEventListener('mousedown', (e) => {
       if (!isLoggedIn) return;
+
+      // 🚑 檢查重傷休養狀態：無法點擊地面移動
+      if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
+        const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - Date.now()) / 1000));
+        const m = String(Math.floor(remSec / 60)).padStart(2, '0');
+        const s = String(remSec % 60).padStart(2, '0');
+        showToast(`🚑 身受重傷休養中（會議室無法動彈，剩餘 ${m}:${s}）`, 'error');
+        return;
+      }
+
       lastUserActionAt = Date.now();
       if (isAutoIdled && localPlayer.status === 'idle') {
         isAutoIdled = false;
@@ -1506,6 +1663,10 @@
    * 6. 若被「🦩 鳥人指揮官」抓進會議室，揮擊擊退他可立即解鎖會議室大門脫困
    */
   function triggerWeaponAttack() {
+    if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
+      showToast('🚑 身受重傷休養中，無法揮動裝備攻擊！', 'error');
+      return;
+    }
     const now = Date.now();
     const curWeapon = getActiveEquippedItem();
     if (!curWeapon) {
@@ -1715,7 +1876,7 @@
         npc.emote = { emoji: '💫', expiresAt: now + 3200 };
         spawnConfetti(npc.x, npc.y - 20);
 
-        // 擊退鳥人指揮官：解鎖會議室脫困，20% 機率得道具經驗
+        // 擊退鳥人指揮官：解鎖會議室脫困，10% 機率永久不再出現，20% 機率得道具經驗
         if (npc.isBirdCommander) {
           npc.followPlayerUntil = 0;
           let unlockedMeeting = false;
@@ -1726,24 +1887,39 @@
             updatePoseLabelUI();
             unlockedMeeting = true;
           }
-          const dropChance = window.GATHER_CONFIG?.security?.birdDropChance ?? 0.20;
-          if (Math.random() < dropChance) {
-            const rewardMeta = getRandomHeldItemMeta();
-            const addedItem = addItemToInventory(rewardMeta, true);
-            const gainedExp = addExp(itemKnockbackExp + 30, '擊退鳥人指揮官');
-            npc.murmur = {
-              text: `🦩 哇！道具【${addedItem.emoji} ${addedItem.name}】被你打飛收下了！`,
-              mood: 'fire',
-              createdAt: now,
-              expiresAt: now + 5000,
-            };
+
+          // 🦩 規則 4：攻擊鳥人指揮官有一定 10% 機率你不會再遇到他出現（永久退場）
+          const exileChance = window.GATHER_CONFIG?.security?.birdExileChance ?? 0.10;
+          if (Math.random() < exileChance) {
+            localPlayer.birdCommanderExiled = true;
+            savePersistentState();
+            network.npcPlayers.delete(npc.id);
+            spawnConfetti(npc.x, npc.y - 20);
             pushStatusLog(
               '你',
-              `🦩 擊退【${npc.name}】${unlockedMeeting ? '並脫困' : ''}！獲得【${addedItem.emoji} ${addedItem.name}】與 +${gainedExp} EXP！`
+              `🦩 💥 巨力超重擊！鳥人指揮官被打飛出大氣層（10% 終極擊退：你將不會再遇到他出現）！`
             );
+            showToast('🦩 💥 觸發 10% 終極擊退！鳥人指揮官永久退場，不再出現！', 'join');
           } else {
-            const gainedExp = addExp(itemKnockbackExp, '擊退鳥人指揮官');
-            pushStatusLog('你', `⚔️ 擊飛【${npc.name}】${unlockedMeeting ? '會議室門已開啟脫困' : ''}（+${gainedExp} EXP）`);
+            const dropChance = window.GATHER_CONFIG?.security?.birdDropChance ?? 0.20;
+            if (Math.random() < dropChance) {
+              const rewardMeta = getRandomHeldItemMeta();
+              const addedItem = addItemToInventory(rewardMeta, true);
+              const gainedExp = addExp(itemKnockbackExp + 30, '擊退鳥人指揮官');
+              npc.murmur = {
+                text: `🦩 哇！道具【${addedItem.emoji} ${addedItem.name}】被你打飛收下了！`,
+                mood: 'fire',
+                createdAt: now,
+                expiresAt: now + 5000,
+              };
+              pushStatusLog(
+                '你',
+                `🦩 擊退【${npc.name}】${unlockedMeeting ? '並脫困' : ''}！獲得【${addedItem.emoji} ${addedItem.name}】與 +${gainedExp} EXP！`
+              );
+            } else {
+              const gainedExp = addExp(itemKnockbackExp, '擊退鳥人指揮官');
+              pushStatusLog('你', `⚔️ 擊飛【${npc.name}】${unlockedMeeting ? '會議室門已開啟脫困' : ''}（+${gainedExp} EXP）`);
+            }
           }
         } else if (wasBerserk) {
           const gainedExp = addExp(itemKnockbackExp + 15, `擊退暴走 ${npc.name}`);
@@ -1761,7 +1937,7 @@
       }
     });
 
-    // 3. 檢查並打飛附近的線上同事 (Remote Players)
+    // 3. 檢查並打飛附近的線上同事 (Remote Players)，5% 機率造成重傷臥床 5 分鐘
     network.remotePlayers.forEach((colleague) => {
       const d = Math.hypot(colleague.x - localPlayer.x, colleague.y - localPlayer.y);
       if (d <= attackRadius) {
@@ -1778,6 +1954,10 @@
         colleague.x = Math.max(180, Math.min(window.WORLD_MAP.width - 150, colleague.x + Math.cos(ang) * 95));
         colleague.y = Math.max(100, Math.min(window.WORLD_MAP.height - 120, colleague.y + Math.sin(ang) * 95));
 
+        // 🚑 規則 3：攻擊線上使用者，5% 機率躺在會議室因重傷休息無法動彈 5 分鐘
+        const critChance = window.GATHER_CONFIG?.security?.userCritInjuryChance ?? 0.05;
+        const isCriticalInjury = Math.random() < critChance;
+
         network.broadcastPacket('weapon_attack', {
           targetId: colleague.id,
           senderName: localPlayer.name,
@@ -1786,10 +1966,19 @@
           power: wpnPower,
           fromX: localPlayer.x,
           fromY: localPlayer.y,
+          isCriticalInjury,
         });
 
         const gainedExp = addExp(itemKnockbackExp, `打飛同事 ${colleague.name}`);
-        pushStatusLog('你', `⚔️ 把同事【${colleague.name}】打飛了出去（+${gainedExp} EXP）`);
+        if (isCriticalInjury) {
+          pushStatusLog(
+            '你',
+            `💥 觸發 5% 致命重擊！把同事【${colleague.name}】打成重傷，送往會議室休養 5 分鐘無法動彈！（+${gainedExp} EXP）`
+          );
+          showToast(`💥 致命重擊！【${colleague.name}】身受重傷送入會議室休養 5 分鐘！`, 'security');
+        } else {
+          pushStatusLog('你', `⚔️ 把同事【${colleague.name}】打飛了出去（+${gainedExp} EXP）`);
+        }
       }
     });
 
@@ -1810,6 +1999,31 @@
 
   function handleIncomingWeaponAttack(pkt) {
     if (!pkt || pkt.targetId !== network.clientId) return;
+
+    if (pkt.isCriticalInjury) {
+      // 🚑 遭受 5% 致命重傷：躺在會議室因重傷休養無法動彈 5 分鐘
+      const lockMs = window.GATHER_CONFIG?.security?.userInjuryLockMs || 300000;
+      localPlayer.isInjured = true;
+      localPlayer.injuredUntil = Date.now() + lockMs;
+      localPlayer.x = 400; // 會議室 A
+      localPlayer.y = 1350;
+      localPlayer.actionState = 'sleep_bed';
+      localPlayer.autoWalkTarget = null;
+      localPlayer.knockback = null;
+      savePersistentState();
+      updatePoseLabelUI();
+      updateInjuryCountdownHUD();
+
+      pushStatusLog(
+        '系統',
+        `🚑 遭受同事【${pkt.senderName || '同事'}】揮舞【${pkt.weaponEmoji || '🪑'}】致命重擊！你身受重傷，在會議室躺平休養 5 分鐘無法動彈！`
+      );
+      showToast('🚑 遭受致命重擊！身受重傷，在會議室休養 5 分鐘（無法動彈）', 'error');
+      if (network) {
+        network.broadcastPacket('state_sync', { player: network.getPublicState() });
+      }
+      return;
+    }
     let dx = localPlayer.x - (pkt.fromX || localPlayer.x - 20);
     let dy = localPlayer.y - (pkt.fromY || localPlayer.y);
     if (Math.hypot(dx, dy) < 1) {
@@ -2330,6 +2544,10 @@
   }
 
   function tryInteractWithEnvironment() {
+    if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
+      showToast('🚑 身受重傷休養中，無法進行設施互動！', 'error');
+      return;
+    }
     // 1. 掉落物撿拾
     for (let i = ecosystem.groundItems.length - 1; i >= 0; i--) {
       const item = ecosystem.groundItems[i];
@@ -3416,6 +3634,39 @@
       if (tick % 3 === 0) {
         network.broadcastPacket('move', { player: network.getPublicState() });
       }
+    }
+
+    // 🚑 檢查重傷休養狀態：躺在會議室因重傷無法動彈 5 分鐘
+    if (localPlayer.isInjured) {
+      if (Date.now() < (localPlayer.injuredUntil || 0)) {
+        // 重傷期間無法動彈！固定在會議室 A (400, 1350) 並保持 sleep_bed 躺平動作
+        localPlayer.x = 400;
+        localPlayer.y = 1350;
+        localPlayer.actionState = 'sleep_bed';
+        localPlayer.isMoving = false;
+        localPlayer.autoWalkTarget = null;
+        localPlayer.knockback = null;
+        updateInjuryCountdownHUD();
+        if (tick % 6 === 0 && network) {
+          network.broadcastPacket('move', { player: network.getPublicState() });
+        }
+        return;
+      } else {
+        // 5 分鐘休養期滿，傷勢痊癒！
+        localPlayer.isInjured = false;
+        localPlayer.injuredUntil = 0;
+        localPlayer.actionState = null;
+        savePersistentState();
+        updatePoseLabelUI();
+        updateInjuryCountdownHUD();
+        pushStatusLog('系統', '✨ 傷勢完全痊癒！你已在會議室完成 5 分鐘休養，恢復自由行動！');
+        showToast('✨ 傷勢完全痊癒！恢復自由走動能力！', 'join');
+        if (network) {
+          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        }
+      }
+    } else {
+      updateInjuryCountdownHUD();
     }
 
     let dx = 0;
