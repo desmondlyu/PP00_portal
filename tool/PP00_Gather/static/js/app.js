@@ -215,7 +215,7 @@
         renderSidebarRoster();
       },
       onPlayerLeave: (player) => {
-        pushStatusLog('系統', `👋 ${player.name} 已離開（資料已銷毀）`);
+        pushStatusLog('系統', `👋 ${player.name} 已離線離開辦公室`);
         showToast(`👋 <b>${escapeHtml(player.name)}</b> 已離開辦公室`, 'leave');
         renderSidebarRoster();
       },
@@ -1104,16 +1104,9 @@
       network.connect(localPlayer, roomCode);
 
       if (window.gatherSupabase) {
-        window.gatherSupabase.init({
-          callbacks: {
-            onAuditLogInsert: (log) => {
-              if (log && log.client_id !== network.clientId) {
-                const action = log.event_type === 'login' ? '上線進入' : '離線離開';
-                showToast(`🔔 <b>${escapeHtml(log.user_name)}</b> (${escapeHtml(log.unit)}) 已${action}辦公室！`, 'join');
-              }
-            },
-          },
-        });
+        window.gatherSupabase.init({ callbacks: {
+          onError: () => showToast('資料庫同步失敗，紀錄可能未儲存。', 'error'),
+        } });
         window.gatherSupabase.registerUser(localPlayer);
       }
 
@@ -3060,41 +3053,8 @@
    * 🔒 發送私人對談訊息（僅限真實線上使用者接收，NPC 無法進行私人對談）
    */
   function sendPrivateChatMessage(target, text) {
-    if (!target) return false;
-
-    // 檢查是否為 NPC：私人對談僅限真實使用者
-    const isNpc =
-      target.isNpc ||
-      network.npcPlayers.has(target.id) ||
-      String(target.id).startsWith('npc_');
-    if (isNpc) {
-      pushStatusLog('系統', `⚠️【${target.name}】為辦公室 NPC，私人對談僅限對真實線上使用者發送！`);
-      showToast(`⚠️【${target.name}】是 NPC，私人對談僅開放對真實線上同仁使用！`, 'error');
-      return false;
-    }
-
-    const cleanText = network.sanitizeText(text, 100);
-    if (!cleanText) return false;
-
-    const now = Date.now();
-    if (now - network.lastChatAt < window.GATHER_CONFIG.security.chatCooldownMs) return false;
-    network.lastChatAt = now;
-    lastUserActionAt = now;
-
-    // 本機顯示對真實目標的私人對談紀錄
-    pushUserChat(localPlayer.name, localPlayer.unit, cleanText, true, true, target.name);
-    addExp(8);
-
-    // 遠端真實玩家私訊廣播 (僅 targetId 接收)
-    network.broadcastPacket('private_chat', {
-      targetId: target.id,
-      targetName: target.name,
-      senderName: localPlayer.name,
-      senderUnit: localPlayer.unit,
-      text: cleanText,
-    });
-
-    return true;
+    showToast('私訊暫停使用：等待後端收件者權限保護。', 'error');
+    return false;
   }
 
   /**
@@ -3551,7 +3511,12 @@
     }
   }
 
+  let officeLogoutPromise = null;
   window.logoutAndLeaveOffice = function () {
+    if (officeLogoutPromise) return officeLogoutPromise;
+    officeLogoutPromise = (async () => {
+    savePersistentState();
+    isLoggedIn = false;
     if (localPlayer.actionState === 'toilet') {
       const activeStall = window.WORLD_MAP.toiletStalls.find((s) => s.occupiedBy === localPlayer.id);
       if (activeStall) {
@@ -3566,20 +3531,22 @@
     localPlayer.actionState = null;
 
     if (window.gatherSupabase) {
-      window.gatherSupabase.logoutUser();
+      await window.gatherSupabase.logoutUser();
     }
     if (network && typeof network.disconnect === 'function') {
-      network.disconnect();
+      await network.disconnect();
     }
     isLoggedIn = false;
 
     if (window.parent && window.parent !== window) {
       try {
-        window.parent.postMessage({ type: 'close_gather_office' }, '*');
+        window.parent.postMessage({ type: 'close_gather_office' }, window.location.origin);
       } catch (_) {}
     } else {
       window.location.href = '../../index.html';
     }
+    })();
+    return officeLogoutPromise;
   };
 
   function updateSelfHudCard() {
