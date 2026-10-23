@@ -3707,6 +3707,7 @@
       camera.y += (targetCamY - camera.y) * 0.14;
     }
 
+    ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.scale(camera.zoom, camera.zoom);
