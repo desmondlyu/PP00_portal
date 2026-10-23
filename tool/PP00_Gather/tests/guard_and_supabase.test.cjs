@@ -81,7 +81,7 @@ test('Network handles both player_murmur and murmur packets', () => {
   assert.equal(remote.murmur.text, '加班好累');
 });
 
-test('Network matches private chat by clientId correctly across browsers', () => {
+test('Network refuses legacy room-broadcast private messages', () => {
   const env = createTestEnv();
   const EphemeralOfficeNetwork = env.window.EphemeralOfficeNetwork;
 
@@ -106,9 +106,7 @@ test('Network matches private chat by clientId correctly across browsers', () =>
     text: '這是悄悄話',
   });
 
-  assert.ok(receivedPrivate, 'Private chat must be received when targetId equals clientId');
-  assert.equal(receivedPrivate.text, '這是悄悄話');
-  assert.equal(receivedPrivate.senderName, 'EdgeBob');
+  assert.equal(receivedPrivate, null, 'Room broadcast cannot protect private content');
 });
 
 test('Network receives proximity chat across whole office regardless of extreme distance', () => {
@@ -255,4 +253,41 @@ test('Bird commander: night time never pulls to meeting, daytime allows meeting 
 
   net.update(120);
   assert.equal(meetingPulled, true, 'Daytime (05:00~17:00) SHOULD allow bird commander to pull to meeting room!');
+});
+
+
+test('private text is never sent over either room transport', async () => {
+  const env = createTestEnv();
+  const net = new env.window.EphemeralOfficeNetwork();
+  let sent = 0;
+  net.broadcastChannel = {postMessage() { sent++; }};
+  net.isCloudConnected = true;
+  net.realtimeChannel = {send() { sent++; }};
+  assert.equal(await net.broadcastPacket('private_chat', {text: 'secret'}), false);
+  assert.equal(sent, 0);
+});
+
+test('database errors are surfaced instead of silently treated as successful writes', async () => {
+  const env = createTestEnv();
+  const sync = new env.window.GatherSupabaseSync();
+  let failures = 0;
+  sync.callbacks.onError = () => failures++;
+  await assert.rejects(sync.checked(Promise.resolve({error: new Error('permission denied')})));
+  assert.equal(failures, 1);
+});
+
+test('logout waits for pending registration and is idempotent', async () => {
+  const env = createTestEnv();
+  env.clearInterval = () => {};
+  const sync = new env.window.GatherSupabaseSync();
+  let release;
+  const calls = [];
+  sync.pending = new Promise(resolve => {release = resolve;});
+  sync.logoutUserNow = async () => { calls.push('logout'); };
+  const logout = sync.logoutUser();
+  assert.equal(sync.logoutUser(), logout);
+  assert.equal(calls.length, 0);
+  release();
+  await logout;
+  assert.deepEqual(calls, ['logout']);
 });

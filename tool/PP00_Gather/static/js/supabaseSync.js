@@ -10,6 +10,23 @@
       this.currentUser = null;
       this.callbacks = {};
       this.isInitialized = false;
+      this.pending = Promise.resolve();
+      this.logoutPromise = null;
+      this.lastErrorAt = 0;
+    }
+
+    async checked(query) {
+      // Supabase resolves API failures as { error }; they do not throw by default.
+      if (query.abortSignal && typeof AbortSignal !== 'undefined') query = query.abortSignal(AbortSignal.timeout(5000));
+      const result = await query;
+      if (result?.error) {
+        if (Date.now() - this.lastErrorAt > 30000) {
+          this.lastErrorAt = Date.now();
+          this.callbacks.onError?.(result.error);
+        }
+        throw result.error;
+      }
+      return result;
     }
 
     init(options = {}) {
@@ -44,9 +61,9 @@
     async fetchGameConfig() {
       if (!this.client) return;
       try {
-        const { data, error } = await this.client
+        const { data, error } = await this.checked(this.client
           .from('gather_game_config')
-          .select('config_key, config_value');
+          .select('config_key, config_value'));
         if (error) throw error;
         if (data && data.length) {
           data.forEach(({ config_key, config_value }) => {
@@ -59,10 +76,10 @@
               }
             } else if (config_key === 'mob_spawn_rates' && config_value) {
               if (window.GATHER_CONFIG && window.GATHER_CONFIG.security) {
-                if (config_value.base_spawn_rate) {
+                if (config_value.base_spawn_rate != null) {
                   window.GATHER_CONFIG.security.mobSpawnChance = config_value.base_spawn_rate;
                 }
-                if (config_value.max_active_mobs) {
+                if (config_value.max_active_mobs != null) {
                   window.GATHER_CONFIG.security.maxMobCount = config_value.max_active_mobs;
                 }
               }
@@ -83,22 +100,28 @@
     }
 
     // 使用者登入註冊
-    async registerUser(user) {
+    registerUser(user) {
+      if (this.logoutPromise) return this.logoutPromise;
+      this.pending = this.pending.then(() => this.registerUserNow(user));
+      return this.pending;
+    }
+
+    async registerUserNow(user) {
       if (!this.client || !user) return;
       this.currentUser = user;
 
       try {
         // 寫入上線稽核紀錄
-        await this.client.from('gather_audit_logs').insert({
+        await this.checked(this.client.from('gather_audit_logs').insert({
           client_id: user.id,
           user_name: user.name,
           unit: user.unit,
           event_type: 'login',
           meta: { userAgent: navigator.userAgent },
-        });
+        }));
 
         // Upsert 至線上使用者表
-        await this.client.from('gather_online_users').upsert({
+        await this.checked(this.client.from('gather_online_users').upsert({
           client_id: user.id,
           user_name: user.name,
           unit: user.unit,
@@ -111,7 +134,7 @@
           held_item: user.heldItem || '🟢',
           equipped_slots: user.equippedSlots || [],
           last_heartbeat: new Date().toISOString(),
-        });
+        }));
 
         // 啟動心跳定期同步 (每 8 秒)
         this.startHeartbeat();
@@ -125,12 +148,19 @@
 
     // 心跳定時更新
     startHeartbeat() {
+      if (this.logoutPromise) return;
       if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = setInterval(async () => {
+      this.heartbeatTimer = setInterval(() => {
+        if (this.logoutPromise) return;
+        this.pending = this.pending.then(() => this.heartbeat());
+      }, 8000);
+    }
+
+    async heartbeat() {
         if (!this.client || !this.currentUser) return;
         try {
           const nowIso = new Date().toISOString();
-          await this.client
+          await this.checked(this.client
             .from('gather_online_users')
             .update({
               x: Math.round(this.currentUser.x || 880),
@@ -142,28 +172,24 @@
               equipped_slots: this.currentUser.equippedSlots || [],
               last_heartbeat: nowIso,
             })
-            .eq('client_id', this.currentUser.id);
+            .eq('client_id', this.currentUser.id));
 
-          // 清理超過 30 秒沒有心跳的過期幽靈玩家
-          const cutoff = new Date(Date.now() - 30000).toISOString();
-          await this.client.from('gather_online_users').delete().lt('last_heartbeat', cutoff);
         } catch (e) {
           console.warn('[SupabaseSync] 心跳更新失敗:', e);
         }
-      }, 8000);
     }
 
     // 武器耐久度變更時立即同步
     async syncDurability(equippedSlots) {
       if (!this.client || !this.currentUser) return;
       try {
-        await this.client
+        await this.checked(this.client
           .from('gather_online_users')
           .update({
             equipped_slots: equippedSlots || [],
             last_heartbeat: new Date().toISOString(),
           })
-          .eq('client_id', this.currentUser.id);
+          .eq('client_id', this.currentUser.id));
       } catch (e) {
         console.warn('[SupabaseSync] 耐久度同步失敗:', e);
       }
@@ -174,10 +200,10 @@
       if (!this.client) return [];
       try {
         const cutoff = new Date(Date.now() - 35000).toISOString();
-        const { data, error } = await this.client
+        const { data, error } = await this.checked(this.client
           .from('gather_online_users')
           .select('*')
-          .gt('last_heartbeat', cutoff);
+          .gt('last_heartbeat', cutoff));
         if (error) throw error;
         if (this.callbacks.onOnlineUsersFetched && data) {
           this.callbacks.onOnlineUsersFetched(data);
@@ -190,7 +216,15 @@
     }
 
     // 使用者登出 / 離線
-    async logoutUser() {
+    logoutUser() {
+      if (this.logoutPromise) return this.logoutPromise;
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+      this.logoutPromise = this.pending.then(() => this.logoutUserNow());
+      return this.logoutPromise;
+    }
+
+    async logoutUserNow() {
       if (this.heartbeatTimer) {
         clearInterval(this.heartbeatTimer);
         this.heartbeatTimer = null;
@@ -202,17 +236,22 @@
 
       try {
         // 從線上人員刪除
-        await this.client.from('gather_online_users').delete().eq('client_id', user.id);
+        await this.checked(this.client.from('gather_online_users').delete().eq('client_id', user.id));
         // 寫入登出稽核
-        await this.client.from('gather_audit_logs').insert({
+        await this.checked(this.client.from('gather_audit_logs').insert({
           client_id: user.id,
           user_name: user.name,
           unit: user.unit,
           event_type: 'logout',
           meta: { reason: 'user_exit' },
-        });
+        }));
       } catch (e) {
         console.warn('[SupabaseSync] 登出寫入失敗:', e);
+      } finally {
+        if (this.channel) {
+          try { await this.client.removeChannel(this.channel); } catch (_) {}
+          this.channel = null;
+        }
       }
     }
 

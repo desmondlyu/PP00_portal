@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>PP00 虛擬辦公室 — 3D 像素園區即時互動系統</title>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./static/css/style.css?v=20261023-v8" />
+  <link rel="stylesheet" href="./static/css/style.css?v=10-v8" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
@@ -31,10 +31,10 @@
         </p>
 
         <div class="ephemeral-security-box">
-          <strong>🔒 100% 閱後即焚・零留存安全機制：</strong><br />
-          • WebSocket 記憶體瞬時廣播 (Pub/Sub)<br />
-          • <b>絕不寫入任何資料庫或本地儲存</b><br />
-          • 支援上線次數經驗加成、10 種情境動作與隨機伴手禮
+          <strong>資料儲存說明：</strong><br />
+          • 公開聊天透過即時頻道傳送<br />
+          • 上下線紀錄會寫入資料庫，裝備與進度也會保留在此瀏覽器<br />
+          • 私訊暫停使用，等待後端收件者權限保護
         </div>
       </div>
 
@@ -219,7 +219,7 @@
       <form id="proxChatForm" class="prox-chat-form">
         <select id="chatSendModeSelect" class="chat-send-mode-select" title="切換發送模式：💬 對談聊天 / 💭 頭頂碎碎念 Murmur / 🔒 私人對談 (熱鍵 M)">
           <option value="chat">💬 對談</option>
-          <option value="private">🔒 私人對談</option>
+          <option value="private" disabled>私訊暫停使用</option>
           <option value="murmur_normal">💭 Murmur</option>
           <option value="murmur_idea">💡 靈感</option>
           <option value="murmur_fire">🔥 抓狂</option>
@@ -353,11 +353,11 @@
   </div>
   <canvas id="officeCanvas"></canvas>
 
-  <script src="./static/js/config.js?v=20261023-v8"></script>
-  <script src="./static/js/avatars.js?v=20261023-v8"></script>
-  <script src="./static/js/world.js?v=20261023-v8"></script>
-  <script src="./static/js/network.js?v=20261023-v9"></script>
-  <script src="./static/js/supabaseSync.js?v=20261023-v9"></script>
-  <script src="./static/js/app.js?v=20261023-v8"></script>
+  <script src="./static/js/config.js?v=10-v8"></script>
+  <script src="./static/js/avatars.js?v=10-v8"></script>
+  <script src="./static/js/world.js?v=10-v8"></script>
+  <script src="./static/js/network.js?v=10-v9"></script>
+  <script src="./static/js/supabaseSync.js?v=10-v9"></script>
+  <script src="./static/js/app.js?v=10-v8"></script>
 </body>
 </html>

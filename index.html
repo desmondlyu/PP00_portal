@@ -537,10 +537,12 @@ ${g}`}class se extends Error{constructor({message:e,code:r,cause:n,name:s}){var 
           dialog.append(toolbar, frame);
           document.body.append(dialog);
           document.body.style.overflow = 'hidden';
-          const doClose = () => {
+          const doClose = async () => {
+            if (back.disabled) return;
+            back.disabled = true;
             try {
               if (frame.contentWindow && frame.contentWindow.logoutAndLeaveOffice) {
-                frame.contentWindow.logoutAndLeaveOffice();
+                await frame.contentWindow.logoutAndLeaveOffice();
               }
             } catch (e) {
               console.warn('Logout error:', e);
@@ -551,7 +553,7 @@ ${g}`}class se extends Error{constructor({message:e,code:r,cause:n,name:s}){var 
           };
           back.addEventListener('click', doClose);
           const onFrameMsg = (event) => {
-            if (event.data && event.data.type === 'close_gather_office') {
+            if (event.origin === window.location.origin && event.source === frame.contentWindow && event.data && event.data.type === 'close_gather_office') {
               try { dialog.close(); } catch (_) {}
             }
           };
