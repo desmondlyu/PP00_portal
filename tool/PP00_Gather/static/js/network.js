@@ -948,6 +948,12 @@ class EphemeralOfficeNetwork {
         }
         break;
       }
+      case 'hunt_state': {
+        window.OfficeHunt?.receive(this,pkt); break;
+      }
+      case 'hunt_strike': {
+        window.OfficeHunt?.strike(this,pkt.senderId); break;
+      }
       case 'ghost_strike': {
         this.resolveGhostStrike(pkt.senderId);
         break;
@@ -1093,7 +1099,7 @@ class EphemeralOfficeNetwork {
     const ghost = this.npcPlayers.get('npc_night_ghost');
     if (!ghost || !this.isRoomMaster()) return;
     for (const npc of this.npcPlayers.values()) {
-      if (!(npc.isSecurityGuard || npc.isBirdCommander)) continue;
+      if (!(npc.isSecurityGuard || npc.isBirdCommander) || (npc.isBirdCommander && window.OfficeHunt?.clock().active)) continue;
       if (now < (npc.ghostScaredUntil || 0) || Math.hypot(npc.x - ghost.x, npc.y - ghost.y) > 180) continue;
       npc.ghostScaredUntil = now + 5000;
       npc.isFleeing = true; npc.fleeUntil = now + 5000;
@@ -1177,6 +1183,7 @@ class EphemeralOfficeNetwork {
       }
     });
 
+    window.OfficeHunt?.update(this, tick);
     this.updateGhost(now);
 
     // 房長定期統一同步：向所有在線客戶端廣播權威 world_sync 封包 (NPC 位置/動作/碎念、掉落物、怪物、工作站螢幕)
@@ -1242,6 +1249,7 @@ class EphemeralOfficeNetwork {
     let npcSeq = 0;
     this.npcPlayers.forEach((npc) => {
       const idx = npcSeq++;
+      if (npc.isBirdCommander && window.OfficeHunt?.clock().active) return;
 
       if (now < (npc.ghostScaredUntil || 0)) {
         if (this.isRoomMaster()) {
