@@ -495,6 +495,9 @@
           const ws = window.WORLD_MAP.workstations[pkt.idx];
           ws.isBroken = false;
           ws.brokenBy = null;
+          ws.leftScreen = 'Pass';
+          ws.rightScreen = 'Good';
+          ws.screenState = 'pass';
         } else if (pkt.type === 'lab' && window.WORLD_MAP?.labEquipments?.[pkt.idx]) {
           const eq = window.WORLD_MAP.labEquipments[pkt.idx];
           eq.isBroken = false;
@@ -5713,7 +5716,8 @@ function executeOfficeLogin(params) {
     const pillW = Math.max(84, textWidth + 48);
     const pillH = 24;
     const pillX = p.x - pillW / 2;
-    const pillY = p.y - 66 - (p.jumpOffset || 0);
+    // 💬 名牌與文字對話框絕對錨定於角色地面高度 (p.y - 68)，絕不隨受擊跳躍 (jumpOffset) 震動抖動！
+    const pillY = p.y - 68;
 
     ctx.fillStyle = p.isBerserk
       ? 'rgba(185, 28, 28, 0.96)'
@@ -5850,9 +5854,10 @@ function executeOfficeLogin(params) {
     }
 
     if (p.emote && now < p.emote.expiresAt) {
+      // 💬 表情符號平穩懸浮於對話卡片或名牌上方，無振幅抖動
       const floatY = hasMurmur
-        ? cardTopY - 16 + Math.sin(tick * 0.25) * 4
-        : pillY - 22 + Math.sin(tick * 0.25) * 4;
+        ? cardTopY - 16
+        : pillY - 22;
       ctx.font = '24px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(p.emote.emoji, p.x, floatY);

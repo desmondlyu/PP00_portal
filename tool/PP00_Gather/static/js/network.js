@@ -1497,10 +1497,13 @@ class EphemeralOfficeNetwork {
       } else if (npc.id === 'npc_dir_pp00' && npc.repairingTarget) {
         // 處長正在出動修理設備，每 tick 追蹤走向與維修進度
         let isStillBroken = false;
+        const isRedScreenText = (txt) => ['ERR!!', 'FIX E', 'FAIL', '😭', '哭', 'error', 'critical'].includes(txt);
         if (npc.repairingTarget.type === 'ws') {
-          isStillBroken = !!window.WORLD_MAP?.workstations?.[npc.repairingTarget.idx]?.isBroken;
+          const ws = window.WORLD_MAP?.workstations?.[npc.repairingTarget.idx];
+          isStillBroken = !!(ws && (ws.isBroken || isRedScreenText(ws.leftScreen) || isRedScreenText(ws.rightScreen) || ws.screenState === 'error' || ws.screenState === 'critical'));
         } else if (npc.repairingTarget.type === 'lab') {
-          isStillBroken = !!window.WORLD_MAP?.labEquipments?.[npc.repairingTarget.idx]?.isBroken;
+          const eq = window.WORLD_MAP?.labEquipments?.[npc.repairingTarget.idx];
+          isStillBroken = !!(eq && (eq.isBroken || eq.statusColor === '#ef4444' || eq.statusColor === '#f87171' || (typeof eq.status === 'string' && (eq.status.includes('ERR') || eq.status.includes('FAIL') || eq.status.includes('STOP')))));
         }
         if (!isStillBroken) {
           npc.repairingTarget = null;
@@ -1522,6 +1525,9 @@ class EphemeralOfficeNetwork {
                 if (ws) {
                   ws.isBroken = false;
                   ws.brokenBy = null;
+                  ws.leftScreen = 'Pass';
+                  ws.rightScreen = 'Good';
+                  ws.screenState = 'pass';
                   this.broadcastPacket('device_repair', { type: 'ws', idx: target.idx });
                 }
               } else if (target.type === 'lab') {
@@ -1613,11 +1619,13 @@ class EphemeralOfficeNetwork {
                 npc.targetY = wp.y;
               }
             } else if (npc.id === 'npc_dir_pp00') {
-              // 檢查是否有損壞的機台或電腦
+              // 檢查是否有損壞或出現 ERROR 的機台與電腦（怪物破壞、系統 ERROR / FIX E / FAIL / 紅字警告）
               const brokenDevices = [];
+              const isRedScreenText = (txt) => ['ERR!!', 'FIX E', 'FAIL', '😭', '哭', 'error', 'critical'].includes(txt);
               if (window.WORLD_MAP?.workstations) {
                 window.WORLD_MAP.workstations.forEach((ws, wsIdx) => {
-                  if (ws.isBroken) {
+                  const hasError = ws.isBroken || isRedScreenText(ws.leftScreen) || isRedScreenText(ws.rightScreen) || ws.screenState === 'error' || ws.screenState === 'critical';
+                  if (hasError) {
                     brokenDevices.push({
                       type: 'ws',
                       idx: wsIdx,
@@ -1630,7 +1638,8 @@ class EphemeralOfficeNetwork {
               }
               if (window.WORLD_MAP?.labEquipments) {
                 window.WORLD_MAP.labEquipments.forEach((eq, eqIdx) => {
-                  if (eq.isBroken) {
+                  const hasError = eq.isBroken || eq.statusColor === '#ef4444' || eq.statusColor === '#f87171' || (typeof eq.status === 'string' && (eq.status.includes('ERR') || eq.status.includes('FAIL') || eq.status.includes('STOP')));
+                  if (hasError) {
                     brokenDevices.push({
                       type: 'lab',
                       idx: eqIdx,
