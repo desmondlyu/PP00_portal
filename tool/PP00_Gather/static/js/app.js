@@ -21,6 +21,48 @@
   let activePipWindow = null;
 
   const PERSISTENCE_KEY = 'PP00_GATHER_PERSISTENCE_v1';
+  const LOGIN_SESSION_KEY = 'PP00_GATHER_LOGIN_SESSION_v1';
+
+  function saveLoginSession(autoLogin = true) {
+    try {
+      const session = {
+        name: localPlayer.name,
+        unit: localPlayer.unit,
+        status: localPlayer.status || 'active',
+        avatarId: localPlayer.avatarId,
+        roomCode: (network && network.roomCode) || 'PP00',
+        autoLogin: !!autoLogin,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem(LOGIN_SESSION_KEY, JSON.stringify(session));
+    } catch (e) {
+      console.warn('儲存登入憑證失敗：', e);
+    }
+  }
+
+  function loadLoginSession() {
+    try {
+      const raw = localStorage.getItem(LOGIN_SESSION_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function triggerGameReload() {
+    if (!isLoggedIn) {
+      window.location.reload();
+      return;
+    }
+    showToast('🔄 正在儲存狀態並重新整理遊戲（免手動重新登入）...', 'join');
+    savePersistentState();
+    saveLoginSession(true);
+    setTimeout(() => {
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.location.href = `${cleanUrl}?v=${Date.now()}`;
+    }, 150);
+  }
 
   // 儲存持久化狀態（包含裝備、持有道具、耐久度、重傷休養計時、鳥人指揮官暫時休養狀態）
   function savePersistentState() {
@@ -936,13 +978,13 @@
   // =========================================================================
   // 1. 上線次數與經驗加成系統 + 修復機台直接升一級 (forceLevelUp)
   // =========================================================================
-  function initAndIncrementLoginExp(userName) {
+  function initAndIncrementLoginExp(userName, skipExp = false) {
     const key = 'pp00_gather_exp_' + (userName || 'default').toLowerCase();
     try {
       const saved = JSON.parse(localStorage.getItem(key) || 'null');
       if (saved && typeof saved.loginCount === 'number') {
-        progression.loginCount = saved.loginCount + 1;
-        progression.exp = (saved.exp || 0) + 50; // 每次上線獎勵 +50 EXP
+        progression.loginCount = skipExp ? saved.loginCount : (saved.loginCount + 1);
+        progression.exp = skipExp ? (saved.exp || 50) : ((saved.exp || 0) + 50);
       } else {
         progression.loginCount = 1;
         progression.exp = 50;
@@ -1240,105 +1282,30 @@
   // =========================================================================
   // 4. 登入視窗、可縮合面板、情境動作按鈕與左下整合聊天 UI 綁定
   // =========================================================================
-  function setupLoginUI() {
-    const unitSelect = document.getElementById('loginUnit');
-    unitSelect.innerHTML = '<option value="" disabled selected>請選擇工程部門 / 主管區...</option>';
-    window.GATHER_CONFIG.units.forEach((u) => {
-      const opt = document.createElement('option');
-      opt.value = u;
-      opt.textContent = u;
-      unitSelect.appendChild(opt);
-    });
+function executeOfficeLogin(params) {
+      const { name, unit, roomCode, status, avatarId, isAutoReload = false } = params;
+      const cleanName = network.sanitizeText(name, 16);
+      const cleanRoom = network.sanitizeText(roomCode || 'PP00', 16) || 'PP00';
 
-    const statusSelect = document.getElementById('loginStatus');
-    window.GATHER_CONFIG.statuses.forEach((st) => {
-      const opt = document.createElement('option');
-      opt.value = st.id;
-      opt.textContent = `${st.icon} ${st.label}`;
-      statusSelect.appendChild(opt);
-    });
+      const chosenAvatar = window.AVATAR_CATALOG.find((a) => a.id === avatarId)
+        || window.AVATAR_CATALOG[selectedAvatarIndex]
+        || window.AVATAR_CATALOG[0];
+      const chosenIdx = window.AVATAR_CATALOG.findIndex((a) => a.id === chosenAvatar.id);
+      if (chosenIdx !== -1) selectedAvatarIndex = chosenIdx;
 
-    // 同步初始化左下角整合面板的狀態選單
-    const selfStatusSel = document.getElementById('selfStatusSelect');
-    if (selfStatusSel) {
-      selfStatusSel.innerHTML = '';
-      window.GATHER_CONFIG.statuses.forEach((st) => {
-        const opt = document.createElement('option');
-        opt.value = st.id;
-        opt.textContent = `${st.icon} ${st.label}`;
-        selfStatusSel.appendChild(opt);
-      });
-    }
-
-    const avatarGrid = document.getElementById('avatarSelectorGrid');
-    avatarGrid.innerHTML = '';
-    window.AVATAR_CATALOG.forEach((av, idx) => {
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'avatar-pick-card' + (idx === selectedAvatarIndex ? ' active' : '');
-      card.innerHTML = `
-        <span class="avatar-pick-badge">${av.badge}</span>
-        <span class="avatar-pick-name">${av.name}</span>
-        <span class="avatar-pick-tag">${av.tag}</span>
-      `;
-      card.addEventListener('click', () => {
-        selectedAvatarIndex = idx;
-        updateAvatarPreviewSelection();
-      });
-      avatarGrid.appendChild(card);
-    });
-
-    document.getElementById('prevAvatarBtn').addEventListener('click', () => {
-      selectedAvatarIndex =
-        (selectedAvatarIndex - 1 + window.AVATAR_CATALOG.length) % window.AVATAR_CATALOG.length;
-      updateAvatarPreviewSelection();
-    });
-
-    document.getElementById('nextAvatarBtn').addEventListener('click', () => {
-      selectedAvatarIndex = (selectedAvatarIndex + 1) % window.AVATAR_CATALOG.length;
-      updateAvatarPreviewSelection();
-    });
-
-    updateAvatarPreviewSelection();
-
-    document.getElementById('loginForm').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const rawName = document.getElementById('loginName').value;
-      const cleanName = network.sanitizeText(rawName, 16);
-      const roomCode = network.sanitizeText(document.getElementById('loginPasscode').value, 16);
-      const errEl = document.getElementById('loginErrorMsg');
-
-      if (!cleanName) {
-        errEl.textContent = '⚠️ 請輸入您的名稱（上限 16 字）';
-        errEl.style.display = 'block';
-        return;
-      }
-      const rawUnit = document.getElementById('loginUnit').value;
-      if (!rawUnit) {
-        errEl.textContent = '⚠️ 請選擇所屬工程部門 / 主管區';
-        errEl.style.display = 'block';
-        return;
-      }
-      if (!roomCode || roomCode.length < 2) {
-        errEl.textContent = '⚠️ 請輸入有效的辦公室安全通行碼（預設 PP00）';
-        errEl.style.display = 'block';
-        return;
-      }
-
-      errEl.style.display = 'none';
-      const chosenAvatar = window.AVATAR_CATALOG[selectedAvatarIndex];
       localPlayer.name = cleanName;
-      localPlayer.unit = rawUnit;
-      localPlayer.status = document.getElementById('loginStatus').value || 'active';
+      localPlayer.unit = unit;
+      localPlayer.status = status || 'active';
       localPlayer.avatarId = chosenAvatar.id;
+
       const hasEquipped = localPlayer.equippedSlots.some(Boolean);
       if (!hasEquipped) {
         const startWpn = getRandomWeaponMeta();
         addItemToInventory(startWpn, true);
       }
 
-      // 計算上線次數與經驗加成
-      initAndIncrementLoginExp(cleanName);
+      // 計算上線次數與經驗加成（若是重整自動載入，保留現有經驗不重複刷打卡加成）
+      initAndIncrementLoginExp(cleanName, isAutoReload);
       lastUserActionAt = Date.now();
 
       // 請求桌面原生通知權限（方便縮小後接受同事私聊）
@@ -1346,10 +1313,11 @@
         Notification.requestPermission().catch(() => {});
       }
 
-      document.getElementById('loginOverlay').classList.add('hidden');
+      const overlay = document.getElementById('loginOverlay');
+      if (overlay) overlay.classList.add('hidden');
       isLoggedIn = true;
       loginTimestamp = Date.now();
-      network.connect(localPlayer, roomCode);
+      network.connect(localPlayer, cleanRoom);
 
       if (window.gatherSupabase) {
         window.gatherSupabase.init({
@@ -1440,17 +1408,28 @@
       }
 
       savePersistentState();
+      saveLoginSession(true);
 
+      const selfStatusSel = document.getElementById('selfStatusSelect');
       if (selfStatusSel) selfStatusSel.value = localPlayer.status;
       updateSelfHudCard();
       renderMinecraftInventoryUI();
       renderSidebarRoster();
 
-      pushStatusLog(
-        '系統',
-        `🎉 歡迎 ${localPlayer.name} 第 ${progression.loginCount} 次上線！打卡獎勵 +50 EXP（${progression.title}）`
-      );
-      showToast(`🎉 歡迎 <b>${escapeHtml(localPlayer.name)}</b> 進入辦公室！打卡成功 +50 EXP`, 'join');
+      if (isAutoReload) {
+        pushStatusLog(
+          '系統',
+          `🔄 已成功重新載入最新版本程式碼！歡迎回到辦公室，${localPlayer.name}（${progression.title}）！`
+        );
+        showToast(`🔄 <b>${escapeHtml(localPlayer.name)}</b> 已載入最新版遊戲程式碼，自動接續連線！`, 'join');
+      } else {
+        pushStatusLog(
+          '系統',
+          `🎉 歡迎 ${localPlayer.name} 第 ${progression.loginCount} 次上線！打卡獎勵 +50 EXP（${progression.title}）`
+        );
+        showToast(`🎉 歡迎 <b>${escapeHtml(localPlayer.name)}</b> 進入辦公室！打卡成功 +50 EXP`, 'join');
+      }
+
       const activeWpn = getActiveEquippedItem();
       if (activeWpn) {
         pushStatusLog(
@@ -1458,6 +1437,142 @@
           `⚔️ 當前隨身裝備：${activeWpn.emoji} ${activeWpn.name}（耐久 ${activeWpn.durability}/${activeWpn.maxDurability || 3}｜按 [F] 揮擊擊退｜按 [I] 開啟裝備欄）`
         );
       }
+    }
+
+  function setupLoginUI() {
+    const unitSelect = document.getElementById('loginUnit');
+    unitSelect.innerHTML = '<option value="" disabled selected>請選擇工程部門 / 主管區...</option>';
+    window.GATHER_CONFIG.units.forEach((u) => {
+      const opt = document.createElement('option');
+      opt.value = u;
+      opt.textContent = u;
+      unitSelect.appendChild(opt);
+    });
+
+    const statusSelect = document.getElementById('loginStatus');
+    window.GATHER_CONFIG.statuses.forEach((st) => {
+      const opt = document.createElement('option');
+      opt.value = st.id;
+      opt.textContent = `${st.icon} ${st.label}`;
+      statusSelect.appendChild(opt);
+    });
+
+    // 同步初始化左下角整合面板的狀態選單
+    const selfStatusSel = document.getElementById('selfStatusSelect');
+    if (selfStatusSel) {
+      selfStatusSel.innerHTML = '';
+      window.GATHER_CONFIG.statuses.forEach((st) => {
+        const opt = document.createElement('option');
+        opt.value = st.id;
+        opt.textContent = `${st.icon} ${st.label}`;
+        selfStatusSel.appendChild(opt);
+      });
+    }
+
+    const avatarGrid = document.getElementById('avatarSelectorGrid');
+    avatarGrid.innerHTML = '';
+    window.AVATAR_CATALOG.forEach((av, idx) => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'avatar-pick-card' + (idx === selectedAvatarIndex ? ' active' : '');
+      card.innerHTML = `
+        <span class="avatar-pick-badge">${av.badge}</span>
+        <span class="avatar-pick-name">${av.name}</span>
+        <span class="avatar-pick-tag">${av.tag}</span>
+      `;
+      card.addEventListener('click', () => {
+        selectedAvatarIndex = idx;
+        updateAvatarPreviewSelection();
+      });
+      avatarGrid.appendChild(card);
+    });
+
+    document.getElementById('prevAvatarBtn').addEventListener('click', () => {
+      selectedAvatarIndex =
+        (selectedAvatarIndex - 1 + window.AVATAR_CATALOG.length) % window.AVATAR_CATALOG.length;
+      updateAvatarPreviewSelection();
+    });
+
+    document.getElementById('nextAvatarBtn').addEventListener('click', () => {
+      selectedAvatarIndex = (selectedAvatarIndex + 1) % window.AVATAR_CATALOG.length;
+      updateAvatarPreviewSelection();
+    });
+
+    updateAvatarPreviewSelection();
+
+
+
+    // 讀取歷史登入憑證以預先填入表單；若存在 autoLogin 旗標則自動登入進入辦公室
+    const savedSession = loadLoginSession();
+    if (savedSession) {
+      const nameInput = document.getElementById('loginName');
+      const unitInput = document.getElementById('loginUnit');
+      const passInput = document.getElementById('loginPasscode');
+      const statusInput = document.getElementById('loginStatus');
+
+      if (nameInput && savedSession.name) nameInput.value = savedSession.name;
+      if (unitInput && savedSession.unit) unitInput.value = savedSession.unit;
+      if (passInput && savedSession.roomCode) passInput.value = savedSession.roomCode;
+      if (statusInput && savedSession.status) statusInput.value = savedSession.status;
+      if (savedSession.avatarId) {
+        const avIdx = window.AVATAR_CATALOG.findIndex((a) => a.id === savedSession.avatarId);
+        if (avIdx !== -1) {
+          selectedAvatarIndex = avIdx;
+          updateAvatarPreviewSelection();
+        }
+      }
+
+      // 自動重新連線：免手動點選「進入辦公室」！
+      if (savedSession.autoLogin && savedSession.name && savedSession.unit) {
+        setTimeout(() => {
+          if (!isLoggedIn) {
+            executeOfficeLogin({
+              name: savedSession.name,
+              unit: savedSession.unit,
+              roomCode: savedSession.roomCode || 'PP00',
+              status: savedSession.status || 'active',
+              avatarId: savedSession.avatarId,
+              isAutoReload: true,
+            });
+          }
+        }, 50);
+      }
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const rawName = document.getElementById('loginName').value;
+      const cleanName = network.sanitizeText(rawName, 16);
+      const roomCode = network.sanitizeText(document.getElementById('loginPasscode').value, 16);
+      const errEl = document.getElementById('loginErrorMsg');
+
+      if (!cleanName) {
+        errEl.textContent = '⚠️ 請輸入您的名稱（上限 16 字）';
+        errEl.style.display = 'block';
+        return;
+      }
+      const rawUnit = document.getElementById('loginUnit').value;
+      if (!rawUnit) {
+        errEl.textContent = '⚠️ 請選擇所屬工程部門 / 主管區';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (!roomCode || roomCode.length < 2) {
+        errEl.textContent = '⚠️ 請輸入有效的辦公室安全通行碼（預設 PP00）';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      errEl.style.display = 'none';
+      const chosenAvatar = window.AVATAR_CATALOG[selectedAvatarIndex];
+      executeOfficeLogin({
+        name: cleanName,
+        unit: rawUnit,
+        roomCode,
+        status: document.getElementById('loginStatus').value || 'active',
+        avatarId: chosenAvatar.id,
+        isAutoReload: false,
+      });
     });
   }
 
@@ -2165,6 +2280,13 @@
         camera.overviewMode = !camera.overviewMode;
         e.currentTarget.classList.toggle('active', camera.overviewMode);
         handleResize();
+      });
+    }
+
+    const reloadOfficeBtn = document.getElementById('btnGameReload');
+    if (reloadOfficeBtn) {
+      reloadOfficeBtn.addEventListener('click', () => {
+        triggerGameReload();
       });
     }
 
@@ -4480,6 +4602,7 @@
     if (officeLogoutPromise) return officeLogoutPromise;
     officeLogoutPromise = (async () => {
     savePersistentState();
+    saveLoginSession(false);
     isLoggedIn = false;
     loginTimestamp = 0;
     welcomeQueue.length = 0;
@@ -5629,6 +5752,10 @@
   }
 
   window.__PP00_TEST__ = {
+    triggerGameReload,
+    saveLoginSession,
+    loadLoginSession,
+    executeOfficeLogin,
     getLocalPlayer: () => localPlayer,
     detectNearbyFacility,
     tryInteractWithEnvironment,
