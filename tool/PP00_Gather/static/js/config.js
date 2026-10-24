@@ -62,11 +62,12 @@ window.GATHER_CONFIG = {
     { id: 'zen_debug', label: '🧘 通靈Debug', hotkey: 'Alt+=', altKey: '=', icon: '🧘', zoneHint: '任意位置', desc: '盤腿漂浮通靈除錯' },
   ],
 
-  // 廁所鎖門時其他角色踹門產生的頭頂 MURMUR 文字
+  // 廁所大便時門外走過的角色/NPC隨機催促台詞
   toiletKickMurmurs: [
-    '不要再屎遁',
-    '老闆在找你',
-    '拉完了沒換我了',
+    '拉完了沒換我了！',
+    '不要再屎遁啦！',
+    '好了沒？老闆在找你！',
+    '裡面的人好了沒？外面在排隊了！',
   ],
 
   // 攻擊 VP 或 PP00 處長時被抓進主管室關緊閉 10 秒的 5 句專屬訓話 MURMUR

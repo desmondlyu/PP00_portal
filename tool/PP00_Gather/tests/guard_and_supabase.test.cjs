@@ -256,3 +256,82 @@ test('Bird commander: night time never pulls to meeting, daytime allows meeting 
   net.update(120);
   assert.equal(meetingPulled, true, 'Daytime (05:00~17:00) SHOULD allow bird commander to pull to meeting room!');
 });
+
+test('Presence sync event populates remotePlayers correctly on connection', () => {
+  const env = createTestEnv();
+  const EphemeralOfficeNetwork = env.window.EphemeralOfficeNetwork;
+
+  const net = new EphemeralOfficeNetwork();
+  net.connect({ name: 'Alice', unit: 'PP32', x: 500, y: 500 });
+
+  // Simulate presence.sync with existing users
+  const presenceState = {
+    'usr_online_bob': [{
+      id: 'usr_online_bob',
+      name: 'Bob',
+      unit: 'PP10',
+      avatarId: 'frog_eng',
+      status: 'active',
+      x: 600,
+      y: 600,
+    }],
+  };
+
+  Object.values(presenceState).forEach((presences) => {
+    if (Array.isArray(presences) && presences[0]) {
+      net.upsertRemotePlayer(presences[0], false);
+    }
+  });
+
+  const bob = net.remotePlayers.get('usr_online_bob');
+  assert.ok(bob, 'Existing user should be populated via presence sync');
+  assert.equal(bob.name, 'Bob');
+  assert.equal(bob.unit, 'PP10');
+});
+
+test('Toilet urge triggers ONLY when player is in toilet and NPC walks past the door', () => {
+  const env = createTestEnv();
+  const EphemeralOfficeNetwork = env.window.EphemeralOfficeNetwork;
+
+  let toiletKickCount = 0;
+  const net = new EphemeralOfficeNetwork({
+    onNpcToiletKick: () => { toiletKickCount++; },
+  });
+
+  const stall = env.window.WORLD_MAP.toiletStalls[0]; // x: 2465, y: 745
+  const doorX = stall.x - 38;
+  const doorY = stall.y + 48;
+
+  // 1. When player is NOT in toilet (actionState: null), NPC right at door should NEVER trigger
+  const localPlayer = { id: 'local_alice', name: 'Alice', unit: 'PP32', x: 500, y: 500, actionState: null };
+  net.connect(localPlayer);
+  stall.occupiedBy = null;
+
+  const walker = {
+    id: 'npc_walker',
+    name: 'NPC:打掃阿姨',
+    x: doorX,
+    y: doorY,
+    targetX: doorX,
+    targetY: doorY,
+    waypoints: [{ x: doorX, y: doorY }],
+    waypointIdx: 0,
+    toiletKickCooldownUntil: 0,
+  };
+  net.npcPlayers.set('npc_walker', walker);
+  net.initNPCs = () => {};
+
+  net.update(1);
+  assert.equal(toiletKickCount, 0, 'When player is not in toilet, NPC should NEVER urge or kick');
+
+  // 2. When player IS in toilet (actionState: toilet) and occupies stall
+  localPlayer.actionState = 'toilet';
+  stall.occupiedBy = localPlayer.id;
+  walker.toiletKickCooldownUntil = 0;
+
+  // Override Math.random in context to guarantee kick triggers
+  env.Math.random = () => 0.1;
+
+  net.update(2);
+  assert.equal(toiletKickCount, 1, 'When player is in toilet and NPC walks past door, urge/kick should trigger');
+});

@@ -46,8 +46,8 @@
               type="text"
               id="loginName"
               maxlength="16"
-              placeholder="例如：Desmond / YPLu"
-              value="Desmond"
+              placeholder="請輸入使用者名稱"
+              value=""
               required
             />
           </div>
@@ -66,8 +66,8 @@
 
         <div class="form-row-grid">
           <div class="form-field">
-            <label for="loginUnit">所屬工程部門 / 主管區</label>
-            <select id="loginUnit"></select>
+            <label for="loginUnit">所屬工程部門 / 主管區 *</label>
+            <select id="loginUnit" required></select>
           </div>
           <div class="form-field">
             <label for="loginStatus">初始上線狀態</label>
@@ -90,25 +90,35 @@
   </div>
 
   <!-- =====================================================================
-       2. 頂部精簡狀態列與靠近設備互動觸發提示 (光影已改為背景自動執行)
+       2. 頂部狀態列：左上角透明浮水印連線狀態 (離線轉紅字) + 設備互動提示 + 手機手遊風格精簡圖示列
        ===================================================================== -->
-  <header class="top-hud-bar">
-    <div class="hud-pill-group">
-      <span id="netModeBadge">📡 瞬時加密頻道連線中</span>
-      <span>｜</span>
-      <span>🌓 真實時間光影自動運行中</span>
-    </div>
+  <div id="netStatusWatermark" class="net-status-watermark" title="多人連線狀態">
+    <span id="netModeBadge">📡 瞬時加密頻道連線中</span>
+  </div>
 
+  <header class="top-hud-bar">
     <button type="button" id="facilityTriggerBtn" class="facility-trigger-btn">
       💻 啟動設備互動 [按E]
     </button>
 
-    <div class="hud-pill-group">
-      <button type="button" id="toggleOverviewBtn" class="hud-mini-btn">
-        🗺️ 全景視角
+    <div class="hud-pill-group mobile-game-action-dock">
+      <button type="button" id="btnCampusRosterToggle" class="hud-mini-btn game-icon-btn" title="查看園區人物名單與人數">
+        <span class="game-btn-icon">👥</span>
+        <span class="game-btn-label">園區名單</span>
+        <span id="mobileOnlineCountBadge" class="game-btn-badge">5</span>
       </button>
-      <button type="button" id="btnExitOffice" class="hud-mini-btn hud-exit-btn" title="登出並離開辦公室">
-        🚪 登出/返回入口網站
+      <button type="button" id="btnChatToggle" class="hud-mini-btn game-icon-btn" title="切換對談與動態紀錄視窗">
+        <span class="game-btn-icon">💬</span>
+        <span class="game-btn-label">對談紀錄</span>
+        <span id="mobileChatNotifyDot" class="game-notify-dot hidden"></span>
+      </button>
+      <button type="button" id="toggleOverviewBtn" class="hud-mini-btn game-icon-btn" title="切換全景俯瞰視角">
+        <span class="game-btn-icon">🗺️</span>
+        <span class="game-btn-label">全景視角</span>
+      </button>
+      <button type="button" id="btnExitOffice" class="hud-mini-btn hud-exit-btn game-icon-btn" title="登出並離開辦公室">
+        <span class="game-btn-icon">🚪</span>
+        <span class="game-btn-label">登出</span>
       </button>
     </div>
   </header>
@@ -121,6 +131,7 @@
       <span class="gather-panel-title">🏢 PP00 虛擬辦公室</span>
       <span class="online-count-pill"><span id="onlineCountBadge">5</span> 單位</span>
       <button type="button" id="toggleCampusPanelBtn" class="panel-collapse-btn">展開 ▶</button>
+      <button type="button" id="closeCampusPanelMobileBtn" class="panel-close-mobile-btn" title="關閉清單">✕</button>
     </div>
 
     <div class="campus-collapsible-body">

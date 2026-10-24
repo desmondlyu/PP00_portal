@@ -253,16 +253,18 @@ class EphemeralOfficeNetwork {
       },
     ];
 
-    // 檢查持久化狀態：若鳥人指揮官已被永久擊退流放，不予生成
-    let birdExiled = false;
+    // 檢查持久化狀態：若鳥人指揮官處於暫時休養退場冷卻中，不予生成
+    let birdResting = false;
     try {
       const persisted = JSON.parse(localStorage.getItem('PP00_GATHER_PERSISTENCE_v1') || '{}');
-      birdExiled = !!persisted.birdCommanderExiled;
+      if (persisted.birdCommanderRestUntil && Date.now() < persisted.birdCommanderRestUntil) {
+        birdResting = true;
+      }
     } catch (e) {}
 
     // 隨機判定鳥人指揮官出現機率 20%
     const birdSpawnRoll = Math.random();
-    const birdSpawns = !birdExiled && birdSpawnRoll < (window.GATHER_CONFIG?.security?.birdSpawnRate ?? 0.20);
+    const birdSpawns = !birdResting && birdSpawnRoll < (window.GATHER_CONFIG?.security?.birdSpawnRate ?? 0.20);
 
     const activeTemplates = [];
     if (isNight) {
@@ -385,6 +387,21 @@ class EphemeralOfficeNetwork {
               this.handleIncomingPacket(payload);
             }
           })
+          .on('presence', { event: 'sync' }, () => {
+            try {
+              if (!this.realtimeChannel) return;
+              const state = this.realtimeChannel.presenceState();
+              Object.values(state).forEach((presences) => {
+                if (Array.isArray(presences)) {
+                  presences.forEach((p) => {
+                    if (p && p.id && p.id !== this.clientId) {
+                      this.upsertRemotePlayer(p, false);
+                    }
+                  });
+                }
+              });
+            } catch (_) {}
+          })
           .on('presence', { event: 'join' }, ({ key, newPresences }) => {
             if (key === this.clientId || !newPresences || !newPresences[0]) return;
             this.upsertRemotePlayer(newPresences[0], true);
@@ -401,12 +418,31 @@ class EphemeralOfficeNetwork {
             if (status === 'SUBSCRIBED') {
               this.isCloudConnected = true;
               if (this.callbacks.onConnectionChange) {
-                this.callbacks.onConnectionChange(true, 'Supabase Realtime 雲端瞬時頻道');
+                this.callbacks.onConnectionChange(true, 'Supabase Realtime 連線中');
               }
               await this.realtimeChannel.track(this.getPublicState());
               this.broadcastPacket('join_announce', { player: this.getPublicState() });
+            } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              this.isCloudConnected = false;
+              if (this.callbacks.onConnectionChange) {
+                this.callbacks.onConnectionChange(false, '連線已中斷');
+              }
             }
           });
+
+        if (typeof window !== 'undefined') {
+          window.addEventListener('offline', () => {
+            this.isCloudConnected = false;
+            if (this.callbacks.onConnectionChange) {
+              this.callbacks.onConnectionChange(false, '網路連線已中斷');
+            }
+          });
+          window.addEventListener('online', () => {
+            if (this.callbacks.onConnectionChange) {
+              this.callbacks.onConnectionChange(this.isCloudConnected, this.isCloudConnected ? 'Supabase Realtime 連線中' : '本地瞬時頻道');
+            }
+          });
+        }
       } catch (e) {
         console.warn('切換本地頻道：', e);
       }
@@ -841,40 +877,45 @@ class EphemeralOfficeNetwork {
         }
       }
 
-      // 🚽 當使用者在廁所隔間內，其他角色無法進入，但會在門外互動「踹門」
+      // 🚽 廁所催促情境：嚴格限制只有在玩家「正在廁所蹲馬桶 (actionState === 'toilet')」時生效！
+      // 而且「僅當 NPC 照常走自己的路徑剛好走過去門口附近 (distToDoor <= 110)」時隨機觸發催促
+      // 絕不強制將全地圖 NPC 吸過來，也不在非上廁所狀態下發動
       if (
         this.localPlayer &&
         this.localPlayer.actionState === 'toilet' &&
-        tick % 260 === (idx * 65 + 40) % 260
+        !npc.isBerserk
       ) {
-        const distToToilet = Math.hypot(
-          npc.x - this.localPlayer.x,
-          npc.y - this.localPlayer.y
+        const activeStall = window.WORLD_MAP?.toiletStalls?.find(
+          (s) => s.occupiedBy === this.localPlayer.id
         );
-        if (distToToilet < 480 || npc.isBirdCommander || npc.isSweeper || npc.isSecurityGuard) {
-          const activeStall = window.WORLD_MAP?.toiletStalls?.find(
-            (s) => s.occupiedBy === this.localPlayer.id
-          );
-          npc.targetX = activeStall ? activeStall.x - 38 : 2432;
-          npc.targetY = activeStall ? activeStall.y + 48 : 852;
-          if (distToToilet < 180) {
-            const kickLines = window.GATHER_CONFIG?.toiletKickMurmurs || [
-              '不要再屎遁',
-              '老闆在找你',
-              '拉完了沒換我了',
-            ];
-            const kickText =
-              kickLines[Math.floor(Math.random() * kickLines.length)];
-            npc.jumpOffset = 14;
-            npc.emote = { emoji: '🦵', expiresAt: now + 3500 };
-            npc.murmur = {
-              text: kickText,
-              mood: 'fire',
-              createdAt: now,
-              expiresAt: now + 4500,
-            };
-            if (this.callbacks.onNpcToiletKick) {
-              this.callbacks.onNpcToiletKick(npc, kickText);
+        if (activeStall) {
+          const doorX = activeStall.x - 38;
+          const doorY = activeStall.y + 48;
+          const distToDoor = Math.hypot(npc.x - doorX, npc.y - doorY);
+
+          // 只有當 NPC 沿著原定巡邏路徑剛好經過該間廁所門外 (<= 110px) 時隨機觸發
+          if (distToDoor <= 110 && now > (npc.toiletKickCooldownUntil || 0)) {
+            npc.toiletKickCooldownUntil = now + 16000;
+            if (Math.random() < 0.45) {
+              const kickLines = window.GATHER_CONFIG?.toiletKickMurmurs || [
+                '拉完了沒換我了！',
+                '不要再屎遁啦！',
+                '好了沒？老闆在找你！',
+                '裡面的人好了沒？外面在排隊了！',
+              ];
+              const kickText =
+                kickLines[Math.floor(Math.random() * kickLines.length)];
+              npc.jumpOffset = 12;
+              npc.emote = { emoji: '🦵', expiresAt: now + 3000 };
+              npc.murmur = {
+                text: kickText,
+                mood: 'fire',
+                createdAt: now,
+                expiresAt: now + 4000,
+              };
+              if (this.callbacks.onNpcToiletKick) {
+                this.callbacks.onNpcToiletKick(npc, kickText);
+              }
             }
           }
         }

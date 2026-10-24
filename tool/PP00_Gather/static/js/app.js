@@ -21,7 +21,7 @@
 
   const PERSISTENCE_KEY = 'PP00_GATHER_PERSISTENCE_v1';
 
-  // 儲存持久化狀態（包含裝備、持有道具、耐久度、重傷休養計時、鳥人指揮官流放狀態）
+  // 儲存持久化狀態（包含裝備、持有道具、耐久度、重傷休養計時、鳥人指揮官暫時休養狀態）
   function savePersistentState() {
     try {
       const state = {
@@ -31,7 +31,7 @@
         activeEquipIndex: localPlayer.activeEquipIndex,
         isInjured: !!localPlayer.isInjured,
         injuredUntil: localPlayer.injuredUntil || 0,
-        birdCommanderExiled: !!localPlayer.birdCommanderExiled,
+        birdCommanderRestUntil: localPlayer.birdCommanderRestUntil || 0,
       };
       localStorage.setItem(PERSISTENCE_KEY, JSON.stringify(state));
     } catch (e) {
@@ -117,7 +117,7 @@
     injuredUntil: 0,   // 🚑 重傷截止時間戳
     isRestrained: false, // 🚨 受警衛管教拘禁狀態 (無法移動與反擊 10 秒)
     restrainedUntil: 0,
-    birdCommanderExiled: false, // 🦩 鳥人指揮官是否已被永久擊退放逐
+    birdCommanderRestUntil: 0, // 🦩 鳥人指揮官暫時休養截止時間戳（不再永久流放）
     x: 880,
     y: 525,
     dir: 'down',
@@ -176,7 +176,12 @@
         typeof saved.activeEquipIndex === 'number' ? saved.activeEquipIndex : 0;
       localPlayer.heldItem = saved.heldItem || '🪑';
       if (saved.birdCommanderExiled) {
-        localPlayer.birdCommanderExiled = true;
+        // 清除先前 10% 永久流放的舊存檔，讓鳥人指揮官重返辦公室
+        saved.birdCommanderExiled = false;
+        savePersistentState();
+      }
+      if (saved.birdCommanderRestUntil) {
+        localPlayer.birdCommanderRestUntil = saved.birdCommanderRestUntil;
       }
       if (saved.isInjured && saved.injuredUntil > Date.now()) {
         localPlayer.isInjured = true;
@@ -226,12 +231,14 @@
       onProximityChat: (msg) => {
         const suffix = msg.isNearby ? ' (身邊)' : '';
         pushUserChat(msg.senderName + suffix, msg.senderUnit, msg.text, false);
+        triggerChatNotifyFlash(msg.senderName);
         if (document.hidden) {
           triggerDesktopNotification(msg.senderName, msg.senderUnit, msg.text);
         }
       },
       onPrivateChat: (msg) => {
         pushUserChat(msg.senderName, msg.senderUnit, msg.text, false, true, localPlayer.name);
+        triggerChatNotifyFlash(msg.senderName, true);
         showToast(`🔒 收到來自 <b>${escapeHtml(msg.senderName)}</b> 的私人對談！`, 'join');
         if (document.hidden) {
           triggerDesktopNotification(msg.senderName, msg.senderUnit, `[私人對談] ${msg.text}`);
@@ -303,8 +310,17 @@
       },
       onConnectionChange: (connected, label) => {
         const badge = document.getElementById('netModeBadge');
+        const watermark = document.getElementById('netStatusWatermark');
         if (badge) {
-          badge.textContent = connected ? `⚡ ${label}` : '📡 本地瞬時頻道';
+          if (connected) {
+            badge.textContent = `⚡ ${label || 'Supabase Realtime 連線中'}`;
+            badge.classList.remove('disconnected');
+            if (watermark) watermark.classList.remove('disconnected');
+          } else {
+            badge.textContent = '⚠️ 瞬時連線已中斷 (離線模式)';
+            badge.classList.add('disconnected');
+            if (watermark) watermark.classList.add('disconnected');
+          }
         }
       },
     });
@@ -1001,11 +1017,11 @@
   // =========================================================================
   function setupLoginUI() {
     const unitSelect = document.getElementById('loginUnit');
+    unitSelect.innerHTML = '<option value="" disabled selected>請選擇工程部門 / 主管區...</option>';
     window.GATHER_CONFIG.units.forEach((u) => {
       const opt = document.createElement('option');
       opt.value = u;
       opt.textContent = u;
-      if (u === 'PP32') opt.selected = true;
       unitSelect.appendChild(opt);
     });
 
@@ -1072,6 +1088,12 @@
         errEl.style.display = 'block';
         return;
       }
+      const rawUnit = document.getElementById('loginUnit').value;
+      if (!rawUnit) {
+        errEl.textContent = '⚠️ 請選擇所屬工程部門 / 主管區';
+        errEl.style.display = 'block';
+        return;
+      }
       if (!roomCode || roomCode.length < 2) {
         errEl.textContent = '⚠️ 請輸入有效的辦公室安全通行碼（預設 PP00）';
         errEl.style.display = 'block';
@@ -1081,7 +1103,7 @@
       errEl.style.display = 'none';
       const chosenAvatar = window.AVATAR_CATALOG[selectedAvatarIndex];
       localPlayer.name = cleanName;
-      localPlayer.unit = document.getElementById('loginUnit').value || 'PP32';
+      localPlayer.unit = rawUnit;
       localPlayer.status = document.getElementById('loginStatus').value || 'active';
       localPlayer.avatarId = chosenAvatar.id;
       const hasEquipped = localPlayer.equippedSlots.some(Boolean);
@@ -1112,13 +1134,60 @@
                 showToast(`🔔 <b>${escapeHtml(log.user_name)}</b> (${escapeHtml(log.unit)}) 已${action}辦公室！`, 'join');
               }
             },
+            onOnlineUsersFetched: (users) => {
+              if (Array.isArray(users)) {
+                users.forEach((u) => {
+                  if (u.client_id && u.client_id !== network.clientId) {
+                    network.upsertRemotePlayer({
+                      id: u.client_id,
+                      name: u.user_name,
+                      unit: u.unit,
+                      avatarId: u.avatar_id,
+                      status: u.status,
+                      heldItem: u.held_item,
+                      x: u.x,
+                      y: u.y,
+                      dir: u.dir,
+                      actionState: u.action_state,
+                    }, false);
+                  }
+                });
+                renderSidebarRoster();
+              }
+            },
+            onUserTableChange: (payload) => {
+              if (payload && payload.new && payload.new.client_id !== network.clientId) {
+                if (payload.eventType === 'DELETE') {
+                  const leavingId = payload.old?.client_id;
+                  if (leavingId && network.remotePlayers.has(leavingId)) {
+                    network.remotePlayers.delete(leavingId);
+                    renderSidebarRoster();
+                  }
+                } else {
+                  const u = payload.new;
+                  network.upsertRemotePlayer({
+                    id: u.client_id,
+                    name: u.user_name,
+                    unit: u.unit,
+                    avatarId: u.avatar_id,
+                    status: u.status,
+                    heldItem: u.held_item,
+                    x: u.x,
+                    y: u.y,
+                    dir: u.dir,
+                    actionState: u.action_state,
+                  }, false);
+                  renderSidebarRoster();
+                }
+              }
+            },
           },
         });
         window.gatherSupabase.registerUser(localPlayer);
       }
 
-      // 若鳥人指揮官已被永久流放，確保即刻自清單中移除
-      if (localPlayer.birdCommanderExiled && network) {
+      // 若鳥人指揮官處於暫時休養狀態中，確保即刻自清單中移除
+      if (localPlayer.birdCommanderRestUntil && Date.now() < localPlayer.birdCommanderRestUntil && network) {
         network.npcPlayers.delete('npc_bird_commander');
       }
 
@@ -1286,27 +1355,90 @@
     });
   }
 
+  function triggerChatNotifyFlash(senderName, isPrivate = false) {
+    const chatPanel = document.getElementById('proxChatPanel');
+    const isMobile = window.innerWidth <= 900;
+    const isClosed = !chatPanel ||
+      (isMobile ? !chatPanel.classList.contains('mobile-open') : chatPanel.classList.contains('chat-minimized'));
+
+    if (isClosed) {
+      const chatBtn = document.getElementById('btnChatToggle');
+      if (chatBtn) {
+        chatBtn.classList.add('chat-notify-flash');
+      }
+      const dot = document.getElementById('mobileChatNotifyDot');
+      if (dot) {
+        dot.classList.remove('hidden');
+      }
+    }
+  }
+
+  function clearChatNotifyFlash() {
+    const chatBtn = document.getElementById('btnChatToggle');
+    if (chatBtn) {
+      chatBtn.classList.remove('chat-notify-flash');
+    }
+    const dot = document.getElementById('mobileChatNotifyDot');
+    if (dot) {
+      dot.classList.add('hidden');
+    }
+  }
+
   /**
-   * 綁定「🏢 PP00 虛擬辦公室」與「💬 聊天視窗」展開/縮合切換
+   * 綁定「🏢 PP00 虛擬辦公室」與「💬 聊天視窗」展開/縮合切換（支援手機手遊風格小小 icon 呼叫）
    */
   function setupCollapsiblePanels() {
     const campusPanel = document.getElementById('leftGatherPanel');
     const toggleCampusBtn = document.getElementById('toggleCampusPanelBtn');
-    if (toggleCampusBtn && campusPanel) {
-      toggleCampusBtn.addEventListener('click', () => {
-        const isMin = campusPanel.classList.toggle('minimized');
-        toggleCampusBtn.textContent = isMin ? '展開 ▶' : '◀ 縮合';
-      });
+    const mobileRosterBtn = document.getElementById('btnCampusRosterToggle');
+    const closeMobileCampusBtn = document.getElementById('closeCampusPanelMobileBtn');
+
+    function toggleCampus(forceOpen = null) {
+      if (!campusPanel) return;
+      if (window.innerWidth <= 900) {
+        const shouldOpen = forceOpen !== null ? forceOpen : !campusPanel.classList.contains('mobile-open');
+        campusPanel.classList.toggle('mobile-open', shouldOpen);
+        campusPanel.classList.remove('minimized');
+        if (mobileRosterBtn) mobileRosterBtn.classList.toggle('active', shouldOpen);
+      } else {
+        const isMin = forceOpen !== null ? !forceOpen : campusPanel.classList.toggle('minimized');
+        if (toggleCampusBtn) toggleCampusBtn.textContent = isMin ? '展開 ▶' : '◀ 縮合';
+        if (mobileRosterBtn) mobileRosterBtn.classList.toggle('active', !isMin);
+      }
     }
+
+    if (toggleCampusBtn) toggleCampusBtn.addEventListener('click', () => toggleCampus());
+    if (mobileRosterBtn) mobileRosterBtn.addEventListener('click', () => toggleCampus());
+    if (closeMobileCampusBtn) closeMobileCampusBtn.addEventListener('click', () => toggleCampus(false));
 
     const chatPanel = document.getElementById('proxChatPanel');
     const toggleChatBtn = document.getElementById('toggleChatCollapseBtn');
-    if (toggleChatBtn && chatPanel) {
-      toggleChatBtn.addEventListener('click', () => {
-        const isMin = chatPanel.classList.toggle('chat-minimized');
-        toggleChatBtn.textContent = isMin ? '➕ 展開' : '➖ 縮合';
-      });
+    const mobileChatBtn = document.getElementById('btnChatToggle');
+
+    function toggleChat(forceOpen = null) {
+      if (!chatPanel) return;
+      if (window.innerWidth <= 900) {
+        const shouldOpen = forceOpen !== null ? forceOpen : !chatPanel.classList.contains('mobile-open');
+        chatPanel.classList.toggle('mobile-open', shouldOpen);
+        chatPanel.classList.remove('chat-minimized');
+        if (mobileChatBtn) mobileChatBtn.classList.toggle('active', shouldOpen);
+        if (shouldOpen) {
+          clearChatNotifyFlash();
+          document.getElementById('proxChatInput')?.focus();
+        }
+      } else {
+        const isMin = forceOpen !== null ? !forceOpen : chatPanel.classList.toggle('chat-minimized');
+        if (toggleChatBtn) toggleChatBtn.textContent = isMin ? '➕ 展開' : '➖ 縮合';
+        if (mobileChatBtn) mobileChatBtn.classList.toggle('active', !isMin);
+        if (!isMin) {
+          clearChatNotifyFlash();
+          document.getElementById('proxChatInput')?.focus();
+        }
+      }
     }
+
+    if (toggleChatBtn) toggleChatBtn.addEventListener('click', () => toggleChat());
+    if (mobileChatBtn) mobileChatBtn.addEventListener('click', () => toggleChat());
   }
 
   // =========================================================================
@@ -1642,22 +1774,43 @@
       const found = network.getAllOtherPlayers().find((p) => p.id === selectedTargetId);
       if (found) return found;
     }
-    return nearbyPlayers[0] || network.getAllOtherPlayers()[0] || null;
+    return nearbyPlayers[0] || null;
   }
 
   function triggerProximitySkill(skillType, allowRemoteWave = false) {
     const now = Date.now();
     if (now - network.lastSkillAt < window.GATHER_CONFIG.security.skillCooldownMs) return;
 
+    if (skillType === 'chat') {
+      const drawer = document.getElementById('proxChatPanel');
+      if (drawer) {
+        drawer.classList.remove('chat-minimized');
+        drawer.classList.add('mobile-open');
+      }
+      clearChatNotifyFlash();
+      const input = document.getElementById('proxChatInput');
+      if (input) input.focus();
+      return;
+    }
+
     const target = getActiveTargetPlayer();
-    if (!target) return;
+    const maxRadius = window.GATHER_CONFIG.security.proximityRadiusPx || 180;
+
+    if (!target) {
+      showToast(`📡 身邊半徑 ${maxRadius}px 內沒有同仁或目標，請靠近後再互動！`, 'info');
+      return;
+    }
 
     const dist = Math.hypot(target.x - localPlayer.x, target.y - localPlayer.y);
-    const maxRadius = window.GATHER_CONFIG.security.proximityRadiusPx;
 
-    if (!allowRemoteWave && skillType !== 'wave' && skillType !== 'follow' && dist > maxRadius * 1.25) {
-      showToast(`🏃 距離 <b>${escapeHtml(target.name)}</b> 較遠，正在自動帶你走向他身邊...`, 'info');
-      walkToPlayer(target.id);
+    // 規定：交換禮物、揮手、靜電戳、乾杯要在指定的半徑範圍內才可以生效，避免遠距觸發
+    if (dist > maxRadius) {
+      if (skillType === 'follow') {
+        showToast(`🏃 距離 <b>${escapeHtml(target.name)}</b> 較遠，正在自動跟隨走向他身邊...`, 'info');
+        walkToPlayer(target.id);
+        return;
+      }
+      showToast(`⚠️ 距離【${escapeHtml(target.name)}】過遠（${Math.round(dist)}px > 半徑 ${maxRadius}px），需走近身邊才能生效！`, 'error');
       return;
     }
 
@@ -1665,12 +1818,6 @@
     addExp(15);
 
     switch (skillType) {
-      case 'chat': {
-        const drawer = document.getElementById('proxChatPanel');
-        drawer.classList.remove('chat-minimized');
-        document.getElementById('proxChatInput').focus();
-        break;
-      }
       case 'exchange': {
         const myOldItem = localPlayer.heldItem;
         const theirOldItem = target.heldItem || getRandomWeaponMeta().emoji;
@@ -2085,18 +2232,18 @@
             unlockedMeeting = true;
           }
 
-          // 🦩 規則 4：攻擊鳥人指揮官有一定 10% 機率你不會再遇到他出現（永久退場）
+          // 🦩 攻擊鳥人指揮官：10% 機率將其打飛出大氣層（暫時退場休養 5 分鐘，之後會重新返回）
           const exileChance = window.GATHER_CONFIG?.security?.birdExileChance ?? 0.10;
           if (Math.random() < exileChance) {
-            localPlayer.birdCommanderExiled = true;
+            localPlayer.birdCommanderRestUntil = now + 300000;
             savePersistentState();
             network.npcPlayers.delete(npc.id);
             spawnConfetti(npc.x, npc.y - 20);
             pushStatusLog(
               '你',
-              `🦩 💥 巨力超重擊！鳥人指揮官被打飛出大氣層（10% 終極擊退：你將不會再遇到他出現）！`
+              `🦩 💥 巨力超重擊！鳥人指揮官被打飛至大氣層（觸發 10% 終極擊退：鳥人暫時退場休養 5 分鐘）！`
             );
-            showToast('🦩 💥 觸發 10% 終極擊退！鳥人指揮官永久退場，不再出現！', 'join');
+            showToast('🦩 💥 觸發 10% 終極擊退！鳥人指揮官被打飛休養，5分鐘後返回！', 'join');
           } else {
             const dropChance = window.GATHER_CONFIG?.security?.birdDropChance ?? 0.20;
             if (Math.random() < dropChance) {
@@ -3440,9 +3587,9 @@
         if (mode === 'chat') {
           chatInput.placeholder = '輸入對談訊息 (按 Enter 發送)...';
         } else if (mode === 'private') {
-          const rawTarget = selectedTargetId
+          const rawTarget = (selectedTargetId
             ? network.getAllOtherPlayers().find((p) => p.id === selectedTargetId)
-            : null;
+            : null) || (nearbyPlayers.find((p) => !p.isNpc && !String(p.id).startsWith('npc_')) || null);
           const isNpc =
             rawTarget &&
             (rawTarget.isNpc ||
@@ -3475,9 +3622,9 @@
           if (sent && chatInput) chatInput.value = '';
         } else if (mode === 'private') {
           // 🔒 私人對談：僅指定的真實線上使用者可見
-          const target = selectedTargetId
+          const target = (selectedTargetId
             ? network.getAllOtherPlayers().find((p) => p.id === selectedTargetId)
-            : null;
+            : null) || (nearbyPlayers.find((p) => !p.isNpc && !String(p.id).startsWith('npc_')) || null);
           if (!target) {
             pushStatusLog('系統', '⚠️ 請先在地圖或名單中點選一位真實線上同仁，再發送私人對談訊息！');
             showToast('⚠️ 請先點選一位真實線上同仁！', 'error');
@@ -3633,6 +3780,8 @@
     const totalCount = 1 + others.length + mobs.length;
     const countBadge = document.getElementById('onlineCountBadge');
     if (countBadge) countBadge.textContent = String(totalCount);
+    const mobileCountBadge = document.getElementById('mobileOnlineCountBadge');
+    if (mobileCountBadge) mobileCountBadge.textContent = String(totalCount);
 
     const all = [
       { ...localPlayer, isSelf: true },
