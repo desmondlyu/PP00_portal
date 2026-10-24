@@ -7,7 +7,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./static/css/style.css?v=20261024-touch-and-firstaid-v6" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-</head>
+<style>
+#mcInventoryGrid{grid-template-columns:repeat(5,minmax(0,1fr))}
+.mc-outfit-slot{border-color:#c4b5fd!important;position:relative}
+.outfit-durability{position:absolute;bottom:2px;left:0;width:100%;font-size:10px;text-align:center;color:#ddd6fe}
+#wardrobeStatus{font-size:12px;color:#1e293b;line-height:1.6}
+#inventoryOverflow{max-height:140px;overflow:auto;font-size:12px;color:#1e293b}
+#inventoryOverflow button{margin:4px;padding:8px;border:1px solid #64748b;border-radius:6px;background:#1e293b;color:#f8fafc}
+</style></head>
 <body>
   <!-- =====================================================================
        1. 登入與 10 款使用者專屬誇張人物造型選擇視窗 (NPC 角色造型完全獨立不重複)
@@ -16,8 +23,8 @@
     <div class="login-modal-card">
       <div class="login-left-showcase">
         <span class="brand-pill">✨ PP00 3D-PIXEL CAMPUS · V5</span>
-        <h1 class="showcase-title">選擇你的誇張化身</h1>
-        <p class="showcase-sub">牛頭套、青蛙裝、晶圓鋼彈、神聖綠乖乖等 10 款專屬造型任你挑</p>
+        <h1 class="showcase-title">選擇你的上班日常</h1>
+        <p class="showcase-sub">10 位不同年齡、身型與穿搭的同事；特殊裝扮可在遊戲中收集</p>
 
         <div class="avatar-stage-wrap">
           <button type="button" id="prevAvatarBtn" class="stage-nav-btn" aria-label="上一款造型">&lsaquo;</button>
@@ -76,7 +83,7 @@
         </div>
 
         <div>
-          <div class="avatar-grid-label">🎭 十種花俏誇張造型（點擊立即切換預覽）</div>
+          <div class="avatar-grid-label">十位上班族人物（點擊切換預覽）</div>
           <div id="avatarSelectorGrid" class="avatar-selector-grid"></div>
         </div>
 
@@ -347,9 +354,11 @@
       <div id="mcModalHotbarGrid" class="mc-slot-grid mc-equip-three-grid"></div>
 
       <div class="mc-section-label">
-        🎒 持有物品儲物欄（27 格 — 點擊物品即可裝備至上方空位，不同道具有不同經驗加成與擊退敵人經驗值）
+        🎒 持有物品儲物欄（10 格；服裝最多 3 套，點擊即可穿脫）
       </div>
+      <p id="wardrobeStatus" aria-live="polite"></p>
       <div id="mcInventoryGrid" class="mc-slot-grid"></div>
+      <div id="inventoryOverflow"></div>
     </div>
   </div>
 
@@ -376,12 +385,13 @@
   <canvas id="officeCanvas"></canvas>
 
   <script src="./static/js/config.js?v=20261024-bird-proximity-3min-v9"></script>
-  <script src="./static/js/avatars.js?v=20261024-director-repair-v5"></script>
-  <script src="./static/js/world.js?v=20261024-deep-item-v2"></script>
-  <script src="./static/js/network.js?v=20261024-bird-proximity-3min-v9"></script>
-  <script src="./static/js/combat.js?v=20261024-defeat"></script>
+  <script src="./static/js/avatars.js?v=20261025-wardrobe"></script>
+  <script src="./static/js/wardrobe.js?v=20261025-wardrobe"></script>
+  <script src="./static/js/world.js?v=20261025-wardrobe"></script>
+  <script src="./static/js/network.js?v=20261025-wardrobe"></script>
+  <script src="./static/js/combat.js?v=20261025-wardrobe"></script>
   <script src="./static/js/hunt.js?v=20261024-quarter-hour"></script>
   <script src="./static/js/supabaseSync.js?v=20261024-overview-resume"></script>
-  <script src="./static/js/app.js?v=20261024-bird-proximity-3min-v9"></script>
+  <script src="./static/js/app.js?v=20261025-wardrobe"></script>
 </body>
 </html>

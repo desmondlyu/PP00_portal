@@ -471,7 +471,7 @@ class OfficeEcosystem {
    * 在指定座標生成一個掉落武器或道具 (例如擊退鳥人指揮官 20% 掉落)
    */
   spawnDropAt(x, y, customMeta = null) {
-    const meta = customMeta || window.getWeightedRandomItem(window.GATHER_CONFIG.items);
+    const meta = customMeta || window.getWeightedRandomItem(window.GATHER_CONFIG.items.filter(i=>i.category!=='outfit'));
     const item = {
       uid: 'drop_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       x: Math.round(x + (Math.random() - 0.5) * 36),
@@ -506,7 +506,7 @@ class OfficeEcosystem {
    * 一次隨機產生 count 種加權掉落物 (依強度 5%~20% 機率，並納入 24 小時制計算)
    */
   spawnBatchRandomDrops(count = 5) {
-    const pool = window.GATHER_CONFIG.items;
+    const pool = window.GATHER_CONFIG.items.filter(i=>i.category!=='outfit');
     const selected = [];
     for (let i = 0; i < count; i++) {
       selected.push(window.getWeightedRandomItem(pool));

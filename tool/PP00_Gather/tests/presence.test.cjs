@@ -55,3 +55,10 @@ test('initial connection suppresses welcome notifications for existing occupants
   assert.equal(joins.length, 0, 'Existing occupants during connection must not notify join');
   assert.equal(n.remotePlayers.has('usr_already_here'), true);
 });
+test('clothing sync keeps base identity, survives partial presence and clears on explicit remove',()=>{
+ const n=network();n.upsertRemotePlayer({id:'colleague',avatarId:'office_6',outfitAvatarId:'frog_eng',outfitUid:'costume1'});
+ assert.equal(n.remotePlayers.get('colleague').avatarId,'office_6');assert.equal(n.remotePlayers.get('colleague').outfitAvatarId,'frog_eng');
+ n.upsertRemotePlayer({id:'colleague',avatarId:'office_6'});assert.equal(n.remotePlayers.get('colleague').outfitAvatarId,'frog_eng');
+ n.upsertRemotePlayer({id:'colleague',avatarId:'office_6',outfitAvatarId:null,outfitUid:null});assert.equal(n.remotePlayers.get('colleague').outfitAvatarId,null);
+ n.upsertRemotePlayer({id:'colleague',avatarId:'office_6',outfitAvatarId:'npc_vp_uncle'});assert.equal(n.remotePlayers.get('colleague').outfitAvatarId,null);
+});
