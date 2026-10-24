@@ -324,3 +324,99 @@ test('In-game refresh button and auto-login session persistence enable seamless 
   assert.ok(appCode.includes('triggerGameReload'), 'app.js must provide triggerGameReload handler');
   assert.ok(appCode.includes('executeOfficeLogin'), 'app.js must provide executeOfficeLogin for auto-login');
 });
+
+test('Director PP00 10% repair mechanism triggers on broken equipment with murmur quotes and repairs successfully', () => {
+  const env = createTestEnv();
+  const net = new env.window.EphemeralOfficeNetwork();
+  net.connect({ name: 'Host', unit: 'PP10', x: 200, y: 200 });
+
+  assert.equal(env.window.GATHER_CONFIG.security.directorRepairChance, 0.10, 'directorRepairChance should be 10%');
+
+  const quotes = env.window.GATHER_CONFIG.bossScoldDialogues?.director_repair || env.window.GATHER_CONFIG.npcDialogues?.director_repair || env.window.GATHER_CONFIG.dialogues?.director_repair;
+  assert.ok(Array.isArray(quotes) && quotes.length >= 2, 'director_repair dialogues must exist');
+  assert.ok(quotes.includes('我真命苦，還要我特地下來修理'), 'Must include quote: 我真命苦，還要我特地下來修理');
+  assert.ok(quotes.includes('工程師都在睡覺嗎？我還要出馬'), 'Must include quote: 工程師都在睡覺嗎？我還要出馬');
+
+  // Setup broken workstation
+  env.window.WORLD_MAP.workstations = [
+    { idx: 0, isBroken: true, brokenBy: 'Bug Mob', x: 755, y: 460, owner: 'Engineer' }
+  ];
+
+  const director = net.npcPlayers.get('npc_dir_pp00');
+  assert.ok(director, 'Director PP00 NPC must exist');
+
+  // Set director repair target
+  director.repairingTarget = {
+    type: 'ws',
+    idx: 0,
+    x: 755 + 32,
+    y: 460 + 45,
+  };
+  director.x = 755 + 32;
+  director.y = 460 + 45;
+  director.repairCooldownUntil = 0;
+
+  // Let director start repair
+  net.update(1);
+  assert.equal(director.actionState, 'zen_debug', 'Director should perform zen_debug action when repairing');
+  assert.ok(director.repairStartedAt > 0, 'repairStartedAt should be set');
+
+  // Advance time by 4.6 seconds to finish repair
+  const originalNow = Date.now;
+  Date.now = () => director.repairStartedAt + 4600;
+  try {
+    net.update(2);
+    assert.equal(env.window.WORLD_MAP.workstations[0].isBroken, false, 'Workstation should be repaired');
+    assert.equal(env.window.WORLD_MAP.workstations[0].brokenBy, null, 'brokenBy should be cleared');
+    assert.equal(director.repairingTarget, null, 'repairingTarget should be cleared on completion');
+    assert.ok(director.murmur.text.includes('終於修好了'), 'Director should murmur completion line');
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test('Attack cooldown is 250ms and status logs are throttled to prevent freezing', () => {
+  const env = createTestEnv();
+  assert.equal(env.window.GATHER_CONFIG.security.attackCooldownMs, 250, 'attackCooldownMs must be 250ms');
+
+  const appCode = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.ok(appCode.includes('attackCooldownMs || 250'), 'app.js must use attackCooldownMs 250ms');
+  assert.ok(appCode.includes('lastWeaponAttackAt'), 'app.js must track lastWeaponAttackAt separately from lastInteractAt');
+  assert.ok(appCode.includes('now - (mob.lastLogAt || 0) > 600'), 'app.js must throttle consecutive hit logs to prevent freezing');
+});
+
+test('Mobile layout: ColleagueProfileCard is standalone floating card and touchSkillsGroup does not block joystick or interact buttons', () => {
+  const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  
+  // 1. colleagueProfileCard outside proxChatPanel
+  const chatCloseTag = '</section>';
+  const cardIndex = indexHtml.indexOf('id="colleagueProfileCard"');
+  const chatIndex = indexHtml.indexOf(chatCloseTag);
+  assert.ok(cardIndex > chatIndex, '#colleagueProfileCard must be placed OUTSIDE #proxChatPanel');
+
+  // 2. touchSkillsGroup wraps skill buttons
+  assert.ok(indexHtml.includes('id="touchSkillsGroup" class="touch-skills-group"'), 'index.html must wrap 1~6 skills in touchSkillsGroup');
+
+  // 3. CSS checks
+  const css = fs.readFileSync(path.join(__dirname, '../static/css/style.css'), 'utf8');
+    assert.ok(css.includes('.touch-skills-group') && css.includes('display: contents;'), 'touch-skills-group must use display: contents on desktop');
+  assert.ok(css.includes('left: 645px;'), 'Desktop bottom-hud-dock must use left: 645px to avoid 615px chat panel');
+  assert.ok(css.includes('.prox-chat-panel.collapsed ~ .bottom-hud-dock'), 'bottom-hud-dock must handle collapsed chat panel');
+  assert.ok(css.includes('--keyboard-offset'), 'Mobile chat panel must use --keyboard-offset to raise above software keyboard');
+});
+
+test('Cleaner Aunties waypoints include restroom sink waypoint { x: 2255, y: 682 } and Bird Commander isFleeing draws cold sweat', () => {
+  const env = createTestEnv();
+  const net = new env.window.EphemeralOfficeNetwork();
+  net.connect({ name: 'Host', unit: 'PP10', x: 200, y: 200 });
+
+  const meifeng = net.npcPlayers.get('npc_auntie_meifeng');
+  assert.ok(meifeng.waypoints.some((wp) => wp.x === 2255 && wp.y === 682), 'Meifeng Auntie must include restroom sink waypoint { x: 2255, y: 682 }');
+
+  const shufen = net.npcPlayers.get('npc_auntie_shufen');
+  assert.ok(shufen.waypoints.some((wp) => wp.x === 2255 && wp.y === 682), 'Shufen Auntie must include restroom sink waypoint { x: 2255, y: 682 }');
+
+  const avatarsCode = fs.readFileSync(path.join(root, 'avatars.js'), 'utf8');
+  assert.ok(avatarsCode.includes('isFleeing = false'), 'avatars.js drawWackyAvatar must support isFleeing');
+  assert.ok(avatarsCode.includes('💦'), 'avatars.js must draw cold sweat emojis 💦 when isFleeing');
+});

@@ -181,6 +181,8 @@ class EphemeralOfficeNetwork {
           { x: 2360, y: 430 },
           { x: 2360, y: 520 },
           { x: 2120, y: 820 },
+          { x: 2255, y: 682 }, // 進入廁所洗手台搓泡洗手
+          { x: 2120, y: 820 }, // 走回走廊
           { x: 1060, y: 820 },
           { x: 640, y: 820 },
           { x: 200, y: 820 },
@@ -205,6 +207,8 @@ class EphemeralOfficeNetwork {
         x: 2120,
         y: 820,
         waypoints: [
+          { x: 2120, y: 820 },
+          { x: 2255, y: 682 }, // 進入廁所搓泡洗手
           { x: 2120, y: 820 },
           { x: 2120, y: 520 },
           { x: 1060, y: 520 },
@@ -957,13 +961,15 @@ class EphemeralOfficeNetwork {
               localNpc.targetX = remoteNpc.targetX;
               localNpc.targetY = remoteNpc.targetY;
               const dist = Math.hypot(localNpc.x - remoteNpc.x, localNpc.y - remoteNpc.y);
-              if (dist > 20) {
+              if (dist > 160) {
                 localNpc.x = remoteNpc.x;
                 localNpc.y = remoteNpc.y;
               } else {
                 localNpc.x += (remoteNpc.x - localNpc.x) * 0.45;
                 localNpc.y += (remoteNpc.y - localNpc.y) * 0.45;
               }
+              localNpc.syncX = remoteNpc.x;
+              localNpc.syncY = remoteNpc.y;
               localNpc.dir = remoteNpc.dir;
               localNpc.actionState = remoteNpc.actionState;
               localNpc.isMoving = remoteNpc.isMoving;
@@ -1353,8 +1359,25 @@ class EphemeralOfficeNetwork {
             npc.targetX = activeStall ? activeStall.x - 38 : 2432;
             npc.targetY = activeStall ? activeStall.y + 48 : 852;
           } else {
-            npc.targetX = followTarget.x + 44;
-            npc.targetY = followTarget.y + 16;
+            const cands = [
+              { dx: 44, dy: 16 },
+              { dx: -44, dy: 16 },
+              { dx: 0, dy: 44 },
+              { dx: 0, dy: -44 },
+              { dx: 36, dy: -36 },
+              { dx: -36, dy: -36 }
+            ];
+            let chosenOffset = cands[0];
+            if (typeof window.isPositionBlocked === 'function') {
+              for (const cand of cands) {
+                if (!window.isPositionBlocked(followTarget.x + cand.dx, followTarget.y + cand.dy, 16)) {
+                  chosenOffset = cand;
+                  break;
+                }
+              }
+            }
+            npc.targetX = followTarget.x + chosenOffset.dx;
+            npc.targetY = followTarget.y + chosenOffset.dy;
             if (followTarget.actionState) {
               npc.actionState = followTarget.actionState;
             }
@@ -1434,6 +1457,74 @@ class EphemeralOfficeNetwork {
             this.callbacks.onBerserkHit(npc, reason);
           }
         }
+      } else if (npc.id === 'npc_dir_pp00' && npc.repairingTarget) {
+        // 處長正在出動修理設備，每 tick 追蹤走向與維修進度
+        let isStillBroken = false;
+        if (npc.repairingTarget.type === 'ws') {
+          isStillBroken = !!window.WORLD_MAP?.workstations?.[npc.repairingTarget.idx]?.isBroken;
+        } else if (npc.repairingTarget.type === 'lab') {
+          isStillBroken = !!window.WORLD_MAP?.labEquipments?.[npc.repairingTarget.idx]?.isBroken;
+        }
+        if (!isStillBroken) {
+          npc.repairingTarget = null;
+          npc.repairStartedAt = null;
+          npc.actionState = null;
+        } else {
+          const distToDevice = Math.hypot(npc.x - npc.repairingTarget.x, npc.y - npc.repairingTarget.y);
+          if (distToDevice <= 48) {
+            // 到達損壞機台，進行 4.5 秒修理動作 (zen_debug 盤腿懸浮除錯)
+            if (!npc.repairStartedAt) {
+              npc.repairStartedAt = now;
+              npc.actionState = 'zen_debug';
+              npc.actionUntil = now + 4800;
+            } else if (now - npc.repairStartedAt >= 4500) {
+              // 修理完成，恢復機台狀態並廣播
+              const target = npc.repairingTarget;
+              if (target.type === 'ws') {
+                const ws = window.WORLD_MAP?.workstations?.[target.idx];
+                if (ws) {
+                  ws.isBroken = false;
+                  ws.brokenBy = null;
+                  this.broadcastPacket('device_repair', { type: 'ws', idx: target.idx });
+                }
+              } else if (target.type === 'lab') {
+                const eq = window.WORLD_MAP?.labEquipments?.[target.idx];
+                if (eq) {
+                  eq.isBroken = false;
+                  eq.brokenBy = null;
+                  eq.status = 'PASS 99.9%';
+                  eq.statusColor = '#22c55e';
+                  this.broadcastPacket('device_repair', { type: 'lab', idx: target.idx });
+                }
+              }
+              npc.murmur = {
+                text: '終於修好了！工程師們好好檢討！',
+                mood: 'normal',
+                createdAt: now,
+                expiresAt: now + 4000,
+              };
+              this.broadcastPacket('murmur', {
+                author: npc.name,
+                text: npc.murmur.text,
+                mood: 'normal',
+                avatarId: npc.avatarId,
+                senderId: npc.id,
+              });
+              if (this.callbacks && this.callbacks.onDirectorRepaired) {
+                this.callbacks.onDirectorRepaired(npc, target);
+              }
+              npc.repairingTarget = null;
+              npc.repairStartedAt = null;
+              npc.actionState = null;
+              npc.repairCooldownUntil = now + 20000;
+            }
+          } else {
+            // 持續走向損壞設備
+            npc.targetX = npc.repairingTarget.x;
+            npc.targetY = npc.repairingTarget.y;
+            npc.actionState = null;
+          }
+        }
       } else if ((!npc.isBirdCommander || now >= npc.followPlayerUntil) && this.isRoomMaster()) {
         // 若 NPC 正在進行情境動作，維持目前位置與動作狀態
         if (now < (npc.actionUntil || 0)) {
@@ -1485,23 +1576,83 @@ class EphemeralOfficeNetwork {
                 npc.targetY = wp.y;
               }
             } else if (npc.id === 'npc_dir_pp00') {
-              const inDirRoom = npc.x >= 640 && npc.x < 870 && npc.y < 440;
-              if (inDirRoom && Math.random() < actionChance) {
-                const dirActions = isLunch
-                  ? ['drink_coffee', 'slack_nap', 'sleep_bed', 'sit_code']
-                  : ['sit_code', 'pray_kuaikuai', 'drink_coffee', 'watch_stock', 'zen_debug'];
-                const picked =
-                  dirActions[Math.floor(Math.random() * dirActions.length)];
-                npc.actionState = picked;
-                npc.actionUntil = now + 9000 + Math.random() * 8000;
-                npc.targetX = 760;
-                npc.targetY = 330;
-              } else {
+              // 檢查是否有損壞的機台或電腦
+              const brokenDevices = [];
+              if (window.WORLD_MAP?.workstations) {
+                window.WORLD_MAP.workstations.forEach((ws, wsIdx) => {
+                  if (ws.isBroken) {
+                    brokenDevices.push({
+                      type: 'ws',
+                      idx: wsIdx,
+                      name: `電腦 (${ws.owner || wsIdx})`,
+                      x: ws.x + 32,
+                      y: ws.y + 45,
+                    });
+                  }
+                });
+              }
+              if (window.WORLD_MAP?.labEquipments) {
+                window.WORLD_MAP.labEquipments.forEach((eq, eqIdx) => {
+                  if (eq.isBroken) {
+                    brokenDevices.push({
+                      type: 'lab',
+                      idx: eqIdx,
+                      name: eq.name || '機台',
+                      x: eq.x + eq.w / 2,
+                      y: eq.y + eq.h / 2,
+                    });
+                  }
+                });
+              }
+
+              const repairChance = window.GATHER_CONFIG?.security?.directorRepairChance ?? 0.10;
+              if (brokenDevices.length > 0 && now > (npc.repairCooldownUntil || 0) && Math.random() < repairChance) {
+                const target = brokenDevices[Math.floor(Math.random() * brokenDevices.length)];
+                npc.repairingTarget = target;
+                npc.repairStartedAt = null;
+                npc.targetX = target.x;
+                npc.targetY = target.y;
                 npc.actionState = null;
-                npc.waypointIdx = (npc.waypointIdx + 1) % npc.waypoints.length;
-                const wp = npc.waypoints[npc.waypointIdx];
-                npc.targetX = wp.x;
-                npc.targetY = wp.y;
+
+                const repairDialogues = window.GATHER_CONFIG?.bossScoldDialogues?.director_repair ||
+                  window.GATHER_CONFIG?.npcDialogues?.director_repair ||
+                  window.GATHER_CONFIG?.dialogues?.director_repair || [
+                  '我真命苦，還要我特地下來修理',
+                  '工程師都在睡覺嗎？我還要出馬',
+                ];
+                const line = repairDialogues[Math.floor(Math.random() * repairDialogues.length)];
+                npc.murmur = {
+                  text: line,
+                  mood: 'fire',
+                  createdAt: now,
+                  expiresAt: now + 5000,
+                };
+                this.broadcastPacket('murmur', {
+                  author: npc.name,
+                  text: line,
+                  mood: 'fire',
+                  avatarId: npc.avatarId,
+                  senderId: npc.id,
+                });
+              } else {
+                const inDirRoom = npc.x >= 640 && npc.x < 870 && npc.y < 440;
+                if (inDirRoom && Math.random() < actionChance) {
+                  const dirActions = isLunch
+                    ? ['drink_coffee', 'slack_nap', 'sleep_bed', 'sit_code']
+                    : ['sit_code', 'pray_kuaikuai', 'drink_coffee', 'watch_stock', 'zen_debug'];
+                  const picked =
+                    dirActions[Math.floor(Math.random() * dirActions.length)];
+                  npc.actionState = picked;
+                  npc.actionUntil = now + 9000 + Math.random() * 8000;
+                  npc.targetX = 760;
+                  npc.targetY = 330;
+                } else {
+                  npc.actionState = null;
+                  npc.waypointIdx = (npc.waypointIdx + 1) % npc.waypoints.length;
+                  const wp = npc.waypoints[npc.waypointIdx];
+                  npc.targetX = wp.x;
+                  npc.targetY = wp.y;
+                }
               }
             } else if (npc.isSweeper) {
               // 判定打掃阿姨是否位於廁所/洗手台區域 (x: 2180~2650, y: 560~1080)

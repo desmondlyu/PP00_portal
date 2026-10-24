@@ -192,6 +192,7 @@ window.drawWackyAvatar = function (ctx, opts) {
     isInjured = false,     // 🚑 重傷休養狀態
     beingHealed = false,   // 🩹 正在接受醫療狀態
     healProgress = 0,      // 醫療進度 0~1
+    isFleeing = false,     // 😱 慌張逃跑狀態
   } = opts;
 
   ctx.save();
@@ -203,6 +204,10 @@ window.drawWackyAvatar = function (ctx, opts) {
 
   if (isKnockedBack) {
     poseRotate = tick * 0.48; // 被打飛時空中高速旋轉特效
+  } else if (isFleeing) {
+    poseOffsetX = Math.sin(tick * 0.9) * 3.5; // 慌張左右劇烈抖動
+    poseOffsetY = -Math.abs(Math.sin(tick * 0.6)) * 4; // 慌張小碎步亂跳
+    poseRotate = Math.sin(tick * 0.7) * 0.15; // 慌亂歪頭
   } else if (actionState === 'sit_code') {
     poseOffsetY = 5;
     poseOffsetX = Math.sin(tick * 0.7) * 0.8; // 高速打字微震動
@@ -1253,12 +1258,27 @@ case 'crt_bot':
 
     ctx.restore();
   }
+
+  // 8. 😱 慌張逃跑與冷汗直流特效 (💦)
+  if (isFleeing) {
+    ctx.save();
+    ctx.translate(x + poseOffsetX, y - jumpOffset + poseOffsetY);
+    ctx.scale(scale, scale);
+    ctx.font = '13px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+    ctx.textAlign = 'center';
+    const sweatL = -22 + Math.sin(tick * 0.45) * 3;
+    const sweatR = -20 + Math.cos(tick * 0.45) * 3;
+    ctx.fillText('💦', -16, sweatL);
+    ctx.fillText('💦', 16, sweatR);
+    ctx.restore();
+  }
 };
 
 /**
  * 繪製 3D 像素方塊怪物 (Low Yield, 客退, Qual Delay, MO, QIT)
  * 支援 1% 暴走紅蓮破壞氣場與被武器擊飛旋轉特效
  */
+
 window.drawMinecraftMob = function (ctx, mob, tick) {
   ctx.save();
   const jumpY = mob.jumpOffset || 0;
