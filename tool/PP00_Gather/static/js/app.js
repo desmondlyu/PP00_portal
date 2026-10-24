@@ -1496,10 +1496,17 @@ function executeOfficeLogin(params) {
       card.type = 'button';
       card.className = 'avatar-pick-card' + (idx === selectedAvatarIndex ? ' active' : '');
       card.innerHTML = `
-        <span class="avatar-pick-badge">${av.badge}</span>
+        <canvas class="avatar-pick-preview" width="112" height="128" aria-hidden="true"></canvas>
         <span class="avatar-pick-name">${av.name}</span>
         <span class="avatar-pick-tag">${av.tag}</span>
       `;
+      card.setAttribute('aria-label', `${av.name}，${av.tag}`);
+      const preview = card.querySelector('.avatar-pick-preview');
+      const previewCtx = preview.getContext('2d');
+      previewCtx.imageSmoothingEnabled = false;
+      window.drawWackyAvatar(previewCtx, {
+        avatarId: av.id, x: 56, y: 81, dir: 'down', tick: 0, scale: 2,
+      });
       card.addEventListener('click', () => {
         selectedAvatarIndex = idx;
         updateAvatarPreviewSelection();
@@ -1602,6 +1609,7 @@ function executeOfficeLogin(params) {
     document.getElementById('previewAvatarDesc').textContent = av.desc;
     document.querySelectorAll('.avatar-pick-card').forEach((el, idx) => {
       el.classList.toggle('active', idx === selectedAvatarIndex);
+      el.setAttribute('aria-pressed', String(idx === selectedAvatarIndex));
     });
   }
 

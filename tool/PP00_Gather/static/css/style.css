@@ -250,9 +250,15 @@ html {
   border: 2px solid #38bdf8;
 }
 
-.avatar-pick-badge {
-  font-size: 20px;
-  margin-bottom: 2px;
+.avatar-pick-preview {
+  display: block;
+  width: 56px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 7 / 8;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+  margin-bottom: 4px;
 }
 
 .avatar-pick-name {
