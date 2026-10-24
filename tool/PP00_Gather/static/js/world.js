@@ -1261,11 +1261,16 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
     ctx.lineWidth = 2;
     ctx.strokeRect(item.x - 14 * pulse, item.y - 6 * pulse, 28 * pulse, 14 * pulse);
 
-    const drawY = item.y - item.dropY + Math.sin(tick * 0.1) * 3;
+    const confItem = (window.GATHER_CONFIG?.items || []).find((it) => it.id === item.id)
+      || (window.GATHER_CONFIG?.weapons || []).find((w) => w.id === item.id) || {};
+    const emoji = item.emoji || item.icon || confItem.emoji || '🎁';
+
+    const drawY = item.y - (item.dropY || 0) + Math.sin(tick * 0.1) * 3;
     ctx.font = '23px sans-serif';
+    ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(item.emoji, item.x, drawY);
+    ctx.fillText(emoji, item.x, drawY);
   });
 
   // 👾 繪製像素方塊怪物 (Low Yield, 客退, Qual Delay, MO, QIT)

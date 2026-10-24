@@ -285,18 +285,25 @@
       getWorldSyncState: () => {
         return {
           groundItems: (typeof ecosystem !== 'undefined' && ecosystem && ecosystem.groundItems)
-            ? ecosystem.groundItems.map((item) => ({
-                uid: item.uid || ('drop_' + item.id),
-                id: item.id,
-                name: item.name,
-                icon: item.icon,
-                x: item.x,
-                y: item.y,
-                dropY: item.dropY || 0,
-                type: item.type,
-                exp: item.exp,
-                score: item.score,
-              }))
+            ? ecosystem.groundItems.map((item) => {
+                const confItem = (window.GATHER_CONFIG?.items || []).find((it) => it.id === item.id)
+                  || (window.GATHER_CONFIG?.weapons || []).find((w) => w.id === item.id) || {};
+                return {
+                  uid: item.uid || ('drop_' + item.id),
+                  id: item.id,
+                  name: item.name || confItem.name || '道具',
+                  emoji: item.emoji || item.icon || confItem.emoji || '🎁',
+                  icon: item.icon || item.emoji || confItem.emoji || '🎁',
+                  category: item.category || confItem.category || 'item',
+                  power: item.power ?? confItem.power,
+                  x: item.x,
+                  y: item.y,
+                  dropY: item.dropY || 0,
+                  type: item.type,
+                  exp: item.exp,
+                  score: item.score,
+                };
+              })
             : [],
           mobs: (typeof ecosystem !== 'undefined' && ecosystem && ecosystem.mobs)
             ? ecosystem.mobs.map((m) => ({
@@ -331,20 +338,27 @@
       onWorldSync: (pkt) => {
         if (network && network.isRoomMaster()) return;
 
-        // 同步掉落物
+        // 同步掉落物 (防禦性補全 emoji 與屬性，杜絕 undefined 道具標籤)
         if (Array.isArray(pkt.groundItems) && typeof ecosystem !== 'undefined' && ecosystem) {
-          ecosystem.groundItems = pkt.groundItems.map((gi) => ({
-            uid: gi.uid || ('drop_' + gi.id),
-            id: gi.id,
-            name: gi.name,
-            icon: gi.icon,
-            x: gi.x,
-            y: gi.y,
-            dropY: gi.dropY || 0,
-            type: gi.type,
-            exp: gi.exp,
-            score: gi.score,
-          }));
+          ecosystem.groundItems = pkt.groundItems.map((gi) => {
+            const confItem = (window.GATHER_CONFIG?.items || []).find((it) => it.id === gi.id)
+              || (window.GATHER_CONFIG?.weapons || []).find((w) => w.id === gi.id) || {};
+            return {
+              uid: gi.uid || ('drop_' + gi.id),
+              id: gi.id,
+              name: gi.name || confItem.name || '道具',
+              emoji: gi.emoji || gi.icon || confItem.emoji || '🎁',
+              icon: gi.icon || gi.emoji || confItem.emoji || '🎁',
+              category: gi.category || confItem.category || 'item',
+              power: gi.power ?? confItem.power,
+              x: gi.x,
+              y: gi.y,
+              dropY: gi.dropY || 0,
+              type: gi.type,
+              exp: gi.exp,
+              score: gi.score,
+            };
+          });
         }
 
         // 同步方塊怪
