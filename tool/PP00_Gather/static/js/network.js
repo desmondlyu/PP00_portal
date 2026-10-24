@@ -827,12 +827,40 @@ class EphemeralOfficeNetwork {
         }
         break;
       }
+      case 'meeting_pull': {
+        const npc = this.npcPlayers.get(pkt.npcId);
+        if (npc) {
+          npc.x = pkt.roomX;
+          npc.y = pkt.roomY;
+          npc.targetX = pkt.roomX;
+          npc.targetY = pkt.roomY;
+          npc.actionState = pkt.roomId === 'meet_a' ? 'watch_stock' : 'pray_kuaikuai';
+          npc.murmur = {
+            text: pkt.murmurText || '🦩 抓進會議室檢討10秒！',
+            mood: 'fire',
+            createdAt: Date.now(),
+            expiresAt: Date.now() + 10000,
+          };
+        }
+        const roomX = pkt.roomId === 'meet_a' ? 400 : 925;
+        const roomY = 1345;
+        if (this.localPlayer && this.localPlayer.id === pkt.targetId) {
+          if (this.callbacks.onMeetingPull && npc) {
+            this.callbacks.onMeetingPull(npc, pkt.roomId, roomX + 36, roomY, this.localPlayer);
+          }
+        } else if (this.callbacks.onMeetingPull && npc) {
+          const remoteTarget = this.remotePlayers.get(pkt.targetId) || { id: pkt.targetId, name: pkt.targetName };
+          this.callbacks.onMeetingPull(npc, pkt.roomId, roomX + 36, roomY, remoteTarget);
+        }
+        break;
+      }
       case 'world_sync': {
         // 由房長 (Room Master) 統一廣播的權威同步封包
         // 若自己是房長，但收到比自己更小 ID 房長廣播，以更小者為準
         if (this.clientId && pkt.senderId && pkt.senderId > this.clientId && this.isRoomMaster()) {
           break;
         }
+        this.lastMasterSyncTime = Date.now();
         if (Array.isArray(pkt.npcs)) {
           pkt.npcs.forEach((remoteNpc) => {
             let localNpc = this.npcPlayers.get(remoteNpc.id);
@@ -844,20 +872,25 @@ class EphemeralOfficeNetwork {
               localNpc.targetX = remoteNpc.targetX;
               localNpc.targetY = remoteNpc.targetY;
               const dist = Math.hypot(localNpc.x - remoteNpc.x, localNpc.y - remoteNpc.y);
-              if (dist > 50) {
+              if (dist > 20) {
                 localNpc.x = remoteNpc.x;
                 localNpc.y = remoteNpc.y;
+              } else {
+                localNpc.x += (remoteNpc.x - localNpc.x) * 0.45;
+                localNpc.y += (remoteNpc.y - localNpc.y) * 0.45;
               }
               localNpc.dir = remoteNpc.dir;
               localNpc.actionState = remoteNpc.actionState;
               localNpc.isMoving = remoteNpc.isMoving;
               localNpc.isBerserk = !!remoteNpc.isBerserk;
               localNpc.isFleeing = !!remoteNpc.isFleeing;
-              if (remoteNpc.fleeUntil) localNpc.fleeUntil = remoteNpc.fleeUntil;
+              if (remoteNpc.fleeUntil !== undefined) localNpc.fleeUntil = remoteNpc.fleeUntil;
               if (remoteNpc.jumpOffset > 0) localNpc.jumpOffset = remoteNpc.jumpOffset;
               if (remoteNpc.murmur) localNpc.murmur = remoteNpc.murmur;
               if (remoteNpc.emote) localNpc.emote = remoteNpc.emote;
               if (remoteNpc.followTargetId !== undefined) localNpc.followTargetId = remoteNpc.followTargetId;
+              if (remoteNpc.followPlayerUntil !== undefined) localNpc.followPlayerUntil = remoteNpc.followPlayerUntil;
+              if (remoteNpc.waypointIdx !== undefined) localNpc.waypointIdx = remoteNpc.waypointIdx;
             }
           });
         }
@@ -977,6 +1010,8 @@ class EphemeralOfficeNetwork {
           murmur: npc.murmur || null,
           emote: npc.emote || null,
           followTargetId: npc.followTargetId || null,
+          followPlayerUntil: npc.followPlayerUntil || 0,
+          waypointIdx: npc.waypointIdx || 0,
         })),
       };
       if (this.callbacks.getWorldSyncState) {
@@ -1105,8 +1140,7 @@ class EphemeralOfficeNetwork {
         }
       }
 
-      // 🦩 鳥人指揮官專屬 AI：隨機 20% 出現，高機率跟隨玩家在身旁 MURMUR 碎碎念（絕不拉人去會議室）
-      // 🦩 鳥人指揮官專屬 AI：隨機跟隨全辦公室真實線上同仁（隨機挑選本機玩家或遠端連線同仁）
+      // 🦩 鳥人指揮官專屬 AI：隨機跟隨全辦公室真實線上同仁（由房長權威主機決定，避免各裝置分歧）
       if (npc.isBirdCommander && !npc.isBerserk) {
         const sec = window.GATHER_CONFIG?.security || {};
         const followChance = sec.birdFollowChance ?? 0.10;
@@ -1122,28 +1156,31 @@ class EphemeralOfficeNetwork {
           }
         }
 
-        // 每 4 秒判定是否開始隨機跟隨某位真實線上同仁
-        if (now >= npc.followPlayerUntil && tick % 240 === 60 && realPlayers.length > 0) {
-          if (Math.random() < followChance) {
-            // 隨機抽選一位真實線上同仁作為跟隨對象，完全動態無任何固定硬編碼名單
-            const picked = realPlayers[Math.floor(Math.random() * realPlayers.length)];
-            npc.followTargetId = picked.id;
-            npc.followPlayerUntil = now + 14000; // 跟隨 14 秒
-            npc.emote = { emoji: '🦩', expiresAt: now + 14000 };
-            const targetName = picked.name || '同仁';
-            npc.murmur = {
-              text: `🦩 紅鶴指揮官盯著【${targetName}】！Action Item改完沒？嘎！`,
-              mood: 'fire',
-              createdAt: now,
-              expiresAt: now + 4500,
-            };
-            if (this.callbacks.onBirdFollowStart) {
-              this.callbacks.onBirdFollowStart(npc, picked);
+        // 權威模式：若線上正有活著的房長在同步（過去3秒有收到 world_sync），非房長端不擅自擲骰更換跟隨對象，維持全場完全一致
+        const hasActiveRemoteMaster = !this.isRoomMaster() && (now - (this.lastMasterSyncTime || 0) < 3000);
+        if (!hasActiveRemoteMaster) {
+          // 每 4 秒判定是否開始隨機跟隨某位真實線上同仁
+          if (now >= npc.followPlayerUntil && tick % 240 === 60 && realPlayers.length > 0) {
+            if (Math.random() < followChance) {
+              const picked = realPlayers[Math.floor(Math.random() * realPlayers.length)];
+              npc.followTargetId = picked.id;
+              npc.followPlayerUntil = now + 14000; // 跟隨 14 秒
+              npc.emote = { emoji: '🦩', expiresAt: now + 14000 };
+              const targetName = picked.name || '同仁';
+              npc.murmur = {
+                text: `🦩 紅鶴指揮官盯著【${targetName}】！Action Item改完沒？嘎！`,
+                mood: 'fire',
+                createdAt: now,
+                expiresAt: now + 4500,
+              };
+              if (this.callbacks.onBirdFollowStart) {
+                this.callbacks.onBirdFollowStart(npc, picked);
+              }
             }
           }
         }
 
-        // 解析當前鎖定的真實跟隨目標
+        // 解析當前鎖定的真實跟隨目標（房長與非房長均可平滑追蹤目標座標）
         let followTarget = null;
         if (npc.followTargetId) {
           if (this.localPlayer && this.localPlayer.id === npc.followTargetId) {
@@ -1152,17 +1189,15 @@ class EphemeralOfficeNetwork {
             followTarget = this.remotePlayers.get(npc.followTargetId);
           }
         }
-        // 若未鎖定特定目標，且場上有真實線上同仁，巡邏時鎖定視線內或最近的真實同仁
-        if (!followTarget && realPlayers.length > 0) {
+        // 若未鎖定特定目標，且場上有真實線上同仁，且為房長時，巡邏時鎖定視線內或最近的真實同仁
+        if (!followTarget && realPlayers.length > 0 && this.isRoomMaster()) {
           followTarget = realPlayers.find((p) => this.isPlayerInSight(npc, p)) || realPlayers[0];
         }
 
-        // ☀️ 晝夜時段差別待遇：
-        // 晚上到清晨 (17:00 ~ 05:00)：下班時間放過你，絕對不拉你去會議室！
-        // 白天上班時間 (05:00 ~ 17:00)：鳥人指揮官巡邏盯進度，視線內隨機抓真實同仁進會議室關門檢討 10 秒！
         const isNightTime = this.isNightTime();
 
-        if (!isNightTime && followTarget) {
+        // 僅由權威主機（房長或單機）判定白天抓同仁進會議室關門檢討 10 秒，避免分歧
+        if (!hasActiveRemoteMaster && !isNightTime && followTarget) {
           const inSight = this.isPlayerInSight(npc, followTarget);
           if (
             inSight &&
@@ -1193,6 +1228,15 @@ class EphemeralOfficeNetwork {
                 createdAt: now,
                 expiresAt: now + 10000,
               };
+              this.broadcastPacket('meeting_pull', {
+                npcId: npc.id,
+                roomId,
+                roomX: roomX - 38,
+                roomY,
+                targetId: followTarget.id,
+                targetName,
+                murmurText: npc.murmur.text,
+              });
               if (this.callbacks.onMeetingPull) {
                 this.callbacks.onMeetingPull(npc, roomId, roomX + 36, roomY, followTarget);
               }
@@ -1215,7 +1259,7 @@ class EphemeralOfficeNetwork {
               npc.actionState = followTarget.actionState;
             }
           }
-          if (!npc.murmur || now >= npc.murmur.expiresAt - 800) {
+          if (this.isRoomMaster() && (!npc.murmur || now >= npc.murmur.expiresAt - 800)) {
             const line =
               npc.murmurs[Math.floor(Math.random() * npc.murmurs.length)];
             npc.murmur = {
