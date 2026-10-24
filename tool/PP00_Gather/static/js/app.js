@@ -3043,18 +3043,19 @@ function executeOfficeLogin(params) {
             unlockedMeeting = true;
           }
 
-          // 🦩 攻擊鳥人指揮官：10% 機率將其打飛出大氣層（暫時退場休養 60 秒，之後會重新返回）
+          // 🦩 攻擊鳥人指揮官：10% 機率將其打飛出大氣層（暫時退場休養 3 分鐘，之後會重新返回）
           const exileChance = 0.33; // 命中 30% 中的 33%，約佔整體 10%
           if (Math.random() < exileChance) {
-            localPlayer.birdCommanderRestUntil = now + 60000;
+            const exileMs = window.GATHER_CONFIG?.security?.birdExileCooldownMs || 180000;
+            localPlayer.birdCommanderRestUntil = now + exileMs;
             savePersistentState();
             network.npcPlayers.delete(npc.id);
             spawnConfetti(npc.x, npc.y - 20);
             pushStatusLog(
               '你',
-              `🦩 💥 巨力超重擊！鳥人指揮官被打飛至大氣層（觸發 10% 終極擊退：鳥人暫時退場休養 60 秒）！`
+              `🦩 💥 巨力超重擊！鳥人指揮官被打飛至大氣層（觸發 10% 終極擊退：鳥人暫時退場休養 3 分鐘）！`
             );
-            showToast('🦩 💥 觸發 10% 終極擊退！鳥人指揮官被打飛休養，60秒後返回！', 'join');
+            showToast('🦩 💥 觸發 10% 終極擊退！鳥人指揮官被打飛休養，3分鐘後返回！', 'join');
             network.broadcastPacket('npc_reaction', {
               npcId: npc.id,
               reaction: 'exile',

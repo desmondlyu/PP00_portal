@@ -567,3 +567,56 @@ test('Director PP00 repairs workstations with ERROR screen and NPC dialogue bubb
   assert.ok(appCode.includes('const pillY = p.y - 68;'), 'app.js must anchor pillY to ground p.y without jumpOffset subtraction');
   assert.ok(!appCode.includes('pillY - msgH - 32 + Math.sin'), 'app.js must not oscillate emote above dialogue card');
 });
+
+
+test('Bird commander: follows only when player is nearby (<= 400px), releases when far away (> 460px), and exile cooldown is 3 minutes', () => {
+  const env = createTestEnv();
+  const net = new env.window.EphemeralOfficeNetwork();
+  net.connect({ name: 'Alice', unit: 'PP10', x: 2000, y: 2000 }); // Far away (dist > 1000px from bird at 1060, 520)
+  net.clientId = 'usr_000_master'; // Local is master
+
+  const bird = net.npcPlayers.get('npc_bird_commander');
+  assert.ok(bird, 'Bird commander must exist');
+  bird.followPlayerUntil = 0;
+  bird.followCooldownUntil = 0;
+
+  env.window.GATHER_CONFIG.security.birdFollowChance = 1.0; // 100% chance to follow if eligible
+  env.window.GATHER_CONFIG.security.birdFollowRadiusPx = 400;
+
+  // 1. Far away player (>400px) should NOT be followed
+  net.update(60);
+  assert.ok(!bird.followTargetId, 'Bird should NOT follow player farther than 400px');
+
+  // 2. Move Alice nearby (dist ~ 100px)
+  net.localPlayer.x = bird.x + 80;
+  net.localPlayer.y = bird.y + 60;
+  net.update(60);
+  assert.equal(bird.followTargetId, net.localPlayer.id, 'Bird SHOULD follow player when within 400px proximity');
+
+  // 3. Move Alice far away (> 460px) -> Bird should release follow target
+  net.localPlayer.x = bird.x + 500;
+  net.localPlayer.y = bird.y + 500;
+  net.update(61);
+  assert.equal(bird.followTargetId, null, 'Bird should release target when player is beyond 460px distance');
+
+  // 4. Exile cooldown is 3 minutes (180,000ms)
+  const now = Date.now();
+  const exileMs = env.window.GATHER_CONFIG.security.birdExileCooldownMs;
+  assert.equal(exileMs, 180000, 'Bird exile cooldown config must be 180000ms (3 minutes)');
+
+  env.localStorage.setItem('PP00_GATHER_PERSISTENCE_v1', JSON.stringify({
+    birdCommanderRestUntil: now + 180000,
+  }));
+  net.npcPlayers.delete('npc_bird_commander');
+
+  // At 2 minutes elapsed, restUntil is not yet reached -> Should NOT respawn
+  net.update(60);
+  assert.equal(net.npcPlayers.has('npc_bird_commander'), false, 'Bird commander should not respawn before 3 minutes elapse');
+
+  // After 3 minutes elapsed -> Should respawn
+  env.localStorage.setItem('PP00_GATHER_PERSISTENCE_v1', JSON.stringify({
+    birdCommanderRestUntil: now - 5000,
+  }));
+  net.update(60);
+  assert.ok(net.npcPlayers.has('npc_bird_commander'), 'Bird commander should respawn after 3 minutes cooldown finishes');
+});
