@@ -196,3 +196,81 @@ test('Mobile viewport and chat form styles prevent auto-zoom and horizontal layo
   // Verify landscape orientation styling for mobile
   assert.match(css, /orientation:\s*landscape/, 'CSS must include landscape orientation responsive styling');
 });
+
+test('Cleaner Auntie performs wash_hands ONLY in restroom and sweep_floor everywhere else', () => {
+  const env = createTestEnv();
+  const net = new env.window.EphemeralOfficeNetwork();
+  net.connect({ name: 'Host', unit: 'PP10', x: 200, y: 200 });
+
+  const auntie = net.npcPlayers.get('npc_auntie_meifeng');
+  assert.ok(auntie, 'Cleaner auntie should exist');
+
+  // 1. Outside restroom (e.g. hallway at x: 1060, y: 520)
+  auntie.x = 1060;
+  auntie.y = 520;
+  auntie.actionUntil = 0;
+  for (let t = 0; t < 170; t++) {
+    net.update(t);
+  }
+  assert.equal(auntie.actionState, 'sweep_floor', 'Outside restroom, auntie must perform sweep_floor');
+
+  // 2. Inside restroom area (e.g. near sinks at x: 2250, y: 650)
+  auntie.x = 2250;
+  auntie.y = 650;
+  auntie.targetX = 2250;
+  auntie.targetY = 650;
+  auntie.actionUntil = 0;
+  for (let t = 0; t < 170; t++) {
+    net.update(t);
+  }
+  assert.equal(auntie.actionState, 'wash_hands', 'Inside restroom, auntie must perform wash_hands');
+  assert.equal(auntie.actionState, 'wash_hands', 'Inside restroom, auntie must perform wash_hands');
+  assert.equal(auntie.targetX, 2255, 'Auntie should navigate toward sensor sink');
+});
+
+test('Injury bandage animation and 5-second medical healing packets restore injured player', () => {
+  const env = createTestEnv();
+  const net = new env.window.EphemeralOfficeNetwork();
+  net.connect({ name: 'Victim', unit: 'PP10', x: 400, y: 1350 });
+
+  // Simulate local player critical injury
+  net.localPlayer.isInjured = true;
+  net.localPlayer.injuredUntil = Date.now() + 300000;
+  net.localPlayer.actionState = 'sleep_bed';
+
+  // Remote healer Bob initiates 5-second heal
+  net.handleIncomingPacket({
+    type: 'heal_start',
+    nonce: 'nonce_heal_start_1',
+    healerId: 'usr_bob',
+    healerName: 'Bob',
+    targetId: net.clientId,
+  });
+
+  assert.equal(net.localPlayer.beingHealed, true, 'Victim should enter beingHealed state');
+  assert.equal(net.localPlayer.beingHealedBy, 'Bob');
+
+  // Progress update
+  net.handleIncomingPacket({
+    type: 'heal_progress',
+    nonce: 'nonce_heal_progress_1',
+    healerId: 'usr_bob',
+    targetId: net.clientId,
+    progress: 0.6,
+  });
+  assert.equal(net.localPlayer.healProgress, 0.6);
+
+  // 5 seconds completion
+  net.handleIncomingPacket({
+    type: 'heal_complete',
+    nonce: 'nonce_heal_complete_1',
+    healerId: 'usr_bob',
+    healerName: 'Bob',
+    targetId: net.clientId,
+    targetName: 'Victim',
+  });
+
+  assert.equal(net.localPlayer.isInjured, false, 'Player isInjured must be cleared after heal_complete');
+  assert.equal(net.localPlayer.beingHealed, false);
+  assert.equal(net.localPlayer.actionState, null, 'Sleep pose must be cleared after full recovery');
+});

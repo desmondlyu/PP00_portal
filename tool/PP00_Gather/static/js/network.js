@@ -627,6 +627,11 @@ class EphemeralOfficeNetwork {
       y: Math.round(this.localPlayer.y),
       dir: this.localPlayer.dir,
       isMoving: this.localPlayer.isMoving,
+      isInjured: !!this.localPlayer.isInjured,
+      injuredUntil: this.localPlayer.injuredUntil || 0,
+      beingHealed: !!this.localPlayer.beingHealed,
+      beingHealedBy: this.localPlayer.beingHealedBy || null,
+      healProgress: this.localPlayer.healProgress || 0,
     };
   }
 
@@ -698,6 +703,11 @@ class EphemeralOfficeNetwork {
       y: Number(pData.y) || 520,
       dir: pData.dir || 'down',
       isMoving: !!pData.isMoving,
+      isInjured: pData.isInjured !== undefined ? !!pData.isInjured : !!existing.isInjured,
+      injuredUntil: pData.injuredUntil !== undefined ? pData.injuredUntil : (existing.injuredUntil || 0),
+      beingHealed: pData.beingHealed !== undefined ? !!pData.beingHealed : !!existing.beingHealed,
+      beingHealedBy: pData.beingHealedBy !== undefined ? pData.beingHealedBy : (existing.beingHealedBy || null),
+      healProgress: pData.healProgress !== undefined ? pData.healProgress : (existing.healProgress || 0),
       jumpOffset: existing.jumpOffset || 0,
       murmur: existing.murmur || null,
       emote: existing.emote || null,
@@ -720,6 +730,72 @@ class EphemeralOfficeNetwork {
     }
 
     switch (pkt.type) {
+      case 'heal_start': {
+        if (this.localPlayer && this.localPlayer.id === pkt.targetId) {
+          this.localPlayer.beingHealed = true;
+          this.localPlayer.beingHealedBy = pkt.healerName;
+        }
+        const target = this.remotePlayers.get(pkt.targetId);
+        if (target) {
+          target.beingHealed = true;
+          target.beingHealedBy = pkt.healerName;
+        }
+        if (this.callbacks.onRemoteHealStart) {
+          this.callbacks.onRemoteHealStart(pkt);
+        }
+        break;
+      }
+      case 'heal_progress': {
+        if (this.localPlayer && this.localPlayer.id === pkt.targetId) {
+          this.localPlayer.beingHealed = true;
+          this.localPlayer.healProgress = pkt.progress;
+        }
+        const target = this.remotePlayers.get(pkt.targetId);
+        if (target) {
+          target.beingHealed = true;
+          target.healProgress = pkt.progress;
+        }
+        if (this.callbacks.onRemoteHealProgress) {
+          this.callbacks.onRemoteHealProgress(pkt);
+        }
+        break;
+      }
+      case 'heal_cancel': {
+        if (this.localPlayer && this.localPlayer.id === pkt.targetId) {
+          this.localPlayer.beingHealed = false;
+          this.localPlayer.healProgress = 0;
+        }
+        const target = this.remotePlayers.get(pkt.targetId);
+        if (target) {
+          target.beingHealed = false;
+          target.healProgress = 0;
+        }
+        if (this.callbacks.onRemoteHealCancel) {
+          this.callbacks.onRemoteHealCancel(pkt);
+        }
+        break;
+      }
+      case 'heal_complete': {
+        if (this.localPlayer && this.localPlayer.id === pkt.targetId) {
+          this.localPlayer.isInjured = false;
+          this.localPlayer.injuredUntil = 0;
+          this.localPlayer.beingHealed = false;
+          this.localPlayer.healProgress = 0;
+          this.localPlayer.actionState = null;
+        }
+        const target = this.remotePlayers.get(pkt.targetId);
+        if (target) {
+          target.isInjured = false;
+          target.injuredUntil = 0;
+          target.beingHealed = false;
+          target.healProgress = 0;
+          target.actionState = null;
+        }
+        if (this.callbacks.onRemoteHealComplete) {
+          this.callbacks.onRemoteHealComplete(pkt);
+        }
+        break;
+      }
       case 'leave_announce': {
         if (pkt.player && pkt.player.id !== pkt.senderId) return;
         this.markPlayerLeft(pkt.senderId);
@@ -1404,12 +1480,16 @@ class EphemeralOfficeNetwork {
                 npc.targetY = wp.y;
               }
             } else if (npc.isSweeper) {
-              if (Math.random() < actionChance) {
-                const auntieActions = ['slack_nap', 'drink_coffee', 'wash_hands', 'daydream'];
-                npc.actionState =
-                  auntieActions[Math.floor(Math.random() * auntieActions.length)];
-                npc.actionUntil = now + 8000 + Math.random() * 6000;
+              // 判定打掃阿姨是否位於廁所/洗手台區域 (x: 2180~2650, y: 560~1080)
+              const inRestroomArea = npc.x >= 2180 && npc.x <= 2650 && npc.y >= 560 && npc.y <= 1080;
+              if (inRestroomArea) {
+                // 只在廁所進行洗手搓泡動作
+                npc.actionState = 'wash_hands';
+                npc.actionUntil = now + 7000 + Math.random() * 4000;
+                npc.targetX = 2255; // 走向 1 號感應泡沫洗手台
+                npc.targetY = 682;
               } else {
+                // 其餘所有地方一律進行掃地動作，不再摸魚或喝咖啡
                 npc.actionState = 'sweep_floor';
                 npc.waypointIdx = (npc.waypointIdx + 1) % npc.waypoints.length;
                 const wp = npc.waypoints[npc.waypointIdx];
