@@ -816,3 +816,24 @@ test('Private chat center modal is shown ONLY when chat window is collapsed', ()
   context.window.dismissCenterPrivateChatBox();
   assert.equal(card.classList.contains('fade-out'), true, 'Dismissing card should apply fade-out class');
 });
+
+test('Mobile chat panel supports chat-only filter and desktop chat is scaled up 50%', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../static/css/style.css'), 'utf8');
+
+  // Verify desktop chat width is scaled to 615px (410px * 1.5)
+  assert.ok(css.includes('width: 615px;'), 'Desktop prox-chat-panel should be scaled by 50% to width 615px');
+  assert.ok(css.includes('height: 384px;'), 'Desktop prox-chat-messages should be scaled by 50% to height 384px');
+
+  // Verify mobile chat-filter-toggle is explicitly displayed
+  assert.ok(
+    css.includes('.prox-chat-panel.mobile-open .chat-filter-toggle {'),
+    'Mobile chat panel must style and display .chat-filter-toggle'
+  );
+
+  // Verify mobile chat form prevents wrapping to avoid squishing
+  assert.ok(
+    css.includes('.prox-chat-panel.mobile-open .prox-chat-form {') &&
+      css.includes('flex-wrap: nowrap !important;'),
+    'Mobile chat form must have nowrap to prevent cramped wrapping'
+  );
+});

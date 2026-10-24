@@ -1776,12 +1776,12 @@
       if (window.innerWidth <= 900) {
         const shouldOpen = forceOpen !== null ? forceOpen : !chatPanel.classList.contains('mobile-open');
         chatPanel.classList.toggle('mobile-open', shouldOpen);
-        chatPanel.classList.remove('chat-minimized');
+        chatPanel.classList.toggle('chat-minimized', !shouldOpen);
         if (mobileChatBtn) mobileChatBtn.classList.toggle('active', shouldOpen);
         if (shouldOpen) {
           clearChatNotifyFlash();
           dismissCenterPrivateChatBox();
-          document.getElementById('proxChatInput')?.focus();
+          // 手機模式下展開聊天視窗不自動 focus 輸入框，避免強制彈出手機虛擬鍵盤擠壓畫面
         }
       } else {
         const isMin = forceOpen !== null ? !forceOpen : chatPanel.classList.toggle('chat-minimized');
@@ -2146,8 +2146,10 @@
         drawer.classList.add('mobile-open');
       }
       clearChatNotifyFlash();
-      const input = document.getElementById('proxChatInput');
-      if (input) input.focus();
+      if (window.innerWidth > 900) {
+        const input = document.getElementById('proxChatInput');
+        if (input) input.focus();
+      }
       return;
     }
 
