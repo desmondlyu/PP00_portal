@@ -714,3 +714,105 @@ test('Monster and item spawn configurations are balanced and capped at lower rat
   assert.equal(sec.randomDropBatchCount, 2, 'Drop batch count should be lowered to 2');
   assert.equal(sec.maxGroundItems, 4, 'Max ground items should be lowered to 4');
 });
+
+test('Private chat center modal is shown ONLY when chat window is collapsed', () => {
+  const nodes = new Map();
+  const doc = {
+    getElementById: (id) => nodes.get(id) || null,
+    querySelectorAll: () => [],
+    addEventListener: () => {},
+    body: {
+      appendChild: (c) => nodes.set(c.id, c),
+      removeChild: (c) => nodes.delete(c.id),
+    },
+    createElement: (t) => {
+      const el = {
+        id: '',
+        className: '',
+        style: {},
+        classList: {
+          classes: new Set(),
+          add(c) { this.classes.add(c); },
+          remove(c) { this.classes.delete(c); },
+          contains(c) { return this.classes.has(c); },
+        },
+        innerHTML: '',
+        querySelector: () => ({ onclick: null }),
+        addEventListener: () => {},
+      };
+      return el;
+    },
+  };
+
+  const context = {
+    console,
+    Date,
+    Math,
+    setTimeout: (fn) => setTimeout(fn, 0),
+    clearTimeout: () => {},
+    localStorage: { getItem: () => null },
+    document: doc,
+    window: {
+      addEventListener: () => {},
+      matchMedia: () => ({ matches: false }),
+      innerWidth: 1200,
+      WORLD_MAP: { toiletStalls: [] },
+    },
+  };
+  context.window.document = doc;
+  context.window.window = context.window;
+  vm.createContext(context);
+
+  vm.runInContext(fs.readFileSync(path.join(root, 'config.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(root, 'network.js'), 'utf8'), context);
+
+  let appSrc = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  appSrc = appSrc.replace("window.addEventListener('DOMContentLoaded', init);", 'window.__testInit = init;');
+  vm.runInContext(appSrc, context);
+
+  // 1. Setup mock chat panel element with chat-minimized (desktop collapsed)
+  const panelClasses = new Set(['chat-minimized']);
+  const mockChatPanel = {
+    id: 'proxChatPanel',
+    classList: {
+      contains: (c) => panelClasses.has(c),
+      add: (c) => panelClasses.add(c),
+      remove: (c) => panelClasses.delete(c),
+    },
+  };
+  nodes.set('proxChatPanel', mockChatPanel);
+
+  // Desktop collapsed: isChatPanelCollapsed should be true
+  assert.equal(context.window.isChatPanelCollapsed(), true, 'Desktop with chat-minimized should be collapsed');
+
+  // Desktop expanded (remove chat-minimized): isChatPanelCollapsed should be false
+  panelClasses.delete('chat-minimized');
+  assert.equal(context.window.isChatPanelCollapsed(), false, 'Desktop without chat-minimized should be expanded');
+
+  // Mobile collapsed (screen <= 900 without mobile-open): isChatPanelCollapsed should be true
+  context.window.innerWidth = 414;
+  assert.equal(context.window.isChatPanelCollapsed(), true, 'Mobile without mobile-open should be collapsed');
+
+  // Mobile expanded: add mobile-open -> isChatPanelCollapsed should be false
+  panelClasses.add('mobile-open');
+  assert.equal(context.window.isChatPanelCollapsed(), false, 'Mobile with mobile-open should be expanded');
+
+  // 2. Test showCenterPrivateChatBox creates center card with message details
+  nodes.delete('centerPrivateMsgCard');
+  context.window.showCenterPrivateChatBox({
+    senderName: 'Carol',
+    senderUnit: 'PP00-QA',
+    text: '請確認今天的晶圓批次進度！',
+  });
+
+  const card = nodes.get('centerPrivateMsgCard');
+  assert.ok(card, 'Center private message card element should be created');
+  assert.ok(card.innerHTML.includes('Carol'), 'Card should contain sender name');
+  assert.ok(card.innerHTML.includes('PP00-QA'), 'Card should contain sender unit');
+  assert.ok(card.innerHTML.includes('請確認今天的晶圓批次進度！'), 'Card should contain message text');
+  assert.ok(card.innerHTML.includes('💬 立即開啟聊天回覆'), 'Card should contain reply action button');
+
+  // 3. Test dismissCenterPrivateChatBox fades out card
+  context.window.dismissCenterPrivateChatBox();
+  assert.equal(card.classList.contains('fade-out'), true, 'Dismissing card should apply fade-out class');
+});

@@ -505,6 +505,254 @@ html {
 }
 
 /* =========================================================================
+   🔒 私人訊息中置高亮方塊卡片（聊天視窗縮合時顯著顯示於畫面正中央）
+   ========================================================================= */
+.center-private-msg-card {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  background: linear-gradient(135deg, rgba(20, 24, 44, 0.96) 0%, rgba(13, 16, 30, 0.98) 100%);
+  border: 2px solid rgba(192, 132, 252, 0.85);
+  border-radius: 18px;
+  padding: 20px 22px 24px 22px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(168, 85, 247, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  z-index: 10002;
+  color: #f8fafc;
+  animation: centerMsgPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: auto;
+  font-family: inherit;
+  overflow: hidden;
+}
+
+.center-private-msg-card.fade-out {
+  animation: centerMsgPopOut 0.24s cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes centerMsgPopIn {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -44%) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes centerMsgPopOut {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -56%) scale(0.92);
+  }
+}
+
+.center-private-msg-card .cp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.center-private-msg-card .cp-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.center-private-msg-card .cp-icon {
+  font-size: 20px;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(192, 132, 252, 0.7));
+}
+
+.center-private-msg-card .cp-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #f3e8ff;
+  letter-spacing: 0.5px;
+}
+
+.center-private-msg-card .cp-badge {
+  background: rgba(168, 85, 247, 0.25);
+  border: 1px solid rgba(192, 132, 252, 0.5);
+  color: #e9d5ff;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.center-private-msg-card .cp-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.center-private-msg-card .cp-close-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.center-private-msg-card .cp-sender-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-bottom: 14px;
+}
+
+.center-private-msg-card .cp-sender-avatar {
+  font-size: 18px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(99, 102, 241, 0.35));
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.center-private-msg-card .cp-sender-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.center-private-msg-card .cp-sender-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.center-private-msg-card .cp-sender-unit {
+  font-size: 11px;
+  color: #c084fc;
+  font-weight: 600;
+}
+
+.center-private-msg-card .cp-time {
+  font-size: 11px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.center-private-msg-card .cp-body {
+  margin-bottom: 18px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.center-private-msg-card .cp-text {
+  font-size: 15px;
+  line-height: 1.55;
+  color: #f8fafc;
+  word-break: break-word;
+  margin: 0;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.32);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 3.5px solid #c084fc;
+}
+
+.center-private-msg-card .cp-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.center-private-msg-card .cp-btn {
+  padding: 11px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+
+.center-private-msg-card .cp-btn-primary {
+  flex: 1;
+  background: linear-gradient(135deg, #9333ea 0%, #6366f1 100%);
+  border: none;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(147, 51, 234, 0.45);
+}
+
+.center-private-msg-card .cp-btn-primary:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 6px 20px rgba(147, 51, 234, 0.6);
+  transform: translateY(-1px);
+}
+
+.center-private-msg-card .cp-btn-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.center-private-msg-card .cp-btn-secondary {
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #cbd5e1;
+}
+
+.center-private-msg-card .cp-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.center-private-msg-card .cp-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.center-private-msg-card .cp-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #c084fc, #a855f7);
+  width: 100%;
+  transform-origin: left;
+  animation: cpCountdown 9000ms linear forwards;
+}
+
+@keyframes cpCountdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* =========================================================================
    3. 左側「🏢 PP00 虛擬辦公室」可縮合面板（預設縮合）
    ========================================================================= */
 .left-gather-panel {
@@ -2025,6 +2273,22 @@ button { touch-action: manipulation; }
     background: rgba(15, 23, 42, 0.88);
     backdrop-filter: blur(10px);
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  }
+  .center-private-msg-card {
+    width: min(90vw, 380px);
+    padding: 15px 16px 18px 16px;
+    border-radius: 14px;
+  }
+  .center-private-msg-card .cp-title {
+    font-size: 15px;
+  }
+  .center-private-msg-card .cp-text {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+  .center-private-msg-card .cp-btn {
+    padding: 9px 12px;
+    font-size: 12px;
   }
   @keyframes panelPopIn {
     from {
