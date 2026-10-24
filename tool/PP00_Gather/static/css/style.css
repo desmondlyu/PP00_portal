@@ -1,3 +1,19 @@
+
+/* 取消手機版畫面與搖桿長按複製、貼上與選取反白等模擬右鍵行為 */
+html, body, #officeCanvas, .touch-controls, .touch-move-pad, .touch-move-knob, .touch-interact-btn, .skill-btn, .game-icon-btn, .bottom-hud-dock {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  -khtml-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.touch-move-pad, .touch-move-knob, .touch-interact-btn, #officeCanvas {
+  touch-action: none !important;
+}
+
 /* PP00 Gather Office — 3D 像素園區 + 可縮合雙面板 + 10 種情境動作 + 暴走攻擊警告樣式 */
 
 :root {
@@ -1446,8 +1462,29 @@ html {
 }
 
 .prox-chat-item.self {
-  background: rgba(37, 99, 235, 0.24);
-  border-left-color: #60a5fa;
+  background: rgba(16, 185, 129, 0.16);
+  border-left: 4px solid #10b981;
+}
+
+.prox-chat-item.self .prox-chat-author {
+  color: #34d399;
+}
+
+.prox-chat-item.self .prox-chat-text {
+  color: #ecfdf5;
+}
+
+.prox-chat-item.other {
+  background: rgba(15, 23, 42, 0.82);
+  border-left: 4px solid #38bdf8;
+}
+
+.prox-chat-item.other .prox-chat-author {
+  color: #38bdf8;
+}
+
+.prox-chat-item.other .prox-chat-text {
+  color: #f8fafc;
 }
 
 .prox-chat-item.kind-status {
@@ -1795,9 +1832,47 @@ html {
 
 /* 🔒 私人密語對談訊息樣式 */
 .prox-chat-item.whisper {
-  background: rgba(147, 51, 234, 0.18);
-  border-left: 3px solid #a855f7;
-  border-radius: 4px;
+  border-radius: 6px;
+}
+
+/* 自己發出的私人密語 (琥珀金黃色調) */
+.prox-chat-item.whisper.self {
+  background: rgba(245, 158, 11, 0.16);
+  border-left: 4px solid #f59e0b;
+}
+
+.prox-chat-item.whisper.self .whisper-badge.to {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  color: #ffffff;
+}
+
+.prox-chat-item.whisper.self .whisper-target-label {
+  color: #fbbf24 !important;
+  font-weight: 700;
+}
+
+.prox-chat-item.whisper.self .prox-chat-text {
+  color: #fef3c7;
+}
+
+/* 對方發給自己的私人密語 (洋紅粉紫色調) */
+.prox-chat-item.whisper.from {
+  background: rgba(217, 70, 239, 0.18);
+  border-left: 4px solid #ec4899;
+}
+
+.prox-chat-item.whisper.from .whisper-badge.from {
+  background: linear-gradient(135deg, #db2777, #9d174d);
+  color: #ffffff;
+}
+
+.prox-chat-item.whisper.from .whisper-target-label {
+  color: #f472b6 !important;
+  font-weight: 700;
+}
+
+.prox-chat-item.whisper.from .prox-chat-text {
+  color: #fdf2f8;
 }
 
 .whisper-badge {

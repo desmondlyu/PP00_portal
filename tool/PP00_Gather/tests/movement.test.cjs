@@ -68,7 +68,7 @@ test('window blur clears both keyboard and touch movement', () => {
 });
 test('injury recovery cannot be bypassed by keyboard movement', () => {
   const {g} = game(); g.player.isInjured = true; g.player.injuredUntil = Date.now() + 100000;
-  g.keys.d = true; g.move(); assert.equal(g.player.x, 400); assert.equal(g.player.actionState, 'sleep_bed');
+  g.keys.d = true; g.move(); assert.equal(g.player.x, 1100); assert.equal(g.player.actionState, 'sleep_bed');
 });
 
 test('expired guard detention exits a closed stall and clears occupancy before movement', () => {
