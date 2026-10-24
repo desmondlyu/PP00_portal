@@ -291,3 +291,71 @@ test('logout waits for pending registration and is idempotent', async () => {
   await logout;
   assert.deepEqual(calls, ['logout']);
 });
+
+
+test('background network interruption is quiet, foreground persistent failures still alert', async () => {
+  const env = createTestEnv();
+  const sync = new env.window.GatherSupabaseSync();
+  let alerts = 0; sync.callbacks.onError = () => alerts++;
+  const fail = () => Promise.resolve({error: {message: 'Failed to fetch'}, status: 0});
+  env.document.hidden = true;
+  await assert.rejects(sync.checked(fail(), true));
+  assert.equal(alerts, 0);
+  env.document.hidden = false;
+  await assert.rejects(sync.checked(fail(), true));
+  assert.equal(alerts, 0);
+  await assert.rejects(sync.checked(fail(), true));
+  assert.equal(alerts, 1);
+  await sync.checked(Promise.resolve({error: null}), true);
+  assert.equal(sync.visibleSyncFailures, 0);
+});
+
+test('a request interrupted by hiding remains quiet even if it finishes after return', async () => {
+  const env = createTestEnv(); const sync = new env.window.GatherSupabaseSync();
+  let alerts = 0; sync.callbacks.onError = () => alerts++;
+  let finish;
+  const query = new Promise(resolve => { finish = resolve; });
+  const request = sync.checked(query, true);
+  sync.visibilityEpoch += 2;
+  finish({error: {message: 'AbortError: timed out'}, status: 0});
+  await assert.rejects(request);
+  assert.equal(alerts, 0);
+});
+
+test('permission errors remain visible and heartbeat restores the latest session with upsert', async () => {
+  const env = createTestEnv(); const sync = new env.window.GatherSupabaseSync();
+  let alerts = 0; sync.callbacks.onError = () => alerts++;
+  await assert.rejects(sync.checked(Promise.resolve({error: {message: 'permission denied', code: '42501'}, status: 403}), true));
+  assert.equal(alerts, 1);
+  const writes = [];
+  sync.client = {from: table => ({upsert: row => {writes.push({table, row});return Promise.resolve({error: null});}})};
+  sync.currentUser = {id: 'same-session', name: 'Alice', unit: 'PP32', x: 0, y: 30, equippedSlots: ['item']};
+  env.document.hidden = true;
+  await sync.queueHeartbeat(); assert.equal(writes.length, 0);
+  env.document.hidden = false;
+  await Promise.all([sync.queueHeartbeat(), sync.queueHeartbeat()]);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].row.client_id, 'same-session');
+  assert.equal(writes[0].row.x, 0);
+  assert.equal(writes[0].table, 'gather_online_users');
+});
+
+test('visibility return schedules one fresh write without another login audit', async () => {
+  const env = createTestEnv(); const listeners = {}; let writes = 0;
+  env.setInterval = () => 1; env.clearInterval = () => {};
+  env.document.addEventListener = (type, handler) => { listeners[type] = handler; };
+  env.window.supabase = {createClient: () => ({from: table => {
+    assert.equal(table, 'gather_online_users');
+    return {upsert: () => { writes++; return Promise.resolve({error: null}); }};
+  }})};
+  const sync = new env.window.GatherSupabaseSync();
+  sync.fetchGameConfig = () => {}; sync.subscribeRealtime = () => {};
+  sync.currentUser = {id: 'same-session', name: 'Alice', unit: 'PP32'};
+  sync.init();
+  env.document.hidden = true; listeners.visibilitychange();
+  await sync.queueHeartbeat(); assert.equal(writes, 0);
+  env.document.hidden = false; listeners.visibilitychange();
+  await sync.pending;
+  assert.equal(writes, 1);
+  assert.equal(sync.heartbeatTimer, 1);
+});

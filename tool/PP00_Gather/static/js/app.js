@@ -305,7 +305,8 @@
       onConnectionChange: (connected, label) => {
         const badge = document.getElementById('netModeBadge');
         if (badge) {
-          badge.textContent = connected ? `⚡ ${label}` : '📡 本地瞬時頻道';
+          badge.textContent = connected ? '● 多人連線正常' : '○ 多人連線中斷，重新連線中';
+          badge.title = '顯示玩家位置與聊天的連線狀態，不代表資料庫存檔結果。';
         }
       },
     });
@@ -1106,7 +1107,7 @@
 
       if (window.gatherSupabase) {
         window.gatherSupabase.init({ callbacks: {
-          onError: () => showToast('資料庫同步失敗，紀錄可能未儲存。', 'error'),
+          onError: () => showToast('資料同步尚未成功；最近狀態可能未儲存，請確認網路連線。', 'error'),
         } });
         window.gatherSupabase.registerUser(localPlayer);
       }
@@ -3775,14 +3776,28 @@
   // =========================================================================
   // 7. 主遊戲更新與渲染迴圈
   // =========================================================================
+  function fitOverviewCamera() {
+    const compact = window.innerWidth <= 900 || window.matchMedia('(pointer: coarse)').matches;
+    const hud = compact ? document.querySelector('.mobile-hud-stack')?.getBoundingClientRect() : null;
+    const dock = compact ? document.querySelector('.bottom-hud-dock')?.getBoundingClientRect() : null;
+    const left = 8;
+    const top = Math.max(8, (hud?.bottom || 0) + 8);
+    const bottom = Math.max(top + 1, Math.min(canvas.height - 8, (dock?.top ?? canvas.height) - 8));
+    const width = Math.max(1, canvas.width - 16);
+    const height = bottom - top;
+    camera.zoom = Math.min(width / window.WORLD_MAP.width, height / window.WORLD_MAP.height);
+    // Camera coordinates are world units. Negative offsets place the map inside
+    // the visible play area and preserve the existing click-to-world conversion.
+    camera.x = -(left + (width - window.WORLD_MAP.width * camera.zoom) / 2) / camera.zoom;
+    camera.y = -(top + (height - window.WORLD_MAP.height * camera.zoom) / 2) / camera.zoom;
+  }
+
   function handleResize() {
     if (!canvas) return;
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     if (camera.overviewMode) {
-      const scaleX = canvas.width / window.WORLD_MAP.width;
-      const scaleY = canvas.height / window.WORLD_MAP.height;
-      camera.zoom = Math.min(scaleX, scaleY) * 0.96;
+      fitOverviewCamera();
     } else {
       camera.zoom = window.innerWidth <= 900
         ? Math.max(0.62, Math.min(0.9, Math.min(canvas.width, canvas.height) / 550))
@@ -4163,8 +4178,7 @@
     }
 
     if (camera.overviewMode) {
-      camera.x = 0;
-      camera.y = 0;
+      fitOverviewCamera();
     } else {
       const viewW = canvas.width / camera.zoom;
       const viewH = canvas.height / camera.zoom;

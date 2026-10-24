@@ -16,6 +16,7 @@ function game(realCollision = false) {
   const context = {console, setTimeout: () => 0, clearTimeout() {}, localStorage: {getItem: () => null},
     document: {getElementById: node, querySelectorAll: () => [], addEventListener(n, fn) { listeners[n] = fn; }},
     window: {addEventListener(n, fn) { listeners[n] = fn; }, matchMedia: () => ({matches: true})}, Date, Math};
+  context.window.document = context.document;
   vm.createContext(context);
   for (const name of ['config', 'world']) vm.runInContext(fs.readFileSync(path.join(root, name + '.js'), 'utf8'), context);
   let source = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
@@ -24,7 +25,7 @@ function game(realCollision = false) {
     network = {broadcastPacket() {}, getPublicState: () => localPlayer, getAllOtherPlayers: () => []};
     ecosystem = {groundItems: []};
     updatePoseLabelUI = () => {}; updateInjuryCountdownHUD = () => {}; pushStatusLog = () => {}; showToast = () => {};
-    window.game = {player: localPlayer, keys, move: updateLocalPlayerMovement, start: startContextualAction, setupTouch: setupTouchControls};
+    window.game = {fitOverview: (width, height) => { canvas = {width, height}; fitOverviewCamera(); return {...camera}; }, player: localPlayer, keys, move: updateLocalPlayerMovement, start: startContextualAction, setupTouch: setupTouchControls};
   `);
   vm.runInContext(source, context);
   if (!realCollision) context.window.isPositionBlocked = () => false;
@@ -101,3 +102,21 @@ test('guard detention still prevents early movement', () => {
   assert.equal(g.player.isRestrained, true);
   assert.equal(stall.occupiedBy, g.player.id);
 });
+
+for (const [width, height, hudBottom, dockTop] of [[390, 800, 160, 730], [844, 346, 190, 280], [320, 696, 350, 630]]) {
+  test(`overview fits between HUD and controls at ${width}x${height}`, () => {
+    const {g, window} = game();
+    window.innerWidth = width;
+    // Use actual world dimensions and the same camera transform as the renderer.
+    const document = window.document;
+    document.querySelector = selector => ({getBoundingClientRect: () => selector === '.mobile-hud-stack' ? {bottom: hudBottom} : {top: dockTop}});
+    const camera = g.fitOverview(width, height);
+    const x = -camera.x * camera.zoom, y = -camera.y * camera.zoom;
+    const right = x + window.WORLD_MAP.width * camera.zoom;
+    const bottom = y + window.WORLD_MAP.height * camera.zoom;
+    assert(x >= 8 - 1e-6 && right <= width - 8 + 1e-6);
+    assert(y >= hudBottom + 8 - 1e-6 && bottom <= dockTop - 8 + 1e-6);
+    assert(Math.abs((y + bottom) / 2 - (hudBottom + dockTop) / 2) < 1e-6);
+    assert(Math.abs((x + right) / 2 / camera.zoom + camera.x - window.WORLD_MAP.width / 2) < 1e-6);
+  });
+}

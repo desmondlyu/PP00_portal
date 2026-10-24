@@ -13,20 +13,45 @@
       this.pending = Promise.resolve();
       this.logoutPromise = null;
       this.lastErrorAt = 0;
+      this.visibilityEpoch = 0;
+      this.visibleSyncFailures = 0;
+      this.heartbeatQueued = false;
     }
 
-    async checked(query) {
-      // Supabase resolves API failures as { error }; they do not throw by default.
-      if (query.abortSignal && typeof AbortSignal !== 'undefined') query = query.abortSignal(AbortSignal.timeout(5000));
-      const result = await query;
-      if (result?.error) {
-        if (Date.now() - this.lastErrorAt > 30000) {
-          this.lastErrorAt = Date.now();
-          this.callbacks.onError?.(result.error);
+    async checked(query, backgroundSensitive = false) {
+      const epoch = this.visibilityEpoch;
+      let result;
+      try {
+        if (query.abortSignal && typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+          query = query.abortSignal(AbortSignal.timeout(5000));
         }
-        throw result.error;
+        result = await query;
+        if (result?.error) throw result.error;
+        if (backgroundSensitive) this.visibleSyncFailures = 0;
+        return result;
+      } catch (error) {
+        const transient = result?.status === 0 || result?.status >= 500 ||
+          /fetch|network|abort|timeout|timed out/i.test(String(error?.message || error?.name || ''));
+        const interrupted = typeof document !== 'undefined' && (document.hidden || epoch !== this.visibilityEpoch);
+        // Background suspension is retried on return. Permission/schema errors
+        // remain actionable; persistent foreground network failures still alert.
+        let notify = true;
+        if (transient && interrupted) notify = false;
+        else if (backgroundSensitive && transient) notify = ++this.visibleSyncFailures >= 2;
+        if (notify && Date.now() - this.lastErrorAt > 30000) {
+          this.lastErrorAt = Date.now();
+          this.callbacks.onError?.(error);
+        }
+        throw error;
       }
-      return result;
+    }
+
+    queueHeartbeat() {
+      if (this.logoutPromise || !this.currentUser || document.hidden) return this.pending;
+      if (this.heartbeatQueued) return this.pending;
+      this.heartbeatQueued = true;
+      this.pending = this.pending.then(() => this.heartbeat()).finally(() => { this.heartbeatQueued = false; });
+      return this.pending;
     }
 
     init(options = {}) {
@@ -42,6 +67,21 @@
           auth: { persistSession: false, autoRefreshToken: false },
         });
         this.isInitialized = true;
+        if (!this.visibilityHandler) {
+          this.visibilityHandler = () => {
+            this.visibilityEpoch++;
+            if (document.hidden) {
+              this.visibleSyncFailures = 0;
+              clearInterval(this.heartbeatTimer);
+              this.heartbeatTimer = null;
+            } else if (this.currentUser && !this.logoutPromise) {
+              this.startHeartbeat();
+              this.queueHeartbeat();
+            }
+          };
+          document.addEventListener('visibilitychange', this.visibilityHandler);
+          window.addEventListener('online', this.visibilityHandler);
+        }
         console.log('[SupabaseSync] Supabase Client 初始化成功');
 
         // 1. 從後端載入遊戲全域機率與規則設定，覆蓋前端預設值
@@ -143,56 +183,47 @@
         this.fetchOnlineUsers();
       } catch (err) {
         console.warn('[SupabaseSync] 註冊線上使用者失敗:', err);
+      } finally {
+        this.startHeartbeat();
       }
     }
 
     // 心跳定時更新
     startHeartbeat() {
-      if (this.logoutPromise) return;
+      if (this.logoutPromise || document.hidden) return;
       if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = setInterval(() => {
-        if (this.logoutPromise) return;
-        this.pending = this.pending.then(() => this.heartbeat());
-      }, 8000);
+      this.heartbeatTimer = setInterval(() => this.queueHeartbeat(), 8000);
     }
 
     async heartbeat() {
-        if (!this.client || !this.currentUser) return;
-        try {
-          const nowIso = new Date().toISOString();
-          await this.checked(this.client
-            .from('gather_online_users')
-            .update({
-              x: Math.round(this.currentUser.x || 880),
-              y: Math.round(this.currentUser.y || 525),
-              dir: this.currentUser.dir || 'down',
-              action_state: this.currentUser.actionState || null,
-              status: this.currentUser.status || 'active',
-              held_item: this.currentUser.heldItem || '🟢',
-              equipped_slots: this.currentUser.equippedSlots || [],
-              last_heartbeat: nowIso,
-            })
-            .eq('client_id', this.currentUser.id));
-
-        } catch (e) {
-          console.warn('[SupabaseSync] 心跳更新失敗:', e);
-        }
+      if (!this.client || !this.currentUser || this.logoutPromise || document.hidden) return;
+      const user = this.currentUser;
+      try {
+        // A suspended browser may return after its online row was removed.
+        // Upsert restores the same session; it does not emit another login audit.
+        await this.checked(this.client.from('gather_online_users').upsert({
+          client_id: user.id,
+          user_name: user.name,
+          unit: user.unit,
+          avatar_id: user.avatarId || 'frog_eng',
+          x: Math.round(user.x ?? 880),
+          y: Math.round(user.y ?? 525),
+          dir: user.dir || 'down',
+          action_state: user.actionState || null,
+          status: user.status || 'active',
+          held_item: user.heldItem || '🟢',
+          equipped_slots: user.equippedSlots || [],
+          last_heartbeat: new Date().toISOString(),
+        }), true);
+      } catch (error) {
+        console.warn('[SupabaseSync] 同步等待重試:', error);
+      }
     }
 
-    // 武器耐久度變更時立即同步
-    async syncDurability(equippedSlots) {
-      if (!this.client || !this.currentUser) return;
-      try {
-        await this.checked(this.client
-          .from('gather_online_users')
-          .update({
-            equipped_slots: equippedSlots || [],
-            last_heartbeat: new Date().toISOString(),
-          })
-          .eq('client_id', this.currentUser.id));
-      } catch (e) {
-        console.warn('[SupabaseSync] 耐久度同步失敗:', e);
-      }
+    syncDurability(equippedSlots) {
+      if (!this.currentUser || this.logoutPromise) return Promise.resolve();
+      this.currentUser.equippedSlots = equippedSlots || [];
+      return this.queueHeartbeat();
     }
 
     // 獲取線上人員名單
@@ -220,6 +251,11 @@
       if (this.logoutPromise) return this.logoutPromise;
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
+      if (this.visibilityHandler) {
+        document.removeEventListener('visibilitychange', this.visibilityHandler);
+        window.removeEventListener('online', this.visibilityHandler);
+        this.visibilityHandler = null;
+      }
       this.logoutPromise = this.pending.then(() => this.logoutUserNow());
       return this.logoutPromise;
     }
