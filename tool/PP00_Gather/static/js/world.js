@@ -698,6 +698,7 @@ class OfficeEcosystem {
     for (let i = this.mobs.length - 1; i >= 0; i--) {
       const mob = this.mobs[i];
 
+      if (mob.combatDown) continue;
       // 處理武器擊飛物理
       if (mob.knockback && mob.knockback.ticksLeft > 0) {
         const nx = mob.x + mob.knockback.vx;
