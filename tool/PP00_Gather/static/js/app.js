@@ -160,6 +160,7 @@
   let selectedAvatarIndex = 1;
 
   function init() {
+    document.documentElement.classList.toggle("embedded-office", window.parent !== window);
     canvas = document.getElementById('officeCanvas');
     ctx = canvas.getContext('2d');
 
@@ -4049,7 +4050,10 @@
   }
 
   function getMinimapRect() {
-    const w = window.innerWidth <= 900 ? 100 : 195;
+    if (window.innerWidth <= 900 || window.matchMedia('(pointer: coarse)').matches) {
+      return { x: -1000, y: -1000, w: 0, h: 0 };
+    }
+    const w = 195;
     const h = Math.round(w * 132 / 195);
     return {
       x: canvas.width - w - 16,
@@ -4061,6 +4065,7 @@
 
   function renderMinimapRadar(ctx, allPlayers) {
     const mm = getMinimapRect();
+    if (!mm.w) return;
     const scaleX = mm.w / window.WORLD_MAP.width;
     const scaleY = mm.h / window.WORLD_MAP.height;
 
