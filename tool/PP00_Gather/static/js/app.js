@@ -10,6 +10,7 @@
   // 安全性冷卻時間與自動閒置追蹤
   let lastUserActionAt = Date.now();
   let lastInteractAt = 0;
+  let lastWeaponAttackAt = 0;
   let isAutoIdled = false;
 
   // 聊天與動態紀錄佇列 (僅存於 RAM)
@@ -2168,12 +2169,9 @@ function executeOfficeLogin(params) {
         const chatInp = document.getElementById('proxChatInput');
         if (chatInp) chatInp.focus();
       }
-      // 熱鍵 F：揮動武器擊退 (含 1200ms 安全冷卻)
+      // 熱鍵 F：揮動武器擊退 (冷卻縮短至 250ms，支援連續連發打擊)
       if (k === 'f' || e.code === 'KeyF') {
         e.preventDefault();
-        const now = Date.now();
-        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 1200)) return;
-        lastInteractAt = now;
         triggerWeaponAttack();
       }
       // 熱鍵 I 或 B：開關物品欄檢視
@@ -2271,6 +2269,15 @@ function executeOfficeLogin(params) {
     document.querySelectorAll('[data-skill]').forEach((btn) => {
       btn.addEventListener('click', () => {
         triggerProximitySkill(btn.dataset.skill);
+        if (window.innerWidth <= 900) {
+          const dock = document.getElementById('proximitySkillDock');
+          if (dock) dock.classList.remove('touch-expanded');
+          const more = document.getElementById('touchMoreBtn');
+          if (more) {
+            more.setAttribute('aria-expanded', 'false');
+            more.textContent = '更多';
+          }
+        }
       });
     });
 
@@ -2526,6 +2533,9 @@ function executeOfficeLogin(params) {
       return;
     }
     const now = Date.now();
+    const atkCd = window.GATHER_CONFIG?.security?.attackCooldownMs || 250;
+    if (now - lastWeaponAttackAt < atkCd) return;
+    lastWeaponAttackAt = now;
     const curWeapon = getActiveEquippedItem();
     if (!curWeapon) {
       pushStatusLog('系統', '⚠️ 未裝備武器道具無法擊退！按 [I] 裝備道具或去地上撿拾');
@@ -2600,10 +2610,13 @@ function executeOfficeLogin(params) {
             );
           } else {
             const gainedExp = addExp(itemKnockbackExp, `打擊怪物 ${mob.name}`);
-            pushStatusLog(
-              '你',
-              `💥 用【${wpnEmoji} ${wpnName}】打擊【${mob.name}】（擊退進度：${progressPct}%｜此道具需${reqHits}次擊退｜+${gainedExp} EXP）`
-            );
+            if (now - (mob.lastLogAt || 0) > 600) {
+              mob.lastLogAt = now;
+              pushStatusLog(
+                '你',
+                `💥 用【${wpnEmoji} ${wpnName}】打擊【${mob.name}】（擊退進度：${progressPct}%｜此道具需${reqHits}次擊退｜+${gainedExp} EXP）`
+              );
+            }
           }
         }
       });
@@ -4857,6 +4870,13 @@ function executeOfficeLogin(params) {
         pushStatusLog('系統', `🔒 已選定【${colleague.name}】，聊天模式已自動預設為「私訊」（僅對方可見）`);
 
         privateBtn.onclick = () => {
+          if (window.innerWidth <= 900) {
+            const chatPanel = document.getElementById('proxChatPanel');
+            if (chatPanel) {
+              chatPanel.classList.add('mobile-open');
+              chatPanel.classList.remove('collapsed');
+            }
+          }
           const isCurrentlyPrivate = sendModeSel && sendModeSel.value === 'private';
           if (sendModeSel) {
             sendModeSel.value = isCurrentlyPrivate ? 'chat' : 'private';
@@ -4898,6 +4918,10 @@ function executeOfficeLogin(params) {
     if (!canvas) return;
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    if (window.visualViewport) {
+      const kbOffset = Math.max(0, window.innerHeight - window.visualViewport.height);
+      document.documentElement.style.setProperty('--keyboard-offset', `${kbOffset}px`);
+    }
     if (camera.overviewMode) {
       fitOverviewCamera();
     } else {
@@ -5414,6 +5438,7 @@ function executeOfficeLogin(params) {
         isInjured: p.id === localPlayer.id ? !!localPlayer.isInjured : !!p.isInjured,
         beingHealed: p.id === localPlayer.id ? !!localPlayer.beingHealed : !!p.beingHealed,
         healProgress: p.id === localPlayer.id ? (localPlayer.healProgress || 0) : (p.healProgress || 0),
+        isFleeing: !!p.isFleeing,
       });
     });
 

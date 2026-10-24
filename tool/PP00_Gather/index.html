@@ -208,25 +208,7 @@
     </div>
 
     <div class="prox-chat-body-wrap">
-      <!-- 點選人物整合對象互動小卡 (原右上角卡片整合至聊天室內) -->
-      <div id="colleagueProfileCard" class="colleague-profile-card hidden">
-        <div class="profile-card-top">
-          <div id="profileCardBadge" class="profile-avatar-circle">🐮</div>
-          <div class="profile-meta-wrap">
-            <div class="profile-name-row">
-              <span id="profileCardName" class="profile-target-name">NPC:VP大老闆</span>
-              <span id="profileCardStatus" class="profile-target-status"></span>
-            </div>
-            <div id="profileCardRole" class="profile-target-role"></div>
-          </div>
-          <button type="button" id="closeProfileCardBtn" class="profile-close-btn" title="關閉對象互動">&times;</button>
-        </div>
-        <div class="profile-actions-row">
-          <button type="button" id="profileWaveBtn" class="profile-btn wave-btn">👋 揮手呼叫</button>
-          <button type="button" id="profilePrivateChatBtn" class="profile-btn private-btn">🔒 私人對談</button>
-          <button type="button" id="profileWalkBtn" class="profile-btn walk-btn">🚀 走向他</button>
-        </div>
-      </div>
+
 
       <div id="proxChatMessages" class="prox-chat-messages">
         <div class="prox-chat-empty">
@@ -252,6 +234,26 @@
       </form>
     </div>
   </section>
+
+  <!-- 點選人物整合對象互動小卡 (獨立浮動層，手機版直接彈出，電腦版停駐於聊天室上方) -->
+  <div id="colleagueProfileCard" class="colleague-profile-card hidden">
+    <div class="profile-card-top">
+      <div id="profileCardBadge" class="profile-avatar-circle">🐮</div>
+      <div class="profile-meta-wrap">
+        <div class="profile-name-row">
+          <span id="profileCardName" class="profile-target-name">NPC:VP大老闆</span>
+          <span id="profileCardStatus" class="profile-target-status"></span>
+        </div>
+        <div id="profileCardRole" class="profile-target-role"></div>
+      </div>
+      <button type="button" id="closeProfileCardBtn" class="profile-close-btn" title="關閉對象互動">&times;</button>
+    </div>
+    <div class="profile-actions-row">
+      <button type="button" id="profileWaveBtn" class="profile-btn wave-btn">👋 揮手呼叫</button>
+      <button type="button" id="profilePrivateChatBtn" class="profile-btn private-btn">🔒 私人對談</button>
+      <button type="button" id="profileWalkBtn" class="profile-btn walk-btn">🚀 走向他</button>
+    </div>
+  </div>
 
   <!-- =====================================================================
        6. 底部置中整合控制列：情境動作展開選單 (含睡覺與快捷鍵) + 快捷鍵互動 (1~6 / F揮擊 / I裝備欄)
@@ -285,24 +287,26 @@
             </div>
           </div>
 
-          <button type="button" class="skill-btn" data-skill="chat" data-hotkey="1">
-            <kbd class="hk-badge">1</kbd> 💬 聊天
-          </button>
-          <button type="button" class="skill-btn" data-skill="exchange" data-hotkey="2">
-            <kbd class="hk-badge">2</kbd> 🎁 交換禮物
-          </button>
-          <button type="button" class="skill-btn" data-skill="wave" data-hotkey="3">
-            <kbd class="hk-badge">3</kbd> 👋 揮手
-          </button>
-          <button type="button" class="skill-btn" data-skill="zap" data-hotkey="4">
-            <kbd class="hk-badge">4</kbd> ⚡ 靜電戳
-          </button>
-          <button type="button" class="skill-btn" data-skill="cheer" data-hotkey="5">
-            <kbd class="hk-badge">5</kbd> 🍻 乾杯
-          </button>
-          <button type="button" class="skill-btn" data-skill="follow" data-hotkey="6">
-            <kbd class="hk-badge">6</kbd> 🎯 跟隨
-          </button>
+          <div id="touchSkillsGroup" class="touch-skills-group">
+            <button type="button" class="skill-btn" data-skill="chat" data-hotkey="1">
+              <kbd class="hk-badge">1</kbd> 💬 聊天
+            </button>
+            <button type="button" class="skill-btn" data-skill="exchange" data-hotkey="2">
+              <kbd class="hk-badge">2</kbd> 🎁 交換禮物
+            </button>
+            <button type="button" class="skill-btn" data-skill="wave" data-hotkey="3">
+              <kbd class="hk-badge">3</kbd> 👋 揮手
+            </button>
+            <button type="button" class="skill-btn" data-skill="zap" data-hotkey="4">
+              <kbd class="hk-badge">4</kbd> ⚡ 靜電戳
+            </button>
+            <button type="button" class="skill-btn" data-skill="cheer" data-hotkey="5">
+              <kbd class="hk-badge">5</kbd> 🍻 乾杯
+            </button>
+            <button type="button" class="skill-btn" data-skill="follow" data-hotkey="6">
+              <kbd class="hk-badge">6</kbd> 🎯 跟隨
+            </button>
+          </div>
           <button type="button" id="btnWeaponAttack" class="skill-btn weapon-atk-btn" title="揮動目前已裝備的主手武器道具擊退敵人（需先裝備道具，擊退 3 次後損毀消失；攻擊VP或處長會被關緊閉訓話10秒）">
             <kbd class="hk-badge">F</kbd> ⚔️ 擊退 <span id="hudActiveWeaponDurability">(3/3)</span>
           </button>
@@ -371,11 +375,11 @@
   </div>
   <canvas id="officeCanvas"></canvas>
 
-  <script src="./static/js/config.js?v=10-v8"></script>
-  <script src="./static/js/avatars.js?v=20261024-medical-bandage-v1"></script>
+  <script src="./static/js/config.js?v=20261024-director-repair-v5"></script>
+  <script src="./static/js/avatars.js?v=20261024-director-repair-v5"></script>
   <script src="./static/js/world.js?v=20261024-deep-item-v2"></script>
-  <script src="./static/js/network.js?v=20261024-lerp-v2"></script>
+  <script src="./static/js/network.js?v=20261024-director-repair-v5"></script>
   <script src="./static/js/supabaseSync.js?v=20261024-overview-resume"></script>
-  <script src="./static/js/app.js?v=20261024-auto-reload-v3"></script>
+  <script src="./static/js/app.js?v=20261024-director-repair-v5"></script>
 </body>
 </html>

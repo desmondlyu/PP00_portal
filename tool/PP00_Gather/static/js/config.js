@@ -79,6 +79,10 @@ window.GATHER_CONFIG = {
       '💢 拿武器敲老闆？給我站在VP桌前反省10秒！',
       '💢 體力這麼好？鎖門訓話10秒，順便交出改善報告！',
     ],
+    director_repair: [
+      '我真命苦，還要我特地下來修理',
+      '工程師都在睡覺嗎？我還要出馬',
+    ],
     director_pp00: [
       '💢 敢攻擊PP00處長！抓進處長室關緊閉訓話10秒！',
       '💢 造反啦？鎖門10秒，把CP/FT報表背一遍！',
@@ -205,7 +209,9 @@ window.GATHER_CONFIG = {
     proximityRadiusPx: 165,
     chatCooldownMs: 900,
     skillCooldownMs: 1200,
-    interactCooldownMs: 1200, // 按鍵 E / F / 情境動作防連點洗版冷卻 (1.2 秒)
+    interactCooldownMs: 1200, // 按鍵 E / 情境動作防連點洗版冷卻 (1.2 秒)
+    attackCooldownMs: 250, // 武器擊退快速連發冷卻 (0.25 秒)，大幅提升打擊快感
+    directorRepairChance: 0.10, // 機台/電腦損壞時，PP00處長 10% 機率親自出馬修理
     idleTimeoutMs: 30000, // 30 秒無動作自動切換為「🟡 閒置」狀態
     randomDropIntervalMs: 20 * 60 * 1000, // 每 20 分鐘隨機生成 1~2 種掉落物 (原 10 分鐘太頻繁)
     randomDropBatchCount: 2, // 每次僅生成 1~2 個掉落物 (原 5 個過多)
