@@ -867,37 +867,67 @@ class EphemeralOfficeNetwork {
       }
 
       // 🦩 鳥人指揮官專屬 AI：隨機 20% 出現，高機率跟隨玩家在身旁 MURMUR 碎碎念（絕不拉人去會議室）
-      if (npc.isBirdCommander && !npc.isBerserk && this.localPlayer) {
+      // 🦩 鳥人指揮官專屬 AI：隨機跟隨全辦公室真實線上同仁（隨機挑選本機玩家或遠端連線同仁）
+      if (npc.isBirdCommander && !npc.isBerserk) {
         const sec = window.GATHER_CONFIG?.security || {};
-        const followChance = sec.birdFollowChance ?? 0.85;
+        const followChance = sec.birdFollowChance ?? 0.10;
 
-        // 每 4 秒判定是否開始跟隨身旁的同仁
-        if (now >= npc.followPlayerUntil && tick % 240 === 60) {
+        // 收集目前全辦公室所有真實線上使用者 (本機玩家 + 遠端同仁，排除 NPC 與怪物)
+        const realPlayers = [];
+        if (this.localPlayer && (this.localPlayer.name || this.localPlayer.id)) {
+          realPlayers.push(this.localPlayer);
+        }
+        for (const remote of this.remotePlayers.values()) {
+          if (remote && remote.id && !remote.isNpc && !remote.isMob) {
+            realPlayers.push(remote);
+          }
+        }
+
+        // 每 4 秒判定是否開始隨機跟隨某位真實線上同仁
+        if (now >= npc.followPlayerUntil && tick % 240 === 60 && realPlayers.length > 0) {
           if (Math.random() < followChance) {
+            // 隨機抽選一位真實線上同仁作為跟隨對象，完全動態無任何固定硬編碼名單
+            const picked = realPlayers[Math.floor(Math.random() * realPlayers.length)];
+            npc.followTargetId = picked.id;
             npc.followPlayerUntil = now + 14000; // 跟隨 14 秒
             npc.emote = { emoji: '🦩', expiresAt: now + 14000 };
+            const targetName = picked.name || '同仁';
             npc.murmur = {
-              text: '🦩 紅鶴指揮官盯著你！Action Item改完沒？嘎！',
+              text: `🦩 紅鶴指揮官盯著【${targetName}】！Action Item改完沒？嘎！`,
               mood: 'fire',
               createdAt: now,
               expiresAt: now + 4500,
             };
             if (this.callbacks.onBirdFollowStart) {
-              this.callbacks.onBirdFollowStart(npc);
+              this.callbacks.onBirdFollowStart(npc, picked);
             }
           }
         }
 
+        // 解析當前鎖定的真實跟隨目標
+        let followTarget = null;
+        if (npc.followTargetId) {
+          if (this.localPlayer && this.localPlayer.id === npc.followTargetId) {
+            followTarget = this.localPlayer;
+          } else if (this.remotePlayers.has(npc.followTargetId)) {
+            followTarget = this.remotePlayers.get(npc.followTargetId);
+          }
+        }
+        // 若未鎖定特定目標，且場上有真實線上同仁，巡邏時鎖定視線內或最近的真實同仁
+        if (!followTarget && realPlayers.length > 0) {
+          followTarget = realPlayers.find((p) => this.isPlayerInSight(npc, p)) || realPlayers[0];
+        }
+
         // ☀️ 晝夜時段差別待遇：
         // 晚上到清晨 (17:00 ~ 05:00)：下班時間放過你，絕對不拉你去會議室！
-        // 白天上班時間 (05:00 ~ 17:00)：鳥人指揮官巡邏盯進度，視線內有機會拉進會議室關門檢討 10 秒！
+        // 白天上班時間 (05:00 ~ 17:00)：鳥人指揮官巡邏盯進度，視線內隨機抓真實同仁進會議室關門檢討 10 秒！
         const isNightTime = this.isNightTime();
 
-        if (!isNightTime) {
-          const inSight = this.isPlayerInSight(npc, this.localPlayer);
+        if (!isNightTime && followTarget) {
+          const inSight = this.isPlayerInSight(npc, followTarget);
           if (
             inSight &&
-            this.localPlayer.actionState !== 'toilet' &&
+            followTarget.actionState !== 'toilet' &&
             now > (npc.meetingLockCooldownUntil || 0) &&
             tick % 240 === 120 &&
             (!window.MEETING_LOCK_STATE || now >= window.MEETING_LOCK_STATE.lockedUntil)
@@ -917,32 +947,33 @@ class EphemeralOfficeNetwork {
               npc.targetX = roomX - 38;
               npc.targetY = roomY;
               npc.actionState = roomId === 'meet_a' ? 'watch_stock' : 'pray_kuaikuai';
+              const targetName = followTarget.name || '同仁';
               npc.murmur = {
-                text: '🦩 白天上班抓進會議室閉門檢討10秒（按[F]可擊退脫困）！',
+                text: `🦩 白天上班抓【${targetName}】進會議室閉門檢討10秒（按[F]可擊退脫困）！`,
                 mood: 'fire',
                 createdAt: now,
                 expiresAt: now + 10000,
               };
               if (this.callbacks.onMeetingPull) {
-                this.callbacks.onMeetingPull(npc, roomId, roomX + 36, roomY);
+                this.callbacks.onMeetingPull(npc, roomId, roomX + 36, roomY, followTarget);
               }
             }
           }
         }
 
-        // 若正在跟隨使用者：緊貼在玩家身旁 44px 處、模仿情境動作、並持續 MURMUR 碎念
-        if (now < npc.followPlayerUntil) {
-          if (this.localPlayer.actionState === 'toilet') {
+        // 若正在跟隨使用者：緊貼在目標身旁 44px 處、模仿情境動作、並持續 MURMUR 碎念
+        if (now < npc.followPlayerUntil && followTarget) {
+          if (followTarget.actionState === 'toilet') {
             const activeStall = window.WORLD_MAP?.toiletStalls?.find(
-              (s) => s.occupiedBy === this.localPlayer.id
+              (s) => s.occupiedBy === followTarget.id
             );
             npc.targetX = activeStall ? activeStall.x - 38 : 2432;
             npc.targetY = activeStall ? activeStall.y + 48 : 852;
           } else {
-            npc.targetX = this.localPlayer.x + 44;
-            npc.targetY = this.localPlayer.y + 16;
-            if (this.localPlayer.actionState) {
-              npc.actionState = this.localPlayer.actionState;
+            npc.targetX = followTarget.x + 44;
+            npc.targetY = followTarget.y + 16;
+            if (followTarget.actionState) {
+              npc.actionState = followTarget.actionState;
             }
           }
           if (!npc.murmur || now >= npc.murmur.expiresAt - 800) {

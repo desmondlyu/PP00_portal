@@ -101,7 +101,7 @@
   const localPlayer = {
     id: 'local',
     name: '',
-    unit: 'PP32',
+    unit: '',
     avatarId: 'frog_eng',
     status: 'active',
     heldItem: '🪑',
@@ -308,26 +308,32 @@
       onBerserkHit: (npc, reason) => {
         triggerBerserkKnockback(npc, reason);
       },
-      onBirdFollowStart: (npc) => {
-        pushStatusLog('系統', `🦩 【${npc.name}】開始跟隨並碎念（按 [F] 擊退有 20% 機率得道具經驗）`);
+      onBirdFollowStart: (npc, target) => {
+        const isSelf = !target || target.id === localPlayer.id;
+        const targetName = isSelf ? '你' : (target.name || '同仁');
+        pushStatusLog('系統', `🦩 【${npc.name}】開始隨機跟隨【${targetName}】並碎念（按 [F] 揮擊 20% 機率得道具經驗）`);
       },
-      onMeetingPull: (npc, roomId, targetX, targetY) => {
-        const lockMs = window.GATHER_CONFIG?.security?.meetingLockMs || 10000;
-        window.MEETING_LOCK_STATE = {
-          lockedUntil: Date.now() + lockMs,
-          roomId,
-          reason: '鳥人指揮官閉門討論 10 秒',
-          notifiedRelease: false,
-        };
-        localPlayer.autoWalkTarget = null;
-        localPlayer.knockback = null;
-        localPlayer.x = targetX;
-        localPlayer.y = targetY;
-        localPlayer.actionState = roomId === 'meet_a' ? 'watch_stock' : 'pray_kuaikuai';
-        spawnConfetti(localPlayer.x, localPlayer.y - 20);
+      onMeetingPull: (npc, roomId, targetX, targetY, target) => {
+        const isSelf = !target || target.id === localPlayer.id;
+        const targetName = isSelf ? '你' : (target.name || '同仁');
+        if (isSelf) {
+          const lockMs = window.GATHER_CONFIG?.security?.meetingLockMs || 10000;
+          window.MEETING_LOCK_STATE = {
+            lockedUntil: Date.now() + lockMs,
+            roomId,
+            reason: '鳥人指揮官閉門討論 10 秒',
+            notifiedRelease: false,
+          };
+          localPlayer.autoWalkTarget = null;
+          localPlayer.knockback = null;
+          localPlayer.x = targetX;
+          localPlayer.y = targetY;
+          localPlayer.actionState = roomId === 'meet_a' ? 'watch_stock' : 'pray_kuaikuai';
+          spawnConfetti(localPlayer.x, localPlayer.y - 20);
+        }
         pushStatusLog(
           '系統',
-          `🦩 【${npc.name}】將你拉進【${roomId === 'meet_a' ? '會議室 A' : '會議室 B'}】關門10秒（按[F]可擊退脫困）！`
+          `🦩 【${npc.name}】將【${targetName}】拉進【${roomId === 'meet_a' ? '會議室 A' : '會議室 B'}】關門10秒${isSelf ? '（按[F]可擊退脫困）' : ''}！`
         );
       },
       onConnectionChange: (connected, label) => {
