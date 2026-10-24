@@ -6,7 +6,8 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '../static/js');
 
-function createTestEnv() {
+function createTestEnv(initialStorage = null) {
+  let store = initialStorage ? { ...initialStorage } : {};
   const context = {
     console,
     Date,
@@ -14,8 +15,10 @@ function createTestEnv() {
     setTimeout: (fn) => setTimeout(fn, 0),
     clearTimeout: () => {},
     localStorage: {
-      getItem: () => null,
-      setItem: () => {},
+      getItem: (k) => (k in store ? store[k] : null),
+      setItem: (k, v) => { store[k] = String(v); },
+      removeItem: (k) => { delete store[k]; },
+      getStore: () => store,
     },
     document: {
       getElementById: () => null,
@@ -267,6 +270,28 @@ test('Bird commander: night time never pulls to meeting, daytime allows meeting 
 
   net.update(120);
   assert.equal(meetingPulled, true, 'Daytime (05:00~17:00) SHOULD allow bird commander to pull to meeting room!');
+});
+
+test('Bird commander: 100% spawns on init, auto-clears legacy exile, and auto-respawns when missing', () => {
+  const env = createTestEnv({
+    PP00_GATHER_PERSISTENCE_v1: JSON.stringify({ birdCommanderExiled: true, birdCommanderRestUntil: Date.now() - 1000 }),
+  });
+
+  const net = new env.window.EphemeralOfficeNetwork();
+  const bird = net.npcPlayers.get('npc_bird_commander');
+  assert.ok(bird, 'Bird commander should be spawned with 100% rate');
+  assert.equal(bird.name, 'NPC:鳥人指揮官');
+
+  // Verify legacy exile was cleared from storage
+  const parsed = JSON.parse(env.localStorage.getItem('PP00_GATHER_PERSISTENCE_v1'));
+  assert.equal(parsed.birdCommanderExiled, undefined, 'Legacy exile flag must be cleared');
+  assert.equal(parsed.birdCommanderRestUntil, undefined, 'Expired rest flag must be cleared');
+
+  // If bird commander is removed (knocked out), tick % 60 should respawn him
+  net.npcPlayers.delete('npc_bird_commander');
+  assert.equal(net.npcPlayers.has('npc_bird_commander'), false);
+  net.update(60);
+  assert.ok(net.npcPlayers.get('npc_bird_commander'), 'Bird commander should auto-respawn via update tick');
 });
 
 test('private chat is broadcast over ephemeral transports when cloud connected', async () => {

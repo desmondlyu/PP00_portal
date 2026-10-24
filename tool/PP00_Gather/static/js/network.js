@@ -263,18 +263,35 @@ class EphemeralOfficeNetwork {
       },
     ];
 
-    // 檢查持久化狀態：若鳥人指揮官處於暫時休養退場冷卻中，不予生成
+    // 檢查持久化狀態：自動清除舊版 10% 永久放逐與過期休養標記，確保鳥人指揮官正常出勤
     let birdResting = false;
     try {
-      const persisted = JSON.parse(localStorage.getItem('PP00_GATHER_PERSISTENCE_v1') || '{}');
-      if (persisted.birdCommanderRestUntil && Date.now() < persisted.birdCommanderRestUntil) {
-        birdResting = true;
+      const raw = localStorage.getItem('PP00_GATHER_PERSISTENCE_v1');
+      if (raw) {
+        const persisted = JSON.parse(raw);
+        let changed = false;
+        if (persisted.birdCommanderExiled) {
+          delete persisted.birdCommanderExiled;
+          changed = true;
+        }
+        if (persisted.birdCommanderRestUntil) {
+          if (Date.now() < persisted.birdCommanderRestUntil) {
+            birdResting = true;
+          } else {
+            delete persisted.birdCommanderRestUntil;
+            changed = true;
+          }
+        }
+        if (changed) {
+          localStorage.setItem('PP00_GATHER_PERSISTENCE_v1', JSON.stringify(persisted));
+        }
       }
     } catch (e) {}
 
-    // 隨機判定鳥人指揮官出現機率 20%
+    // 鳥人指揮官常駐於辦公室巡視（預設 100% 出現率）
     const birdSpawnRoll = Math.random();
-    const birdSpawns = !birdResting && birdSpawnRoll < (window.GATHER_CONFIG?.security?.birdSpawnRate ?? 0.20);
+    const birdSpawnRate = window.GATHER_CONFIG?.security?.birdSpawnRate ?? 1.0;
+    const birdSpawns = !birdResting && birdSpawnRoll < birdSpawnRate;
 
     const activeTemplates = [];
     if (isNight) {
@@ -315,7 +332,59 @@ class EphemeralOfficeNetwork {
     });
   }
 
-    isNightTime() {
+  spawnBirdCommander() {
+    if (this.npcPlayers.has('npc_bird_commander')) return;
+    const dlg = (window.GATHER_CONFIG && window.GATHER_CONFIG.npcDialogues) || {};
+    this.npcPlayers.set('npc_bird_commander', {
+      id: 'npc_bird_commander',
+      name: 'NPC:鳥人指揮官',
+      unit: '指揮部',
+      avatarId: 'npc_flamingo_cmd',
+      status: 'busy',
+      heldItem: '📋',
+      x: 1000,
+      y: 520,
+      waypoints: [
+        { x: 640, y: 820 },
+        { x: 2350, y: 310 },
+        { x: 400, y: 1350 },
+        { x: 1660, y: 820 },
+        { x: 925, y: 1350 },
+        { x: 1820, y: 1500 },
+        { x: 1240, y: 350 },
+        { x: 2340, y: 820 },
+      ],
+      isSweeper: false,
+      isBirdCommander: true,
+      isRunner: true,
+      shift: 'all',
+      murmurs: dlg.bird_commander || ['🦩 紅鶴奔跑巡視中，進度抓緊！'],
+      berserkCries: [
+        '💢 鳥人指揮官暴走：Action Item沒寫完，飛去改報告！',
+        '💢 鳥人指揮官暴走：吃我一記紅鶴雙翼擊飛術！',
+      ],
+      isNpc: true,
+      isMoving: false,
+      waypointIdx: 0,
+      targetX: 1000,
+      targetY: 520,
+      dir: 'down',
+      jumpOffset: 0,
+      actionState: null,
+      actionUntil: 0,
+      isBerserk: false,
+      berserkUntil: 0,
+      berserkCooldownUntil: Date.now() + 18000,
+      followPlayerUntil: 0,
+      meetingLockCooldownUntil: 0,
+      meetingPullCount: 0,
+      knockback: null,
+      murmur: null,
+      emote: null,
+    });
+  }
+
+  isNightTime() {
     const d = new Date();
     const h = d.getHours() + d.getMinutes() / 60;
     return h >= 17 || h < 5;
@@ -670,6 +739,20 @@ class EphemeralOfficeNetwork {
       const hasGuard = this.npcPlayers.has('npc_security_guard');
       if ((isNight && !hasGuard) || (!isNight && hasGuard)) {
         this.initNPCs();
+      }
+    }
+
+    // 鳥人指揮官自動返場重生：若不在 NPC 清單中且休養冷卻已結束，自動生成重返辦公室
+    if (tick % 60 === 0 && !this.npcPlayers.has('npc_bird_commander')) {
+      let resting = false;
+      try {
+        const persisted = JSON.parse(localStorage.getItem('PP00_GATHER_PERSISTENCE_v1') || '{}');
+        if (persisted.birdCommanderRestUntil && now < persisted.birdCommanderRestUntil) {
+          resting = true;
+        }
+      } catch (e) {}
+      if (!resting) {
+        this.spawnBirdCommander();
       }
     }
 
