@@ -837,3 +837,102 @@ test('Mobile chat panel supports chat-only filter and desktop chat is scaled up 
     'Mobile chat form must have nowrap to prevent cramped wrapping'
   );
 });
+
+test('Selecting a real online user automatically defaults chatSendModeSelect to private', () => {
+  const nodes = new Map();
+  const sendModeSel = { value: 'chat', dispatchEvent: () => {} };
+  const privateBtn = {
+    disabled: false,
+    classes: new Set(),
+    classList: {
+      add(c) { privateBtn.classes.add(c); },
+      remove(c) { privateBtn.classes.delete(c); },
+      contains(c) { return privateBtn.classes.has(c); },
+    },
+    title: '',
+  };
+  const card = {
+    classes: new Set(['hidden']),
+    classList: {
+      remove(c) { card.classes.delete(c); },
+      add(c) { card.classes.add(c); },
+    },
+  };
+
+  nodes.set('chatSendModeSelect', sendModeSel);
+  nodes.set('profilePrivateChatBtn', privateBtn);
+  nodes.set('colleagueProfileCard', card);
+  nodes.set('profileCardBadge', { textContent: '' });
+  nodes.set('profileCardName', { textContent: '' });
+  nodes.set('profileCardStatus', { innerHTML: '' });
+  nodes.set('profileCardRole', { textContent: '' });
+  nodes.set('profileWaveBtn', { onclick: null });
+  nodes.set('profileWalkBtn', { onclick: null });
+  nodes.set('proxChatInput', { focus: () => {} });
+
+  const doc = {
+    getElementById: (id) => nodes.get(id) || null,
+    querySelectorAll: () => [],
+    addEventListener: () => {},
+  };
+
+  const context = {
+    console,
+    Date,
+    Math,
+    setTimeout: (fn) => setTimeout(fn, 0),
+    clearTimeout: () => {},
+    localStorage: { getItem: () => null },
+    document: doc,
+    window: {
+      addEventListener: () => {},
+      matchMedia: () => ({ matches: false }),
+      innerWidth: 1200,
+      WORLD_MAP: { toiletStalls: [] },
+    },
+  };
+  context.window.document = doc;
+  context.window.window = context.window;
+  vm.createContext(context);
+
+  vm.runInContext(fs.readFileSync(path.join(root, 'config.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(root, 'avatars.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(root, 'network.js'), 'utf8'), context);
+
+  let appSrc = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  appSrc = appSrc.replace("window.addEventListener('DOMContentLoaded', init);", 'window.__testInit = init;');
+  vm.runInContext(appSrc, context);
+
+  // Simulate selecting a real colleague (isNpc = false)
+  const realColleague = {
+    id: 'user_david_99',
+    name: 'David',
+    unit: 'PP00-TE',
+    avatarId: 'intern_boy',
+    status: 'active',
+    isNpc: false,
+  };
+
+  // Call openColleagueProfileCard through window export or context
+  // Let's test that clicking sets sendModeSel to 'private' and activates privateBtn
+  // Trigger openColleagueProfileCard via vm
+  context.window.openColleagueProfileCard(realColleague);
+
+  assert.equal(sendModeSel.value, 'private', 'Chat send mode should default to private when selecting real user');
+  assert.equal(privateBtn.classList.contains('active'), true, 'Private chat button should be active');
+
+  // Simulate selecting an NPC (isNpc = true)
+  const npcBoss = {
+    id: 'npc_vp_boss',
+    name: 'VP大老闆',
+    unit: 'Management',
+    avatarId: 'boss_cow',
+    status: 'active',
+    isNpc: true,
+  };
+
+  context.window.openColleagueProfileCard(npcBoss);
+
+  assert.equal(sendModeSel.value, 'chat', 'Chat send mode should revert to chat when selecting NPC');
+  assert.equal(privateBtn.disabled, true, 'Private chat button should be disabled for NPC');
+});

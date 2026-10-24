@@ -1537,16 +1537,35 @@
   }
 
   /**
-   * 檢查聊天視窗是否處於縮合/關閉狀態（支援手機與桌面版）
+   * 檢查聊天視窗是否處於縮合/關閉狀態（跨瀏覽器相容 Edge / Chrome / Safari）
    */
   function isChatPanelCollapsed() {
     const chatPanel = document.getElementById('proxChatPanel');
     if (!chatPanel) return true;
-    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 900;
-    if (isMobile) {
-      return !chatPanel.classList.contains('mobile-open');
+
+    // 1. 若聊天面板帶有 chat-minimized class，肯定是縮合
+    if (chatPanel.classList.contains('chat-minimized')) return true;
+
+    // 2. 跨瀏覽器檢查實體算繪狀態（相容 Edge、Chrome、Safari 與各類縮放比例）
+    if (typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
+      try {
+        const panelStyle = window.getComputedStyle(chatPanel);
+        if (panelStyle.display === 'none' || panelStyle.visibility === 'hidden') return true;
+
+        // 檢查訊息與輸入框包裹層 (.prox-chat-body-wrap)
+        const bodyWrap = chatPanel.querySelector('.prox-chat-body-wrap');
+        if (bodyWrap) {
+          const bodyStyle = window.getComputedStyle(bodyWrap);
+          if (bodyStyle.display === 'none' || bodyStyle.visibility === 'hidden') return true;
+        }
+      } catch (_) {}
     }
-    return chatPanel.classList.contains('chat-minimized');
+
+    // 3. 手機模式下（寬度 <= 900px）如果沒有 mobile-open class 即為縮合
+    const isMobileScreen = typeof window !== 'undefined' && window.innerWidth <= 900;
+    if (isMobileScreen && !chatPanel.classList.contains('mobile-open')) return true;
+
+    return false;
   }
 
   let centerPrivateChatTimeout = null;
@@ -1563,6 +1582,14 @@
         if (card.parentNode) card.parentNode.removeChild(card);
       }, 250);
     }
+  }
+
+  function dispatchChangeEvent(element) {
+    if (!element || typeof element.dispatchEvent !== 'function') return;
+    try {
+      const evt = typeof Event !== 'undefined' ? new Event('change') : { type: 'change' };
+      element.dispatchEvent(evt);
+    } catch (_) {}
   }
 
   function openChatToReply(senderName, senderId) {
@@ -1592,7 +1619,7 @@
     const sendModeSel = document.getElementById('chatSendModeSelect');
     if (sendModeSel) {
       sendModeSel.value = 'private';
-      sendModeSel.dispatchEvent(new Event('change'));
+      dispatchChangeEvent(sendModeSel);
     }
 
     const chatInput = document.getElementById('proxChatInput');
@@ -1969,7 +1996,7 @@
         const modeSel = document.getElementById('chatSendModeSelect');
         if (modeSel) {
           modeSel.value = 'murmur_normal';
-          modeSel.dispatchEvent(new Event('change'));
+          dispatchChangeEvent(modeSel);
         }
         const chatInp = document.getElementById('proxChatInput');
         if (chatInp) chatInp.focus();
@@ -2107,7 +2134,7 @@
         const sendModeSel = document.getElementById('chatSendModeSelect');
         if (sendModeSel && sendModeSel.value === 'private') {
           sendModeSel.value = 'chat';
-          sendModeSel.dispatchEvent(new Event('change'));
+          dispatchChangeEvent(sendModeSel);
         }
         const privateBtn = document.getElementById('profilePrivateChatBtn');
         if (privateBtn) privateBtn.classList.remove('active');
@@ -4341,6 +4368,7 @@
   window.showCenterPrivateChatBox = showCenterPrivateChatBox;
   window.dismissCenterPrivateChatBox = dismissCenterPrivateChatBox;
   window.openChatToReply = openChatToReply;
+  window.openColleagueProfileCard = openColleagueProfileCard;
 
   let officeLogoutPromise = null;
   window.logoutAndLeaveOffice = function () {
@@ -4560,7 +4588,7 @@
 
     const isNpc =
       colleague.isNpc ||
-      network.npcPlayers.has(colleague.id) ||
+      (network && network.npcPlayers ? network.npcPlayers.has(colleague.id) : false) ||
       String(colleague.id).startsWith('npc_');
 
     const privateBtn = document.getElementById('profilePrivateChatBtn');
@@ -4580,25 +4608,40 @@
         const sendModeSel = document.getElementById('chatSendModeSelect');
         if (sendModeSel && sendModeSel.value === 'private') {
           sendModeSel.value = 'chat';
-          sendModeSel.dispatchEvent(new Event('change'));
+          dispatchChangeEvent(sendModeSel);
         }
       } else {
-        // 真實線上使用者：正常啟用私人密語對談
+        // 真實線上使用者：點選後聊天模式直接預設為「私訊」
         privateBtn.disabled = false;
         privateBtn.classList.remove('disabled');
-        privateBtn.title = '點擊開啟私人對談（僅對方與自己可見）';
+        privateBtn.classList.add('active');
+        privateBtn.title = '點擊切換私人對談/公開對談模式';
+
+        const sendModeSel = document.getElementById('chatSendModeSelect');
+        const chatInput = document.getElementById('proxChatInput');
+        if (sendModeSel) {
+          sendModeSel.value = 'private';
+          dispatchChangeEvent(sendModeSel);
+        }
+        if (chatInput && window.innerWidth > 900) {
+          chatInput.focus();
+        }
+        pushStatusLog('系統', `🔒 已選定【${colleague.name}】，聊天模式已自動預設為「私訊」（僅對方可見）`);
+
         privateBtn.onclick = () => {
-          const sendModeSel = document.getElementById('chatSendModeSelect');
-          const chatInput = document.getElementById('proxChatInput');
+          const isCurrentlyPrivate = sendModeSel && sendModeSel.value === 'private';
           if (sendModeSel) {
-            sendModeSel.value = 'private';
-            sendModeSel.dispatchEvent(new Event('change'));
+            sendModeSel.value = isCurrentlyPrivate ? 'chat' : 'private';
+            dispatchChangeEvent(sendModeSel);
           }
-          if (chatInput) {
-            chatInput.focus();
+          if (!isCurrentlyPrivate) {
+            privateBtn.classList.add('active');
+            if (chatInput && window.innerWidth > 900) chatInput.focus();
+            pushStatusLog('系統', `🔒 已切換至與【${colleague.name}】的私人密語通道（僅對方可見）`);
+          } else {
+            privateBtn.classList.remove('active');
+            pushStatusLog('系統', `💬 已切換回公開辦公室對談`);
           }
-          privateBtn.classList.add('active');
-          pushStatusLog('系統', `🔒 已啟動與【${colleague.name}】的私人密語通道（僅對方可見）`);
         };
       }
     }
