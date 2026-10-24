@@ -165,6 +165,25 @@
     ctx = canvas.getContext('2d');
 
     // 檢查持久化記憶：包含身上裝備、持有道具、耐久度、受傷休養計時與鳥人流放狀態
+    try {
+      const raw = localStorage.getItem(PERSISTENCE_KEY);
+      if (raw) {
+        const persisted = JSON.parse(raw);
+        let changed = false;
+        if (persisted.birdCommanderExiled) {
+          delete persisted.birdCommanderExiled;
+          changed = true;
+        }
+        if (persisted.birdCommanderRestUntil && Date.now() >= persisted.birdCommanderRestUntil) {
+          delete persisted.birdCommanderRestUntil;
+          changed = true;
+        }
+        if (changed) {
+          localStorage.setItem(PERSISTENCE_KEY, JSON.stringify(persisted));
+        }
+      }
+    } catch (_) {}
+
     const saved = loadPersistentState();
     if (
       saved &&
@@ -181,8 +200,10 @@
         saved.birdCommanderExiled = false;
         savePersistentState();
       }
-      if (saved.birdCommanderRestUntil) {
+      if (saved.birdCommanderRestUntil && Date.now() < saved.birdCommanderRestUntil) {
         localPlayer.birdCommanderRestUntil = saved.birdCommanderRestUntil;
+      } else {
+        localPlayer.birdCommanderRestUntil = 0;
       }
       if (saved.isInjured && saved.injuredUntil > Date.now()) {
         localPlayer.isInjured = true;
@@ -1190,9 +1211,14 @@
         window.gatherSupabase.registerUser(localPlayer);
       }
 
-      // 若鳥人指揮官處於暫時休養狀態中，確保即刻自清單中移除
-      if (localPlayer.birdCommanderRestUntil && Date.now() < localPlayer.birdCommanderRestUntil && network) {
-        network.npcPlayers.delete('npc_bird_commander');
+      // 確保鳥人指揮官出勤狀態正常
+      if (localPlayer.birdCommanderRestUntil && Date.now() < localPlayer.birdCommanderRestUntil) {
+        if (network) network.npcPlayers.delete('npc_bird_commander');
+      } else {
+        localPlayer.birdCommanderRestUntil = 0;
+        if (network && typeof network.spawnBirdCommander === 'function') {
+          network.spawnBirdCommander();
+        }
       }
 
       // 若處於重傷休養狀態，強制定位於會議室休養
@@ -2240,18 +2266,18 @@
             unlockedMeeting = true;
           }
 
-          // 🦩 攻擊鳥人指揮官：10% 機率將其打飛出大氣層（暫時退場休養 5 分鐘，之後會重新返回）
+          // 🦩 攻擊鳥人指揮官：10% 機率將其打飛出大氣層（暫時退場休養 60 秒，之後會重新返回）
           const exileChance = window.GATHER_CONFIG?.security?.birdExileChance ?? 0.10;
           if (Math.random() < exileChance) {
-            localPlayer.birdCommanderRestUntil = now + 300000;
+            localPlayer.birdCommanderRestUntil = now + 60000;
             savePersistentState();
             network.npcPlayers.delete(npc.id);
             spawnConfetti(npc.x, npc.y - 20);
             pushStatusLog(
               '你',
-              `🦩 💥 巨力超重擊！鳥人指揮官被打飛至大氣層（觸發 10% 終極擊退：鳥人暫時退場休養 5 分鐘）！`
+              `🦩 💥 巨力超重擊！鳥人指揮官被打飛至大氣層（觸發 10% 終極擊退：鳥人暫時退場休養 60 秒）！`
             );
-            showToast('🦩 💥 觸發 10% 終極擊退！鳥人指揮官被打飛休養，5分鐘後返回！', 'join');
+            showToast('🦩 💥 觸發 10% 終極擊退！鳥人指揮官被打飛休養，60秒後返回！', 'join');
           } else {
             const dropChance = window.GATHER_CONFIG?.security?.birdDropChance ?? 0.20;
             if (Math.random() < dropChance) {

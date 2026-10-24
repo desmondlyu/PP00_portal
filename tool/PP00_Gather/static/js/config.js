@@ -215,10 +215,11 @@ window.GATHER_CONFIG = {
     mobSpawnChance: 0.005, // 小怪物每秒生成機率 0.5% (0.005)
     maxMobCount: 3, // 場上小怪物同時不超過 3 隻
     mobBerserkChance: 0.01, // 像素方塊怪 1% 機率暴走破壞電腦與實驗室機台
+    birdSpawnRate: 1.0, // 鳥人指揮官 100% 常駐於辦公室巡視（全時段在場）
     birdFollowChance: 0.10, // 鳥人指揮官 10% 機率跟隨線上使用者並持續 Murmur
     birdMeetingPullChance: 0.10, // 鳥人指揮官視線內 10% 機率拉進會議室 10 秒（觸發後機率遞減）
     birdDropChance: 0.20, // 鳥人指揮官被武器擊退後 20% 機率獲得道具與經驗
-    birdExileChance: 0.10, // 攻擊鳥人指揮官 10% 機率永久不再出現（被打飛至太空永久退場）
+    birdExileChance: 0.10, // 攻擊鳥人指揮官 10% 機率暫時擊飛退場（60 秒後自動返場）
     userCritInjuryChance: 0.05, // 攻擊線上使用者 5% 機率造成重傷
     userInjuryLockMs: 5 * 60 * 1000, // 重傷休養 5 分鐘無法動彈 (300 秒)
     npcContextualActionChance: 0.30, // VP / PP00處長 / 打掃阿姨 隨機情境動作機率 30%
