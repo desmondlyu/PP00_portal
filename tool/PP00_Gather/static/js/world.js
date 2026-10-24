@@ -414,14 +414,14 @@ class OfficeEcosystem {
     }
 
     this.groundItems = [];
-    // 初始自動隨機生成 6 個掉落物 (含隨機武器與道具)
-    this.spawnBatchRandomDrops(6);
+    // 初始生成 2 個精選掉落物 (原 6 個過多，維持辦公室清爽)
+    this.spawnBatchRandomDrops(2);
     this.lastBatchDropAt = Date.now();
 
-    // 👾 像素方塊怪物清單 (上限 3 隻，初始僅生成 1 隻，後續以 0.5% 機率生成)
+    // 👾 像素方塊怪物清單 (上限 1 隻，開局乾淨 0 隻，後續以 0.1% 低機率自然生成)
     this.mobs = [];
-    this.spawnMinecraftMob();
     this.lastMobSpawnAt = Date.now();
+    this.lastMobDefeatedAt = 0;
 
     this.thrownItems = [];
     this.steamParticles = [];
@@ -511,8 +511,9 @@ class OfficeEcosystem {
     for (let i = 0; i < count; i++) {
       selected.push(window.getWeightedRandomItem(pool));
     }
+    const maxGround = window.GATHER_CONFIG?.security?.maxGroundItems || 4;
     selected.forEach((meta) => {
-      if (this.groundItems.length >= 15) return;
+      if (this.groundItems.length >= maxGround) return;
       let rx = 700 + Math.random() * 800;
       let ry = 500 + Math.random() * 600;
       for (let attempt = 0; attempt < 20; attempt++) {
@@ -682,10 +683,11 @@ class OfficeEcosystem {
       }
     }
 
-    // 9. 👾 像素方塊怪物以 0.5% 機率生成，且場上同時最多不超過 3 隻 (僅房長生成)
-    const maxMobs = window.GATHER_CONFIG?.security?.maxMobCount || 3;
-    const mobSpawnChance = window.GATHER_CONFIG?.security?.mobSpawnChance ?? 0.005;
-    if (isMaster && tick % 60 === 30 && this.mobs.length < maxMobs) {
+    // 9. 👾 像素方塊怪物以 0.1% 機率生成，且場上同時最多不超過 1 隻 (被消滅後冷卻 5 分鐘才可生成)
+    const maxMobs = window.GATHER_CONFIG?.security?.maxMobCount || 1;
+    const mobSpawnChance = window.GATHER_CONFIG?.security?.mobSpawnChance ?? 0.001;
+    const mobCooldownPassed = now - (this.lastMobDefeatedAt || 0) > 300000;
+    if (isMaster && mobCooldownPassed && tick % 60 === 30 && this.mobs.length < maxMobs) {
       if (Math.random() < mobSpawnChance) {
         this.lastMobSpawnAt = now;
         this.spawnMinecraftMob();
@@ -708,6 +710,7 @@ class OfficeEcosystem {
         if (mob.knockback.ticksLeft <= 0) {
           mob.knockback = null;
           if (mob.hp <= 0) {
+            this.lastMobDefeatedAt = now;
             this.mobs.splice(i, 1);
             continue;
           }

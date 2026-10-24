@@ -103,12 +103,22 @@ class EphemeralOfficeNetwork {
         x: 380,
         y: 310,
         waypoints: [
-          { x: 380, y: 310 },
-          { x: 520, y: 330 },
-          { x: 400, y: 510 },
-          { x: 760, y: 510 },
-          { x: 410, y: 1620 },
-          { x: 380, y: 310 },
+          { x: 380, y: 310 }, // VP 大老闆辦公桌
+          { x: 395, y: 430 }, // VP 室門口 (出門門檻)
+          { x: 395, y: 520 }, // 北側主走廊
+          { x: 760, y: 520 }, // 處長室前主走廊
+          { x: 1060, y: 520 }, // 中央南北大道北口
+          { x: 1060, y: 820 }, // 中央南北大道中段 (PE/TE 之間)
+          { x: 1060, y: 1180 }, // 南側會議室前走廊
+          { x: 395, y: 1180 }, // 戰情看盤室 (Meeting A) 門口外
+          { x: 395, y: 1260 }, // 進入 Meeting A 門檻
+          { x: 395, y: 1380 }, // Meeting A 內巡視大螢幕
+          { x: 395, y: 1260 }, // 出 Meeting A 門檻
+          { x: 395, y: 1180 }, // 南側走廊
+          { x: 1060, y: 1180 }, // 中央南北大道南口
+          { x: 1060, y: 520 }, // 中央南北大道北口
+          { x: 395, y: 520 }, // VP 室門口外走廊
+          { x: 395, y: 430 }, // 進入 VP 室門檻
         ],
         isSweeper: false,
         shift: 'day',
@@ -128,12 +138,22 @@ class EphemeralOfficeNetwork {
         x: 760,
         y: 330,
         waypoints: [
-          { x: 760, y: 330 },
-          { x: 760, y: 515 },
-          { x: 640, y: 820 },
-          { x: 1660, y: 820 },
-          { x: 1780, y: 1500 },
-          { x: 760, y: 515 },
+          { x: 760, y: 330 }, // PP00 處長辦公桌
+          { x: 755, y: 430 }, // PP00 處長室門口 (出門門檻)
+          { x: 755, y: 520 }, // 北側主走廊
+          { x: 1060, y: 520 }, // 中央南北大道北口
+          { x: 1060, y: 820 }, // 中央南北大道中段
+          { x: 1680, y: 820 }, // TE 測試工程區中走道
+          { x: 1800, y: 820 }, // 東側走道
+          { x: 1800, y: 1205 }, // Lab 實驗室大門外
+          { x: 1800, y: 1260 }, // 進入 Lab 門檻
+          { x: 1695, y: 1450 }, // Lab 實驗室中央走道巡視設備
+          { x: 1800, y: 1260 }, // 出 Lab 門檻
+          { x: 1800, y: 1205 }, // 南側走道
+          { x: 1060, y: 1180 }, // 中央南北大道南口
+          { x: 1060, y: 520 }, // 中央南北大道北口
+          { x: 755, y: 520 }, // 處長室外走廊
+          { x: 755, y: 430 }, // 進入處長室門檻
         ],
         isSweeper: false,
         shift: 'day',
@@ -150,14 +170,22 @@ class EphemeralOfficeNetwork {
         avatarId: 'npc_auntie_meifeng',
         status: 'active',
         heldItem: '🧹',
-        x: 1120,
+        x: 1060,
         y: 520,
         waypoints: [
-          { x: 1120, y: 520 },
-          { x: 2320, y: 820 },
-          { x: 2350, y: 350 },
-          { x: 1580, y: 520 },
-          { x: 640, y: 520 },
+          { x: 1060, y: 520 },
+          { x: 2120, y: 520 },
+          { x: 2360, y: 520 },
+          { x: 2360, y: 430 },
+          { x: 2360, y: 350 },
+          { x: 2360, y: 430 },
+          { x: 2360, y: 520 },
+          { x: 2120, y: 820 },
+          { x: 1060, y: 820 },
+          { x: 640, y: 820 },
+          { x: 200, y: 820 },
+          { x: 200, y: 520 },
+          { x: 1060, y: 520 },
         ],
         isSweeper: true,
         shift: 'day',
@@ -174,14 +202,21 @@ class EphemeralOfficeNetwork {
         avatarId: 'npc_auntie_shufen',
         status: 'active',
         heldItem: '🧽',
-        x: 2280,
-        y: 520,
+        x: 2120,
+        y: 820,
         waypoints: [
-          { x: 2280, y: 520 },
-          { x: 2360, y: 240 },
-          { x: 2340, y: 920 },
-          { x: 1800, y: 1180 },
-          { x: 935, y: 1650 },
+          { x: 2120, y: 820 },
+          { x: 2120, y: 520 },
+          { x: 1060, y: 520 },
+          { x: 1060, y: 1180 },
+          { x: 1800, y: 1205 },
+          { x: 1695, y: 1360 },
+          { x: 1800, y: 1205 },
+          { x: 925, y: 1180 },
+          { x: 395, y: 1180 },
+          { x: 1060, y: 1180 },
+          { x: 2120, y: 1180 },
+          { x: 2120, y: 820 },
         ],
         isSweeper: true,
         shift: 'day',
@@ -202,17 +237,33 @@ class EphemeralOfficeNetwork {
         avatarId: 'npc_security_guard',
         status: 'active',
         heldItem: '🏏',
-        x: 1120,
+        x: 1060,
         y: 520,
         waypoints: [
-          { x: 1120, y: 520 },
-          { x: 640, y: 820 },
-          { x: 1660, y: 820 },
-          { x: 1820, y: 1480 },
-          { x: 920, y: 1380 },
-          { x: 400, y: 1380 },
-          { x: 2350, y: 340 },
-          { x: 2340, y: 820 },
+          { x: 1060, y: 520 }, // 中央安保崗哨
+          { x: 395, y: 520 }, // 西側走廊 (VP 室外)
+          { x: 200, y: 520 }, // 西南通道口
+          { x: 200, y: 820 }, // PE 西側外走道
+          { x: 200, y: 1180 }, // 南側會議室西通道
+          { x: 395, y: 1180 }, // Meeting A 門口外
+          { x: 395, y: 1260 }, // 門口探頭巡視
+          { x: 395, y: 1180 }, // 返回走廊
+          { x: 925, y: 1180 }, // Meeting B 門口外
+          { x: 925, y: 1260 }, // 門口探頭巡視
+          { x: 925, y: 1180 }, // 返回走廊
+          { x: 1060, y: 1180 }, // 中央南北大道南口
+          { x: 1800, y: 1205 }, // Lab 門口外
+          { x: 1695, y: 1360 }, // Lab 巡邏抓怪
+          { x: 1800, y: 1205 }, // 出 Lab
+          { x: 2120, y: 1180 }, // 東南轉角
+          { x: 2120, y: 850 }, // 盥洗室外走道
+          { x: 2120, y: 520 }, // 東北轉角
+          { x: 2360, y: 520 }, // 茶水間門外
+          { x: 2360, y: 430 }, // 進入茶水間門檻
+          { x: 2360, y: 320 }, // 茶水間巡查
+          { x: 2360, y: 430 }, // 出茶水間
+          { x: 2360, y: 520 }, // 茶水間外走廊
+          { x: 1060, y: 520 }, // 返回中央安保崗哨
         ],
         isSweeper: false,
         isSecurityGuard: true,
@@ -239,17 +290,33 @@ class EphemeralOfficeNetwork {
         avatarId: 'npc_flamingo_cmd',
         status: 'busy',
         heldItem: '📋',
-        x: 1000,
+        x: 1060,
         y: 520,
         waypoints: [
-          { x: 640, y: 820 },
-          { x: 2350, y: 310 },
-          { x: 400, y: 1350 },
-          { x: 1660, y: 820 },
-          { x: 925, y: 1350 },
-          { x: 1820, y: 1500 },
-          { x: 1240, y: 350 },
-          { x: 2340, y: 820 },
+          { x: 1060, y: 520 }, // 中央十字路口
+          { x: 640, y: 520 }, // 北側西走廊
+          { x: 395, y: 520 }, // VP 門外盯梢
+          { x: 200, y: 520 }, // 西側大道
+          { x: 200, y: 820 }, // PE 外側走道
+          { x: 640, y: 820 }, // PE 中走道
+          { x: 1060, y: 820 }, // 中央交叉道
+          { x: 1680, y: 820 }, // TE 中走道
+          { x: 2120, y: 820 }, // 東側走道
+          { x: 2120, y: 520 }, // 茶水間轉角
+          { x: 2360, y: 520 }, // 茶水間門外
+          { x: 2360, y: 350 }, // 茶水間內催促喝咖啡進度
+          { x: 2360, y: 520 }, // 出茶水間
+          { x: 2120, y: 520 }, // 東北大道
+          { x: 2120, y: 1180 }, // 東南走道
+          { x: 1800, y: 1205 }, // Lab 門口
+          { x: 1695, y: 1360 }, // Lab 催促機台進度 (走道順暢點)
+          { x: 1800, y: 1205 }, // 出 Lab
+          { x: 1060, y: 1180 }, // 南側大道
+          { x: 925, y: 1180 }, // Meeting B 門口
+          { x: 395, y: 1180 }, // Meeting A 門口
+          { x: 200, y: 1180 }, // 西南走道
+          { x: 200, y: 520 }, // 西側大道
+          { x: 1060, y: 520 }, // 返回中央十字路口
         ],
         isSweeper: false,
         isBirdCommander: true,
@@ -342,17 +409,33 @@ class EphemeralOfficeNetwork {
       avatarId: 'npc_flamingo_cmd',
       status: 'busy',
       heldItem: '📋',
-      x: 1000,
+      x: 1060,
       y: 520,
       waypoints: [
-        { x: 640, y: 820 },
-        { x: 2350, y: 310 },
-        { x: 400, y: 1350 },
-        { x: 1660, y: 820 },
-        { x: 925, y: 1350 },
-        { x: 1820, y: 1500 },
-        { x: 1240, y: 350 },
-        { x: 2340, y: 820 },
+        { x: 1060, y: 520 }, // 中央十字路口
+        { x: 640, y: 520 }, // 北側西走廊
+        { x: 395, y: 520 }, // VP 門外盯梢
+        { x: 200, y: 520 }, // 西側大道
+        { x: 200, y: 820 }, // PE 外側走道
+        { x: 640, y: 820 }, // PE 中走道
+        { x: 1060, y: 820 }, // 中央交叉道
+        { x: 1680, y: 820 }, // TE 中走道
+        { x: 2120, y: 820 }, // 東側走道
+        { x: 2120, y: 520 }, // 茶水間轉角
+        { x: 2360, y: 520 }, // 茶水間門外
+        { x: 2360, y: 350 }, // 茶水間內催促喝咖啡進度
+        { x: 2360, y: 520 }, // 出茶水間
+        { x: 2120, y: 520 }, // 東北大道
+        { x: 2120, y: 1180 }, // 東南走道
+        { x: 1800, y: 1205 }, // Lab 門口
+        { x: 1695, y: 1360 }, // Lab 催促機台進度 (走道順暢點)
+        { x: 1800, y: 1205 }, // 出 Lab
+        { x: 1060, y: 1180 }, // 南側大道
+        { x: 925, y: 1180 }, // Meeting B 門口
+        { x: 395, y: 1180 }, // Meeting A 門口
+        { x: 200, y: 1180 }, // 西南走道
+        { x: 200, y: 520 }, // 西側大道
+        { x: 1060, y: 520 }, // 返回中央十字路口
       ],
       isSweeper: false,
       isBirdCommander: true,
@@ -366,7 +449,7 @@ class EphemeralOfficeNetwork {
       isNpc: true,
       isMoving: false,
       waypointIdx: 0,
-      targetX: 1000,
+      targetX: 1060,
       targetY: 520,
       dir: 'down',
       jumpOffset: 0,
@@ -1221,7 +1304,7 @@ class EphemeralOfficeNetwork {
               window.GATHER_CONFIG?.security?.npcContextualActionChance ?? 0.30;
 
             if (npc.isBirdCommander) {
-              npc.waypointIdx = Math.floor(Math.random() * npc.waypoints.length);
+              npc.waypointIdx = (npc.waypointIdx + 1) % npc.waypoints.length;
               const birdActions = [
                 'sit_code',
                 'drink_coffee',
@@ -1236,10 +1319,11 @@ class EphemeralOfficeNetwork {
               npc.actionState =
                 birdActions[Math.floor(Math.random() * birdActions.length)];
               const wp = npc.waypoints[npc.waypointIdx];
-              npc.targetX = wp.x + (Math.random() - 0.5) * 80;
-              npc.targetY = wp.y + (Math.random() - 0.5) * 80;
+              npc.targetX = wp.x;
+              npc.targetY = wp.y;
             } else if (npc.id === 'npc_vp_boss') {
-              if (Math.random() < actionChance) {
+              const inVpRoom = npc.x < 620 && npc.y < 440;
+              if (inVpRoom && Math.random() < actionChance) {
                 const vpActions = isNightShift
                   ? ['sleep_bed', 'slack_nap', 'sit_code', 'watch_stock']
                   : ['watch_stock', 'sit_code', 'drink_coffee', 'victory_dance', 'slack_nap'];
@@ -1257,7 +1341,8 @@ class EphemeralOfficeNetwork {
                 npc.targetY = wp.y;
               }
             } else if (npc.id === 'npc_dir_pp00') {
-              if (Math.random() < actionChance) {
+              const inDirRoom = npc.x >= 640 && npc.x < 870 && npc.y < 440;
+              if (inDirRoom && Math.random() < actionChance) {
                 const dirActions = isLunch
                   ? ['drink_coffee', 'slack_nap', 'sleep_bed', 'sit_code']
                   : ['sit_code', 'pray_kuaikuai', 'drink_coffee', 'watch_stock', 'zen_debug'];
@@ -1284,8 +1369,8 @@ class EphemeralOfficeNetwork {
                 npc.actionState = 'sweep_floor';
                 npc.waypointIdx = (npc.waypointIdx + 1) % npc.waypoints.length;
                 const wp = npc.waypoints[npc.waypointIdx];
-                npc.targetX = wp.x + (Math.random() - 0.5) * 60;
-                npc.targetY = wp.y + (Math.random() - 0.5) * 60;
+                npc.targetX = wp.x;
+                npc.targetY = wp.y;
               }
             } else if (npc.isSecurityGuard) {
               // 警衛巡邏換點
@@ -1319,17 +1404,35 @@ class EphemeralOfficeNetwork {
         const nx = npc.x + vx;
         const ny = npc.y + vy;
 
+        let moved = false;
         if (!window.isPositionBlocked(nx, ny, 16)) {
           npc.x = nx;
           npc.y = ny;
+          moved = true;
         } else if (!window.isPositionBlocked(nx, npc.y, 16)) {
           npc.x = nx;
+          moved = true;
         } else if (!window.isPositionBlocked(npc.x, ny, 16)) {
           npc.y = ny;
+          moved = true;
+        }
+
+        // 偵測是否被角落或門框卡住，若卡住則自動脫困導向
+        if (!moved) {
+          npc.stuckTicks = (npc.stuckTicks || 0) + 1;
         } else {
-          // 遇到阻擋時隨機偏移行走目標
-          npc.targetX = npc.x + (Math.random() - 0.5) * 80;
-          npc.targetY = npc.y + (Math.random() - 0.5) * 80;
+          npc.stuckTicks = Math.max(0, (npc.stuckTicks || 0) - 1);
+        }
+
+        if (npc.stuckTicks >= 16) {
+          // 連續 16 tick 無法移動：判定卡住，自動前進到下一個走廊路徑點脫困
+          if (npc.waypoints && npc.waypoints.length > 0) {
+            npc.waypointIdx = (npc.waypointIdx + 1) % npc.waypoints.length;
+            const nextWp = npc.waypoints[npc.waypointIdx];
+            npc.targetX = nextWp.x;
+            npc.targetY = nextWp.y;
+          }
+          npc.stuckTicks = 0;
         }
 
         npc.isMoving = true;
