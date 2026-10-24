@@ -271,8 +271,100 @@ html {
 }
 
 /* =========================================================================
-   2. 頂部精簡狀態列與靠近設備互動提示按鈕
+   2. 頂部狀態列：左上角透明浮水印連線狀態 (離線轉紅字) + 設備互動提示 + 手機手遊風格精簡圖示列
    ========================================================================= */
+.net-status-watermark {
+  position: fixed;
+  top: 12px;
+  left: 16px;
+  z-index: 45;
+  pointer-events: none;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.45);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  transition: color 0.3s ease, text-shadow 0.3s ease;
+}
+
+.net-status-watermark.disconnected,
+#netModeBadge.disconnected {
+  color: #ef4444 !important;
+  font-weight: 800 !important;
+  text-shadow: 0 0 10px rgba(239, 68, 68, 0.9), 1px 1px 2px #000 !important;
+  animation: netLostBlink 1.2s infinite ease-in-out;
+}
+
+@keyframes netLostBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.game-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.game-btn-badge {
+  background: #0284c7;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 1px 6px;
+  line-height: 1.2;
+}
+
+.game-notify-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 1.5px solid #0f172a;
+  box-shadow: 0 0 8px #ef4444;
+  display: inline-block;
+}
+
+.game-notify-dot.hidden {
+  display: none !important;
+}
+
+/* 聊天通知閃爍特效 (手遊風格) */
+@keyframes chatIconPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.8);
+    border-color: #facc15;
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 16px 4px rgba(250, 204, 21, 0.95);
+    border-color: #fef08a;
+    background: rgba(250, 204, 21, 0.38);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0);
+    border-color: #facc15;
+  }
+}
+
+.hud-mini-btn.chat-notify-flash {
+  animation: chatIconPulse 1.1s infinite ease-in-out !important;
+  border-color: #facc15 !important;
+  color: #fef08a !important;
+}
+
+.panel-close-mobile-btn {
+  display: none;
+}
+
 .top-hud-bar {
   position: fixed;
   top: 12px;
@@ -281,7 +373,7 @@ html {
   z-index: 40;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
   pointer-events: none;
 }
@@ -1778,19 +1870,172 @@ button { touch-action: manipulation; }
   .avatar-selector-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
   .avatar-pick-card { min-width: 0; padding: 6px 2px; }
   .avatar-pick-name, .avatar-pick-tag { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-  .top-hud-bar { top: calc(6px + env(safe-area-inset-top)); left: 8px; right: 8px; }
-  .hud-pill-group { font-size: 10px; padding: 6px 8px; }
-  .hud-pill-group > span:not(:first-child) { display: none; }
-  .facility-trigger-btn { max-width: 52vw; white-space: normal; font-size: 11px; }
-  .left-gather-panel, .left-gather-panel.minimized { top: calc(44px + env(safe-area-inset-top)); left: 8px; width: min(290px, calc(100vw - 16px)); max-height: 40dvh; }
-  .prox-chat-panel { left: 8px; right: 8px; width: auto; bottom: auto; top: calc(94px + env(safe-area-inset-top)); max-height: 42dvh; }
-  .prox-chat-panel.chat-minimized { width: min(340px, calc(100vw - 16px)); }
+  .net-status-watermark {
+    top: calc(8px + env(safe-area-inset-top));
+    left: calc(10px + env(safe-area-inset-left));
+    font-size: 10.5px;
+    letter-spacing: 0;
+  }
+  .top-hud-bar {
+    top: calc(6px + env(safe-area-inset-top));
+    left: auto;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .hud-pill-group.mobile-game-action-dock {
+    background: transparent;
+    border: none;
+    padding: 0;
+    gap: 6px;
+    display: flex;
+    align-items: center;
+  }
+  .game-icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px !important;
+    background: rgba(15, 23, 42, 0.88) !important;
+    backdrop-filter: blur(8px);
+    border: 1.5px solid rgba(148, 163, 184, 0.4) !important;
+    position: relative;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  }
+  .game-icon-btn.active {
+    background: #0284c7 !important;
+    border-color: #38bdf8 !important;
+  }
+  .game-btn-label {
+    display: none !important;
+  }
+  .game-btn-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 15px;
+    height: 15px;
+    font-size: 8.5px;
+    padding: 0 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid #0f172a;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+  }
+  .game-notify-dot {
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    width: 9px;
+    height: 9px;
+  }
+  .facility-trigger-btn {
+    max-width: 44vw;
+    font-size: 10px;
+    padding: 5px 10px;
+  }
+  /* 手機模式：預設不開啟卡片，點選右上小 icon 才展開浮動層 */
+  .left-gather-panel {
+    display: none !important;
+  }
+  .left-gather-panel.mobile-open {
+    display: flex !important;
+    position: fixed;
+    top: calc(48px + env(safe-area-inset-top));
+    right: 8px;
+    left: auto;
+    width: min(290px, calc(100vw - 16px));
+    max-height: 52dvh;
+    z-index: 55;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(16px);
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7);
+    animation: panelPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .left-gather-panel.mobile-open .campus-collapsible-body {
+    display: block !important;
+    max-height: 42dvh;
+    overflow-y: auto;
+  }
+  .panel-close-mobile-btn {
+    display: inline-flex;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    cursor: pointer;
+    margin-left: 4px;
+  }
+  .prox-chat-panel {
+    display: none !important;
+  }
+  .prox-chat-panel.mobile-open {
+    display: flex !important;
+    position: fixed;
+    top: calc(48px + env(safe-area-inset-top));
+    left: 8px;
+    right: 8px;
+    width: auto;
+    bottom: auto;
+    max-height: 46dvh;
+    z-index: 55;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(16px);
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7);
+    animation: panelPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .prox-chat-panel.mobile-open .prox-chat-body-wrap {
+    display: flex !important;
+  }
   .chat-minimized .chat-user-status-bar, .chat-filter-toggle, #togglePipChatBtn { display: none; }
   .prox-chat-header { flex-wrap: wrap; padding: 6px 8px; }
   .prox-chat-body-wrap, .prox-chat-messages { min-height: 0; overflow-y: auto; }
   .prox-chat-messages { max-height: 18dvh; }
   .prox-chat-form { flex-wrap: wrap; }
-  .prox-chat-form input { flex: 1; width: 100px; }
+  .prox-chat-form input { flex: 1; width: 100px; font-size: 14px !important; }
+  /* 精緻精簡通知訊息，避免遮蔽中央畫面 */
+  .gather-toast-container {
+    top: calc(44px + env(safe-area-inset-top));
+    max-width: 90vw;
+    gap: 5px;
+  }
+  .gather-toast-item {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 12px;
+    max-width: 86vw;
+    white-space: normal;
+    line-height: 1.35;
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  }
+  @keyframes panelPopIn {
+    from {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
   .bottom-hud-dock { left: 6px; right: 6px; bottom: calc(6px + env(safe-area-inset-bottom)); }
   .bottom-center-command-dock { width: 100%; max-width: 100%; padding: 5px; border-radius: 12px; }
   .proximity-skill-dock { min-width: 0; width: 100%; }
