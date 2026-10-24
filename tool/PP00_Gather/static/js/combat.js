@@ -14,6 +14,7 @@
     for(const [id,g] of Object.entries(s.grants))if(g.owner===n.clientId&&!n.combatSeen.has(id)){
       n.combatSeen.add(id);n.callbacks.onCombatPickup?.(g.item);
     }
+    if(s.recovery?.[n.clientId]) n.callbacks.onRecoveryLocation?.(s.recovery[n.clientId]);
     const effect=s.effects[n.clientId];
     if(effect&&!n.combatSeen.has(effect.id)){
       n.combatSeen.add(effect.id);n.callbacks.onCombatDamage?.(effect);
@@ -68,6 +69,20 @@
     if(p.type==='combat_state'){apply(n,p);return;}
     if(p.type==='combat_result'){if(master(n,p.senderId)&&p.owner===n.clientId)n.callbacks.onCombatResult?.(p.text);return;}
     if(!n.isRoomMaster())return;
+    if(p.type==='recovery_release'){if(state(n).recovery)delete state(n).recovery[p.senderId];emit(n);return;}
+    if(p.type==='recovery_request'){
+      const s=state(n),now=Date.now();s.recovery ||= {};
+      for(const [id,r] of Object.entries(s.recovery))if(r.until<=now||!player(n,id))delete s.recovery[id];
+      if(!player(n,p.senderId)||!Number.isFinite(p.until)||p.until<=now)return;
+      if(!s.recovery[p.senderId]){
+        const occupied=[...Object.values(s.recovery),...[n.localPlayer,...n.remotePlayers.values()].filter(Boolean)];
+        outer:for(let y=1350;y<=1750;y+=70)for(let x=740;x<=1130;x+=65){
+          if(window.isPositionBlocked(x,y,26)||occupied.some(o=>Math.hypot(o.x-x,o.y-y)<62))continue;
+          s.recovery[p.senderId]={x,y,until:Math.min(p.until,now+300000)};break outer;
+        }
+      }
+      emit(n);return;
+    }
     if(p.type==='combat_strike')strike(n,p.senderId,p.targetId);
     if(p.type==='combat_hurt'&&p.targetId===p.senderId)damage(n,p.senderId);
     if(p.type==='combat_drop'&&p.item){
@@ -85,6 +100,10 @@
   function send(n,type,data={}){if(n.isRoomMaster())packet(n,{type,senderId:n.clientId,...data});else n.broadcastPacket(type,data);}
   function update(n,tick){
     const s=state(n),now=Date.now();
+    if(n.localPlayer && tick%120===0){
+      if(n.localPlayer.isInjured && (!s.recovery?.[n.clientId]||s.recovery[n.clientId].until<=now)) send(n,'recovery_request',{until:n.localPlayer.injuredUntil});
+      else if(!n.localPlayer.isInjured&&s.recovery?.[n.clientId]) send(n,'recovery_release');
+    }
     for(const e of [...n.npcPlayers.values(),...(n.callbacks.getMobs?.()||[])]){
       const entityId=e.uid||e.id;
       const h=s.enemies[entityId];if(!h)continue;

@@ -6,3 +6,19 @@ test('mob health uses unique instance ids, and duplicate claims grant only one i
 test('drop and stun roll independently with a two-second hit protection',()=>{const g=game();let r=[.1,.9];g.c.Math.random=()=>r.shift();g.h.damage(g.n,'a');assert.equal(g.effects[0].drop,true);assert.equal(g.effects[0].stun,false);g.h.damage(g.n,'a');assert.equal(g.effects.length,1);g.advance(2000);r=[.9,.1];g.h.damage(g.n,'a');assert.equal(g.effects[1].drop,false);assert.equal(g.effects[1].stun,true);});
 test('dropped item retains durability and can only be deposited once per damage event',()=>{const g=game();g.roll(.1);g.h.damage(g.n,'a');const id=g.effects[0].id;for(let i=0;i<2;i++)g.h.send(g.n,'combat_drop',{effectId:id,item:{id:'bench',durability:1,maxDurability:3,power:32}});assert.equal(g.n.combat.items.length,1);assert.equal(g.n.combat.items[0].durability,1);assert.equal(g.n.combat.items[0].power,32);});
 test('non-master never rolls combat and rejects spoofed state',()=>{const g=game();g.n.isRoomMaster=()=>false;g.h.strike(g.n,'a','npc_aunt');assert.equal(g.n.combat,undefined);g.h.packet(g.n,{type:'combat_state',senderId:'z',state:{}});assert.equal(g.n.combat,undefined);});
+
+test('recovery assignments use distinct unobstructed positions inside meeting room B',()=>{
+  const g=game();
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'../static/js/world.js'),'utf8'),g.c);
+  for(const id of ['a','b','c','d']){
+    if(id!=='a')g.n.remotePlayers.set(id,{id,x:0,y:0,isInjured:true});
+    g.h.packet(g.n,{type:'recovery_request',senderId:id,until:120000});
+  }
+  const spots=Object.values(g.n.combat.recovery);assert.equal(spots.length,4);
+  for(let i=0;i<spots.length;i++){
+    const p=spots[i];assert(p.x>=740&&p.x<=1130&&p.y>=1350&&p.y<=1750);
+    assert(!g.c.window.isPositionBlocked(p.x,p.y,26));
+    for(let j=0;j<i;j++)assert(Math.hypot(p.x-spots[j].x,p.y-spots[j].y)>=62);
+  }
+  g.h.packet(g.n,{type:'recovery_release',senderId:'a'});assert(!g.n.combat.recovery.a);
+});
