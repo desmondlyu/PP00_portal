@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>PP00 虛擬辦公室 — 3D 像素園區即時互動系統</title>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./static/css/style.css?v=20261024-medical-bandage-v1" />
+  <link rel="stylesheet" href="./static/css/style.css?v=20261024-reload-btn-v3" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
@@ -116,6 +116,10 @@
       <button type="button" id="toggleOverviewBtn" class="hud-mini-btn game-icon-btn" title="切換全景俯瞰視角">
         <span class="game-btn-icon">🗺️</span>
         <span class="game-btn-label">全景視角</span>
+      </button>
+      <button type="button" id="btnGameReload" class="hud-mini-btn hud-reload-btn game-icon-btn" title="重新整理遊戲並自動登入（載入最新版本程式碼，免重新登入）">
+        <span class="game-btn-icon">🔄</span>
+        <span class="game-btn-label">重整</span>
       </button>
       <button type="button" id="btnExitOffice" class="hud-mini-btn hud-exit-btn game-icon-btn" title="登出並離開辦公室">
         <span class="game-btn-icon">🚪</span>
@@ -372,6 +376,6 @@
   <script src="./static/js/world.js?v=20261024-deep-item-v2"></script>
   <script src="./static/js/network.js?v=20261024-lerp-v2"></script>
   <script src="./static/js/supabaseSync.js?v=20261024-overview-resume"></script>
-  <script src="./static/js/app.js?v=20261024-freeze-fix-v2"></script>
+  <script src="./static/js/app.js?v=20261024-auto-reload-v3"></script>
 </body>
 </html>

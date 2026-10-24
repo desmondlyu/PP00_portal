@@ -309,3 +309,18 @@ test('App.js IIFE boundary wraps all rendering methods including medical animati
   const funcIndex = appCode.indexOf('function renderMedicalHealingAnimations');
   assert.ok(funcIndex < iifeEndIndex, 'renderMedicalHealingAnimations must be scoped INSIDE the IIFE');
 });
+test('In-game refresh button and auto-login session persistence enable seamless game reload without re-login', () => {
+  const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  assert.ok(indexHtml.includes('id="btnGameReload"'), 'index.html must include in-game reload button (#btnGameReload)');
+  assert.ok(indexHtml.includes('🔄'), 'Reload button should have refresh emoji icon');
+  assert.ok(indexHtml.includes('重整'), 'Reload button should have reload label');
+
+  const css = fs.readFileSync(path.join(__dirname, '../static/css/style.css'), 'utf8');
+  assert.ok(css.includes('.hud-mini-btn.hud-reload-btn'), 'CSS must include styling for hud-reload-btn');
+
+  // Verify session persistence logic in app.js
+  const appCode = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.ok(appCode.includes('PP00_GATHER_LOGIN_SESSION_v1'), 'app.js must define login session persistence key');
+  assert.ok(appCode.includes('triggerGameReload'), 'app.js must provide triggerGameReload handler');
+  assert.ok(appCode.includes('executeOfficeLogin'), 'app.js must provide executeOfficeLogin for auto-login');
+});

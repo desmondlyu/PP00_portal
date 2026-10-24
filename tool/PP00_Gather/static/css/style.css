@@ -452,6 +452,23 @@ html {
   border-color: #f87171;
 }
 
+.hud-mini-btn.hud-reload-btn {
+  background: rgba(16, 185, 129, 0.88);
+  border-color: #34d399;
+  color: #fff;
+  font-weight: 700;
+}
+
+.hud-mini-btn.hud-reload-btn:hover {
+  background: #059669;
+  border-color: #6ee7b7;
+}
+
+.hud-mini-btn.hud-reload-btn:active .game-btn-icon {
+  transform: rotate(180deg);
+  transition: transform 0.3s ease;
+}
+
 /* 浮動上線/下線與系統通知橫幅 */
 .gather-toast-container {
   position: fixed;
@@ -2185,6 +2202,13 @@ button { touch-action: manipulation; }
   .game-icon-btn.active {
     background: #0284c7 !important;
     border-color: #38bdf8 !important;
+  }
+  .game-icon-btn.hud-reload-btn {
+    background: rgba(16, 185, 129, 0.88) !important;
+    border-color: #34d399 !important;
+  }
+  .game-icon-btn.hud-reload-btn:active {
+    background: #059669 !important;
   }
   .game-btn-label {
     display: none !important;
