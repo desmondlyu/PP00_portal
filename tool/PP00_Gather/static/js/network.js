@@ -826,7 +826,7 @@ class EphemeralOfficeNetwork {
       }
       case 'player_murmur':
       case 'murmur': {
-        const sender = this.remotePlayers.get(pkt.senderId);
+        const sender = this.remotePlayers.get(pkt.senderId) || (this.npcPlayers ? this.npcPlayers.get(pkt.senderId) : null);
         const ttl = window.GATHER_CONFIG?.security?.murmurTtlMs || 8000;
         if (sender) {
           sender.murmur = {
@@ -977,7 +977,11 @@ class EphemeralOfficeNetwork {
               localNpc.isFleeing = !!remoteNpc.isFleeing;
               if (remoteNpc.fleeUntil !== undefined) localNpc.fleeUntil = remoteNpc.fleeUntil;
               if (remoteNpc.jumpOffset > 0) localNpc.jumpOffset = remoteNpc.jumpOffset;
-              if (remoteNpc.murmur) localNpc.murmur = remoteNpc.murmur;
+              if (remoteNpc.murmur) {
+                localNpc.murmur = remoteNpc.murmur;
+              } else if (localNpc.murmur && now >= (localNpc.murmur.expiresAt || 0)) {
+                localNpc.murmur = null;
+              }
               if (remoteNpc.emote) localNpc.emote = remoteNpc.emote;
               if (remoteNpc.followTargetId !== undefined) localNpc.followTargetId = remoteNpc.followTargetId;
               if (remoteNpc.followPlayerUntil !== undefined) localNpc.followPlayerUntil = remoteNpc.followPlayerUntil;
@@ -1183,6 +1187,35 @@ class EphemeralOfficeNetwork {
         npc.berserkCooldownUntil = now + 28000;
       }
 
+      // 💬 全體 NPC 常態自主 MURMUR（VP 大老闆、PP00 處長、美鳳阿姨、淑芬阿姨、夜間巡邏警衛、鳥人指揮官）
+      if (this.isRoomMaster() && !npc.isBerserk && !npc.isFleeing && (!npc.knockback || npc.knockback.ticksLeft <= 0)) {
+        if (!npc.nextMurmurAt) {
+          // 首次載入：交錯起始時間 (3~18 秒)，避免全場 NPC 同一瞬間同時說話
+          npc.nextMurmurAt = now + 3000 + ((idx * 3600) % 15000) + Math.random() * 2500;
+        } else if (now >= npc.nextMurmurAt && (!npc.murmur || now >= npc.murmur.expiresAt)) {
+          if (npc.murmurs && npc.murmurs.length > 0) {
+            const line = npc.murmurs[Math.floor(Math.random() * npc.murmurs.length)];
+            let mood = 'normal';
+            if (npc.id === 'npc_bird_commander') mood = 'fire';
+            else if (npc.id === 'npc_vp_boss') mood = 'idea';
+            else if (npc.id === 'npc_dir_pp00') mood = 'normal';
+            else if (npc.isSecurityGuard) mood = 'fire';
+
+            // 根據字數長度計算展示時間 (4.5 秒 ~ 6.5 秒)
+            const duration = Math.min(6500, Math.max(4500, line.length * 150));
+            npc.murmur = {
+              text: line,
+              mood,
+              createdAt: now,
+              expiresAt: now + duration,
+            };
+
+            // 下一次碎念間隔：顯示時間結束後再過 14 ~ 26 秒
+            npc.nextMurmurAt = now + duration + 14000 + Math.random() * 12000;
+          }
+        }
+      }
+
       // 😱 NPC 害怕逃跑 AI：以高速 (speed 5.2) 遠離玩家，伴隨慌張彈跳動畫與求救表情
       if (npc.isFleeing) {
         if (now >= (npc.fleeUntil || 0)) {
@@ -1382,15 +1415,19 @@ class EphemeralOfficeNetwork {
               npc.actionState = followTarget.actionState;
             }
           }
-          if (this.isRoomMaster() && (!npc.murmur || now >= npc.murmur.expiresAt - 800)) {
-            const line =
-              npc.murmurs[Math.floor(Math.random() * npc.murmurs.length)];
-            npc.murmur = {
-              text: line,
-              mood: 'fire',
-              createdAt: now,
-              expiresAt: now + 4000,
-            };
+          if (this.isRoomMaster() && (!npc.murmur || now >= npc.murmur.expiresAt)) {
+            if (!npc.nextBirdFollowMurmurAt || now >= npc.nextBirdFollowMurmurAt) {
+              const line =
+                npc.murmurs[Math.floor(Math.random() * npc.murmurs.length)];
+              const duration = Math.min(6500, Math.max(4000, line.length * 150));
+              npc.murmur = {
+                text: line,
+                mood: 'fire',
+                createdAt: now,
+                expiresAt: now + duration,
+              };
+              npc.nextBirdFollowMurmurAt = now + duration + 9000 + Math.random() * 6000;
+            }
           }
         }
       }

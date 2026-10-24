@@ -3720,6 +3720,30 @@ function executeOfficeLogin(params) {
       };
     }
 
+    // 3. 身旁若無設備，檢查是否有可交談的 NPC (距離 <= 62px)
+    if (network && network.npcPlayers) {
+      let nearestNpc = null;
+      let minNpcD = Infinity;
+      for (const npc of network.npcPlayers.values()) {
+        const d = Math.hypot(px - npc.x, py - npc.y);
+        if (d < 62 && d < minNpcD) {
+          minNpcD = d;
+          nearestNpc = npc;
+        }
+      }
+      if (nearestNpc) {
+        return {
+          isNpcTalk: true,
+          npcTarget: nearestNpc,
+          name: nearestNpc.name,
+          label: `💬 與【${nearestNpc.name}】交談 [按E]`,
+          shortHint: `[按 E] 💬 與【${nearestNpc.name}】交談`,
+          targetX: px,
+          targetY: py,
+        };
+      }
+    }
+
     return null;
   }
 
@@ -3897,6 +3921,41 @@ function executeOfficeLogin(params) {
         updatePoseLabelUI();
         network.broadcastPacket('state_sync', { player: network.getPublicState() });
         pushStatusLog('你', `🚶 起身離開【${fac.name}】`);
+        return;
+      }
+
+      // 💬 NPC 攀談交談互動：直接觸發 NPC 碎念並跳出頭頂卡片
+      if (fac.isNpcTalk && fac.npcTarget) {
+        const npc = fac.npcTarget;
+        if (npc.murmurs && npc.murmurs.length > 0) {
+          const line = npc.murmurs[Math.floor(Math.random() * npc.murmurs.length)];
+          let mood = 'normal';
+          if (npc.id === 'npc_bird_commander') mood = 'fire';
+          else if (npc.id === 'npc_vp_boss') mood = 'idea';
+          else if (npc.id === 'npc_dir_pp00') mood = 'normal';
+          else if (npc.isSecurityGuard) mood = 'fire';
+
+          const duration = Math.min(7500, Math.max(4500, line.length * 150));
+          npc.jumpOffset = 10;
+          npc.murmur = {
+            text: line,
+            mood,
+            createdAt: Date.now(),
+            expiresAt: Date.now() + duration,
+          };
+          if (network) {
+            network.broadcastPacket('murmur', {
+              senderId: npc.id,
+              senderName: npc.name,
+              senderUnit: npc.unit,
+              text: line,
+              mood,
+              avatarId: npc.avatarId,
+            });
+          }
+          pushStatusLog(npc.name, `💬 「${line}」`);
+          showToast(`💬【${npc.name}】：${line}`, 'info');
+        }
         return;
       }
 
@@ -5683,23 +5742,64 @@ function executeOfficeLogin(params) {
     ctx.fillText(displayLabel, pillX + 21, pillY + pillH / 2 + 0.5);
     ctx.fillText(itemEmoji, pillX + pillW - 21, pillY + pillH / 2 + 0.5);
 
+    // 💬 文字氣泡自動換行演算法 (支援 CJK、Emoji 與多行折返，絕不超出卡片)
+    function wrapMurmurLines(renderCtx, text, maxTextWidth) {
+      if (!text) return [];
+      const paragraphs = String(text).split(/\r?\n/);
+      const lines = [];
+      for (const para of paragraphs) {
+        if (!para) {
+          lines.push('');
+          continue;
+        }
+        let curLine = '';
+        const chars = Array.from(para);
+        for (let i = 0; i < chars.length; i++) {
+          const ch = chars[i];
+          const testLine = curLine + ch;
+          const testWidth = renderCtx.measureText ? renderCtx.measureText(testLine).width : testLine.length * 12;
+          if (testWidth > maxTextWidth && curLine.length > 0) {
+            lines.push(curLine);
+            curLine = ch;
+          } else {
+            curLine = testLine;
+          }
+        }
+        if (curLine.length > 0) {
+          lines.push(curLine);
+        }
+      }
+      return lines.length ? lines : [''];
+    }
+    window.wrapMurmurLines = wrapMurmurLines;
+
     const hasMurmur = p.murmur && now < p.murmur.expiresAt;
-    const msgH = 32;
+    let cardTopY = pillY - 9;
 
     if (hasMurmur) {
       const elapsed = now - p.murmur.createdAt;
       const totalTtl = p.murmur.expiresAt - p.murmur.createdAt;
       const remainRatio = Math.max(0, 1 - elapsed / totalTtl);
 
-      const charCount = Math.min(p.murmur.text.length, Math.ceil(elapsed / 24));
-      const shownText = p.murmur.text.slice(0, charCount);
-
       ctx.font = '600 12px "Outfit", "Microsoft JhengHei", sans-serif';
-      const msgW = Math.min(295, Math.max(96, ctx.measureText(shownText).width + 24));
+      const maxTextWidth = 224; // 文字卡片最大內文字寬度，超過自動多行換行
+      const fullLines = wrapMurmurLines(ctx, p.murmur.text, maxTextWidth);
 
-      // 💬 規則 6：文字氣泡絕對不晃動與震動，平穩呈現於名牌頂部上方且置中！
+      // 計算卡片最寬行與自適應寬度
+      let maxLineWidth = 0;
+      for (let i = 0; i < fullLines.length; i++) {
+        const lw = ctx.measureText ? ctx.measureText(fullLines[i]).width : fullLines[i].length * 12;
+        if (lw > maxLineWidth) maxLineWidth = lw;
+      }
+      const msgW = Math.max(90, Math.min(264, Math.ceil(maxLineWidth + 24)));
+      const lineH = 17;
+      const padY = 8;
+      const msgH = Math.max(32, fullLines.length * lineH + padY * 2);
+
+      // 💬 文字氣泡平穩呈現於名牌頂部上方且置中，絕不晃動，高度隨行數自適應展開
       const bx = p.x - msgW / 2;
       const by = pillY - msgH - 9;
+      cardTopY = by;
 
       let borderCol = '#38bdf8';
       let bgCol = 'rgba(255, 255, 255, 0.97)';
@@ -5728,11 +5828,21 @@ function executeOfficeLogin(params) {
       ctx.closePath();
       ctx.fill();
 
+      // 打字機漸進顯示 (考慮多行折返)
+      const charCount = Math.min(p.murmur.text.length, Math.ceil(elapsed / 22));
+      const shownText = p.murmur.text.slice(0, charCount);
+      const shownLines = wrapMurmurLines(ctx, shownText, maxTextWidth);
+
       ctx.fillStyle = '#0f172a';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(shownText, bx + 10, by + msgH / 2 - 1);
+      for (let i = 0; i < shownLines.length; i++) {
+        const lineText = shownLines[i];
+        const ly = by + padY + i * lineH + lineH / 2;
+        ctx.fillText(lineText, bx + 12, ly);
+      }
 
+      // 倒數計時進度條
       ctx.fillStyle = borderCol;
       ctx.beginPath();
       ctx.roundRect(bx + 6, by + msgH - 4, (msgW - 12) * remainRatio, 2.5, 1.2);
@@ -5741,7 +5851,7 @@ function executeOfficeLogin(params) {
 
     if (p.emote && now < p.emote.expiresAt) {
       const floatY = hasMurmur
-        ? pillY - msgH - 32 + Math.sin(tick * 0.25) * 4
+        ? cardTopY - 16 + Math.sin(tick * 0.25) * 4
         : pillY - 22 + Math.sin(tick * 0.25) * 4;
       ctx.font = '24px sans-serif';
       ctx.textAlign = 'center';
