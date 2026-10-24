@@ -509,3 +509,149 @@ test('Toilet urge triggers ONLY when player is in toilet and NPC walks past the 
   net.update(2);
   assert.equal(toiletKickCount, 1, 'When player is in toilet and NPC walks past door, urge/kick should trigger');
 });
+
+test('Workstation screen variations support green normal and red warning states', () => {
+  const env = createTestEnv();
+  vm.runInContext(fs.readFileSync(path.join(root, 'world.js'), 'utf8'), env);
+
+  const opts = env.window.WORKSTATION_SCREEN_OPTIONS;
+  assert.ok(opts, 'WORKSTATION_SCREEN_OPTIONS should exist');
+  assert.equal(opts.green[0], 'Pass');
+  assert.equal(opts.green[1], 'Good');
+  assert.equal(opts.green[2], '😊');
+  assert.equal(opts.red[0], 'ERR!!');
+  assert.equal(opts.red[1], 'FIX E');
+  assert.equal(opts.red[2], 'FAIL');
+  assert.equal(opts.red[3], '😭');
+
+  const ws = env.window.WORLD_MAP.workstations[0];
+  assert.ok(ws);
+  ws.leftScreen = 'Pass';
+  ws.rightScreen = 'Good';
+  assert.equal(ws.leftScreen, 'Pass');
+  assert.equal(ws.rightScreen, 'Good');
+
+  ws.leftScreen = 'ERR!!';
+  ws.rightScreen = 'FIX E';
+  assert.equal(ws.leftScreen, 'ERR!!');
+  assert.equal(ws.rightScreen, 'FIX E');
+});
+
+test('Room Master is deterministically elected and synchronizes world state across clients', () => {
+  const envA = createTestEnv();
+  const envB = createTestEnv();
+
+  const netA = new envA.window.EphemeralOfficeNetwork();
+  netA.clientId = 'usr_alice';
+  netA.localPlayer = { id: 'usr_alice', name: 'Alice' };
+
+  const netB = new envB.window.EphemeralOfficeNetwork();
+  netB.clientId = 'usr_bob';
+  netB.localPlayer = { id: 'usr_bob', name: 'Bob' };
+
+  // When Alice is alone, Alice is Room Master
+  assert.equal(netA.isRoomMaster(), true);
+
+  // When Bob connects, Alice sees Bob and Bob sees Alice
+  netA.remotePlayers.set('usr_bob', { id: 'usr_bob', name: 'Bob' });
+  netB.remotePlayers.set('usr_alice', { id: 'usr_alice', name: 'Alice' });
+
+  // Deterministic election: 'usr_alice' < 'usr_bob', so Alice is master, Bob is not
+  assert.equal(netA.isRoomMaster(), true, 'Alice has lowest client ID, must be Room Master');
+  assert.equal(netB.isRoomMaster(), false, 'Bob has higher client ID, must NOT be Room Master');
+
+  // Test world_sync packet reception on Bob
+  let receivedWorldSync = null;
+  netB.callbacks.onWorldSync = (pkt) => { receivedWorldSync = pkt; };
+
+  const syncPacket = {
+    type: 'world_sync',
+    senderId: 'usr_alice',
+    nonce: 'sync_test_nonce',
+    npcs: [
+      { id: 'npc_bird_commander', x: 800, y: 900, targetX: 800, targetY: 900, isMoving: false, isFleeing: false, murmur: { text: 'Test' } },
+    ],
+    groundItems: [
+      { id: 'item_1', uid: 'drop_1', name: '乖乖', x: 500, y: 600 },
+    ],
+    mobs: [
+      { id: 'mob_1', name: '方塊怪', x: 400, y: 400, hp: 20 },
+    ],
+    workstations: [
+      { idx: 0, isBroken: true, leftScreen: 'ERR!!', rightScreen: 'FIX E' },
+    ],
+  };
+
+  netB.handleIncomingPacket(syncPacket);
+  assert.ok(receivedWorldSync, 'Bob should receive world_sync packet');
+  assert.equal(receivedWorldSync.workstations[0].leftScreen, 'ERR!!');
+
+  const birdOnB = netB.npcPlayers.get('npc_bird_commander');
+  assert.ok(birdOnB, 'Bob should have reconciled bird commander');
+  assert.equal(birdOnB.x, 800);
+  assert.equal(birdOnB.y, 900);
+});
+
+test('NPC hit reactions: 50% detention vs dodge/flee, bird commander dodge and flee', () => {
+  const env = createTestEnv();
+  const net = new env.window.EphemeralOfficeNetwork();
+  net.clientId = 'usr_alice';
+  const player = { id: 'usr_alice', name: 'Alice', x: 500, y: 500, isRestrained: false };
+  net.connect(player);
+
+  const guard = {
+    id: 'npc_security_guard',
+    name: 'NPC:夜間警衛',
+    isSecurityGuard: true,
+    x: 520,
+    y: 500,
+    targetX: 520,
+    targetY: 500,
+    isFleeing: false,
+  };
+  net.npcPlayers.set(guard.id, guard);
+
+  guard.isFleeing = true;
+  guard.fleeUntil = Date.now() + 5000;
+  net.update(10);
+  assert.equal(guard.isFleeing, true);
+  assert.ok(guard.jumpOffset > 0, 'Fleeing guard should have jumpOffset panic hop animation');
+
+  const bird = {
+    id: 'npc_bird_commander',
+    name: 'NPC:鳥人指揮官',
+    isBirdCommander: true,
+    x: 600,
+    y: 600,
+    targetX: 600,
+    targetY: 600,
+    isFleeing: false,
+    jumpOffset: 0,
+  };
+  net.npcPlayers.set(bird.id, bird);
+
+  net.handleIncomingPacket({
+    type: 'npc_reaction',
+    nonce: 'dodge_test_1',
+    npcId: bird.id,
+    reaction: 'dodge',
+    jumpOffset: 26,
+    emote: { emoji: '💨', expiresAt: Date.now() + 3000 },
+    murmur: { text: '嘎！閃過了！' },
+  });
+  assert.equal(bird.jumpOffset, 26, 'Bird commander should execute dodge jump');
+  assert.equal(bird.emote.emoji, '💨', 'Bird commander should show dodge smoke emote');
+
+  net.handleIncomingPacket({
+    type: 'npc_reaction',
+    nonce: 'flee_test_1',
+    npcId: bird.id,
+    reaction: 'flee',
+    fleeUntil: Date.now() + 6000,
+    jumpOffset: 16,
+    emote: { emoji: '😱', expiresAt: Date.now() + 6000 },
+    murmur: { text: '快逃啊！' },
+  });
+  assert.equal(bird.isFleeing, true, 'Bird commander should enter fleeing state');
+  assert.equal(bird.emote.emoji, '😱', 'Bird commander should show fear emote');
+});

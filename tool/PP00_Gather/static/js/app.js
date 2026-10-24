@@ -276,6 +276,139 @@
         showToast(`🏏 夜間警衛擊退了【${mob.name}】！`, 'security');
       },
       getMobs: () => (typeof ecosystem !== 'undefined' && ecosystem && ecosystem.mobs ? ecosystem.mobs : []),
+      getWorldSyncState: () => {
+        return {
+          groundItems: (typeof ecosystem !== 'undefined' && ecosystem && ecosystem.groundItems)
+            ? ecosystem.groundItems.map((item) => ({
+                uid: item.uid || ('drop_' + item.id),
+                id: item.id,
+                name: item.name,
+                icon: item.icon,
+                x: item.x,
+                y: item.y,
+                dropY: item.dropY || 0,
+                type: item.type,
+                exp: item.exp,
+                score: item.score,
+              }))
+            : [],
+          mobs: (typeof ecosystem !== 'undefined' && ecosystem && ecosystem.mobs)
+            ? ecosystem.mobs.map((m) => ({
+                id: m.id,
+                type: m.type,
+                name: m.name,
+                x: m.x,
+                y: m.y,
+                hp: m.hp,
+                maxHp: m.maxHp,
+                isBerserk: !!m.isBerserk,
+                targetDeskIdx: m.targetDeskIdx,
+              }))
+            : [],
+          workstations: (window.WORLD_MAP?.workstations || []).map((ws, idx) => ({
+            idx,
+            isBroken: !!ws.isBroken,
+            brokenBy: ws.brokenBy || null,
+            leftScreen: ws.leftScreen || 'Pass',
+            rightScreen: ws.rightScreen || 'Good',
+          })),
+          labEquipments: (window.WORLD_MAP?.labEquipments || []).map((eq, idx) => ({
+            idx,
+            isBroken: !!eq.isBroken,
+            brokenBy: eq.brokenBy || null,
+            status: eq.status,
+            statusColor: eq.statusColor,
+            screenState: eq.screenState,
+          })),
+        };
+      },
+      onWorldSync: (pkt) => {
+        if (network && network.isRoomMaster()) return;
+
+        // 同步掉落物
+        if (Array.isArray(pkt.groundItems) && typeof ecosystem !== 'undefined' && ecosystem) {
+          ecosystem.groundItems = pkt.groundItems.map((gi) => ({
+            uid: gi.uid || ('drop_' + gi.id),
+            id: gi.id,
+            name: gi.name,
+            icon: gi.icon,
+            x: gi.x,
+            y: gi.y,
+            dropY: gi.dropY || 0,
+            type: gi.type,
+            exp: gi.exp,
+            score: gi.score,
+          }));
+        }
+
+        // 同步方塊怪
+        if (Array.isArray(pkt.mobs) && typeof ecosystem !== 'undefined' && ecosystem) {
+          const localMobMap = new Map((ecosystem.mobs || []).map((m) => [m.id, m]));
+          ecosystem.mobs = pkt.mobs
+            .filter((rm) => rm.hp > 0)
+            .map((rm) => {
+              const localMob = localMobMap.get(rm.id);
+              if (!localMob) return { ...rm };
+              localMob.hp = rm.hp;
+              localMob.isBerserk = rm.isBerserk;
+              if (Math.hypot(localMob.x - rm.x, localMob.y - rm.y) > 40) {
+                localMob.x = rm.x;
+                localMob.y = rm.y;
+              } else {
+                localMob.x += (rm.x - localMob.x) * 0.35;
+                localMob.y += (rm.y - localMob.y) * 0.35;
+              }
+              return localMob;
+            });
+        }
+
+        // 同步工作站螢幕與損壞狀態
+        if (Array.isArray(pkt.workstations) && window.WORLD_MAP?.workstations) {
+          pkt.workstations.forEach((wsState) => {
+            const ws = window.WORLD_MAP.workstations[wsState.idx];
+            if (ws) {
+              ws.isBroken = wsState.isBroken;
+              ws.brokenBy = wsState.brokenBy;
+              ws.leftScreen = wsState.leftScreen;
+              ws.rightScreen = wsState.rightScreen;
+            }
+          });
+        }
+
+        // 同步 Lab 機台損壞與狀態
+        if (Array.isArray(pkt.labEquipments) && window.WORLD_MAP?.labEquipments) {
+          pkt.labEquipments.forEach((eqState) => {
+            const eq = window.WORLD_MAP.labEquipments[eqState.idx];
+            if (eq) {
+              eq.isBroken = eqState.isBroken;
+              eq.brokenBy = eqState.brokenBy;
+              if (eqState.status) eq.status = eqState.status;
+              if (eqState.statusColor) eq.statusColor = eqState.statusColor;
+              if (eqState.screenState) eq.screenState = eqState.screenState;
+            }
+          });
+        }
+      },
+      onRemoteDeviceRepair: (pkt) => {
+        if (pkt.type === 'ws' && window.WORLD_MAP?.workstations?.[pkt.idx]) {
+          const ws = window.WORLD_MAP.workstations[pkt.idx];
+          ws.isBroken = false;
+          ws.brokenBy = null;
+        } else if (pkt.type === 'lab' && window.WORLD_MAP?.labEquipments?.[pkt.idx]) {
+          const eq = window.WORLD_MAP.labEquipments[pkt.idx];
+          eq.isBroken = false;
+          eq.brokenBy = null;
+          eq.status = 'PASS 99.9%';
+          eq.statusColor = '#22c55e';
+        }
+      },
+      onRemoteItemCollected: (pkt) => {
+        if (typeof ecosystem !== 'undefined' && ecosystem?.groundItems) {
+          ecosystem.groundItems = ecosystem.groundItems.filter(
+            (item) => (item.uid || item.id) !== pkt.itemId && item.id !== pkt.itemId
+          );
+        }
+      },
       onRemoteSkill: (pkt) => {
         handleIncomingSkillEffect(pkt);
       },
@@ -2100,152 +2233,308 @@
       if (d <= effectiveRadius) {
         hitCount++;
 
-        // 🏏 規則：攻擊夜間巡邏警衛，警衛發怒狂暴，把玩家帶去廁所攻擊 10 秒，玩家無法反擊
+        // 🏏 規則：攻擊夜間巡邏警衛：50% 抓去廁所管教 10 秒，25% 敏捷閃避，25% 害怕跑走
         if (npc.id === 'npc_security_guard' || npc.isSecurityGuard) {
-          const stall = window.WORLD_MAP?.toiletStalls?.[0];
-          const roomX = stall ? stall.seatX : 2465;
-          const roomY = stall ? stall.seatY : 745;
+          const roll = Math.random();
+          if (roll < 0.50) {
+            // 50% 機率：抓去廁所管教 10 秒
+            const stall = window.WORLD_MAP?.toiletStalls?.[0];
+            const roomX = stall ? stall.seatX : 2465;
+            const roomY = stall ? stall.seatY : 745;
 
-          localPlayer.x = roomX;
-          localPlayer.y = roomY;
-          // Occupied stalls reject NPC movement; keep the guard in the corridor.
-          npc.x = stall ? stall.x - 38 : roomX - 160;
-          npc.y = stall ? stall.y + 48 : roomY;
-          npc.targetX = npc.x;
-          npc.targetY = npc.y;
-          localPlayer.autoWalkTarget = null;
-          localPlayer.knockback = null;
+            localPlayer.x = roomX;
+            localPlayer.y = roomY;
+            npc.x = stall ? stall.x - 38 : roomX - 160;
+            npc.y = stall ? stall.y + 48 : roomY;
+            npc.targetX = npc.x;
+            npc.targetY = npc.y;
+            localPlayer.autoWalkTarget = null;
+            localPlayer.knockback = null;
 
-          if (stall) {
-            stall.occupiedBy = localPlayer.id;
-            localPlayer.occupiedSpotId = stall.id;
-            stall.kickShakeTicks = 35;
+            if (stall) {
+              stall.occupiedBy = localPlayer.id;
+              localPlayer.occupiedSpotId = stall.id;
+              stall.kickShakeTicks = 35;
+            }
+
+            localPlayer.isRestrained = true;
+            localPlayer.restrainedUntil = now + 10000;
+            localPlayer.actionState = 'toilet';
+
+            const scoldPool =
+              window.GATHER_CONFIG?.bossScoldDialogues?.security_guard || [
+                '💢 敢襲警妨礙公務？抓去廁所管教10秒！',
+                '💢 拿武器敲警衛？進廁所好好反省10秒不准動！',
+                '💢 造反了！襲擊夜間保全，關在廁所面壁10秒！',
+                '💢 體力旺盛來打警衛？在廁所乖乖挨棍10秒！',
+                '💢 保全警棍比你的武器硬多了！在廁所受罰10秒！',
+              ];
+            const scoldLine = scoldPool[Math.floor(Math.random() * scoldPool.length)];
+            npc.murmur = {
+              text: scoldLine,
+              mood: 'fire',
+              createdAt: now,
+              expiresAt: now + 10000,
+            };
+            npc.jumpOffset = 16;
+            npc.emote = { emoji: '💢', expiresAt: now + 10000 };
+            spawnConfetti(localPlayer.x, localPlayer.y - 20);
+
+            pushStatusLog('夜間警衛', `💢 ${scoldLine}`);
+            showToast(`🚨 襲警被老李抓進廁所管教 10 秒！無法反擊！`, 'error');
+            network.broadcastPacket('status_log', {
+              senderName: npc.name,
+              text: `💢 ${scoldLine}`,
+            });
+            return;
+          } else if (roll < 0.75) {
+            // 25% 機率：閃避動作
+            npc.jumpOffset = 22;
+            npc.emote = { emoji: '💨', expiresAt: now + 3000 };
+            npc.x = Math.max(160, Math.min(2640, npc.x + (Math.random() < 0.5 ? -38 : 38)));
+            npc.targetX = npc.x;
+            const dodgeLines = [
+              '💨 哼！老李我練過特勤防身術，閃！',
+              '💨 身手敏捷！年輕人偷襲失敗！',
+              '💨 輕鬆側閃！警棍架式已擺好！',
+            ];
+            const dodgeLine = dodgeLines[Math.floor(Math.random() * dodgeLines.length)];
+            npc.murmur = { text: dodgeLine, mood: 'fire', createdAt: now, expiresAt: now + 3500 };
+            showToast('💨 夜間警衛敏捷側跳，閃避了你的攻擊！', 'normal');
+            pushStatusLog('夜間警衛', dodgeLine);
+            network.broadcastPacket('npc_reaction', {
+              npcId: npc.id,
+              reaction: 'dodge',
+              jumpOffset: 22,
+              emote: npc.emote,
+              x: npc.x,
+              targetX: npc.targetX,
+              murmur: npc.murmur,
+            });
+            return;
+          } else {
+            // 25% 機率：害怕跑走動作
+            npc.isFleeing = true;
+            npc.fleeUntil = now + 7000;
+            npc.jumpOffset = 14;
+            npc.emote = { emoji: '😱', expiresAt: now + 5000 };
+            const fleeLines = [
+              '😱 哇！這同仁動真格的！快跑啊！',
+              '😱 救命啊！有失控工程師打人！先撤退！',
+              '😱 拔腿狂奔！老李我好漢不吃眼前虧！',
+            ];
+            const fleeLine = fleeLines[Math.floor(Math.random() * fleeLines.length)];
+            npc.murmur = { text: fleeLine, mood: 'fire', createdAt: now, expiresAt: now + 4000 };
+            showToast('😱 夜間警衛被你的氣勢嚇到，拔腿狂奔！', 'error');
+            pushStatusLog('夜間警衛', fleeLine);
+            network.broadcastPacket('npc_reaction', {
+              npcId: npc.id,
+              reaction: 'flee',
+              fleeUntil: npc.fleeUntil,
+              jumpOffset: 14,
+              emote: npc.emote,
+              murmur: npc.murmur,
+            });
+            return;
           }
-
-          localPlayer.isRestrained = true;
-          localPlayer.restrainedUntil = now + 10000;
-          localPlayer.actionState = 'toilet';
-
-          const scoldPool =
-            window.GATHER_CONFIG?.bossScoldDialogues?.security_guard || [
-              '💢 敢襲警妨礙公務？抓去廁所管教10秒！',
-              '💢 拿武器敲警衛？進廁所好好反省10秒不准動！',
-              '💢 造反了！襲擊夜間保全，關在廁所面壁10秒！',
-              '💢 體力旺盛來打警衛？在廁所乖乖挨棍10秒！',
-              '💢 保全警棍比你的武器硬多了！在廁所受罰10秒！',
-            ];
-          const scoldLine = scoldPool[Math.floor(Math.random() * scoldPool.length)];
-          npc.murmur = {
-            text: scoldLine,
-            mood: 'fire',
-            createdAt: now,
-            expiresAt: now + 10000,
-          };
-          npc.jumpOffset = 16;
-          npc.emote = { emoji: '💢', expiresAt: now + 10000 };
-          spawnConfetti(localPlayer.x, localPlayer.y - 20);
-
-          pushStatusLog('夜間警衛', `💢 ${scoldLine}`);
-          showToast(`🚨 襲警被老李抓進廁所管教 10 秒！無法反擊！`, 'error');
-          network.broadcastPacket('status_log', {
-            senderName: npc.name,
-            text: `💢 ${scoldLine}`,
-          });
-          return;
         }
 
-        // 👑 規則 6：攻擊 VP 大老闆或 PP00 處長時，被拉去他們的獨立辦公室關緊閉訓話 10 秒
+        // 👑 規則 6：攻擊 VP 大老闆或 PP00 處長：50% 關緊閉訓話 10 秒，25% 優雅閃避，25% 害怕跑走
         if (npc.id === 'npc_vp_boss' || npc.id === 'npc_dir_pp00') {
-          const isVp = npc.id === 'npc_vp_boss';
-          const targetRoom = isVp ? 'vp_room' : 'dir_pp00';
-          const roomX = isVp ? 380 : 755;
-          const roomY = 310;
+          const roll = Math.random();
+          if (roll < 0.50) {
+            // 50% 機率：閉門訓話 10 秒
+            const isVp = npc.id === 'npc_vp_boss';
+            const targetRoom = isVp ? 'vp_room' : 'dir_pp00';
+            const roomX = isVp ? 380 : 755;
+            const roomY = 310;
 
-          // 瞬間拉入該主管辦公室
-          localPlayer.x = roomX;
-          localPlayer.y = roomY;
-          npc.x = roomX + 32;
-          npc.y = roomY;
-          localPlayer.autoWalkTarget = null;
-          localPlayer.knockback = null;
+            localPlayer.x = roomX;
+            localPlayer.y = roomY;
+            npc.x = roomX + 32;
+            npc.y = roomY;
+            localPlayer.autoWalkTarget = null;
+            localPlayer.knockback = null;
 
-          window.MEETING_LOCK_STATE = {
-            lockedUntil: now + 10000,
-            roomId: targetRoom,
-            reason: `${npc.name} 閉門訓話 10 秒`,
-            notifiedRelease: false,
-          };
+            window.MEETING_LOCK_STATE = {
+              lockedUntil: now + 10000,
+              roomId: targetRoom,
+              reason: `${npc.name} 閉門訓話 10 秒`,
+              notifiedRelease: false,
+            };
 
-          const scoldPool =
-            window.GATHER_CONFIG?.bossScoldDialogues?.[isVp ? 'vp' : 'director_pp00'] || [
-              '進辦公室好好反省十秒鐘！',
+            const scoldPool =
+              window.GATHER_CONFIG?.bossScoldDialogues?.[isVp ? 'vp' : 'director_pp00'] || [
+                '進辦公室好好反省十秒鐘！',
+              ];
+            const scoldLine = scoldPool[Math.floor(Math.random() * scoldPool.length)];
+            npc.murmur = {
+              text: scoldLine,
+              mood: 'fire',
+              createdAt: now,
+              expiresAt: now + 10000,
+            };
+            npc.jumpOffset = 14;
+            npc.emote = { emoji: '💢', expiresAt: now + 10000 };
+            spawnConfetti(localPlayer.x, localPlayer.y - 20);
+
+            pushStatusLog(npc.name, `💢 ${scoldLine}`);
+            network.broadcastPacket('status_log', {
+              senderName: npc.name,
+              text: `💢 ${scoldLine}`,
+            });
+            return;
+          } else if (roll < 0.75) {
+            // 25% 機率：閃避動作
+            npc.jumpOffset = 20;
+            npc.emote = { emoji: '💨', expiresAt: now + 3000 };
+            npc.x = Math.max(160, Math.min(2640, npc.x + (Math.random() < 0.5 ? -36 : 36)));
+            npc.targetX = npc.x;
+            const dodgeLines = [
+              '💨 優雅側閃！身為高階主管身法豈能被看透！',
+              '💨 閃過了！敢敲主管？考績扣分！',
+              '💨 俐落閃避！下週週報給我多寫五頁！',
             ];
-          const scoldLine = scoldPool[Math.floor(Math.random() * scoldPool.length)];
-          npc.murmur = {
-            text: scoldLine,
-            mood: 'fire',
-            createdAt: now,
-            expiresAt: now + 10000,
-          };
-          npc.jumpOffset = 14;
-          npc.emote = { emoji: '💢', expiresAt: now + 10000 };
-          spawnConfetti(localPlayer.x, localPlayer.y - 20);
-
-          pushStatusLog(npc.name, `💢 ${scoldLine}`);
-          network.broadcastPacket('status_log', {
-            senderName: npc.name,
-            text: `💢 ${scoldLine}`,
-          });
-          return;
+            const dodgeLine = dodgeLines[Math.floor(Math.random() * dodgeLines.length)];
+            npc.murmur = { text: dodgeLine, mood: 'fire', createdAt: now, expiresAt: now + 3500 };
+            showToast(`💨 ${npc.name} 優雅側身，靈巧閃過了你的揮擊！`, 'normal');
+            pushStatusLog(npc.name, dodgeLine);
+            network.broadcastPacket('npc_reaction', {
+              npcId: npc.id,
+              reaction: 'dodge',
+              jumpOffset: 20,
+              emote: npc.emote,
+              x: npc.x,
+              targetX: npc.targetX,
+              murmur: npc.murmur,
+            });
+            return;
+          } else {
+            // 25% 機率：害怕跑走動作
+            npc.isFleeing = true;
+            npc.fleeUntil = now + 7000;
+            npc.jumpOffset = 12;
+            npc.emote = { emoji: '😱', expiresAt: now + 5000 };
+            const fleeLines = [
+              '😱 救命啊！有失控工程師！HR跟警衛快來！',
+              '😱 瘋了瘋了！這員工壓力太大了！快跑！',
+              '😱 先避難！安全第一！這季不發獎金了！',
+            ];
+            const fleeLine = fleeLines[Math.floor(Math.random() * fleeLines.length)];
+            npc.murmur = { text: fleeLine, mood: 'fire', createdAt: now, expiresAt: now + 4000 };
+            showToast(`😱 ${npc.name} 嚇到花容失色，拔腿狂奔避難！`, 'error');
+            pushStatusLog(npc.name, fleeLine);
+            network.broadcastPacket('npc_reaction', {
+              npcId: npc.id,
+              reaction: 'flee',
+              fleeUntil: npc.fleeUntil,
+              jumpOffset: 12,
+              emote: npc.emote,
+              murmur: npc.murmur,
+            });
+            return;
+          }
         }
 
-        // 🧹 規則 4：攻擊打掃阿姨時，會被拖到廁所或是茶水間責罵 10 秒
+        // 🧹 規則 4：攻擊打掃阿姨：50% 拖去責罵 10 秒，25% 靈巧閃避，25% 害怕跑走
         if (npc.id === 'npc_auntie_meifeng' || npc.id === 'npc_auntie_shufen') {
-          const isRestroom = Math.random() < 0.5;
-          const targetRoom = isRestroom ? 'restroom' : 'pantry';
-          const roomX = isRestroom ? 2340 : 2350;
-          const roomY = isRestroom ? 820 : 350;
+          const roll = Math.random();
+          if (roll < 0.50) {
+            // 50% 機率：拖入該區域責罵 10 秒
+            const isRestroom = Math.random() < 0.5;
+            const targetRoom = isRestroom ? 'restroom' : 'pantry';
+            const roomX = isRestroom ? 2340 : 2350;
+            const roomY = isRestroom ? 820 : 350;
 
-          // 瞬間拖入該區域
-          localPlayer.x = roomX;
-          localPlayer.y = roomY;
-          npc.x = roomX + 32;
-          npc.y = roomY;
-          localPlayer.autoWalkTarget = null;
-          localPlayer.knockback = null;
+            localPlayer.x = roomX;
+            localPlayer.y = roomY;
+            npc.x = roomX + 32;
+            npc.y = roomY;
+            localPlayer.autoWalkTarget = null;
+            localPlayer.knockback = null;
 
-          window.MEETING_LOCK_STATE = {
-            lockedUntil: now + 10000,
-            roomId: targetRoom,
-            reason: `${npc.name} 抓去責罵 10 秒`,
-            notifiedRelease: false,
-          };
+            window.MEETING_LOCK_STATE = {
+              lockedUntil: now + 10000,
+              roomId: targetRoom,
+              reason: `${npc.name} 抓去責罵 10 秒`,
+              notifiedRelease: false,
+            };
 
-          const scoldPool =
-            window.GATHER_CONFIG?.bossScoldDialogues?.cleaner_auntie || [
-              '地板剛拖好踩得都是腳印還敢動手！給我站在這反省十秒！',
-              '連打掃阿姨你都敢惹？垃圾桶跟茶水間抹布罰你洗十次！',
-              '沒大沒小！阿姨掃地看過幾千個工程師，就你最皮！面壁十秒！',
-              '咖啡屑跟餅乾屑都阿姨在清，你還敢揮武器？乖乖被我訓話！',
-              '手上的武器給我放下！阿姨手上的黃金拖把可比你的板凳硬多啦！',
+            const scoldPool =
+              window.GATHER_CONFIG?.bossScoldDialogues?.cleaner_auntie || [
+                '地板剛拖好踩得都是腳印還敢動手！給我站在這反省十秒！',
+                '連打掃阿姨你都敢惹？垃圾桶跟茶水間抹布罰你洗十次！',
+                '沒大沒小！阿姨掃地看過幾千個工程師，就你最皮！面壁十秒！',
+                '咖啡屑跟餅乾屑都阿姨在清，你還敢揮武器？乖乖被我訓話！',
+                '手上的武器給我放下！阿姨手上的黃金拖把可比你的板凳硬多啦！',
+              ];
+            const scoldLine = scoldPool[Math.floor(Math.random() * scoldPool.length)];
+            npc.murmur = {
+              text: scoldLine,
+              mood: 'fire',
+              createdAt: now,
+              expiresAt: now + 10000,
+            };
+            npc.jumpOffset = 14;
+            npc.emote = { emoji: '🧹', expiresAt: now + 10000 };
+            spawnConfetti(localPlayer.x, localPlayer.y - 20);
+
+            pushStatusLog(npc.name, `💢 ${scoldLine}`);
+            network.broadcastPacket('status_log', {
+              senderName: npc.name,
+              text: `💢 ${scoldLine}`,
+            });
+            return;
+          } else if (roll < 0.75) {
+            // 25% 機率：閃避動作
+            npc.jumpOffset = 20;
+            npc.emote = { emoji: '💨', expiresAt: now + 3000 };
+            npc.x = Math.max(160, Math.min(2640, npc.x + (Math.random() < 0.5 ? -36 : 36)));
+            npc.targetX = npc.x;
+            const dodgeLines = [
+              '💨 哎唷！阿姨天天拖地身手靈巧，你休想揮到我！',
+              '💨 拖把一揮靈巧墊步！閃過了！',
+              '💨 阿姨我跳土風舞三十年，這點速度打不著！',
             ];
-          const scoldLine = scoldPool[Math.floor(Math.random() * scoldPool.length)];
-          npc.murmur = {
-            text: scoldLine,
-            mood: 'fire',
-            createdAt: now,
-            expiresAt: now + 10000,
-          };
-          npc.jumpOffset = 14;
-          npc.emote = { emoji: '🧹', expiresAt: now + 10000 };
-          spawnConfetti(localPlayer.x, localPlayer.y - 20);
-
-          pushStatusLog(npc.name, `💢 ${scoldLine}`);
-          network.broadcastPacket('status_log', {
-            senderName: npc.name,
-            text: `💢 ${scoldLine}`,
-          });
-          return;
+            const dodgeLine = dodgeLines[Math.floor(Math.random() * dodgeLines.length)];
+            npc.murmur = { text: dodgeLine, mood: 'fire', createdAt: now, expiresAt: now + 3500 };
+            showToast('💨 打掃阿姨舞動拖把靈巧閃開了！', 'normal');
+            pushStatusLog(npc.name, dodgeLine);
+            network.broadcastPacket('npc_reaction', {
+              npcId: npc.id,
+              reaction: 'dodge',
+              jumpOffset: 20,
+              emote: npc.emote,
+              x: npc.x,
+              targetX: npc.targetX,
+              murmur: npc.murmur,
+            });
+            return;
+          } else {
+            // 25% 機率：害怕跑走動作
+            npc.isFleeing = true;
+            npc.fleeUntil = now + 7000;
+            npc.jumpOffset = 12;
+            npc.emote = { emoji: '😱', expiresAt: now + 5000 };
+            const fleeLines = [
+              '😱 哎呀我的媽！這年輕人造反啦！阿姨先酸！',
+              '😱 拖把都不要了！救命啊！有瘋子！',
+              '😱 夭壽喔！快跑快跑！阿姨要報警了！',
+            ];
+            const fleeLine = fleeLines[Math.floor(Math.random() * fleeLines.length)];
+            npc.murmur = { text: fleeLine, mood: 'fire', createdAt: now, expiresAt: now + 4000 };
+            showToast('😱 打掃阿姨嚇得一邊尖叫一邊狂奔！', 'error');
+            pushStatusLog(npc.name, fleeLine);
+            network.broadcastPacket('npc_reaction', {
+              npcId: npc.id,
+              reaction: 'flee',
+              fleeUntil: npc.fleeUntil,
+              jumpOffset: 12,
+              emote: npc.emote,
+              murmur: npc.murmur,
+            });
+            return;
+          }
         }
 
         let dx = npc.x - localPlayer.x;
@@ -2266,8 +2555,62 @@
         npc.emote = { emoji: '💫', expiresAt: now + 3200 };
         spawnConfetti(npc.x, npc.y - 20);
 
-        // 擊退鳥人指揮官：解鎖會議室脫困，10% 機率永久不再出現，20% 機率得道具經驗
+        // 擊退鳥人指揮官：高機率閃避 (45%)、害怕跑走 (25%)、被擊中擊退 (30%)
         if (npc.isBirdCommander) {
+          const birdRoll = Math.random();
+          if (birdRoll < 0.45) {
+            // 45% 高機率閃避動作
+            npc.jumpOffset = 26;
+            npc.emote = { emoji: '💨', expiresAt: now + 3000 };
+            const sideDash = (Math.random() < 0.5 ? -48 : 48);
+            npc.x = Math.max(160, Math.min(2640, npc.x + sideDash));
+            npc.targetX = npc.x;
+            const dodgeLines = [
+              '💨 嘎！紅鶴展翅！敏捷閃避！你碰不到我的羽毛！',
+              '💨 嘎！空中滑翔閃過！Action Item 改完再來！',
+              '💨 嘎嘎！身法鬼魅！鳥人指揮官可不是好惹的！',
+            ];
+            const dodgeLine = dodgeLines[Math.floor(Math.random() * dodgeLines.length)];
+            npc.murmur = { text: dodgeLine, mood: 'fire', createdAt: now, expiresAt: now + 3500 };
+            showToast('💨 鳥人指揮官展翅高飛，敏捷閃避了你的攻擊！', 'normal');
+            pushStatusLog('鳥人指揮官', dodgeLine);
+            network.broadcastPacket('npc_reaction', {
+              npcId: npc.id,
+              reaction: 'dodge',
+              jumpOffset: 26,
+              emote: npc.emote,
+              x: npc.x,
+              targetX: npc.targetX,
+              murmur: npc.murmur,
+            });
+            return;
+          } else if (birdRoll < 0.70) {
+            // 25% 害怕跑走動作
+            npc.isFleeing = true;
+            npc.fleeUntil = now + 7500;
+            npc.jumpOffset = 16;
+            npc.emote = { emoji: '😱', expiresAt: now + 6000 };
+            const fleeLines = [
+              '😱 嘎嘎嘎！這工程師手裡的傢伙太兇殘了！快逃啊！',
+              '😱 救命啊！紅鶴要被拔毛啦！嘎！快跑！',
+              '😱 嘎！先撤先撤！這案子我不催了！逃命要緊！',
+            ];
+            const fleeLine = fleeLines[Math.floor(Math.random() * fleeLines.length)];
+            npc.murmur = { text: fleeLine, mood: 'fire', createdAt: now, expiresAt: now + 4000 };
+            showToast('😱 鳥人指揮官嚇到撲騰翅膀瘋狂逃跑！', 'error');
+            pushStatusLog('鳥人指揮官', fleeLine);
+            network.broadcastPacket('npc_reaction', {
+              npcId: npc.id,
+              reaction: 'flee',
+              fleeUntil: npc.fleeUntil,
+              jumpOffset: 16,
+              emote: npc.emote,
+              murmur: npc.murmur,
+            });
+            return;
+          }
+
+          // 30% 命中擊退！
           npc.followPlayerUntil = 0;
           let unlockedMeeting = false;
           if (window.MEETING_LOCK_STATE && now < window.MEETING_LOCK_STATE.lockedUntil) {
@@ -2279,7 +2622,7 @@
           }
 
           // 🦩 攻擊鳥人指揮官：10% 機率將其打飛出大氣層（暫時退場休養 60 秒，之後會重新返回）
-          const exileChance = window.GATHER_CONFIG?.security?.birdExileChance ?? 0.10;
+          const exileChance = 0.33; // 命中 30% 中的 33%，約佔整體 10%
           if (Math.random() < exileChance) {
             localPlayer.birdCommanderRestUntil = now + 60000;
             savePersistentState();
@@ -2290,6 +2633,10 @@
               `🦩 💥 巨力超重擊！鳥人指揮官被打飛至大氣層（觸發 10% 終極擊退：鳥人暫時退場休養 60 秒）！`
             );
             showToast('🦩 💥 觸發 10% 終極擊退！鳥人指揮官被打飛休養，60秒後返回！', 'join');
+            network.broadcastPacket('npc_reaction', {
+              npcId: npc.id,
+              reaction: 'exile',
+            });
           } else {
             const dropChance = window.GATHER_CONFIG?.security?.birdDropChance ?? 0.20;
             if (Math.random() < dropChance) {
@@ -2944,7 +3291,10 @@
       const item = ecosystem.groundItems[i];
       if (Math.hypot(localPlayer.x - item.x, localPlayer.y - item.y) < 68) {
         const added = addItemToInventory(item, true);
-        ecosystem.groundItems.splice(i, 1);
+        const removed = ecosystem.groundItems.splice(i, 1)[0];
+        if (removed) {
+          network.broadcastPacket('item_collected', { itemId: removed.uid || removed.id });
+        }
         const gained = addExp(15);
         updateSelfHudCard();
         network.broadcastPacket('state_sync', { player: network.getPublicState() });
@@ -3000,8 +3350,14 @@
         if (fac.repairTarget.kind) {
           fac.repairTarget.status = 'PASS 99.9%';
           fac.repairTarget.statusColor = '#22c55e';
+          const eqIdx = window.WORLD_MAP.labEquipments.indexOf(fac.repairTarget);
+          if (eqIdx !== -1) network.broadcastPacket('device_repair', { type: 'lab', idx: eqIdx });
         } else {
           fac.repairTarget.screenState = 'pass';
+          fac.repairTarget.leftScreen = 'Pass';
+          fac.repairTarget.rightScreen = 'Good';
+          const wsIdx = window.WORLD_MAP.workstations.indexOf(fac.repairTarget);
+          if (wsIdx !== -1) network.broadcastPacket('device_repair', { type: 'ws', idx: wsIdx });
         }
         forceLevelUp(fac.repairName || '設備');
         localPlayer.actionState = fac.actionId;
@@ -4277,7 +4633,10 @@
         const gItem = ecosystem.groundItems[i];
         if (gItem.dropY <= 5 && Math.hypot(localPlayer.x - gItem.x, localPlayer.y - gItem.y) < 30) {
           const added = addItemToInventory(gItem, true);
-          ecosystem.groundItems.splice(i, 1);
+          const removedG = ecosystem.groundItems.splice(i, 1)[0];
+          if (removedG) {
+            network.broadcastPacket('item_collected', { itemId: removedG.uid || removedG.id });
+          }
           const gained = addExp(15);
           updateSelfHudCard();
           showToast(
