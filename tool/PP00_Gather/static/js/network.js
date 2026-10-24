@@ -628,6 +628,9 @@ class EphemeralOfficeNetwork {
       name: this.localPlayer.name,
       unit: this.localPlayer.unit,
       avatarId: this.localPlayer.avatarId,
+      outfitAvatarId: this.localPlayer.outfitAvatarId || null,
+      outfitUid: this.localPlayer.outfitUid || null,
+      inventoryState: {inventory:(this.localPlayer.inventory || []).map(i=>({id:i.id,category:i.category,durability:i.durability,maxDurability:i.maxDurability,count:i.count})), equippedSlots:(this.localPlayer.equippedSlots || []).map(i=>i?{}:null)},
       status: this.localPlayer.status,
       heldItem: this.localPlayer.heldItem,
       actionState: this.localPlayer.actionState || null,
@@ -698,7 +701,7 @@ class EphemeralOfficeNetwork {
     const validUserAvatar =
       window.AVATAR_CATALOG && window.AVATAR_CATALOG.some((a) => a.id === pData.avatarId)
         ? pData.avatarId
-        : 'frog_eng';
+        : 'office_1';
 
     const targetX = Number(pData.x) || 850;
     const targetY = Number(pData.y) || 520;
@@ -712,6 +715,10 @@ class EphemeralOfficeNetwork {
       name: this.sanitizeText(pData.name || '同事', 16),
       unit: this.sanitizeText(pData.unit || 'PP00', 8),
       avatarId: validUserAvatar,
+      outfitAvatarId: pData.outfitAvatarId === undefined ? existing.outfitAvatarId || null : (window.COSTUME_CATALOG?.some(a=>a.id===pData.outfitAvatarId) ? pData.outfitAvatarId : null),
+      outfitUid: pData.outfitUid === undefined ? existing.outfitUid || null : (typeof pData.outfitUid === 'string' ? pData.outfitUid : null),
+      inventoryState: pData.inventoryState && Array.isArray(pData.inventoryState.inventory) && Array.isArray(pData.inventoryState.equippedSlots) ? pData.inventoryState : existing.inventoryState || null,
+      stunnedUntil: Number(pData.stunnedUntil) || 0,
       status: pData.status || 'active',
       heldItem: pData.heldItem || '🟢',
       actionState: pData.actionState || null,
