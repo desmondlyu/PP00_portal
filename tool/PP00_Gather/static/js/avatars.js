@@ -189,6 +189,9 @@ window.drawWackyAvatar = function (ctx, opts) {
     isSweeper = false,     // 打掃阿姨常駐掃把標記
     isKnockedBack = false, // 玩家或 NPC 被擊飛拋物線狀態
     weaponSwing = null,    // 揮舞武器狀態 { emoji, progress: 0~1 }
+    isInjured = false,     // 🚑 重傷休養狀態
+    beingHealed = false,   // 🩹 正在接受醫療狀態
+    healProgress = 0,      // 醫療進度 0~1
   } = opts;
 
   ctx.save();
@@ -1157,6 +1160,97 @@ case 'crt_bot':
     ctx.translate(x + poseOffsetX, y - jumpOffset + poseOffsetY);
     ctx.scale(scale, scale);
     drawContextAction(ctx, actionState, tick);
+    ctx.restore();
+  }
+
+  // =========================================================================
+  // 7. 🚑 重傷休養與包紮動畫 (Bandage Wrap & Medical Animation)
+  // =========================================================================
+  if (isInjured) {
+    ctx.save();
+    ctx.translate(x + poseOffsetX, y - jumpOffset + poseOffsetY);
+    ctx.scale(scale, scale);
+
+    // 1. 睡墊周圍的急救微光監護光圈
+    const glowAlpha = 0.22 + Math.sin(tick * 0.12) * 0.12;
+    ctx.fillStyle = 'rgba(16, 185, 129, ' + glowAlpha + ')';
+    ctx.beginPath();
+    ctx.ellipse(0, 5, 34, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. 身軀與頭部的白色立體包紮繃帶
+    ctx.save();
+    ctx.rotate(poseRotate);
+
+    // 頭部繃帶斜纏 (3 條交錯白色立體繃帶)
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(-12, -42, 24, 4);
+    ctx.fillRect(-11, -36, 22, 3);
+    ctx.fillStyle = '#cbd5e1'; // 繃帶接縫立體陰影
+    ctx.fillRect(-12, -39, 24, 1.5);
+    ctx.fillRect(-11, -34, 22, 1);
+
+    // 頭部可愛繃帶蝴蝶結（打結效果，隨呼吸微幅擺動）
+    const knotWiggle = Math.sin(tick * 0.16) * 1.8;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-16, -46, 6, 4);
+    ctx.fillRect(-8, -46, 6, 4);
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillRect(-11, -45, 4, 3);
+    // 飄動的繃帶尾巴
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(-13 + knotWiggle, -41, 3, 7);
+    ctx.fillRect(-9 - knotWiggle, -41, 3, 5);
+
+    // 臉頰創口貼 (帶打孔質感)
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillRect(4, -38, 9, 5);
+    ctx.fillStyle = '#92400e';
+    ctx.fillRect(7, -37, 3, 3);
+
+    // 身體/手臂包紮十字繃帶
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(-14, -18, 28, 4);
+    ctx.fillRect(-12, -12, 24, 3);
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillRect(-14, -15, 28, 1.5);
+    ctx.restore();
+
+    // 3. 向上緩緩漂浮升起的包紮休養粒子 (🩹 創口貼、✨ 治癒微星、❤️‍🩹)
+    const phase = (tick * 0.04) % 1;
+    for (let i = 0; i < 3; i++) {
+      const p = (phase + i / 3) % 1;
+      const py = -20 - p * 35;
+      const px = Math.sin((tick * 0.08) + i * 2) * 16;
+      ctx.save();
+      ctx.globalAlpha = Math.sin(p * Math.PI) * 0.9;
+      ctx.font = i === 0 ? '13px sans-serif' : '10px sans-serif';
+      ctx.textAlign = 'center';
+      const icon = i === 0 ? '🩹' : (i === 1 ? '✨' : '❤️‍🩹');
+      ctx.fillText(icon, px, py);
+      ctx.restore();
+    }
+
+    // 4. 若正由其他同仁醫療中 (beingHealed)：繪製濃烈翡翠綠聖光光環與急救愛心
+    if (beingHealed) {
+      const healPulse = 1 + Math.sin(tick * 0.3) * 0.2;
+      ctx.strokeStyle = '#34d399';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 28 * healPulse, 0, Math.PI * 2);
+      ctx.stroke();
+
+      for (let j = 0; j < 4; j++) {
+        const hp = ((tick * 0.06) + j / 4) % 1;
+        ctx.save();
+        ctx.globalAlpha = Math.sin(hp * Math.PI);
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('💚', Math.cos(j * 1.5) * 18, -15 - hp * 45);
+        ctx.restore();
+      }
+    }
+
     ctx.restore();
   }
 };

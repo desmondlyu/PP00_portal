@@ -156,6 +156,8 @@
   let nearbyPlayers = [];
   let selectedTargetId = null;
   let nearbyFacilityAction = null;
+  let activeHealingSession = null; // { targetId, targetName, targetX, targetY, startTime, duration: 5000 }
+  let nearbyInjuredColleague = null; // 當前靠近的重傷同仁 (距離 <= 75px)
 
   const vfxList = [];
   let selectedAvatarIndex = 1;
@@ -280,6 +282,42 @@
         spawnConfetti(mob.x, mob.y - 16);
         pushStatusLog(guard.name, `🏏 警棍命中【${mob.name}】！成功消滅方塊怪！`);
         showToast(`🏏 夜間警衛擊退了【${mob.name}】！`, 'security');
+      },
+      onRemoteHealStart: (pkt) => {
+        if (localPlayer.id === pkt.targetId) {
+          localPlayer.beingHealed = true;
+          localPlayer.beingHealedBy = pkt.healerName;
+          showToast(`🩹 同仁【${pkt.healerName}】正在為你進行 5 秒緊急醫療包紮！請耐心等待！`, 'join');
+        }
+        pushStatusLog('系統', `🩹 【${pkt.healerName}】正在對【${pkt.targetName || '重傷同仁'}】展開 5 秒急救醫療！`);
+      },
+      onRemoteHealProgress: (pkt) => {
+        if (localPlayer.id === pkt.targetId) {
+          localPlayer.beingHealed = true;
+          localPlayer.healProgress = pkt.progress;
+        }
+      },
+      onRemoteHealCancel: (pkt) => {
+        if (localPlayer.id === pkt.targetId) {
+          localPlayer.beingHealed = false;
+          localPlayer.healProgress = 0;
+          showToast('⚠️ 急救醫療中斷！', 'error');
+        }
+      },
+      onRemoteHealComplete: (pkt) => {
+        if (localPlayer.id === pkt.targetId) {
+          localPlayer.isInjured = false;
+          localPlayer.injuredUntil = 0;
+          localPlayer.beingHealed = false;
+          localPlayer.healProgress = 0;
+          localPlayer.actionState = null;
+          savePersistentState();
+          updatePoseLabelUI();
+          updateInjuryCountdownHUD();
+          spawnConfetti(localPlayer.x, localPlayer.y - 20);
+          showToast(`💖 感謝同仁【${pkt.healerName}】完成 5 秒醫療！傷勢已全面康復！`, 'join');
+        }
+        pushStatusLog('系統', `💖 【${pkt.healerName}】完成 5 秒急救，成功治癒【${pkt.targetName || '同仁'}】！`);
       },
       getMobs: () => (typeof ecosystem !== 'undefined' && ecosystem && ecosystem.mobs ? ecosystem.mobs : []),
       getWorldSyncState: () => {
@@ -3379,6 +3417,17 @@
     const px = localPlayer.x;
     const py = localPlayer.y;
 
+    // 0. 最高優先級：若靠近身受重傷的同仁，提示醫療急救
+    if (!localPlayer.isInjured && nearbyInjuredColleague) {
+      const isHealingSelf = activeHealingSession && activeHealingSession.targetId === nearbyInjuredColleague.id;
+      return {
+        label: isHealingSelf ? `🩹 急救醫療中... [請維持原地]` : `🩹 為【${nearbyInjuredColleague.name}】進行緊急醫療 (5秒) [按E]`,
+        shortHint: isHealingSelf ? `[🩹 急救中... 保持靠近]` : `[按 E] 🩹 為【${nearbyInjuredColleague.name}】急救醫療`,
+        isHealColleague: true,
+        targetColleague: nearbyInjuredColleague,
+      };
+    }
+
     // 0. 優先檢查遭破壞設備（修復立即升一級）
     for (const ws of window.WORLD_MAP.workstations) {
       const seatX = ws.x + ws.w / 2;
@@ -3507,9 +3556,40 @@
     return null;
   }
 
+  function startHealingInjuredColleague(target) {
+    if (!target || localPlayer.isInjured) return;
+    if (activeHealingSession) return;
+    activeHealingSession = {
+      targetId: target.id,
+      targetName: target.name,
+      targetX: target.x,
+      targetY: target.y,
+      startTime: Date.now(),
+      duration: 5000,
+    };
+    localPlayer.actionState = 'wash_hands'; // 包紮搓手動作
+    localPlayer.isMoving = false;
+    localPlayer.autoWalkTarget = null;
+    if (network) {
+      network.broadcastPacket('heal_start', {
+        healerId: network.clientId,
+        healerName: localPlayer.name,
+        targetId: target.id,
+        targetName: target.name,
+      });
+    }
+    showToast(`🩹 正在對【${target.name}】進行 5 秒急救包紮！請保持靠近！`, 'join');
+    pushStatusLog(localPlayer.name, `🩹 開始對【${target.name}】進行 5 秒緊急醫療！`);
+  }
+
   function tryInteractWithEnvironment() {
     if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
       showToast('🚑 身受重傷休養中，無法進行設施互動！', 'error');
+      return;
+    }
+    // 0. 醫療重傷同仁互動 (優先於一般設備)
+    if (nearbyInjuredColleague && !activeHealingSession) {
+      startHealingInjuredColleague(nearbyInjuredColleague);
       return;
     }
     // 1. 掉落物撿拾
@@ -4786,6 +4866,71 @@
       }
     }
 
+    // 🩹 偵測是否靠近身受重傷的同仁 (距離 <= 75px)
+    nearbyInjuredColleague = null;
+    if (!localPlayer.isInjured && network && network.remotePlayers) {
+      for (const p of network.remotePlayers.values()) {
+        if (p && p.isInjured && p.id !== localPlayer.id) {
+          const dist = Math.hypot(p.x - localPlayer.x, p.y - localPlayer.y);
+          if (dist <= 75) {
+            nearbyInjuredColleague = p;
+            break;
+          }
+        }
+      }
+    }
+
+    // 🩹 推進正在進行中的 5 秒緊急醫療會話
+    if (activeHealingSession) {
+      const elapsed = Date.now() - activeHealingSession.startTime;
+      const progress = Math.min(1, elapsed / activeHealingSession.duration);
+      const targetP = network.remotePlayers.get(activeHealingSession.targetId);
+
+      // 中斷條件：若傷者離開或距離大於 95px、或醫護者遭擊退
+      if (!targetP || Math.hypot(targetP.x - localPlayer.x, targetP.y - localPlayer.y) > 95 || (localPlayer.knockback && localPlayer.knockback.ticksLeft > 0)) {
+        showToast('⚠️ 距離過遠或遭受干擾，急救醫療中斷！', 'error');
+        pushStatusLog('系統', `⚠️ 【${localPlayer.name}】對【${activeHealingSession.targetName}】的急救醫療中斷！`);
+        if (network) {
+          network.broadcastPacket('heal_cancel', {
+            healerId: network.clientId,
+            targetId: activeHealingSession.targetId,
+          });
+        }
+        activeHealingSession = null;
+        localPlayer.actionState = null;
+      } else if (elapsed >= activeHealingSession.duration) {
+        // 滿 5 秒：急救圓滿大成功！傷者立即恢復！
+        if (network) {
+          network.broadcastPacket('heal_complete', {
+            healerId: network.clientId,
+            healerName: localPlayer.name,
+            targetId: activeHealingSession.targetId,
+            targetName: activeHealingSession.targetName,
+          });
+        }
+        targetP.isInjured = false;
+        targetP.beingHealed = false;
+        targetP.actionState = null;
+        spawnConfetti(localPlayer.x, localPlayer.y - 20);
+        spawnConfetti(targetP.x, targetP.y - 20);
+        const gained = addExp(50);
+        updateSelfHudCard();
+        showToast(`🎉 成功治癒【${activeHealingSession.targetName}】！獲得 ${gained} EXP 急救獎勵！`, 'join');
+        pushStatusLog('系統', `💖 同仁【${localPlayer.name}】完成 5 秒精湛急救，成功治癒【${activeHealingSession.targetName}】！`);
+        activeHealingSession = null;
+        localPlayer.actionState = null;
+      } else {
+        // 每 10 tick 廣播一次醫療進度
+        if (tick % 10 === 0 && network) {
+          network.broadcastPacket('heal_progress', {
+            healerId: network.clientId,
+            targetId: activeHealingSession.targetId,
+            progress,
+          });
+        }
+      }
+    }
+
     // 🚑 檢查重傷休養狀態：躺在會議室因重傷無法動彈 5 分鐘
     if (localPlayer.isInjured) {
       if (Date.now() < (localPlayer.injuredUntil || 0)) {
@@ -5132,6 +5277,9 @@
         isSweeper: !!p.isSweeper,
         isKnockedBack: !!(p.knockback && p.knockback.ticksLeft > 0),
         weaponSwing: p.weaponSwing || null,
+        isInjured: p.id === localPlayer.id ? !!localPlayer.isInjured : !!p.isInjured,
+        beingHealed: p.id === localPlayer.id ? !!localPlayer.beingHealed : !!p.beingHealed,
+        healProgress: p.id === localPlayer.id ? (localPlayer.healProgress || 0) : (p.healProgress || 0),
       });
     });
 
@@ -5165,6 +5313,7 @@
       ctx.restore();
     }
 
+    renderMedicalHealingAnimations(ctx, tick);
     renderVfxList(ctx);
     ctx.restore();
 
@@ -5345,3 +5494,135 @@
   };
   window.addEventListener('DOMContentLoaded', init);
 })();
+
+  /**
+   * 繪製 5 秒緊急醫療急救動畫（醫療光束、治癒光環、心跳脈衝線、飛舞愛心粒子與科技感進度 HUD）
+   */
+  function renderMedicalHealingAnimations(ctx, tick) {
+    if (!network) return;
+
+    // 收集所有正在進行的急救事件 (本地醫護 或 遠端醫護)
+    const healSessions = [];
+    if (activeHealingSession) {
+      const targetP = network.remotePlayers.get(activeHealingSession.targetId);
+      if (targetP) {
+        const elapsed = Date.now() - activeHealingSession.startTime;
+        healSessions.push({
+          healer: localPlayer,
+          injured: targetP,
+          progress: Math.min(1, elapsed / activeHealingSession.duration),
+          elapsed,
+          isSelfHealer: true,
+        });
+      }
+    }
+
+    // 檢查遠端玩家間是否有進行中的急救
+    network.remotePlayers.forEach((rp) => {
+      if (rp.beingHealed && rp.beingHealedBy && (!activeHealingSession || activeHealingSession.targetId !== rp.id)) {
+        let healer = null;
+        for (const hp of network.remotePlayers.values()) {
+          if (hp.name === rp.beingHealedBy) {
+            healer = hp;
+            break;
+          }
+        }
+        if (healer) {
+          healSessions.push({
+            healer,
+            injured: rp,
+            progress: rp.healProgress || 0.5,
+            elapsed: 2500,
+            isSelfHealer: false,
+          });
+        }
+      }
+    });
+
+    healSessions.forEach((s) => {
+      const { healer, injured, progress, elapsed } = s;
+      ctx.save();
+
+      // 1. 醫護者與傷者之間的翡翠綠急救脈衝光束
+      const wave = Math.sin(tick * 0.4) * 4;
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 4]);
+      ctx.lineDashOffset = -tick * 1.5;
+      ctx.beginPath();
+      ctx.moveTo(healer.x, healer.y - 12);
+      const midCtrlX = (healer.x + injured.x) / 2;
+      const midCtrlY = (healer.y + injured.y) / 2 - 20 + wave;
+      ctx.quadraticCurveTo(midCtrlX, midCtrlY, injured.x, injured.y - 10);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 2. 傷者地面急救旋轉光環
+      const haloR = 26 + Math.sin(tick * 0.25) * 6;
+      ctx.strokeStyle = 'rgba(52, 211, 153, 0.85)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.ellipse(injured.x, injured.y + 6, haloR, haloR * 0.5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 3. 空中飄浮的急救愛心與創口貼粒子 (向上升騰)
+      for (let i = 0; i < 4; i++) {
+        const t = ((tick * 0.08) + i / 4) % 1;
+        const px = injured.x + Math.sin(t * Math.PI * 2 + i) * 16;
+        const py = injured.y - 15 - t * 40;
+        ctx.save();
+        ctx.globalAlpha = Math.sin(t * Math.PI) * 0.95;
+        ctx.font = '13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(i % 2 === 0 ? '💚' : '🩹', px, py);
+        ctx.restore();
+      }
+
+      // 4. 懸浮 5 秒急救進度條卡片
+      const remSec = Math.max(0, (5 - (elapsed / 1000))).toFixed(1);
+      const cardW = 160;
+      const cardH = 36;
+      const cardX = (healer.x + injured.x) / 2 - cardW / 2;
+      const cardY = Math.min(healer.y, injured.y) - 62;
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+      ctx.beginPath();
+      ctx.roundRect(cardX, cardY, cardW, cardH, 8);
+      ctx.fill();
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+
+      // 文字標題與剩餘秒數
+      ctx.fillStyle = '#6ee7b7';
+      ctx.font = 'bold 11px "Outfit", "Microsoft JhengHei", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`🩹 急救醫療中... ${remSec}s`, cardX + 10, cardY + 14);
+
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${Math.round(progress * 100)}%`, cardX + cardW - 10, cardY + 14);
+
+      // 進度條槽與翡翠綠填充
+      const barX = cardX + 10;
+      const barY = cardY + 22;
+      const barW = cardW - 20;
+      const barH = 6;
+      ctx.fillStyle = 'rgba(51, 65, 85, 0.9)';
+      ctx.beginPath();
+      ctx.roundRect(barX, barY, barW, barH, 3);
+      ctx.fill();
+
+      if (progress > 0) {
+        const fillW = Math.max(4, barW * progress);
+        ctx.fillStyle = 'linear-gradient(90deg, #10b981, #34d399)';
+        ctx.fillStyle = '#10b981';
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, fillW, barH, 3);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    });
+  }
