@@ -547,6 +547,24 @@ class EphemeralOfficeNetwork {
     };
   }
 
+  /**
+   * 判定當前連線客戶端是否為房長 (Room Master)：
+   * 採用確定性最小 ID 演算法，若無遠端玩家則本地即為房長；
+   * 若有多人連線，由所有真實使用者 ID 排序後最小者擔任權威主機，負責運算 NPC AI、怪物、掉落物與螢幕狀態。
+   */
+  isRoomMaster() {
+    if (!this.clientId) return true;
+    if (!this.remotePlayers || this.remotePlayers.size === 0) return true;
+    const realIds = [this.clientId];
+    for (const [id, player] of this.remotePlayers.entries()) {
+      if (player && id && !player.isNpc && !player.isMob) {
+        realIds.push(id);
+      }
+    }
+    realIds.sort();
+    return realIds[0] === this.clientId;
+  }
+
   broadcastPacket(type, data = {}) {
     const nonce = Math.random().toString(36).slice(2, 10) + '_' + Date.now();
     const packet = {
@@ -726,6 +744,85 @@ class EphemeralOfficeNetwork {
         }
         break;
       }
+      case 'world_sync': {
+        // 由房長 (Room Master) 統一廣播的權威同步封包
+        // 若自己是房長，但收到比自己更小 ID 房長廣播，以更小者為準
+        if (this.clientId && pkt.senderId && pkt.senderId > this.clientId && this.isRoomMaster()) {
+          break;
+        }
+        if (Array.isArray(pkt.npcs)) {
+          pkt.npcs.forEach((remoteNpc) => {
+            let localNpc = this.npcPlayers.get(remoteNpc.id);
+            if (!localNpc && remoteNpc.id === 'npc_bird_commander') {
+              this.spawnBirdCommander();
+              localNpc = this.npcPlayers.get(remoteNpc.id);
+            }
+            if (localNpc) {
+              localNpc.targetX = remoteNpc.targetX;
+              localNpc.targetY = remoteNpc.targetY;
+              const dist = Math.hypot(localNpc.x - remoteNpc.x, localNpc.y - remoteNpc.y);
+              if (dist > 50) {
+                localNpc.x = remoteNpc.x;
+                localNpc.y = remoteNpc.y;
+              }
+              localNpc.dir = remoteNpc.dir;
+              localNpc.actionState = remoteNpc.actionState;
+              localNpc.isMoving = remoteNpc.isMoving;
+              localNpc.isBerserk = !!remoteNpc.isBerserk;
+              localNpc.isFleeing = !!remoteNpc.isFleeing;
+              if (remoteNpc.fleeUntil) localNpc.fleeUntil = remoteNpc.fleeUntil;
+              if (remoteNpc.jumpOffset > 0) localNpc.jumpOffset = remoteNpc.jumpOffset;
+              if (remoteNpc.murmur) localNpc.murmur = remoteNpc.murmur;
+              if (remoteNpc.emote) localNpc.emote = remoteNpc.emote;
+              if (remoteNpc.followTargetId !== undefined) localNpc.followTargetId = remoteNpc.followTargetId;
+            }
+          });
+        }
+        if (this.callbacks.onWorldSync) {
+          this.callbacks.onWorldSync(pkt);
+        }
+        break;
+      }
+      case 'npc_reaction': {
+        const targetNpc = this.npcPlayers.get(pkt.npcId);
+        if (targetNpc) {
+          if (pkt.reaction === 'dodge') {
+            targetNpc.jumpOffset = pkt.jumpOffset || 22;
+            targetNpc.emote = pkt.emote || { emoji: '💨', expiresAt: Date.now() + 3000 };
+            if (typeof pkt.targetX === 'number') targetNpc.targetX = pkt.targetX;
+            if (typeof pkt.targetY === 'number') targetNpc.targetY = pkt.targetY;
+            if (typeof pkt.x === 'number') targetNpc.x = pkt.x;
+            if (typeof pkt.y === 'number') targetNpc.y = pkt.y;
+            if (pkt.murmur) targetNpc.murmur = pkt.murmur;
+          } else if (pkt.reaction === 'flee') {
+            targetNpc.isFleeing = true;
+            targetNpc.fleeUntil = pkt.fleeUntil || (Date.now() + 7000);
+            targetNpc.jumpOffset = pkt.jumpOffset || 14;
+            targetNpc.emote = pkt.emote || { emoji: '😱', expiresAt: Date.now() + 5000 };
+            if (typeof pkt.targetX === 'number') targetNpc.targetX = pkt.targetX;
+            if (typeof pkt.targetY === 'number') targetNpc.targetY = pkt.targetY;
+            if (pkt.murmur) targetNpc.murmur = pkt.murmur;
+          } else if (pkt.reaction === 'exile') {
+            this.npcPlayers.delete(pkt.npcId);
+          }
+        }
+        if (this.callbacks.onRemoteNpcReaction) {
+          this.callbacks.onRemoteNpcReaction(pkt);
+        }
+        break;
+      }
+      case 'device_repair': {
+        if (this.callbacks.onRemoteDeviceRepair) {
+          this.callbacks.onRemoteDeviceRepair(pkt);
+        }
+        break;
+      }
+      case 'item_collected': {
+        if (this.callbacks.onRemoteItemCollected) {
+          this.callbacks.onRemoteItemCollected(pkt);
+        }
+        break;
+      }
     }
   }
 
@@ -778,9 +875,39 @@ class EphemeralOfficeNetwork {
       }
     });
 
-    // 隨機觸發某位 NPC 進入「💢 暴走追擊模式」（機率 0.1%）
+    // 房長定期統一同步：向所有在線客戶端廣播權威 world_sync 封包 (NPC 位置/動作/碎念、掉落物、怪物、工作站螢幕)
+    if (this.isRoomMaster() && tick % 30 === 0 && this.remotePlayers && this.remotePlayers.size > 0) {
+      const worldData = {
+        npcs: Array.from(this.npcPlayers.values()).map((npc) => ({
+          id: npc.id,
+          x: Math.round(npc.x),
+          y: Math.round(npc.y),
+          targetX: Math.round(npc.targetX),
+          targetY: Math.round(npc.targetY),
+          dir: npc.dir,
+          actionState: npc.actionState,
+          isMoving: npc.isMoving,
+          isBerserk: !!npc.isBerserk,
+          isFleeing: !!npc.isFleeing,
+          fleeUntil: npc.fleeUntil || 0,
+          jumpOffset: Math.round(npc.jumpOffset || 0),
+          murmur: npc.murmur || null,
+          emote: npc.emote || null,
+          followTargetId: npc.followTargetId || null,
+        })),
+      };
+      if (this.callbacks.getWorldSyncState) {
+        try {
+          const extra = this.callbacks.getWorldSyncState();
+          Object.assign(worldData, extra);
+        } catch (_) {}
+      }
+      this.broadcastPacket('world_sync', worldData);
+    }
+
+    // 隨機觸發某位 NPC 進入「💢 暴走追擊模式」（機率 0.1%，僅房長觸發避免各裝置分歧）
     const berserkChance = window.GATHER_CONFIG?.security?.berserkChance ?? 0.001;
-    if (this.localPlayer && tick % 60 === 0) {
+    if (this.isRoomMaster() && this.localPlayer && tick % 60 === 0) {
       const candidates = [...this.npcPlayers.values()].filter(
         (n) => !n.isBerserk && now > n.berserkCooldownUntil && !n.knockback
       );
@@ -830,6 +957,32 @@ class EphemeralOfficeNetwork {
       if (npc.isBerserk && now >= npc.berserkUntil) {
         npc.isBerserk = false;
         npc.berserkCooldownUntil = now + 28000;
+      }
+
+      // 😱 NPC 害怕逃跑 AI：以高速 (speed 5.2) 遠離玩家，伴隨慌張彈跳動畫與求救表情
+      if (npc.isFleeing) {
+        if (now >= (npc.fleeUntil || 0)) {
+          npc.isFleeing = false;
+        } else {
+          let threat = this.localPlayer;
+          let threatDist = threat ? Math.hypot(npc.x - threat.x, npc.y - threat.y) : 9999;
+          this.remotePlayers.forEach((p) => {
+            const d = Math.hypot(npc.x - p.x, npc.y - p.y);
+            if (d < threatDist) {
+              threatDist = d;
+              threat = p;
+            }
+          });
+
+          if (threat) {
+            const escapeAng = Math.atan2(npc.y - threat.y, npc.x - threat.x);
+            const candX = Math.max(160, Math.min(2640, npc.x + Math.cos(escapeAng) * 220));
+            const candY = Math.max(160, Math.min(1740, npc.y + Math.sin(escapeAng) * 220));
+            npc.targetX = candX;
+            npc.targetY = candY;
+          }
+          npc.jumpOffset = Math.max(npc.jumpOffset || 0, Math.abs(Math.sin(tick * 0.45)) * 12);
+        }
       }
 
       // 🏏 夜間巡邏警衛專屬 AI：巡視辦公室、主動尋找方塊怪並揮棒擊退消滅！
@@ -1054,7 +1207,7 @@ class EphemeralOfficeNetwork {
             this.callbacks.onBerserkHit(npc, reason);
           }
         }
-      } else if (!npc.isBirdCommander || now >= npc.followPlayerUntil) {
+      } else if ((!npc.isBirdCommander || now >= npc.followPlayerUntil) && this.isRoomMaster()) {
         // 若 NPC 正在進行情境動作，維持目前位置與動作狀態
         if (now < (npc.actionUntil || 0)) {
           // 情境動作中
@@ -1153,7 +1306,8 @@ class EphemeralOfficeNetwork {
 
       if (dist > 6) {
         let speed = 2.4;
-        if (npc.isBerserk) speed = 4.8;
+        if (npc.isFleeing) speed = 5.2;
+        else if (npc.isBerserk) speed = 4.8;
         else if (npc.isRunner) speed = 3.6;
         else if (npc.isSweeper) speed = 1.9;
         else if (npc.isSecurityGuard) speed = 2.6;

@@ -13,6 +13,11 @@ window.TAIWAN_STOCK_STATE = {
   sourceText: '資料來源：臺灣證券交易所｜最近交易日收盤資料',
 };
 
+window.WORKSTATION_SCREEN_OPTIONS = {
+  green: ['Pass', 'Good', '😊'],
+  red: ['ERR!!', 'FIX E', 'FAIL', '😭'],
+};
+
 window.WORLD_MAP = {
   width: 2800,
   height: 1900,
@@ -537,8 +542,15 @@ class OfficeEcosystem {
   update(tick, players) {
     const now = Date.now();
 
-    // 1. 每 10 分鐘自動隨機生成 5 種掉落物
-    if (now - this.lastBatchDropAt >= window.GATHER_CONFIG.security.randomDropIntervalMs) {
+    // 房長 (Room Master) 判斷：若有多人連線且當前客戶端非房長，由房長統一同步螢幕狀態、掉落物與怪物
+    const isMaster =
+      !window.network ||
+      (typeof window.network.isRoomMaster === 'function'
+        ? window.network.isRoomMaster()
+        : true);
+
+    // 1. 每 10 分鐘自動隨機生成 5 種掉落物 (僅房長生成，避免各裝置掉落物不一致)
+    if (isMaster && now - this.lastBatchDropAt >= window.GATHER_CONFIG.security.randomDropIntervalMs) {
       this.lastBatchDropAt = now;
       this.spawnBatchRandomDrops(window.GATHER_CONFIG.security.randomDropBatchCount || 5);
     }
@@ -638,15 +650,17 @@ class OfficeEcosystem {
       if (sp.alpha <= 0) this.steamParticles.splice(i, 1);
     }
 
-    // 8. 電腦螢幕與 Lab 測試機台隨機切換多元正常狀態 (僅限未損壞設備)
-    if (tick % 240 === 120) {
-      const screenModes = ['pass', 'wafer', 'wave', 'pass', 'wafer', 'calib'];
+    // 8. 電腦螢幕隨機變化（綠色正常 Pass/Good/笑臉，紅字警告 ERR!!/FIX E/FAIL/哭臉）與 Lab 測試機台 (僅房長判定)
+    if (isMaster && tick % 180 === 60) {
       const ws =
         window.WORLD_MAP.workstations[
           Math.floor(Math.random() * window.WORLD_MAP.workstations.length)
         ];
-      if (ws && !ws.isBroken) {
-        ws.screenState = screenModes[Math.floor(Math.random() * screenModes.length)];
+      if (ws && !ws.isBroken && typeof WORKSTATION_SCREEN_OPTIONS !== 'undefined') {
+        const isRed = Math.random() < 0.20;
+        const pool = isRed ? WORKSTATION_SCREEN_OPTIONS.red : WORKSTATION_SCREEN_OPTIONS.green;
+        ws.leftScreen = pool[Math.floor(Math.random() * pool.length)];
+        ws.rightScreen = pool[Math.floor(Math.random() * pool.length)];
       }
 
       const eqStates = [
@@ -668,10 +682,10 @@ class OfficeEcosystem {
       }
     }
 
-    // 9. 👾 像素方塊怪物以 0.5% 機率生成，且場上同時最多不超過 3 隻
+    // 9. 👾 像素方塊怪物以 0.5% 機率生成，且場上同時最多不超過 3 隻 (僅房長生成)
     const maxMobs = window.GATHER_CONFIG?.security?.maxMobCount || 3;
     const mobSpawnChance = window.GATHER_CONFIG?.security?.mobSpawnChance ?? 0.005;
-    if (tick % 60 === 30 && this.mobs.length < maxMobs) {
+    if (isMaster && tick % 60 === 30 && this.mobs.length < maxMobs) {
       if (Math.random() < mobSpawnChance) {
         this.lastMobSpawnAt = now;
         this.spawnMinecraftMob();
@@ -701,8 +715,8 @@ class OfficeEcosystem {
         continue;
       }
 
-      // 每秒檢查一次：1% 機率觸發怪物暴走並鎖定一台未損壞的電腦或實驗室機台進行破壞
-      if (!mob.isBerserk && tick % 60 === (i * 19) % 60) {
+      // 每秒檢查一次：1% 機率觸發怪物暴走並鎖定一台未損壞的電腦或實驗室機台進行破壞 (僅房長判定)
+      if (isMaster && !mob.isBerserk && tick % 60 === (i * 19) % 60) {
         if (Math.random() < mobBerserkChance) {
           const intactPCs = window.WORLD_MAP.workstations
             .filter((w) => !w.isBroken)
@@ -1160,16 +1174,30 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
     draw3DPixelBox(ctx, ws.x + 16, ws.y + 10, 52, 26, 16, '#1e293b', '#0f172a', '#020617');
     draw3DPixelBox(ctx, ws.x + 74, ws.y + 10, 52, 26, 16, '#1e293b', '#0f172a', '#020617');
 
+    const isRedText = (txt) => ['ERR!!', 'FIX E', 'FAIL', '😭', '哭臉'].includes(txt);
+    const drawMonitorScreen = (sx, sy, label) => {
+      const isRed = ws.isBroken || isRedText(label);
+      ctx.fillStyle = isRed ? '#450a0a' : '#064e3b';
+      ctx.fillRect(sx, sy, 44, 20);
+
+      ctx.fillStyle = isRed
+        ? (ws.isBroken && tick % 12 < 6 ? '#fde047' : '#f87171')
+        : '#4ade80';
+      ctx.textAlign = 'center';
+      if (label === '😊' || label === '笑臉' || label === '😭' || label === '哭臉') {
+        const emoji = (label === '😭' || label === '哭臉') ? '😭' : '😊';
+        ctx.font = '12px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+        ctx.fillText(emoji, sx + 22, sy + 15);
+      } else {
+        ctx.font = 'bold 9px monospace';
+        ctx.fillText(label || (isRed ? 'ERR!!' : 'Pass'), sx + 22, sy + 13);
+      }
+    };
+
     if (ws.isBroken) {
       // 💥 遭像素方塊怪物破壞的電腦：冒火花與【按E修復即升級】提示
-      ctx.fillStyle = '#7f1d1d';
-      ctx.fillRect(ws.x + 20, ws.y - 3, 44, 20);
-      ctx.fillRect(ws.x + 78, ws.y - 3, 44, 20);
-      ctx.fillStyle = tick % 12 < 6 ? '#fde047' : '#f87171';
-      ctx.font = 'bold 9px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('ERR!!', ws.x + 42, ws.y + 10);
-      ctx.fillText('FIX E', ws.x + 100, ws.y + 10);
+      drawMonitorScreen(ws.x + 20, ws.y - 3, 'ERR!!');
+      drawMonitorScreen(ws.x + 78, ws.y - 3, 'FIX E');
 
       ctx.fillStyle = '#991b1b';
       ctx.fillRect(ws.x + 4, ws.y - 28, ws.w - 8, 18);
@@ -1179,57 +1207,11 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
       ctx.fillStyle = '#fef08a';
       ctx.font = '800 10px "Microsoft JhengHei", sans-serif';
       ctx.fillText(`🔧 損壞！按 [E] 修復立即升級`, ws.x + ws.w / 2, ws.y - 16);
-    } else if (ws.screenState === 'wafer') {
-      // 翠綠晶圓良率圖
-      ctx.fillStyle = '#064e3b';
-      ctx.fillRect(ws.x + 20, ws.y - 3, 44, 20);
-      ctx.fillStyle = '#22c55e';
-      ctx.beginPath();
-      ctx.arc(ws.x + 42, ws.y + 7, 8, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#064e3b';
-      ctx.fillRect(ws.x + 78, ws.y - 3, 44, 20);
-      ctx.fillStyle = '#4ade80';
-      ctx.font = 'bold 9px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('99.9%', ws.x + 100, ws.y + 10);
-    } else if (ws.screenState === 'wave') {
-      // 青藍測試波形畫面
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(ws.x + 20, ws.y - 3, 44, 20);
-      ctx.fillStyle = '#38bdf8';
-      const wLine = 16 + ((tick + idx * 7) % 22);
-      ctx.fillRect(ws.x + 24, ws.y + 2, wLine, 4);
-      ctx.fillStyle = '#4ade80';
-      ctx.fillRect(ws.x + 24, ws.y + 9, 28, 4);
-
-      ctx.fillStyle = '#064e3b';
-      ctx.fillRect(ws.x + 78, ws.y - 3, 44, 20);
-      ctx.fillStyle = '#34d399';
-      ctx.font = 'bold 9px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('OK!', ws.x + 100, ws.y + 10);
-    } else if (ws.screenState === 'calib') {
-      // 黃金自動校準中畫面
-      ctx.fillStyle = '#1e1b4b';
-      ctx.fillRect(ws.x + 20, ws.y - 3, 44, 20);
-      ctx.fillRect(ws.x + 78, ws.y - 3, 44, 20);
-      ctx.fillStyle = '#facc15';
-      ctx.font = 'bold 8.5px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('CALIB', ws.x + 42, ws.y + 10);
-      ctx.fillText('READY', ws.x + 100, ws.y + 10);
     } else {
-      // 預設大吉大利全綠 ALL PASS 畫面
-      ctx.fillStyle = '#064e3b';
-      ctx.fillRect(ws.x + 20, ws.y - 3, 44, 20);
-      ctx.fillRect(ws.x + 78, ws.y - 3, 44, 20);
-      ctx.fillStyle = '#4ade80';
-      ctx.font = 'bold 9px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('PASS!', ws.x + 42, ws.y + 10);
-      ctx.fillText('GOOD', ws.x + 100, ws.y + 10);
+      const left = ws.leftScreen || (idx % 2 === 0 ? 'Pass' : 'Good');
+      const right = ws.rightScreen || (idx % 3 === 0 ? '😊' : 'Pass');
+      drawMonitorScreen(ws.x + 20, ws.y - 3, left);
+      drawMonitorScreen(ws.x + 78, ws.y - 3, right);
     }
 
     // Pixel keyboard, mouse and desk-front trim; no additional interactive objects.
@@ -1445,3 +1427,11 @@ window.renderRealTimeLighting = function (ctx, hourFloat, players) {
 
   ctx.restore();
 };
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    WORLD_MAP: window.WORLD_MAP,
+    WORKSTATION_SCREEN_OPTIONS: window.WORKSTATION_SCREEN_OPTIONS,
+    OfficeEcosystem,
+  };
+}
