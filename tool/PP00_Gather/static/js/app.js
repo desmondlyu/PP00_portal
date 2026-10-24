@@ -265,7 +265,13 @@
       onPrivateChat: (msg) => {
         pushUserChat(msg.senderName, msg.senderUnit, msg.text, false, true, localPlayer.name);
         triggerChatNotifyFlash(msg.senderName, true);
-        showToast(`🔒 收到來自 <b>${escapeHtml(msg.senderName)}</b> 的私人對談！`, 'join');
+        if (isChatPanelCollapsed()) {
+          // 聊天室窗使用者縮合中：在畫面正中央顯示醒目的大方塊卡片
+          showCenterPrivateChatBox(msg);
+        } else {
+          // 聊天室窗已展開：使用者正在看聊天窗，維持頂部輕量通知避免遮擋視線
+          showToast(`🔒 收到來自 <b>${escapeHtml(msg.senderName)}</b> 的私人對談！`, 'join');
+        }
         if (document.hidden) {
           triggerDesktopNotification(msg.senderName, msg.senderUnit, `[私人對談] ${msg.text}`);
         }
@@ -1530,13 +1536,188 @@
     });
   }
 
-  function triggerChatNotifyFlash(senderName, isPrivate = false) {
+  /**
+   * 檢查聊天視窗是否處於縮合/關閉狀態（支援手機與桌面版）
+   */
+  function isChatPanelCollapsed() {
     const chatPanel = document.getElementById('proxChatPanel');
-    const isMobile = window.innerWidth <= 900;
-    const isClosed = !chatPanel ||
-      (isMobile ? !chatPanel.classList.contains('mobile-open') : chatPanel.classList.contains('chat-minimized'));
+    if (!chatPanel) return true;
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 900;
+    if (isMobile) {
+      return !chatPanel.classList.contains('mobile-open');
+    }
+    return chatPanel.classList.contains('chat-minimized');
+  }
 
-    if (isClosed) {
+  let centerPrivateChatTimeout = null;
+
+  function dismissCenterPrivateChatBox() {
+    if (centerPrivateChatTimeout) {
+      clearTimeout(centerPrivateChatTimeout);
+      centerPrivateChatTimeout = null;
+    }
+    const card = document.getElementById('centerPrivateMsgCard');
+    if (card) {
+      card.classList.add('fade-out');
+      setTimeout(() => {
+        if (card.parentNode) card.parentNode.removeChild(card);
+      }, 250);
+    }
+  }
+
+  function openChatToReply(senderName, senderId) {
+    const chatPanel = document.getElementById('proxChatPanel');
+    const toggleChatBtn = document.getElementById('toggleChatCollapseBtn');
+    const mobileChatBtn = document.getElementById('btnChatToggle');
+    if (chatPanel) {
+      chatPanel.classList.remove('chat-minimized');
+      chatPanel.classList.add('mobile-open');
+    }
+    if (toggleChatBtn) toggleChatBtn.textContent = '➖ 縮合';
+    if (mobileChatBtn) mobileChatBtn.classList.add('active');
+    clearChatNotifyFlash();
+    dismissCenterPrivateChatBox();
+
+    let target = null;
+    if (senderId && network) {
+      target = network.getAllOtherPlayers().find((p) => p.id === senderId);
+    }
+    if (!target && senderName && network) {
+      target = network.getAllOtherPlayers().find((p) => p.name === senderName);
+    }
+    if (target) {
+      selectedTargetId = target.id;
+    }
+
+    const sendModeSel = document.getElementById('chatSendModeSelect');
+    if (sendModeSel) {
+      sendModeSel.value = 'private';
+      sendModeSel.dispatchEvent(new Event('change'));
+    }
+
+    const chatInput = document.getElementById('proxChatInput');
+    if (chatInput) {
+      chatInput.focus();
+      if (senderName) {
+        chatInput.placeholder = `🔒 私訊給 @${senderName}... (Enter 送出)`;
+      }
+    }
+
+    pushStatusLog('系統', `🔒 已開啟聊天並切換至與【${senderName || '對方'}】的私人密語模式`);
+  }
+
+  function showCenterPrivateChatBox(msg) {
+    if (typeof document === 'undefined' || !document.body) return;
+
+    // 清除既有卡片以防重疊
+    const existing = document.getElementById('centerPrivateMsgCard');
+    if (existing && existing.parentNode) {
+      existing.parentNode.removeChild(existing);
+    }
+    if (centerPrivateChatTimeout) {
+      clearTimeout(centerPrivateChatTimeout);
+      centerPrivateChatTimeout = null;
+    }
+
+    const card = document.createElement('div');
+    card.id = 'centerPrivateMsgCard';
+    card.className = 'center-private-msg-card';
+
+    const safeName = escapeHtml(msg.senderName || '線上同事');
+    const safeUnit = escapeHtml(msg.senderUnit || 'PP00');
+    const safeText = escapeHtml(msg.text || '');
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    card.innerHTML = `
+      <div class="cp-header">
+        <div class="cp-title-wrap">
+          <span class="cp-icon">🔒</span>
+          <span class="cp-title">收到私人訊息</span>
+          <span class="cp-badge">Private</span>
+        </div>
+        <button class="cp-close-btn" id="cpCloseBtn" title="關閉通知" aria-label="關閉">✕</button>
+      </div>
+
+      <div class="cp-sender-row">
+        <div class="cp-sender-avatar">💬</div>
+        <div class="cp-sender-meta">
+          <div class="cp-sender-name">${safeName}</div>
+          <div class="cp-sender-unit">${safeUnit}</div>
+        </div>
+        <div class="cp-time">${timeStr}</div>
+      </div>
+
+      <div class="cp-body">
+        <p class="cp-text">${safeText}</p>
+      </div>
+
+      <div class="cp-actions">
+        <button id="cpReplyBtn" class="cp-btn cp-btn-primary" type="button">
+          <span>💬 立即開啟聊天回覆</span>
+        </button>
+        <button id="cpDismissBtn" class="cp-btn cp-btn-secondary" type="button">
+          <span>關閉</span>
+        </button>
+      </div>
+
+      <div class="cp-progress-bar">
+        <div class="cp-progress-fill" id="cpProgressFill"></div>
+      </div>
+    `;
+
+    document.body.appendChild(card);
+
+    const closeBtn = card.querySelector('#cpCloseBtn');
+    if (closeBtn) closeBtn.onclick = () => dismissCenterPrivateChatBox();
+
+    const dismissBtn = card.querySelector('#cpDismissBtn');
+    if (dismissBtn) dismissBtn.onclick = () => dismissCenterPrivateChatBox();
+
+    const replyBtn = card.querySelector('#cpReplyBtn');
+    if (replyBtn) {
+      replyBtn.onclick = () => {
+        openChatToReply(msg.senderName, msg.senderId);
+      };
+    }
+
+    // 倒數 9 秒自動關閉，滑鼠移入時暫停計時
+    let remainingMs = 9000;
+    let timerStartedAt = Date.now();
+    let isPaused = false;
+
+    const startTimer = (duration) => {
+      timerStartedAt = Date.now();
+      centerPrivateChatTimeout = setTimeout(() => {
+        dismissCenterPrivateChatBox();
+      }, duration);
+    };
+
+    startTimer(remainingMs);
+
+    card.addEventListener('mouseenter', () => {
+      if (!isPaused && centerPrivateChatTimeout) {
+        clearTimeout(centerPrivateChatTimeout);
+        centerPrivateChatTimeout = null;
+        remainingMs = Math.max(1000, remainingMs - (Date.now() - timerStartedAt));
+        isPaused = true;
+        const fill = card.querySelector('#cpProgressFill');
+        if (fill) fill.style.animationPlayState = 'paused';
+      }
+    });
+
+    card.addEventListener('mouseleave', () => {
+      if (isPaused) {
+        isPaused = false;
+        const fill = card.querySelector('#cpProgressFill');
+        if (fill) fill.style.animationPlayState = 'running';
+        startTimer(remainingMs);
+      }
+    });
+  }
+
+  function triggerChatNotifyFlash(senderName, isPrivate = false) {
+    if (isChatPanelCollapsed()) {
       const chatBtn = document.getElementById('btnChatToggle');
       if (chatBtn) {
         chatBtn.classList.add('chat-notify-flash');
@@ -1599,6 +1780,7 @@
         if (mobileChatBtn) mobileChatBtn.classList.toggle('active', shouldOpen);
         if (shouldOpen) {
           clearChatNotifyFlash();
+          dismissCenterPrivateChatBox();
           document.getElementById('proxChatInput')?.focus();
         }
       } else {
@@ -1607,6 +1789,7 @@
         if (mobileChatBtn) mobileChatBtn.classList.toggle('active', !isMin);
         if (!isMin) {
           clearChatNotifyFlash();
+          dismissCenterPrivateChatBox();
           document.getElementById('proxChatInput')?.focus();
         }
       }
@@ -4151,6 +4334,11 @@
       }, 3500);
     }
   }
+
+  window.isChatPanelCollapsed = isChatPanelCollapsed;
+  window.showCenterPrivateChatBox = showCenterPrivateChatBox;
+  window.dismissCenterPrivateChatBox = dismissCenterPrivateChatBox;
+  window.openChatToReply = openChatToReply;
 
   let officeLogoutPromise = null;
   window.logoutAndLeaveOffice = function () {
