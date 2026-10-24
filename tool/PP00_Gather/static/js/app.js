@@ -299,6 +299,16 @@
         pushStatusLog(pkt.senderName, `💭 碎碎念：「${pkt.text}」`);
         renderUnifiedChatAndStatus();
       },
+      onGhostScare: (until) => {
+        if (!isLoggedIn || Date.now() < (localPlayer.ghostSleepUntil || 0)) return;
+        cancelContextualAction();
+        localPlayer.autoWalkTarget = null;
+        localPlayer.knockback = null;
+        localPlayer.ghostSleepUntil = until;
+        localPlayer.actionState = 'slack_nap';
+        localPlayer.isMoving = false;
+        pushStatusLog('夜遊幽靈', '嚇到斷線！原地打瞌睡 5 秒……');
+      },
       onProximityChat: (msg) => {
         const suffix = msg.isNearby ? ' (身邊)' : '';
         pushUserChat(msg.senderName + suffix, msg.senderUnit, msg.text, false);
@@ -2540,6 +2550,7 @@ function executeOfficeLogin(params) {
    * 6. 若被「🦩 鳥人指揮官」抓進會議室，揮擊擊退他可立即解鎖會議室大門脫困
    */
   function triggerWeaponAttack() {
+    if (Date.now() < (localPlayer.ghostSleepUntil || 0)) return;
     if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
       showToast('🚑 身受重傷休養中，無法揮動裝備攻擊！', 'error');
       return;
@@ -2654,6 +2665,12 @@ function executeOfficeLogin(params) {
 
       if (d <= effectiveRadius) {
         hitCount++;
+
+        if (npc.isGhost) {
+          if (network.isRoomMaster()) network.resolveGhostStrike(network.clientId);
+          else network.broadcastPacket('ghost_strike');
+          return;
+        }
 
         // 🏏 規則：攻擊夜間巡邏警衛：50% 抓去廁所管教 10 秒，25% 敏捷閃避，25% 害怕跑走
         if (npc.id === 'npc_security_guard' || npc.isSecurityGuard) {
@@ -5033,6 +5050,14 @@ function executeOfficeLogin(params) {
 
   function updateLocalPlayerMovement() {
     if (!isLoggedIn) return;
+    if (Date.now() < (localPlayer.ghostSleepUntil || 0)) {
+      localPlayer.actionState = 'slack_nap'; localPlayer.isMoving = false; return;
+    }
+    if (localPlayer.ghostSleepUntil) {
+      localPlayer.ghostSleepUntil = 0;
+      if (localPlayer.actionState === 'slack_nap') localPlayer.actionState = null;
+      updatePoseLabelUI();
+    }
 
     // 0. 檢查鳥人指揮官 10 秒會議室鎖定是否已到期：到期自動開門並解除動作，確保絕不卡住！
     if (
@@ -5512,6 +5537,7 @@ function executeOfficeLogin(params) {
     sortedPlayers.forEach((p) => {
       window.drawWackyAvatar(ctx, {
         avatarId: p.avatarId,
+        scareUntil: p.scareUntil || 0,
         x: p.x,
         y: p.y,
         dir: p.dir,

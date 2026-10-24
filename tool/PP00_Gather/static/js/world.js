@@ -1384,8 +1384,8 @@ window.renderRealTimeLighting = function (ctx, hourFloat, players) {
 
   // (A) 室外與辦公室夜幕底色
   const nightIntensity = (hourFloat >= 17 && hourFloat < 19)
-    ? 0.22 + ((hourFloat - 17) / 2) * 0.16
-    : 0.38;
+    ? 0.30 + ((hourFloat - 17) / 2) * 0.20
+    : 0.50;
   ctx.fillStyle = 'rgba(15, 23, 42, ' + nightIntensity + ')';
   ctx.fillRect(0, 0, width, height);
 
@@ -1427,8 +1427,8 @@ window.renderRealTimeLighting = function (ctx, hourFloat, players) {
   ceilingLamps.forEach((lamp) => {
     // 繪製圓形擴散日光燈暈
     const g = ctx.createRadialGradient(lamp.x, lamp.y, 14, lamp.x, lamp.y, lamp.r);
-    g.addColorStop(0, 'rgba(254, 252, 232, ' + lamp.intensity + ')');
-    g.addColorStop(0.45, 'rgba(224, 242, 254, ' + (lamp.intensity * 0.6) + ')');
+    g.addColorStop(0, 'rgba(254, 252, 232, ' + Math.min(.70, lamp.intensity * 1.8) + ')');
+    g.addColorStop(0.45, 'rgba(253, 224, 171, ' + (lamp.intensity * 1.05) + ')');
     g.addColorStop(1, 'rgba(255, 255, 255, 0)');
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -1447,7 +1447,7 @@ window.renderRealTimeLighting = function (ctx, hourFloat, players) {
     const cx = ws.x + 70;
     const cy = ws.y + 10;
     const g = ctx.createRadialGradient(cx, cy, 6, cx, cy, 110);
-    g.addColorStop(0, 'rgba(186, 230, 253, 0.22)');
+    g.addColorStop(0, 'rgba(125, 211, 252, 0.42)');
     g.addColorStop(1, 'rgba(56, 189, 248, 0)');
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -1460,7 +1460,7 @@ window.renderRealTimeLighting = function (ctx, hourFloat, players) {
     const cx = eq.x + eq.w / 2;
     const cy = eq.y + eq.h / 2;
     const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, 140);
-    g.addColorStop(0, 'rgba(167, 243, 208, 0.25)');
+    g.addColorStop(0, 'rgba(110, 231, 183, 0.40)');
     g.addColorStop(1, 'rgba(16, 185, 129, 0)');
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -1472,7 +1472,7 @@ window.renderRealTimeLighting = function (ctx, hourFloat, players) {
   if (players && players.length > 0) {
     players.forEach((p) => {
       const pg = ctx.createRadialGradient(p.x, p.y - 12, 6, p.x, p.y - 12, 85);
-      pg.addColorStop(0, 'rgba(255, 255, 255, 0.20)');
+      pg.addColorStop(0, p.isGhost ? 'rgba(103, 232, 249, 0.55)' : 'rgba(255, 255, 255, 0.20)');
       pg.addColorStop(1, 'rgba(255, 255, 255, 0)');
       ctx.fillStyle = pg;
       ctx.beginPath();
