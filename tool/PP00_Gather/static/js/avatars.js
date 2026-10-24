@@ -195,6 +195,23 @@ window.drawWackyAvatar = function (ctx, opts) {
     isFleeing = false,     // 😱 慌張逃跑狀態
   } = opts;
 
+  if (avatarId === 'ghost') {
+    const bob = Math.sin(tick * .06) * 5;
+    const scare = Date.now() < (opts.scareUntil || 0);
+    ctx.save(); ctx.translate(x, y - 20 + bob - jumpOffset);
+    ctx.scale(scale * (scare ? 1.45 : 1), scale * (scare ? 1.45 : 1));
+    ctx.globalAlpha = .78; ctx.shadowColor = '#67e8f9'; ctx.shadowBlur = 18;
+    ctx.fillStyle = '#cffafe';
+    ctx.beginPath(); ctx.arc(0, -12, 16, Math.PI, 0);
+    ctx.lineTo(16, 15);
+    for (let i = 16; i >= -16; i -= 8) ctx.lineTo(i, 15 + ((i / 8) % 2 === 0 ? 6 : 0));
+    ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.fillStyle = '#164e63'; ctx.fillRect(-8,-14,5,8); ctx.fillRect(4,-14,5,8);
+    ctx.beginPath(); ctx.ellipse(0, 3, scare ? 6 : 3, scare ? 9 : 4, 0, 0, Math.PI*2); ctx.fill();
+    if (scare) { ctx.strokeStyle = '#a5f3fc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0,0,32 + Math.sin(tick*.3)*8,0,Math.PI*2); ctx.stroke(); }
+    ctx.restore(); return;
+  }
+
   ctx.save();
 
   // 依據情境動作調整角色姿態高度、傾斜度與懸浮效果
