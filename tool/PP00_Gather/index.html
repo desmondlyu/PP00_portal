@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>PP00 虛擬辦公室 — 3D 像素園區即時互動系統</title>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./static/css/style.css?v=10-v8" />
+  <link rel="stylesheet" href="./static/css/style.css?v=20261023-mobile-stack" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
@@ -92,6 +92,7 @@
   <!-- =====================================================================
        2. 頂部精簡狀態列與靠近設備互動觸發提示 (光影已改為背景自動執行)
        ===================================================================== -->
+  <div class="mobile-hud-stack">
   <header class="top-hud-bar">
     <div class="hud-pill-group">
       <span id="netModeBadge">📡 瞬時加密頻道連線中</span>
@@ -239,6 +240,7 @@
   <!-- =====================================================================
        6. 底部置中整合控制列：情境動作展開選單 (含睡覺與快捷鍵) + 快捷鍵互動 (1~6 / F揮擊 / I裝備欄)
        ===================================================================== -->
+  </div>
   <footer class="bottom-hud-dock">
     <!-- 置中整合：情境互動展開選單 + 快捷鍵互動功能欄 (1~6 / F擊退 / I裝備與物品) -->
     <div id="bottomCenterCommandDock" class="bottom-center-command-dock">
@@ -358,6 +360,6 @@
   <script src="./static/js/world.js?v=10-v8"></script>
   <script src="./static/js/network.js?v=10-v9"></script>
   <script src="./static/js/supabaseSync.js?v=10-v9"></script>
-  <script src="./static/js/app.js?v=20261023-guard-release"></script>
+  <script src="./static/js/app.js?v=20261023-mobile-stack"></script>
 </body>
 </html>
