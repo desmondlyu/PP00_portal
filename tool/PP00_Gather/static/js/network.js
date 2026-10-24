@@ -1015,6 +1015,13 @@ class EphemeralOfficeNetwork {
             if (pkt.murmur) targetNpc.murmur = pkt.murmur;
           } else if (pkt.reaction === 'exile') {
             this.npcPlayers.delete(pkt.npcId);
+            if (pkt.restUntil) {
+              try {
+                const persisted = JSON.parse(localStorage.getItem('PP00_GATHER_PERSISTENCE_v1') || '{}');
+                persisted.birdCommanderRestUntil = pkt.restUntil;
+                localStorage.setItem('PP00_GATHER_PERSISTENCE_v1', JSON.stringify(persisted));
+              } catch (e) {}
+            }
           }
         }
         if (this.callbacks.onRemoteNpcReaction) {
@@ -1279,10 +1286,11 @@ class EphemeralOfficeNetwork {
         }
       }
 
-      // 🦩 鳥人指揮官專屬 AI：隨機跟隨全辦公室真實線上同仁（由房長權威主機決定，避免各裝置分歧）
+      // 🦩 鳥人指揮官專屬 AI：僅當真實同仁靠近時，有機率跟隨身旁同仁（結束後冷卻脫離，不隔空全圖死鎖）
       if (npc.isBirdCommander && !npc.isBerserk) {
         const sec = window.GATHER_CONFIG?.security || {};
-        const followChance = sec.birdFollowChance ?? 0.10;
+        const followChance = sec.birdFollowChance ?? 0.15;
+        const followRadius = sec.birdFollowRadiusPx ?? 400; // 靠近 400px (視線範圍內) 才有機會觸發跟隨
 
         // 收集目前全辦公室所有真實線上使用者 (本機玩家 + 遠端同仁，排除 NPC 與怪物)
         const realPlayers = [];
@@ -1298,16 +1306,27 @@ class EphemeralOfficeNetwork {
         // 權威模式：若線上正有活著的房長在同步（過去3秒有收到 world_sync），非房長端不擅自擲骰更換跟隨對象，維持全場完全一致
         const hasActiveRemoteMaster = !this.isRoomMaster() && (now - (this.lastMasterSyncTime || 0) < 3000);
         if (!hasActiveRemoteMaster) {
-          // 每 4 秒判定是否開始隨機跟隨某位真實線上同仁
-          if (now >= npc.followPlayerUntil && tick % 240 === 60 && realPlayers.length > 0) {
+          // 篩選出「靠近鳥人」的同仁 (距離 <= followRadius)
+          const nearbyPlayers = realPlayers.filter(
+            (p) => Math.hypot(p.x - npc.x, p.y - npc.y) <= followRadius
+          );
+
+          // 只有當身旁有同仁靠近，且未處於跟隨期間、且跟隨冷卻已過時，才進行機率判定跟隨身旁同仁
+          if (
+            now >= (npc.followPlayerUntil || 0) &&
+            now >= (npc.followCooldownUntil || 0) &&
+            tick % 240 === 60 &&
+            nearbyPlayers.length > 0
+          ) {
             if (Math.random() < followChance) {
-              const picked = realPlayers[Math.floor(Math.random() * realPlayers.length)];
+              const picked = nearbyPlayers[Math.floor(Math.random() * nearbyPlayers.length)];
               npc.followTargetId = picked.id;
-              npc.followPlayerUntil = now + 14000; // 跟隨 14 秒
-              npc.emote = { emoji: '🦩', expiresAt: now + 14000 };
+              npc.followPlayerUntil = now + 12000; // 跟隨 12 秒
+              npc.followCooldownUntil = now + 12000 + 16000; // 跟隨結束後冷卻 16 秒不主動黏人
+              npc.emote = { emoji: '🦩', expiresAt: now + 12000 };
               const targetName = picked.name || '同仁';
               npc.murmur = {
-                text: `🦩 紅鶴指揮官盯著【${targetName}】！Action Item改完沒？嘎！`,
+                text: `🦩 紅鶴指揮官盯著身旁的【${targetName}】！Action Item改完沒？嘎！`,
                 mood: 'fire',
                 createdAt: now,
                 expiresAt: now + 4500,
@@ -1328,14 +1347,26 @@ class EphemeralOfficeNetwork {
             followTarget = this.remotePlayers.get(npc.followTargetId);
           }
         }
-        // 若未鎖定特定目標，且場上有真實線上同仁，且為房長時，巡邏時鎖定視線內或最近的真實同仁
+
+        // 僅房長權威主機在跟隨時間過期、或目標遠離超過 460px 時主動解除鎖定脫離跟隨
+        if (!hasActiveRemoteMaster && npc.followTargetId) {
+          const isExpired = now >= (npc.followPlayerUntil || 0);
+          const isTooFar = followTarget && Math.hypot(followTarget.x - npc.x, followTarget.y - npc.y) > 460;
+          if (isExpired || isTooFar) {
+            npc.followTargetId = null;
+            npc.emote = null;
+            followTarget = null;
+          }
+        }
+
+        // 若未鎖定特定目標，且場上有身旁視線內的真實同仁，且為房長時，巡邏視線鎖定（僅限靠近身旁視線內）
         if (!followTarget && realPlayers.length > 0 && this.isRoomMaster()) {
-          followTarget = realPlayers.find((p) => this.isPlayerInSight(npc, p)) || realPlayers[0];
+          followTarget = realPlayers.find((p) => this.isPlayerInSight(npc, p) && Math.hypot(p.x - npc.x, p.y - npc.y) <= followRadius) || null;
         }
 
         const isNightTime = this.isNightTime();
 
-        // 僅由權威主機（房長或單機）判定白天抓同仁進會議室關門檢討 10 秒，避免分歧
+        // 僅由權威主機（房長或單機）判定白天抓身旁同仁進會議室關門檢討 10 秒，避免分歧
         if (!hasActiveRemoteMaster && !isNightTime && followTarget) {
           const inSight = this.isPlayerInSight(npc, followTarget);
           if (
