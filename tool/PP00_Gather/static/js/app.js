@@ -1027,6 +1027,7 @@
     const equipBonusPct = applyEquipBonus ? getTotalEquippedExpBonusPct() : 0;
     const finalAmount = Math.max(1, Math.round(amount * (1 + equipBonusPct / 100)));
     progression.exp += finalAmount;
+    if (reasonText) appendCombatText(`+${finalAmount} EXP · ${reasonText}`);
     const key = 'pp00_gather_exp_' + (localPlayer.name || 'default').toLowerCase();
     try {
       localStorage.setItem(
@@ -1038,7 +1039,7 @@
     recalcLevelAndBuff();
     if (progression.level > prevLv) {
       spawnConfetti(localPlayer.x, localPlayer.y - 30);
-      showToast(
+      showCombatToast(
         `🎉 等級提升！升至 ${progression.title}（移速加成 +${progression.speedBonusPct}%｜裝備經驗加成 +${equipBonusPct}%）`,
         'join'
       );
@@ -1284,6 +1285,7 @@
     });
     spawnConfetti(localPlayer.x, localPlayer.y - 20);
 
+    if (appendCombatText(`💥 遭受【${escapeHtml(npc.name)}】暴走擊飛！${escapeHtml(reason || '')}`)) return;
     const modal = document.getElementById('berserkWarningModal');
     const titleEl = document.getElementById('berserkModalAttacker');
     const reasonEl = document.getElementById('berserkModalReason');
@@ -2562,7 +2564,7 @@ function executeOfficeLogin(params) {
     if(window.OfficeHunt?.clock().active && window.OfficeHunt.safe(localPlayer)) return;
     if (Date.now() < (localPlayer.ghostSleepUntil || 0)) return;
     if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
-      showToast('🚑 身受重傷休養中，無法揮動裝備攻擊！', 'error');
+      showCombatToast('🚑 身受重傷休養中，無法揮動裝備攻擊！', 'error');
       return;
     }
     const now = Date.now();
@@ -2571,7 +2573,7 @@ function executeOfficeLogin(params) {
     lastWeaponAttackAt = now;
     const curWeapon = getActiveEquippedItem();
     if (!curWeapon) {
-      pushStatusLog('系統', '⚠️ 未裝備武器道具無法擊退！按 [I] 裝備道具或去地上撿拾');
+      pushCombatLog('系統', '⚠️ 未裝備武器道具無法擊退！按 [I] 裝備道具或去地上撿拾');
       return;
     }
 
@@ -2637,7 +2639,7 @@ function executeOfficeLogin(params) {
             const rewardMeta = getRandomHeldItemMeta();
             const addedReward = addItemToInventory(rewardMeta, true);
             const gainedExp = addExp(itemKnockbackExp + 15, `擊退怪物 ${mob.name}`);
-            pushStatusLog(
+            pushCombatLog(
               '你',
               `⚔️ 成功擊退怪物【${mob.name}】！獲 +${gainedExp} EXP 與戰利品【${addedReward.emoji} ${addedReward.name}】`
             );
@@ -2645,7 +2647,7 @@ function executeOfficeLogin(params) {
             const gainedExp = addExp(itemKnockbackExp, `打擊怪物 ${mob.name}`);
             if (now - (mob.lastLogAt || 0) > 600) {
               mob.lastLogAt = now;
-              pushStatusLog(
+              pushCombatLog(
                 '你',
                 `💥 用【${wpnEmoji} ${wpnName}】打擊【${mob.name}】（擊退進度：${progressPct}%｜此道具需${reqHits}次擊退｜+${gainedExp} EXP）`
               );
@@ -2658,8 +2660,8 @@ function executeOfficeLogin(params) {
     // 🚨 檢查是否正在受警衛管教拘禁中：10 秒無法反擊
     if (localPlayer.isRestrained && now < (localPlayer.restrainedUntil || 0)) {
       const leftSec = Math.max(1, Math.ceil((localPlayer.restrainedUntil - now) / 1000));
-      pushStatusLog('系統', `⚠️ 正在受夜間警衛管教拘禁中，無法反擊！（剩餘 ${leftSec} 秒）`);
-      showToast(`⚠️ 襲警管教懲處中，無法反擊！（剩餘 ${leftSec} 秒）`, 'error');
+      pushCombatLog('系統', `⚠️ 正在受夜間警衛管教拘禁中，無法反擊！（剩餘 ${leftSec} 秒）`);
+      showCombatToast(`⚠️ 襲警管教懲處中，無法反擊！（剩餘 ${leftSec} 秒）`, 'error');
       return;
     }
 
@@ -2734,8 +2736,8 @@ function executeOfficeLogin(params) {
             npc.emote = { emoji: '💢', expiresAt: now + 10000 };
             spawnConfetti(localPlayer.x, localPlayer.y - 20);
 
-            pushStatusLog('夜間警衛', `💢 ${scoldLine}`);
-            showToast(`🚨 襲警被老李抓進廁所管教 10 秒！無法反擊！`, 'error');
+            pushCombatLog('夜間警衛', `💢 ${scoldLine}`);
+            showCombatToast(`🚨 襲警被老李抓進廁所管教 10 秒！無法反擊！`, 'error');
             network.broadcastPacket('status_log', {
               senderName: npc.name,
               text: `💢 ${scoldLine}`,
@@ -2754,8 +2756,8 @@ function executeOfficeLogin(params) {
             ];
             const dodgeLine = dodgeLines[Math.floor(Math.random() * dodgeLines.length)];
             npc.murmur = { text: dodgeLine, mood: 'fire', createdAt: now, expiresAt: now + 3500 };
-            showToast('💨 夜間警衛敏捷側跳，閃避了你的攻擊！', 'normal');
-            pushStatusLog('夜間警衛', dodgeLine);
+            showCombatToast('💨 夜間警衛敏捷側跳，閃避了你的攻擊！', 'normal');
+            pushCombatLog('夜間警衛', dodgeLine);
             network.broadcastPacket('npc_reaction', {
               npcId: npc.id,
               reaction: 'dodge',
@@ -2779,8 +2781,8 @@ function executeOfficeLogin(params) {
             ];
             const fleeLine = fleeLines[Math.floor(Math.random() * fleeLines.length)];
             npc.murmur = { text: fleeLine, mood: 'fire', createdAt: now, expiresAt: now + 4000 };
-            showToast('😱 夜間警衛被你的氣勢嚇到，拔腿狂奔！', 'error');
-            pushStatusLog('夜間警衛', fleeLine);
+            showCombatToast('😱 夜間警衛被你的氣勢嚇到，拔腿狂奔！', 'error');
+            pushCombatLog('夜間警衛', fleeLine);
             network.broadcastPacket('npc_reaction', {
               npcId: npc.id,
               reaction: 'flee',
@@ -2832,7 +2834,7 @@ function executeOfficeLogin(params) {
             npc.emote = { emoji: '💢', expiresAt: now + 10000 };
             spawnConfetti(localPlayer.x, localPlayer.y - 20);
 
-            pushStatusLog(npc.name, `💢 ${scoldLine}`);
+            pushCombatLog(npc.name, `💢 ${scoldLine}`);
             network.broadcastPacket('status_log', {
               senderName: npc.name,
               text: `💢 ${scoldLine}`,
@@ -2851,8 +2853,8 @@ function executeOfficeLogin(params) {
             ];
             const dodgeLine = dodgeLines[Math.floor(Math.random() * dodgeLines.length)];
             npc.murmur = { text: dodgeLine, mood: 'fire', createdAt: now, expiresAt: now + 3500 };
-            showToast(`💨 ${npc.name} 優雅側身，靈巧閃過了你的揮擊！`, 'normal');
-            pushStatusLog(npc.name, dodgeLine);
+            showCombatToast(`💨 ${npc.name} 優雅側身，靈巧閃過了你的揮擊！`, 'normal');
+            pushCombatLog(npc.name, dodgeLine);
             network.broadcastPacket('npc_reaction', {
               npcId: npc.id,
               reaction: 'dodge',
@@ -2876,8 +2878,8 @@ function executeOfficeLogin(params) {
             ];
             const fleeLine = fleeLines[Math.floor(Math.random() * fleeLines.length)];
             npc.murmur = { text: fleeLine, mood: 'fire', createdAt: now, expiresAt: now + 4000 };
-            showToast(`😱 ${npc.name} 嚇到花容失色，拔腿狂奔避難！`, 'error');
-            pushStatusLog(npc.name, fleeLine);
+            showCombatToast(`😱 ${npc.name} 嚇到花容失色，拔腿狂奔避難！`, 'error');
+            pushCombatLog(npc.name, fleeLine);
             network.broadcastPacket('npc_reaction', {
               npcId: npc.id,
               reaction: 'flee',
@@ -2933,7 +2935,7 @@ function executeOfficeLogin(params) {
             npc.emote = { emoji: '🧹', expiresAt: now + 10000 };
             spawnConfetti(localPlayer.x, localPlayer.y - 20);
 
-            pushStatusLog(npc.name, `💢 ${scoldLine}`);
+            pushCombatLog(npc.name, `💢 ${scoldLine}`);
             network.broadcastPacket('status_log', {
               senderName: npc.name,
               text: `💢 ${scoldLine}`,
@@ -2952,8 +2954,8 @@ function executeOfficeLogin(params) {
             ];
             const dodgeLine = dodgeLines[Math.floor(Math.random() * dodgeLines.length)];
             npc.murmur = { text: dodgeLine, mood: 'fire', createdAt: now, expiresAt: now + 3500 };
-            showToast('💨 打掃阿姨舞動拖把靈巧閃開了！', 'normal');
-            pushStatusLog(npc.name, dodgeLine);
+            showCombatToast('💨 打掃阿姨舞動拖把靈巧閃開了！', 'normal');
+            pushCombatLog(npc.name, dodgeLine);
             network.broadcastPacket('npc_reaction', {
               npcId: npc.id,
               reaction: 'dodge',
@@ -2977,8 +2979,8 @@ function executeOfficeLogin(params) {
             ];
             const fleeLine = fleeLines[Math.floor(Math.random() * fleeLines.length)];
             npc.murmur = { text: fleeLine, mood: 'fire', createdAt: now, expiresAt: now + 4000 };
-            showToast('😱 打掃阿姨嚇得一邊尖叫一邊狂奔！', 'error');
-            pushStatusLog(npc.name, fleeLine);
+            showCombatToast('😱 打掃阿姨嚇得一邊尖叫一邊狂奔！', 'error');
+            pushCombatLog(npc.name, fleeLine);
             network.broadcastPacket('npc_reaction', {
               npcId: npc.id,
               reaction: 'flee',
@@ -3026,8 +3028,8 @@ function executeOfficeLogin(params) {
             ];
             const dodgeLine = dodgeLines[Math.floor(Math.random() * dodgeLines.length)];
             npc.murmur = { text: dodgeLine, mood: 'fire', createdAt: now, expiresAt: now + 3500 };
-            showToast('💨 鳥人指揮官展翅高飛，敏捷閃避了你的攻擊！', 'normal');
-            pushStatusLog('鳥人指揮官', dodgeLine);
+            showCombatToast('💨 鳥人指揮官展翅高飛，敏捷閃避了你的攻擊！', 'normal');
+            pushCombatLog('鳥人指揮官', dodgeLine);
             network.broadcastPacket('npc_reaction', {
               npcId: npc.id,
               reaction: 'dodge',
@@ -3051,8 +3053,8 @@ function executeOfficeLogin(params) {
             ];
             const fleeLine = fleeLines[Math.floor(Math.random() * fleeLines.length)];
             npc.murmur = { text: fleeLine, mood: 'fire', createdAt: now, expiresAt: now + 4000 };
-            showToast('😱 鳥人指揮官嚇到撲騰翅膀瘋狂逃跑！', 'error');
-            pushStatusLog('鳥人指揮官', fleeLine);
+            showCombatToast('😱 鳥人指揮官嚇到撲騰翅膀瘋狂逃跑！', 'error');
+            pushCombatLog('鳥人指揮官', fleeLine);
             network.broadcastPacket('npc_reaction', {
               npcId: npc.id,
               reaction: 'flee',
@@ -3083,11 +3085,11 @@ function executeOfficeLogin(params) {
             savePersistentState();
             network.npcPlayers.delete(npc.id);
             spawnConfetti(npc.x, npc.y - 20);
-            pushStatusLog(
+            pushCombatLog(
               '你',
               `🦩 💥 巨力超重擊！鳥人指揮官被打飛至大氣層（觸發 10% 終極擊退：鳥人暫時退場休養 3 分鐘）！`
             );
-            showToast('🦩 💥 觸發 10% 終極擊退！鳥人指揮官被打飛休養，3分鐘後返回！', 'join');
+            showCombatToast('🦩 💥 觸發 10% 終極擊退！鳥人指揮官被打飛休養，3分鐘後返回！', 'join');
             network.broadcastPacket('npc_reaction', {
               npcId: npc.id,
               reaction: 'exile',
@@ -3104,13 +3106,13 @@ function executeOfficeLogin(params) {
                 createdAt: now,
                 expiresAt: now + 5000,
               };
-              pushStatusLog(
+              pushCombatLog(
                 '你',
                 `🦩 擊退【${npc.name}】${unlockedMeeting ? '並脫困' : ''}！獲得【${addedItem.emoji} ${addedItem.name}】與 +${gainedExp} EXP！`
               );
             } else {
               const gainedExp = addExp(itemKnockbackExp, '擊退鳥人指揮官');
-              pushStatusLog('你', `⚔️ 擊飛【${npc.name}】${unlockedMeeting ? '會議室門已開啟脫困' : ''}（+${gainedExp} EXP）`);
+              pushCombatLog('你', `⚔️ 擊飛【${npc.name}】${unlockedMeeting ? '會議室門已開啟脫困' : ''}（+${gainedExp} EXP）`);
             }
           }
         } else if (wasBerserk) {
@@ -3121,10 +3123,10 @@ function executeOfficeLogin(params) {
             createdAt: now,
             expiresAt: now + 4000,
           };
-          pushStatusLog('你', `🛡️ 成功擊退暴走中的【${npc.name}】（+${gainedExp} EXP）`);
+          pushCombatLog('你', `🛡️ 成功擊退暴走中的【${npc.name}】（+${gainedExp} EXP）`);
         } else {
           const gainedExp = addExp(itemKnockbackExp, `擊退 ${npc.name}`);
-          pushStatusLog('你', `⚔️ 將【${npc.name}】打飛了出去（+${gainedExp} EXP）`);
+          pushCombatLog('你', `⚔️ 將【${npc.name}】打飛了出去（+${gainedExp} EXP）`);
         }
       }
     });
@@ -3163,13 +3165,13 @@ function executeOfficeLogin(params) {
 
         const gainedExp = addExp(itemKnockbackExp, `打飛同事 ${colleague.name}`);
         if (isCriticalInjury) {
-          pushStatusLog(
+          pushCombatLog(
             '你',
             `💥 觸發 5% 致命重擊！把同事【${colleague.name}】打成重傷，送往會議室休養 5 分鐘無法動彈！（+${gainedExp} EXP）`
           );
-          showToast(`💥 致命重擊！【${colleague.name}】身受重傷送入會議室休養 5 分鐘！`, 'security');
+          showCombatToast(`💥 致命重擊！【${colleague.name}】身受重傷送入會議室休養 5 分鐘！`, 'security');
         } else {
-          pushStatusLog('你', `⚔️ 把同事【${colleague.name}】打飛了出去（+${gainedExp} EXP）`);
+          pushCombatLog('你', `⚔️ 把同事【${colleague.name}】打飛了出去（+${gainedExp} EXP）`);
         }
       }
     });
@@ -3179,13 +3181,13 @@ function executeOfficeLogin(params) {
       curWeapon.durability = (curWeapon.durability || 3) - 1;
       if (curWeapon.durability <= 0) {
         localPlayer.equippedSlots[activeSlotIdx] = null;
-        pushStatusLog('系統', `💔 裝備【${wpnEmoji} ${wpnName}】揮擊命中滿 3 次，耐久度歸零損毀消失！`);
+        pushCombatLog('系統', `💔 裝備【${wpnEmoji} ${wpnName}】揮擊命中滿 3 次，耐久度歸零損毀消失！`);
         // 🎒 裝備損壞後，自動為玩家裝備儲物欄 (背包) 內現有的物品
         if (localPlayer.inventory && localPlayer.inventory.length > 0) {
           const nextItem = localPlayer.inventory[0];
           equipFromBag(0);
-          showToast(`🎒 裝備損毀，已自動為您換上儲物欄中的【${nextItem.emoji} ${nextItem.name}】！`, 'info');
-          pushStatusLog('系統', `🎒 裝備【${wpnEmoji} ${wpnName}】損毀，已自動為您換上儲物欄中的【${nextItem.emoji} ${nextItem.name}】！`);
+          showCombatToast(`🎒 裝備損毀，已自動為您換上儲物欄中的【${nextItem.emoji} ${nextItem.name}】！`, 'info');
+          pushCombatLog('系統', `🎒 裝備【${wpnEmoji} ${wpnName}】損毀，已自動為您換上儲物欄中的【${nextItem.emoji} ${nextItem.name}】！`);
         } else {
           const nextEquippedIdx = localPlayer.equippedSlots.findIndex((s) => s !== null);
           if (nextEquippedIdx !== -1) {
@@ -3193,7 +3195,7 @@ function executeOfficeLogin(params) {
           }
         }
       } else {
-        pushStatusLog('系統', `🔧 【${wpnEmoji} ${wpnName}】剩餘耐久：${curWeapon.durability}/${curWeapon.maxDurability || 3} 次（命中滿 3 次損毀）`);
+        pushCombatLog('系統', `🔧 【${wpnEmoji} ${wpnName}】剩餘耐久：${curWeapon.durability}/${curWeapon.maxDurability || 3} 次（命中滿 3 次損毀）`);
       }
       syncPlayerActiveWeaponState();
     } else {
@@ -3218,11 +3220,11 @@ function executeOfficeLogin(params) {
       updatePoseLabelUI();
       updateInjuryCountdownHUD();
 
-      pushStatusLog(
+      pushCombatLog(
         '系統',
         pkt.hunt ? '🚑 鳥人追殺中累計受擊三次，已重傷退出本場，等待急救或休養恢復。' : `🚑 遭受同事【${pkt.senderName || '同事'}】揮舞【${pkt.weaponEmoji || '🪑'}】致命重擊！你身受重傷，在會議室躺平休養 5 分鐘無法動彈！`
       );
-      showToast(pkt.hunt ? '🚑 累計受擊三次，重傷退出本場！' : '🚑 遭受致命重擊！身受重傷，在會議室休養 5 分鐘（無法動彈）', 'error');
+      showCombatToast(pkt.hunt ? '🚑 累計受擊三次，重傷退出本場！' : '🚑 遭受致命重擊！身受重傷，在會議室休養 5 分鐘（無法動彈）', 'error');
       if (network) {
         network.broadcastPacket('state_sync', { player: network.getPublicState() });
       }
@@ -3251,7 +3253,7 @@ function executeOfficeLogin(params) {
     localPlayer.emote = { emoji: '💫', expiresAt: Date.now() + 3000 };
     spawnConfetti(localPlayer.x, localPlayer.y - 20);
 
-    pushStatusLog(
+    pushCombatLog(
       '系統',
       `💥 被同事【${pkt.senderName || '同事'}】揮舞【${pkt.weaponEmoji || '🪑'} ${pkt.weaponName || '武器'}】打飛出去！`
     );
@@ -4695,6 +4697,37 @@ function executeOfficeLogin(params) {
         playNextWelcome();
       }, 300);
     }, 3000);
+  }
+
+  function appendCombatText(htmlText) {
+    if (typeof document === 'undefined' || !window.matchMedia('(max-width: 900px), (pointer: coarse)').matches) return false;
+    let feed = document.getElementById('mobileCombatFeed');
+    if (!feed) {
+      feed = document.createElement('div');
+      feed.id = 'mobileCombatFeed';
+      feed.setAttribute('role', 'log');
+      feed.setAttribute('aria-live', 'polite');
+      document.body.appendChild(feed);
+    }
+    const parsed = document.createElement('template');
+    parsed.innerHTML = String(htmlText);
+    const text = parsed.content.textContent || '';
+    if (feed.lastElementChild?.textContent === text) return true;
+    const line = document.createElement('div');
+    line.textContent = text;
+    feed.appendChild(line);
+    while (feed.children.length > 5) feed.firstElementChild.remove();
+    return true;
+  }
+
+  function pushCombatLog(sender, text) {
+    pushStatusLog(sender, text);
+    appendCombatText(text);
+  }
+
+  function showCombatToast(htmlText, type = 'info') {
+    if (appendCombatText(htmlText)) pushStatusLog('系統', String(htmlText).replace(/<[^>]*>/g, ''));
+    else showToast(htmlText, type);
   }
 
   function showToast(htmlText, type = 'info', onAction = null) {
