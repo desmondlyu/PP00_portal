@@ -171,10 +171,10 @@ window.WORLD_MAP = {
 
   // 會議室 A 台股即時看盤巨型大螢幕座標
   stockScreen: {
-    x: 215,
-    y: 1265,
-    w: 390,
-    h: 102,
+    x: 280,
+    y: 1450,
+    w: 250,
+    h: 135,
   },
 
   // 額外家具碰撞區 (經精準調校，保留所有椅子與沙發周圍通行及入座空間)
@@ -985,33 +985,16 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
     draw3DPixelBox(ctx, cx, 1598, 34, 26, 14, '#475569', '#1e293b', '#0f172a');
   });
 
-  // 📈 會議室 A 巨型台灣加權股價指數 (TAIEX) 大螢幕 (嚴格遵循 TAIEX_GitHub_Pages_Integration_Plan.md 規格)
-  const sc = window.WORLD_MAP.stockScreen;
-  draw3DPixelBox(ctx, sc.x, sc.y, sc.w, sc.h, 22, '#2d3b52', '#0c1525', '#020617');
-  ctx.fillStyle = '#0c1525';
-  ctx.fillRect(sc.x + 8, sc.y - 14, sc.w - 16, sc.h - 12);
-
-  const stData = window.TAIWAN_STOCK_STATE;
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#f7fafc';
-  ctx.font = '800 13px "Outfit", "Microsoft JhengHei", sans-serif';
-  ctx.fillText('台灣加權股價指數', sc.x + 18, sc.y + 4);
-
-  // 指數值與漲跌 (台股慣例：上漲紅 #ff6262、下跌綠 #35d49a，並顯示正負號與箭頭)
-  ctx.fillStyle = '#f7fafc';
-  ctx.font = '800 20px "Outfit", monospace';
-  ctx.fillText(stData.valueText || '--', sc.x + 18, sc.y + 29);
-
-  const trendColor =
-    stData.direction > 0 ? '#ff6262' : stData.direction < 0 ? '#35d49a' : '#aebdd0';
-  ctx.fillStyle = trendColor;
-  ctx.font = '700 14.5px "Outfit", monospace';
-  ctx.fillText(stData.changeText || '--', sc.x + 150, sc.y + 29);
-
-  ctx.fillStyle = '#aebdd0';
-  ctx.font = '600 11px "Microsoft JhengHei", sans-serif';
-  ctx.fillText(`${stData.dateText || '行情日期：--'}｜${stData.statusText || '載入中…'}`, sc.x + 18, sc.y + 49);
-  ctx.fillText('資料來源：臺灣證券交易所｜最近交易日收盤資料 [靠近按E看盤]', sc.x + 18, sc.y + 66);
+  // Electronic tabletop: uses the existing market state and table footprint.
+  const sc=window.WORLD_MAP.stockScreen, stData=window.TAIWAN_STOCK_STATE;
+  draw3DPixelBox(ctx,sc.x,sc.y,sc.w,sc.h,22,'#164e63','#0f2539','#020617');
+  ctx.fillStyle='#061725';ctx.fillRect(sc.x+7,sc.y-15,sc.w-14,sc.h-14);
+  ctx.save();ctx.beginPath();ctx.rect(sc.x+10,sc.y-12,sc.w-20,sc.h-20);ctx.clip();
+  ctx.shadowColor='#38bdf8';ctx.shadowBlur=8;ctx.strokeStyle='#38bdf8';ctx.lineWidth=1;ctx.strokeRect(sc.x+8,sc.y-14,sc.w-16,sc.h-16);ctx.shadowBlur=0;
+  ctx.textAlign='left';ctx.fillStyle='#bae6fd';ctx.font='bold 12px sans-serif';ctx.fillText('TAIEX · 台灣加權股價指數',sc.x+16,sc.y+6);
+  ctx.fillStyle='#f8fafc';ctx.font='bold 26px monospace';ctx.fillText(stData.valueText||'--',sc.x+16,sc.y+39);
+  ctx.fillStyle=stData.direction>0?'#ff6262':stData.direction<0?'#35d49a':'#aebdd0';ctx.font='bold 15px monospace';ctx.fillText(stData.changeText||'--',sc.x+16,sc.y+64);
+  ctx.fillStyle='#94a3b8';ctx.font='10px sans-serif';ctx.fillText(stData.dateText||'行情日期：--',sc.x+16,sc.y+86);ctx.fillText('TWSE · 最近交易日收盤資料',sc.x+16,sc.y+103);ctx.restore();
 
   // 會議室 B (中左：685..1180)
   drawOfficeMaterial(ctx, 685, 1252, 495, 560, 'carpet', '#dfcdd3', '#986d80');

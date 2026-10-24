@@ -949,6 +949,12 @@ class EphemeralOfficeNetwork {
         }
         break;
       }
+      case 'weapon_swing': {
+        const p=this.remotePlayers.get(pkt.senderId);
+        if(p) p.weaponSwing={emoji:this.sanitizeText(pkt.emoji||'',8),startedAt:Date.now()};
+        break;
+      }
+      case 'recovery_request': case 'recovery_release':
       case 'combat_state': case 'combat_result': case 'combat_strike': case 'combat_hurt': case 'combat_drop': case 'combat_claim': {
         window.OfficeCombat?.packet(this,pkt);break;
       }

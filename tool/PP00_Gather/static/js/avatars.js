@@ -1136,11 +1136,20 @@ case 'crt_bot':
     ctx.restore();
   }
 
+  if (opts.heldItem && !isInjured && (!weaponSwing || weaponSwing.progress>=1)) {
+    ctx.save();
+    const left=dir==='left', sway=isMoving?Math.sin(tick*.25)*.18:Math.sin(tick*.06)*.07;
+    ctx.translate(left?-20:20,-7+(isMoving?Math.sin(tick*.25)*2:Math.sin(tick*.06)));
+    ctx.rotate((left?-.25:.25)+sway);
+    ctx.fillStyle='#f5cfaa';ctx.fillRect(-4,-1,8,8);
+    ctx.font='22px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(opts.heldItem,0,-7);
+    ctx.restore();
+  }
   // 4.5 若正在揮舞武器攻擊 (板凳、鍵盤、WAFER晶圓、板手、IC Package、客退報告)，繪製炫酷斬擊刀光與旋轉武器
   if (weaponSwing && weaponSwing.progress < 1) {
     ctx.save();
     const p = weaponSwing.progress;
-    const swingAngle = -1.3 + p * 2.7;
+    const swingAngle = (dir==='left'?Math.PI:dir==='up'?-Math.PI/2:dir==='down'?Math.PI/2:0) -1.3+p*2.7;
     // 半月形金色/青色揮擊刀光
     ctx.strokeStyle = `rgba(250, 204, 21, ${1 - p * 0.6})`;
     ctx.lineWidth = 7;
