@@ -263,12 +263,12 @@
         window.gatherSupabase.syncDurability(localPlayer.equippedSlots);
       }
     } else {
-      // 首次登入無存檔：依強度生成率 (5%~20%) 配發 1 把武器 + 1 個伴手禮道具
-      const initWeapon = getRandomWeaponMeta();
-      const initGift =
-        window.GATHER_CONFIG.items.find((i) => i.category === 'item') || getRandomHeldItemMeta();
-      addItemToInventory(initWeapon, true);
-      addItemToInventory(initGift, false);
+      // 首次登入無存檔：預設不持有任何道具，保持完全徒手狀態
+      localPlayer.equippedSlots = [null, null, null];
+      localPlayer.inventory = [];
+      localPlayer.heldItem = '🟢';
+      localPlayer.activeEquipIndex = 0;
+      syncPlayerActiveWeaponState();
       savePersistentState();
     }
 
@@ -1299,11 +1299,7 @@ function executeOfficeLogin(params) {
       localPlayer.status = status || 'active';
       localPlayer.avatarId = chosenAvatar.id;
 
-      const hasEquipped = localPlayer.equippedSlots.some(Boolean);
-      if (!hasEquipped) {
-        const startWpn = getRandomWeaponMeta();
-        addItemToInventory(startWpn, true);
-      }
+      // 首次登入預設不贈送初始裝備，完全徒手，由玩家在場景中撿拾或互動取得
 
       // 計算上線次數與經驗加成（若是重整自動載入，保留現有經驗不重複刷打卡加成）
       initAndIncrementLoginExp(cleanName, isAutoReload);
@@ -1998,6 +1994,16 @@ function executeOfficeLogin(params) {
   // 5. 遊戲控制、置中互動技能、情境 Alt 快捷鍵與安全冷卻 (1200ms)
   // =========================================================================
   function setupTouchControls() {
+    // 禁用遊戲畫面與虛擬搖桿長按彈出系統右鍵選單 / 複製貼上功能
+    window.addEventListener('contextmenu', (e) => {
+      if (e.target.closest('input, textarea, select')) return;
+      e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('selectstart', (e) => {
+      if (e.target.closest('input, textarea, select')) return;
+      e.preventDefault();
+    });
     const more = document.getElementById('touchMoreBtn');
     more.addEventListener('click', () => {
       const expanded = document.getElementById('proximitySkillDock').classList.toggle('touch-expanded');
@@ -2005,6 +2011,9 @@ function executeOfficeLogin(params) {
       more.textContent = expanded ? '收合' : '更多';
     });
     const pad = document.getElementById('touchMovePad');
+    if (pad) {
+      pad.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); return false; }, { passive: false });
+    }
     const knob = document.getElementById('touchMoveKnob');
     let activePointer = null;
     function clearMovement() {
@@ -3135,6 +3144,18 @@ function executeOfficeLogin(params) {
       if (curWeapon.durability <= 0) {
         localPlayer.equippedSlots[activeSlotIdx] = null;
         pushStatusLog('系統', `💔 裝備【${wpnEmoji} ${wpnName}】揮擊命中滿 3 次，耐久度歸零損毀消失！`);
+        // 🎒 裝備損壞後，自動為玩家裝備儲物欄 (背包) 內現有的物品
+        if (localPlayer.inventory && localPlayer.inventory.length > 0) {
+          const nextItem = localPlayer.inventory[0];
+          equipFromBag(0);
+          showToast(`🎒 裝備損毀，已自動為您換上儲物欄中的【${nextItem.emoji} ${nextItem.name}】！`, 'info');
+          pushStatusLog('系統', `🎒 裝備【${wpnEmoji} ${wpnName}】損毀，已自動為您換上儲物欄中的【${nextItem.emoji} ${nextItem.name}】！`);
+        } else {
+          const nextEquippedIdx = localPlayer.equippedSlots.findIndex((s) => s !== null);
+          if (nextEquippedIdx !== -1) {
+            localPlayer.activeEquipIndex = nextEquippedIdx;
+          }
+        }
       } else {
         pushStatusLog('系統', `🔧 【${wpnEmoji} ${wpnName}】剩餘耐久：${curWeapon.durability}/${curWeapon.maxDurability || 3} 次（命中滿 3 次損毀）`);
       }
@@ -3148,12 +3169,12 @@ function executeOfficeLogin(params) {
     if (!pkt || pkt.targetId !== network.clientId) return;
 
     if (pkt.isCriticalInjury) {
-      // 🚑 遭受 5% 致命重傷：躺在會議室因重傷休養無法動彈 5 分鐘
+      // 🚑 遭受 5% 致命重傷：原地倒地休養無法動彈 5 分鐘，鏡頭停留在事發現場等待急救
       const lockMs = window.GATHER_CONFIG?.security?.userInjuryLockMs || 300000;
       localPlayer.isInjured = true;
       localPlayer.injuredUntil = Date.now() + lockMs;
-      localPlayer.x = 400; // 會議室 A
-      localPlayer.y = 1350;
+      localPlayer.injuredX = localPlayer.x;
+      localPlayer.injuredY = localPlayer.y;
       localPlayer.actionState = 'sleep_bed';
       localPlayer.autoWalkTarget = null;
       localPlayer.knockback = null;
@@ -4001,9 +4022,9 @@ function executeOfficeLogin(params) {
             }
           }
           return `
-            <div class="prox-chat-item ${item.isSelf ? 'self' : ''}">
+            <div class="prox-chat-item ${item.isSelf ? 'self' : 'other'}">
               <span class="prox-chat-time">[${item.timeStr}]</span>
-              <span class="prox-chat-author">${escapeHtml(item.senderName)}:</span>
+              <span class="prox-chat-author">${escapeHtml(item.senderName)}${item.isSelf ? ' (你)' : ''}:</span>
               <span class="prox-chat-text">${escapeHtml(item.text)}</span>
             </div>
           `;
@@ -5092,9 +5113,14 @@ function executeOfficeLogin(params) {
     // 🚑 檢查重傷休養狀態：躺在會議室因重傷無法動彈 5 分鐘
     if (localPlayer.isInjured) {
       if (Date.now() < (localPlayer.injuredUntil || 0)) {
-        // 重傷期間無法動彈！固定在會議室 A (400, 1350) 並保持 sleep_bed 躺平動作
-        localPlayer.x = 400;
-        localPlayer.y = 1350;
+        // 重傷期間無法動彈！固定在受傷倒地現場並保持 sleep_bed 躺平動作
+        if (typeof localPlayer.injuredX === 'number' && typeof localPlayer.injuredY === 'number') {
+          localPlayer.x = localPlayer.injuredX;
+          localPlayer.y = localPlayer.injuredY;
+        } else {
+          localPlayer.injuredX = localPlayer.x;
+          localPlayer.injuredY = localPlayer.y;
+        }
         localPlayer.actionState = 'sleep_bed';
         localPlayer.isMoving = false;
         localPlayer.autoWalkTarget = null;
@@ -5671,11 +5697,9 @@ function executeOfficeLogin(params) {
       ctx.font = '600 12px "Outfit", "Microsoft JhengHei", sans-serif';
       const msgW = Math.min(295, Math.max(96, ctx.measureText(shownText).width + 24));
 
-      const shakeX = p.murmur.mood === 'fire' ? (Math.random() - 0.5) * 3 : 0;
-      const shakeY = p.murmur.mood === 'fire' ? (Math.random() - 0.5) * 3 : 0;
-      // 💬 規則 6：文字氣泡絕對不遮蔽名牌，懸浮於名牌頂部上方且置中！
-      const bx = p.x - msgW / 2 + shakeX;
-      const by = pillY - msgH - 9 + shakeY;
+      // 💬 規則 6：文字氣泡絕對不晃動與震動，平穩呈現於名牌頂部上方且置中！
+      const bx = p.x - msgW / 2;
+      const by = pillY - msgH - 9;
 
       let borderCol = '#38bdf8';
       let bgCol = 'rgba(255, 255, 255, 0.97)';

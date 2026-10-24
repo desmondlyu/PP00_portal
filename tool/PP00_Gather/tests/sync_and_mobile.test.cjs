@@ -420,3 +420,22 @@ test('Cleaner Aunties waypoints include restroom sink waypoint { x: 2255, y: 682
   assert.ok(avatarsCode.includes('isFleeing = false'), 'avatars.js drawWackyAvatar must support isFleeing');
   assert.ok(avatarsCode.includes('💦'), 'avatars.js must draw cold sweat emojis 💦 when isFleeing');
 });
+
+test('Mobile touch protection, in-place injury camera, chat color distinction, stable murmur bubble, and auto-equip on durability zero', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../static/css/style.css'), 'utf8');
+  assert.ok(css.includes('-webkit-touch-callout: none !important;'), 'style.css must disable touch callout (copy/paste menu)');
+  assert.ok(css.includes('.prox-chat-item.self'), 'style.css must define self chat item styling');
+  assert.ok(css.includes('.prox-chat-item.other'), 'style.css must define other chat item styling');
+  assert.ok(css.includes('.prox-chat-item.whisper.self'), 'style.css must define self whisper styling');
+  assert.ok(css.includes('.prox-chat-item.whisper.from'), 'style.css must define from whisper styling');
+
+  const appCode = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.ok(appCode.includes("window.addEventListener('contextmenu'"), 'app.js must block default contextmenu');
+  assert.ok(appCode.includes("document.addEventListener('selectstart'"), 'app.js must block selection');
+  assert.ok(appCode.includes('localPlayer.equippedSlots = [null, null, null];'), 'app.js must initialize equippedSlots to empty for first login');
+  assert.ok(appCode.includes('localPlayer.inventory = [];'), 'app.js must initialize inventory to empty for first login');
+  assert.ok(appCode.includes('equipFromBag(0)'), 'app.js must auto equip from inventory when weapon durability reaches 0');
+  assert.ok(appCode.includes('localPlayer.injuredX = localPlayer.x;'), 'app.js must record injuredX in place');
+  assert.ok(appCode.includes('localPlayer.injuredY = localPlayer.y;'), 'app.js must record injuredY in place');
+  assert.ok(!appCode.includes('const shakeX = p.murmur.mood'), 'app.js must remove random shakeX/shakeY from murmur bubbles');
+});
