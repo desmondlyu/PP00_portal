@@ -212,7 +212,7 @@
     network = new window.EphemeralOfficeNetwork({
       onPlayerJoin: (player) => {
         pushStatusLog('系統', `🟢 ${player.name} (${player.unit}) 已上線進入辦公室！`);
-        showToast(`🟢 <b>${escapeHtml(player.name)}</b> (${escapeHtml(player.unit)}) 上線進入辦公室！`, 'join');
+        showWelcome(player);
         renderSidebarRoster();
       },
       onPlayerLeave: (player) => {
@@ -3492,6 +3492,54 @@
         renderSidebarRoster();
       });
     }
+  }
+
+  const welcomeQueue = [];
+  let welcomePlaying = false;
+
+  function showWelcome(player) {
+    welcomeQueue.push({ name: String(player.name || '同事'), unit: String(player.unit || '') });
+    playNextWelcome();
+  }
+
+  function playNextWelcome() {
+    if (welcomePlaying) return;
+    if (!isLoggedIn) { welcomeQueue.length = 0; return; }
+    const player = welcomeQueue.shift();
+    if (!player) return;
+    welcomePlaying = true;
+    const overlay = document.createElement('div');
+    overlay.className = 'gather-welcome';
+    overlay.setAttribute('role', 'status');
+    overlay.setAttribute('aria-live', 'polite');
+    overlay.innerHTML = `<div class="welcome-card">
+      <div class="welcome-spark" aria-hidden="true">✦</div>
+      <div class="welcome-heading">歡迎加入辦公室</div>
+      <div class="welcome-name"></div><div class="welcome-unit"></div>
+      <div class="welcome-caption">很高興見到你！</div>
+    </div>`;
+    overlay.querySelector('.welcome-name').textContent = player.name;
+    overlay.querySelector('.welcome-unit').textContent = player.unit;
+    for (let i = 0; i < 18; i++) {
+      const particle = document.createElement('i');
+      particle.className = 'welcome-confetti';
+      particle.setAttribute('aria-hidden', 'true');
+      const angle = (i / 18) * Math.PI * 2;
+      particle.style.setProperty('--dx', `${Math.cos(angle) * (100 + i % 3 * 30)}px`);
+      particle.style.setProperty('--dy', `${Math.sin(angle) * (90 + i % 4 * 20)}px`);
+      particle.style.setProperty('--delay', `${i % 4 * 60}ms`);
+      particle.style.setProperty('--color', ['#67e8f9', '#fcd34d', '#c4b5fd'][i % 3]);
+      overlay.appendChild(particle);
+    }
+    document.body.appendChild(overlay);
+    setTimeout(() => {
+      overlay.classList.add('welcome-leaving');
+      setTimeout(() => {
+        overlay.remove();
+        welcomePlaying = false;
+        playNextWelcome();
+      }, 300);
+    }, 3000);
   }
 
   function showToast(htmlText, type = 'info', onAction = null) {
