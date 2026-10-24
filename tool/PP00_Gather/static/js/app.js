@@ -299,6 +299,13 @@
         pushStatusLog(pkt.senderName, `💭 碎碎念：「${pkt.text}」`);
         renderUnifiedChatAndStatus();
       },
+      onRecoveryLocation: (spot) => {
+        if(!localPlayer.isInjured)return;
+        const changed=localPlayer.injuredX!==spot.x||localPlayer.injuredY!==spot.y;
+        localPlayer.x=localPlayer.injuredX=spot.x;localPlayer.y=localPlayer.injuredY=spot.y;
+        localPlayer.actionState='sleep_bed';localPlayer.autoWalkTarget=null;localPlayer.knockback=null;
+        if(changed){savePersistentState();network.broadcastPacket('state_sync',{player:network.getPublicState()});}
+      },
       onCombatMobDefeat: (uid) => {if(network.isRoomMaster()){ecosystem.mobs=ecosystem.mobs.filter(m=>m.uid!==uid);ecosystem.lastMobDefeatedAt=Date.now();}},
       onCombatResult: (text) => { showCombatToast(text); addExp(30,'擊倒目標'); },
       onCombatGround: (items) => {
@@ -2175,7 +2182,7 @@ function executeOfficeLogin(params) {
           const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - Date.now()) / 1000));
           const m = String(Math.floor(remSec / 60)).padStart(2, '0');
           const s = String(remSec % 60).padStart(2, '0');
-          showToast(`🚑 身受重傷休養中（會議室無法動彈，剩餘 ${m}:${s}）`, 'error');
+          showToast(`🚑 身受重傷休養中（會議室 B 休養中，剩餘 ${m}:${s}）`, 'error');
           return;
         }
       }
@@ -2265,7 +2272,7 @@ function executeOfficeLogin(params) {
         const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - Date.now()) / 1000));
         const m = String(Math.floor(remSec / 60)).padStart(2, '0');
         const s = String(remSec % 60).padStart(2, '0');
-        showToast(`🚑 身受重傷休養中（會議室無法動彈，剩餘 ${m}:${s}）`, 'error');
+        showToast(`🚑 身受重傷休養中（會議室 B 休養中，剩餘 ${m}:${s}）`, 'error');
         return;
       }
 
@@ -2610,9 +2617,11 @@ function executeOfficeLogin(params) {
     // 播放揮砍半月斬動畫
     localPlayer.weaponSwing = {
       emoji: wpnEmoji,
-      ticksLeft: 14,
-      totalTicks: 14,
+      ticksLeft: 18,
+      totalTicks: 18,
+      startedAt: Date.now(), duration: 300,
     };
+    network.broadcastPacket('weapon_swing',{emoji:wpnEmoji});
     localPlayer.jumpOffset = 10;
 
     vfxList.push({
@@ -2720,8 +2729,8 @@ function executeOfficeLogin(params) {
       const lockMs = window.GATHER_CONFIG?.security?.userInjuryLockMs || 300000;
       localPlayer.isInjured = true;
       localPlayer.injuredUntil = Date.now() + lockMs;
-      localPlayer.injuredX = localPlayer.x;
-      localPlayer.injuredY = localPlayer.y;
+      cancelContextualAction();
+      window.OfficeCombat.send(network,'recovery_request',{until:localPlayer.injuredUntil});
       localPlayer.actionState = 'sleep_bed';
       localPlayer.autoWalkTarget = null;
       localPlayer.knockback = null;
@@ -2731,9 +2740,9 @@ function executeOfficeLogin(params) {
 
       pushCombatLog(
         '系統',
-        pkt.hunt ? '🚑 鳥人追殺中累計受擊三次，已重傷退出本場，等待急救或休養恢復。' : `🚑 遭受同事【${pkt.senderName || '同事'}】揮舞【${pkt.weaponEmoji || '🪑'}】致命重擊！你身受重傷，在會議室躺平休養 5 分鐘無法動彈！`
+        pkt.hunt ? '🚑 鳥人追殺中累計受擊三次，已重傷退出本場，等待急救或休養恢復。' : `🚑 遭受同事【${pkt.senderName || '同事'}】揮舞【${pkt.weaponEmoji || '🪑'}】致命重擊！你身受重傷，在會議室 B 躺平休養 5 分鐘無法動彈！`
       );
-      showCombatToast(pkt.hunt ? '🚑 累計受擊三次，重傷退出本場！' : '🚑 遭受致命重擊！身受重傷，在會議室休養 5 分鐘（無法動彈）', 'error');
+      showCombatToast(pkt.hunt ? '🚑 累計受擊三次，重傷退出本場！' : '🚑 遭受致命重擊！身受重傷，在會議室 B 休養 5 分鐘（無法動彈）', 'error');
       if (network) {
         network.broadcastPacket('state_sync', { player: network.getPublicState() });
       }
@@ -2961,7 +2970,7 @@ function executeOfficeLogin(params) {
       label: '📈 會議室A台股大螢幕：看盤 & 互動行情情緒 [按E]',
       actionId: 'watch_stock',
       standX: 410,
-      standY: 1340,
+      standY: 1612,
       dir: 'up',
       triggerDist: 36,
       isStockScreen: true,
@@ -3007,6 +3016,11 @@ function executeOfficeLogin(params) {
       });
     });
 
+    for (const [i,x,dir] of [[1,2278,'right'],[2,2488,'left']]) spots.push({
+      id:`seat_pantry_chair_${i}`,name:`茶水間餐椅 ${i}`,
+      shortHint:'[按 E] 坐下休息',label:'坐下休息',actionId:'meeting_discuss',
+      standX:x,standY:302,dir,triggerDist:32,
+    });
     // 6. 茶水間預設 3 個獨立預定互動位置 (規則 9)
     spots.push({
       id: 'spot_pantry_1',
@@ -4226,6 +4240,7 @@ function executeOfficeLogin(params) {
     const line = document.createElement('div');
     line.textContent = text;
     feed.appendChild(line);
+    setTimeout(() => line.remove(), 3000);
     while (feed.children.length > 5) feed.firstElementChild.remove();
     return true;
   }
@@ -4917,14 +4932,7 @@ function executeOfficeLogin(params) {
     // 更新靠近辦公室設備（電腦、馬桶、洗手台、茶水間、機台、台股大螢幕）的情境互動提示按鈕
     nearbyFacilityAction = detectNearbyFacility();
     const facBtn = document.getElementById('facilityTriggerBtn');
-    if (facBtn) {
-      if (nearbyFacilityAction) {
-        facBtn.style.display = 'inline-flex';
-        facBtn.textContent = nearbyFacilityAction.label;
-      } else {
-        facBtn.style.display = 'none';
-      }
-    }
+    if (facBtn) facBtn.style.display = 'none';
   }
 
   function getCurrentHourFloat() {
@@ -5112,7 +5120,8 @@ function executeOfficeLogin(params) {
         isBerserk: !!p.isBerserk,
         isSweeper: !!p.isSweeper,
         isKnockedBack: !!(p.knockback && p.knockback.ticksLeft > 0),
-        weaponSwing: p.weaponSwing || null,
+        heldItem: p.isNpc ? '' : p.heldItem,
+        weaponSwing: p.weaponSwing ? {...p.weaponSwing,progress:p.id===localPlayer.id ? 1-p.weaponSwing.ticksLeft/p.weaponSwing.totalTicks : (Date.now()-p.weaponSwing.startedAt)/300} : null,
         isInjured: p.id === localPlayer.id ? !!localPlayer.isInjured : !!p.isInjured,
         beingHealed: p.id === localPlayer.id ? !!localPlayer.beingHealed : !!p.beingHealed,
         healProgress: p.id === localPlayer.id ? (localPlayer.healProgress || 0) : (p.healProgress || 0),
