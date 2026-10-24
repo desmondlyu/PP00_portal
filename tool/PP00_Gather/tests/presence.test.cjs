@@ -44,3 +44,14 @@ test('join is still announced when an early state packet arrives first', () => {
   packet(n, 'state_sync', p); packet(n, 'join_announce', p); packet(n, 'join_announce', p);
   assert.deepEqual(joins, [p.id]);
 });
+
+test('initial connection suppresses welcome notifications for existing occupants', () => {
+  const joins = [];
+  const n = network({ onPlayerJoin: p => joins.push(p.id) });
+  n.connect({ name: 'Me', unit: 'PP00' });
+  // Simulating initial presence during connection window
+  const existingColleague = { id: 'usr_already_here', name: '老員工' };
+  n.upsertRemotePlayer(existingColleague, false);
+  assert.equal(joins.length, 0, 'Existing occupants during connection must not notify join');
+  assert.equal(n.remotePlayers.has('usr_already_here'), true);
+});
