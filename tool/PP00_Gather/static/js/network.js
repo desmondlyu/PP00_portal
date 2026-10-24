@@ -638,6 +638,7 @@ class EphemeralOfficeNetwork {
       isMoving: this.localPlayer.isMoving,
       isInjured: !!this.localPlayer.isInjured,
       injuredUntil: this.localPlayer.injuredUntil || 0,
+      stunnedUntil: this.localPlayer.stunnedUntil || 0,
       beingHealed: !!this.localPlayer.beingHealed,
       beingHealedBy: this.localPlayer.beingHealedBy || null,
       healProgress: this.localPlayer.healProgress || 0,
@@ -948,6 +949,9 @@ class EphemeralOfficeNetwork {
         }
         break;
       }
+      case 'combat_state': case 'combat_result': case 'combat_strike': case 'combat_hurt': case 'combat_drop': case 'combat_claim': {
+        window.OfficeCombat?.packet(this,pkt);break;
+      }
       case 'hunt_state': {
         window.OfficeHunt?.receive(this,pkt); break;
       }
@@ -1097,7 +1101,7 @@ class EphemeralOfficeNetwork {
 
   updateGhost(now) {
     const ghost = this.npcPlayers.get('npc_night_ghost');
-    if (!ghost || !this.isRoomMaster()) return;
+    if (!ghost || ghost.combatDown || !this.isRoomMaster()) return;
     for (const npc of this.npcPlayers.values()) {
       if (!(npc.isSecurityGuard || npc.isBirdCommander) || (npc.isBirdCommander && window.OfficeHunt?.clock().active)) continue;
       if (now < (npc.ghostScaredUntil || 0) || Math.hypot(npc.x - ghost.x, npc.y - ghost.y) > 180) continue;
@@ -1183,6 +1187,7 @@ class EphemeralOfficeNetwork {
       }
     });
 
+    window.OfficeCombat?.update(this,tick);
     window.OfficeHunt?.update(this, tick);
     this.updateGhost(now);
 
@@ -1225,7 +1230,7 @@ class EphemeralOfficeNetwork {
     const berserkChance = window.GATHER_CONFIG?.security?.berserkChance ?? 0.001;
     if (this.isRoomMaster() && this.localPlayer && tick % 60 === 0) {
       const candidates = [...this.npcPlayers.values()].filter(
-        (n) => !n.isGhost && !n.isFleeing && !n.isBerserk && now > n.berserkCooldownUntil && !n.knockback
+        (n) => !n.combatDown && !n.isGhost && !n.isFleeing && !n.isBerserk && now > n.berserkCooldownUntil && !n.knockback
       );
       if (candidates.length > 0 && Math.random() < berserkChance) {
         const attacker = candidates[Math.floor(Math.random() * candidates.length)];
@@ -1249,6 +1254,7 @@ class EphemeralOfficeNetwork {
     let npcSeq = 0;
     this.npcPlayers.forEach((npc) => {
       const idx = npcSeq++;
+      if (npc.combatDown) return;
       if (npc.isBirdCommander && window.OfficeHunt?.clock().active) return;
 
       if (now < (npc.ghostScaredUntil || 0)) {

@@ -382,7 +382,7 @@ test('Attack cooldown is 250ms and status logs are throttled to prevent freezing
   const appCode = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   assert.ok(appCode.includes('attackCooldownMs || 250'), 'app.js must use attackCooldownMs 250ms');
   assert.ok(appCode.includes('lastWeaponAttackAt'), 'app.js must track lastWeaponAttackAt separately from lastInteractAt');
-  assert.ok(appCode.includes('now - (mob.lastLogAt || 0) > 600'), 'app.js must throttle consecutive hit logs to prevent freezing');
+  assert.ok(appCode.includes('now-(enemy.lastCombatLogAt||0)>600'), 'app.js must throttle consecutive hit logs to prevent freezing');
 });
 
 test('Mobile layout: ColleagueProfileCard is standalone floating card and touchSkillsGroup does not block joystick or interact buttons', () => {
