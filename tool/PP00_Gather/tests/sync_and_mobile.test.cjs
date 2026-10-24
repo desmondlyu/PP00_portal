@@ -274,3 +274,38 @@ test('Injury bandage animation and 5-second medical healing packets restore inju
   assert.equal(net.localPlayer.beingHealed, false);
   assert.equal(net.localPlayer.actionState, null, 'Sleep pose must be cleared after full recovery');
 });
+test('Remote player LERP interpolation smoothly glides towards destination without teleport stutter', () => {
+  const env = createTestEnv();
+  const net = new env.window.EphemeralOfficeNetwork();
+  net.connect({ name: 'Me', unit: 'PP00', x: 200, y: 200 });
+
+  // Simulate remote colleague at (500, 500)
+  net.upsertRemotePlayer({ id: 'usr_colleague', name: 'Alice', unit: 'PP10', x: 500, y: 500 }, false);
+  const rp = net.remotePlayers.get('usr_colleague');
+  assert.equal(rp.x, 500);
+  assert.equal(rp.y, 500);
+
+  // Colleague moves to (600, 500) over network
+  net.upsertRemotePlayer({ id: 'usr_colleague', name: 'Alice', unit: 'PP10', x: 600, y: 500 }, false);
+  assert.equal(rp.targetX, 600);
+  // rp.x should not have snapped immediately to 600, preserving smooth transition
+  assert.equal(rp.x, 500);
+
+  // Advance frames
+  net.update(1);
+  assert.ok(rp.x > 500 && rp.x < 600, `rp.x (${rp.x}) should interpolate towards 600`);
+
+  for (let t = 2; t <= 30; t++) {
+    net.update(t);
+  }
+  assert.equal(rp.x, 600, 'After sufficient frames, rp.x should settle at targetX');
+});
+
+test('App.js IIFE boundary wraps all rendering methods including medical animations to prevent ReferenceError', () => {
+  const appCode = fs.readFileSync(path.join(root, 'app.js'), 'utf8').trim();
+  assert.ok(appCode.endsWith('})();'), 'app.js must close cleanly with IIFE wrapper to avoid leaked global identifiers');
+  assert.ok(appCode.includes('function renderMedicalHealingAnimations'), 'renderMedicalHealingAnimations must be defined');
+  const iifeEndIndex = appCode.lastIndexOf('})();');
+  const funcIndex = appCode.indexOf('function renderMedicalHealingAnimations');
+  assert.ok(funcIndex < iifeEndIndex, 'renderMedicalHealingAnimations must be scoped INSIDE the IIFE');
+});

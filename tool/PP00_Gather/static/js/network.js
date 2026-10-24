@@ -689,8 +689,15 @@ class EphemeralOfficeNetwork {
       window.AVATAR_CATALOG && window.AVATAR_CATALOG.some((a) => a.id === pData.avatarId)
         ? pData.avatarId
         : 'frog_eng';
-    const merged = {
-      ...existing,
+
+    const targetX = Number(pData.x) || 850;
+    const targetY = Number(pData.y) || 520;
+    const isFirstTime = typeof existing.x !== 'number';
+    const isFarTeleport = !isFirstTime && Math.hypot(targetX - existing.x, targetY - existing.y) > 280;
+    const currentX = (isFirstTime || isFarTeleport) ? targetX : existing.x;
+    const currentY = (isFirstTime || isFarTeleport) ? targetY : existing.y;
+
+    const merged = Object.assign(existing, {
       id: pData.id,
       name: this.sanitizeText(pData.name || '同事', 16),
       unit: this.sanitizeText(pData.unit || 'PP00', 8),
@@ -699,8 +706,10 @@ class EphemeralOfficeNetwork {
       heldItem: pData.heldItem || '🟢',
       actionState: pData.actionState || null,
       occupiedSpotId: pData.occupiedSpotId || null,
-      x: Number(pData.x) || 850,
-      y: Number(pData.y) || 520,
+      x: currentX,
+      y: currentY,
+      targetX,
+      targetY,
       dir: pData.dir || 'down',
       isMoving: !!pData.isMoving,
       isInjured: pData.isInjured !== undefined ? !!pData.isInjured : !!existing.isInjured,
@@ -712,7 +721,7 @@ class EphemeralOfficeNetwork {
       murmur: existing.murmur || null,
       emote: existing.emote || null,
       lastSeen: Date.now(),
-    };
+    });
     this.remotePlayers.set(pData.id, merged);
 
     if (notifyJoin && !existing.joinNotified && this.callbacks.onPlayerJoin) {
@@ -1053,6 +1062,21 @@ class EphemeralOfficeNetwork {
       ...this.remotePlayers.values(),
       ...this.npcPlayers.values(),
     ];
+    // 遠端玩家移動線性內插 (LERP 平滑移動，消除跨區域網路 WebSocket 幀隙帶來的瞬移卡頓感)
+    this.remotePlayers.forEach((rp) => {
+      if (typeof rp.targetX === 'number' && typeof rp.targetY === 'number') {
+        const dx = rp.targetX - rp.x;
+        const dy = rp.targetY - rp.y;
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+          rp.x += dx * 0.35;
+          rp.y += dy * 0.35;
+        } else {
+          rp.x = rp.targetX;
+          rp.y = rp.targetY;
+        }
+      }
+    });
+
     allEntities.forEach((ent) => {
       if (ent.murmur && now >= ent.murmur.expiresAt) {
         delete ent.murmur;
