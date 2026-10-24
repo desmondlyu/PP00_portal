@@ -523,3 +523,47 @@ test('All NPCs (VP, Director, Aunties, Guard, Bird) murmur autonomously and spee
     assert.ok(mockCtx.measureText(line).width <= 220, 'No wrapped line should exceed maxTextWidth');
   }
 });
+
+test('Director PP00 repairs workstations with ERROR screen and NPC dialogue bubbles never shake with jumpOffset', () => {
+  const env = createTestEnv();
+  const net = new env.window.EphemeralOfficeNetwork();
+  net.connect({ name: 'Admin', unit: 'PP00', x: 200, y: 200 });
+  net.clientId = 'usr_000_master';
+
+  // 1. Setup a workstation with ERR!! screen state (not broken by monster)
+  env.window.WORLD_MAP.workstations = [
+    { id: 'pe1', zone: 'PE', x: 240, y: 680, w: 160, h: 72, leftScreen: 'ERR!!', rightScreen: 'Pass', screenState: 'error', isBroken: false, owner: 'PE-PP11' },
+  ];
+  env.window.WORLD_MAP.labEquipments = [];
+
+  const dir = net.npcPlayers.get('npc_dir_pp00');
+  assert.ok(dir, 'Director PP00 must exist');
+  dir.repairCooldownUntil = 0;
+
+  // Run updates to trigger Director repair check
+  env.window.GATHER_CONFIG.security.directorRepairChance = 1.0;
+  for (let t = 0; t < 170; t++) {
+    net.update(t);
+    if (dir.repairingTarget) break;
+  }
+
+  assert.ok(dir.repairingTarget, 'Director should target workstation with ERR!! screen for repair');
+  assert.equal(dir.repairingTarget.type, 'ws');
+  assert.equal(dir.repairingTarget.idx, 0);
+
+  // Complete repair
+  dir.x = dir.repairingTarget.x;
+  dir.y = dir.repairingTarget.y;
+  dir.repairStartedAt = Date.now() - 5000; // past 4500ms
+  net.update(201);
+
+  const ws = env.window.WORLD_MAP.workstations[0];
+  assert.equal(ws.leftScreen, 'Pass', 'Workstation leftScreen should be restored to Pass');
+  assert.equal(ws.rightScreen, 'Good', 'Workstation rightScreen should be restored to Good');
+  assert.equal(ws.screenState, 'pass', 'Workstation screenState should be restored to pass');
+
+  // 2. Verify dialogue bubble rendering has zero jumpOffset shake
+  const appCode = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.ok(appCode.includes('const pillY = p.y - 68;'), 'app.js must anchor pillY to ground p.y without jumpOffset subtraction');
+  assert.ok(!appCode.includes('pillY - msgH - 32 + Math.sin'), 'app.js must not oscillate emote above dialogue card');
+});
