@@ -1,6 +1,6 @@
 // PP00 Gather Office — 十種誇張花俏人物造型 + 10 種情境動作骨骼動畫 + NPC 暴走紅蓮氣場引擎
 
-window.AVATAR_CATALOG = [
+window.COSTUME_CATALOG = [
   {
     id: 'minotaur',
     name: '牛頭套狂戰士',
@@ -94,6 +94,169 @@ window.AVATAR_CATALOG = [
 ];
 
 // 🔒 NPC 專屬獨立人物造型目錄（嚴格與使用者 10 種造型完全區隔、絕不重複，且不開放給使用者登入選用）
+window.AVATAR_CATALOG = [
+  {
+    "id": "office_1",
+    "name": "青年西裝同事",
+    "gender": "male",
+    "age": 26,
+    "body": "slim",
+    "style": "suit",
+    "primary": "#334155",
+    "secondary": "#f1f5f9",
+    "hair": "#30241e",
+    "glasses": false,
+    "skin": "#edc3a1",
+    "badge": "▣",
+    "tag": "26 歲・日常上班穿搭",
+    "desc": "青年西裝同事，26 歲。外觀不影響移動速度與戰力。"
+  },
+  {
+    "id": "office_2",
+    "name": "襯衫工程師",
+    "gender": "male",
+    "age": 35,
+    "body": "tall",
+    "style": "shirt",
+    "primary": "#93c5fd",
+    "secondary": "#1e293b",
+    "hair": "#27272a",
+    "glasses": true,
+    "skin": "#d6a17d",
+    "badge": "▣",
+    "tag": "35 歲・日常上班穿搭",
+    "desc": "襯衫工程師，35 歲。外觀不影響移動速度與戰力。"
+  },
+  {
+    "id": "office_3",
+    "name": "運動服同事",
+    "gender": "male",
+    "age": 29,
+    "body": "broad",
+    "style": "sport",
+    "primary": "#166534",
+    "secondary": "#d1fae5",
+    "hair": "#292524",
+    "glasses": false,
+    "skin": "#bd8968",
+    "badge": "▣",
+    "tag": "29 歲・日常上班穿搭",
+    "desc": "運動服同事，29 歲。外觀不影響移動速度與戰力。"
+  },
+  {
+    "id": "office_4",
+    "name": "針織衫前輩",
+    "gender": "male",
+    "age": 52,
+    "body": "stocky",
+    "style": "knit",
+    "primary": "#92400e",
+    "secondary": "#fef3c7",
+    "hair": "#94a3b8",
+    "glasses": true,
+    "skin": "#edc3a1",
+    "badge": "▣",
+    "tag": "52 歲・日常上班穿搭",
+    "desc": "針織衫前輩，52 歲。外觀不影響移動速度與戰力。"
+  },
+  {
+    "id": "office_5",
+    "name": "休閒外套同事",
+    "gender": "male",
+    "age": 44,
+    "body": "regular",
+    "style": "jacket",
+    "primary": "#475569",
+    "secondary": "#e2e8f0",
+    "hair": "#57534e",
+    "glasses": false,
+    "skin": "#d6a17d",
+    "badge": "▣",
+    "tag": "44 歲・日常上班穿搭",
+    "desc": "休閒外套同事，44 歲。外觀不影響移動速度與戰力。"
+  },
+  {
+    "id": "office_6",
+    "name": "俐落西裝同事",
+    "gender": "female",
+    "age": 32,
+    "body": "tall",
+    "style": "suit",
+    "primary": "#713f62",
+    "secondary": "#fce7f3",
+    "hair": "#292524",
+    "glasses": false,
+    "skin": "#bd8968",
+    "badge": "▣",
+    "tag": "32 歲・日常上班穿搭",
+    "desc": "俐落西裝同事，32 歲。外觀不影響移動速度與戰力。"
+  },
+  {
+    "id": "office_7",
+    "name": "襯衫同事",
+    "gender": "female",
+    "age": 25,
+    "body": "slim",
+    "style": "shirt",
+    "primary": "#f5e6ce",
+    "secondary": "#475569",
+    "hair": "#78350f",
+    "glasses": true,
+    "skin": "#edc3a1",
+    "badge": "▣",
+    "tag": "25 歲・日常上班穿搭",
+    "desc": "襯衫同事，25 歲。外觀不影響移動速度與戰力。"
+  },
+  {
+    "id": "office_8",
+    "name": "運動外套同事",
+    "gender": "female",
+    "age": 38,
+    "body": "broad",
+    "style": "sport",
+    "primary": "#0f766e",
+    "secondary": "#ccfbf1",
+    "hair": "#30241e",
+    "glasses": false,
+    "skin": "#d6a17d",
+    "badge": "▣",
+    "tag": "38 歲・日常上班穿搭",
+    "desc": "運動外套同事，38 歲。外觀不影響移動速度與戰力。"
+  },
+  {
+    "id": "office_9",
+    "name": "針織衫資深同事",
+    "gender": "female",
+    "age": 56,
+    "body": "stocky",
+    "style": "knit",
+    "primary": "#9f5368",
+    "secondary": "#ffe4e6",
+    "hair": "#a8a29e",
+    "glasses": true,
+    "skin": "#bd8968",
+    "badge": "▣",
+    "tag": "56 歲・日常上班穿搭",
+    "desc": "針織衫資深同事，56 歲。外觀不影響移動速度與戰力。"
+  },
+  {
+    "id": "office_10",
+    "name": "休閒襯衫同事",
+    "gender": "female",
+    "age": 46,
+    "body": "regular",
+    "style": "shirt",
+    "primary": "#c4b5fd",
+    "secondary": "#334155",
+    "hair": "#57534e",
+    "glasses": false,
+    "skin": "#edc3a1",
+    "badge": "▣",
+    "tag": "46 歲・日常上班穿搭",
+    "desc": "休閒襯衫同事，46 歲。外觀不影響移動速度與戰力。"
+  }
+];
+
 window.NPC_AVATAR_CATALOG = [
   {
     id: 'npc_vp_uncle',
@@ -155,6 +318,7 @@ window.getAvatarMetaById = function (avatarId) {
   return (
     window.AVATAR_CATALOG.find((a) => a.id === avatarId) ||
     window.NPC_AVATAR_CATALOG.find((a) => a.id === avatarId) ||
+    window.COSTUME_CATALOG.find((a) => a.id === avatarId) ||
     window.AVATAR_CATALOG[0]
   );
 };
@@ -176,7 +340,7 @@ function strokeRoundRect(ctx, x, y, w, h, r) {
  */
 window.drawWackyAvatar = function (ctx, opts) {
   const {
-    avatarId = 'frog_eng',
+    avatarId = 'office_1',
     x = 0,
     y = 0,
     dir = 'down',
@@ -338,6 +502,12 @@ window.drawWackyAvatar = function (ctx, opts) {
   ctx.translate(0, bobY);
   ctx.rotate(poseRotate);
   ctx.scale(flipX, 1);
+
+  const officePerson = window.AVATAR_CATALOG.find(a => a.id === avatarId);
+  if (officePerson) {
+    const sizes = {slim:[.86,1], tall:[.94,1.13], broad:[1.13,1.04], stocky:[1.19,.96], regular:[1,1]};
+    ctx.scale(...sizes[officePerson.body]);
+  }
 
   // 2. 雙腳擺動 (依據微胖 VP / 纖瘦 PP00 處長調整褲管寬度與配色，坐下或盤腿時彎曲收起)
   ctx.fillStyle =
@@ -1101,16 +1271,33 @@ window.drawWackyAvatar = function (ctx, opts) {
 
 case 'crt_bot':
     default: {
-      ctx.fillStyle = '#475569';
-      fillRoundRect(ctx, -11, -3, 22, 15, 4);
-      ctx.fillStyle = '#cbd5e1';
-      fillRoundRect(ctx, -15, -28, 30, 24, 5);
-      ctx.fillStyle = '#064e3b';
-      fillRoundRect(ctx, -12, -25, 24, 17, 3);
-      ctx.fillStyle = '#34d399';
-      ctx.font = 'bold 9px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('PASS!', 0, -14);
+      const a = officePerson || window.AVATAR_CATALOG[0];
+      // Pixel-cut clothing, side shading, and individual hair silhouettes.
+      ctx.fillStyle = a.primary; ctx.fillRect(-11, -5, 22, 18);
+      ctx.fillStyle = 'rgba(0,0,0,.17)'; ctx.fillRect(7, -4, 4, 17);
+      ctx.fillStyle = a.skin; ctx.fillRect(-14, 3 + walkCycle * 2, 4, 8); ctx.fillRect(10, 3 - walkCycle * 2, 4, 8);
+      ctx.fillStyle = a.secondary;
+      if (a.style === 'suit' || a.style === 'jacket') {
+        ctx.beginPath();ctx.moveTo(-6,-5);ctx.lineTo(0,9);ctx.lineTo(6,-5);ctx.fill();
+        ctx.fillStyle='#b45309';ctx.fillRect(-1,-2,2,9);
+      } else if(a.style === 'sport') {
+        ctx.fillRect(-10,-3,3,14);ctx.fillRect(7,-3,3,14);ctx.fillRect(-1,-5,2,18);
+      } else {
+        ctx.fillRect(-1,-5,2,17);
+        ctx.fillStyle='#ffffff';for(let y=0;y<11;y+=4)ctx.fillRect(0,y,1,1);
+      }
+      // Small employee badge; shoulders and face remain readable at game scale.
+      ctx.fillStyle='#e2e8f0';ctx.fillRect(4,2,4,5);ctx.fillStyle='#38bdf8';ctx.fillRect(5,3,2,2);
+      if(a.gender==='female'){ctx.fillStyle=a.hair;ctx.fillRect(-12,-25,24,25);}
+      ctx.fillStyle=a.skin;ctx.fillRect(-9,-24,18,19);ctx.fillRect(-3,-6,6,3);
+      ctx.fillStyle=a.hair;ctx.fillRect(-10,-27,20,7);ctx.fillRect(-11,-22,4,9);
+      if(a.gender==='female')ctx.fillRect(8,-23,5,23);
+      if(dir !== 'up') {
+        ctx.fillStyle='#27272a';ctx.fillRect(-5,-15,2,2);ctx.fillRect(4,-15,2,2);
+        ctx.fillStyle='#a16252';ctx.fillRect(-2,-9,4,1);
+        if(a.glasses){ctx.strokeStyle='#334155';ctx.lineWidth=1;ctx.strokeRect(-7,-17,7,5);ctx.strokeRect(1,-17,7,5);ctx.fillStyle='#334155';ctx.fillRect(0,-15,1,1);}
+        if(a.age>=45){ctx.fillStyle='#bd927e';ctx.fillRect(-7,-10,3,1);ctx.fillRect(5,-10,3,1);}
+      } else {ctx.fillStyle=a.hair;ctx.fillRect(-9,-23,18,16);}
       break;
     }
   }
