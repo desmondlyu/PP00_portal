@@ -199,6 +199,7 @@ window.drawWackyAvatar = function (ctx, opts) {
     const bob = Math.sin(tick * .06) * 5;
     const scare = Date.now() < (opts.scareUntil || 0);
     ctx.save(); ctx.translate(x, y - 20 + bob - jumpOffset);
+    if(opts.combatDown) ctx.rotate(Math.PI/2);
     ctx.scale(scale * (scare ? 1.45 : 1), scale * (scare ? 1.45 : 1));
     ctx.globalAlpha = .78; ctx.shadowColor = '#67e8f9'; ctx.shadowBlur = 18;
     ctx.fillStyle = '#cffafe';
