@@ -81,7 +81,7 @@ test('Network handles both player_murmur and murmur packets', () => {
   assert.equal(remote.murmur.text, '加班好累');
 });
 
-test('Network refuses legacy room-broadcast private messages', () => {
+test('Network delivers private chat only to the target recipient', () => {
   const env = createTestEnv();
   const EphemeralOfficeNetwork = env.window.EphemeralOfficeNetwork;
 
@@ -101,12 +101,26 @@ test('Network refuses legacy room-broadcast private messages', () => {
     senderId: 'usr_edge_user',
     senderName: 'EdgeBob',
     senderUnit: 'PP00',
-    targetId: net.clientId,
-    targetName: 'Alice',
-    text: '這是悄悄話',
+    targetId: 'other_user',
+    targetName: 'Charlie',
+    text: '這是別人的悄悄話',
   });
 
-  assert.equal(receivedPrivate, null, 'Room broadcast cannot protect private content');
+  assert.equal(receivedPrivate, null, 'Private chat should not be received if targetId does not match');
+
+  net.handleIncomingPacket({
+    type: 'private_chat',
+    nonce: 'n_priv_2',
+    senderId: 'usr_edge_user',
+    senderName: 'EdgeBob',
+    senderUnit: 'PP00',
+    targetId: net.clientId,
+    targetName: 'Alice',
+    text: '這是給愛麗絲的悄悄話',
+  });
+
+  assert.ok(receivedPrivate, 'Private chat should be received when targetId matches clientId');
+  assert.equal(receivedPrivate.text, '這是給愛麗絲的悄悄話');
 });
 
 test('Network receives proximity chat across whole office regardless of extreme distance', () => {
@@ -255,16 +269,15 @@ test('Bird commander: night time never pulls to meeting, daytime allows meeting 
   assert.equal(meetingPulled, true, 'Daytime (05:00~17:00) SHOULD allow bird commander to pull to meeting room!');
 });
 
-
-test('private text is never sent over either room transport', async () => {
+test('private chat is broadcast over ephemeral transports when cloud connected', async () => {
   const env = createTestEnv();
   const net = new env.window.EphemeralOfficeNetwork();
   let sent = 0;
   net.broadcastChannel = {postMessage() { sent++; }};
   net.isCloudConnected = true;
-  net.realtimeChannel = {send() { sent++; }};
-  assert.equal(await net.broadcastPacket('private_chat', {text: 'secret'}), false);
-  assert.equal(sent, 0);
+  net.realtimeChannel = {send() { sent++; return Promise.resolve('ok'); }};
+  await net.broadcastPacket('private_chat', {toUserId: 'user2', text: 'secret'});
+  assert.equal(sent, 2);
 });
 
 test('database errors are surfaced instead of silently treated as successful writes', async () => {
@@ -291,7 +304,6 @@ test('logout waits for pending registration and is idempotent', async () => {
   await logout;
   assert.deepEqual(calls, ['logout']);
 });
-
 
 test('background network interruption is quiet, foreground persistent failures still alert', async () => {
   const env = createTestEnv();
@@ -358,4 +370,83 @@ test('visibility return schedules one fresh write without another login audit', 
   await sync.pending;
   assert.equal(writes, 1);
   assert.equal(sync.heartbeatTimer, 1);
+});
+
+test('Presence sync event populates remotePlayers correctly on connection', () => {
+  const env = createTestEnv();
+  const EphemeralOfficeNetwork = env.window.EphemeralOfficeNetwork;
+
+  const net = new EphemeralOfficeNetwork();
+  net.connect({ name: 'Alice', unit: 'PP32', x: 500, y: 500 });
+
+  // Simulate presence.sync with existing users
+  const presenceState = {
+    'usr_online_bob': [{
+      id: 'usr_online_bob',
+      name: 'Bob',
+      unit: 'PP10',
+      avatarId: 'frog_eng',
+      status: 'active',
+      x: 600,
+      y: 600,
+    }],
+  };
+
+  Object.values(presenceState).forEach((presences) => {
+    if (Array.isArray(presences) && presences[0]) {
+      net.upsertRemotePlayer(presences[0], false);
+    }
+  });
+
+  const bob = net.remotePlayers.get('usr_online_bob');
+  assert.ok(bob, 'Existing user should be populated via presence sync');
+  assert.equal(bob.name, 'Bob');
+  assert.equal(bob.unit, 'PP10');
+});
+
+test('Toilet urge triggers ONLY when player is in toilet and NPC walks past the door', () => {
+  const env = createTestEnv();
+  const EphemeralOfficeNetwork = env.window.EphemeralOfficeNetwork;
+
+  let toiletKickCount = 0;
+  const net = new EphemeralOfficeNetwork({
+    onNpcToiletKick: () => { toiletKickCount++; },
+  });
+
+  const stall = env.window.WORLD_MAP.toiletStalls[0]; // x: 2465, y: 745
+  const doorX = stall.x - 38;
+  const doorY = stall.y + 48;
+
+  // 1. When player is NOT in toilet (actionState: null), NPC right at door should NEVER trigger
+  const localPlayer = { id: 'local_alice', name: 'Alice', unit: 'PP32', x: 500, y: 500, actionState: null };
+  net.connect(localPlayer);
+  stall.occupiedBy = null;
+
+  const walker = {
+    id: 'npc_walker',
+    name: 'NPC:打掃阿姨',
+    x: doorX,
+    y: doorY,
+    targetX: doorX,
+    targetY: doorY,
+    waypoints: [{ x: doorX, y: doorY }],
+    waypointIdx: 0,
+    toiletKickCooldownUntil: 0,
+  };
+  net.npcPlayers.set('npc_walker', walker);
+  net.initNPCs = () => {};
+
+  net.update(1);
+  assert.equal(toiletKickCount, 0, 'When player is not in toilet, NPC should NEVER urge or kick');
+
+  // 2. When player IS in toilet (actionState: toilet) and occupies stall
+  localPlayer.actionState = 'toilet';
+  stall.occupiedBy = localPlayer.id;
+  walker.toiletKickCooldownUntil = 0;
+
+  // Override Math.random in context to guarantee kick triggers
+  env.Math.random = () => 0.1;
+
+  net.update(2);
+  assert.equal(toiletKickCount, 1, 'When player is in toilet and NPC walks past door, urge/kick should trigger');
 });
