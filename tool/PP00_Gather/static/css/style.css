@@ -512,6 +512,7 @@ html {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  -webkit-transform: translate(-50%, -50%);
   width: 440px;
   max-width: calc(100vw - 32px);
   background: linear-gradient(135deg, rgba(20, 24, 44, 0.96) 0%, rgba(13, 16, 30, 0.98) 100%);
@@ -523,11 +524,22 @@ html {
   -webkit-backdrop-filter: blur(18px);
   z-index: 10002;
   color: #f8fafc;
+  opacity: 1;
   animation: centerMsgPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  -webkit-animation: centerMsgPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transition: opacity 0.25s ease, transform 0.25s ease;
   pointer-events: auto;
   font-family: inherit;
   overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .center-private-msg-card {
+    animation: none !important;
+    -webkit-animation: none !important;
+    opacity: 1 !important;
+    transform: translate(-50%, -50%) !important;
+  }
 }
 
 .center-private-msg-card.fade-out {
