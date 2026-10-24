@@ -294,6 +294,40 @@ test('Bird commander: 100% spawns on init, auto-clears legacy exile, and auto-re
   assert.ok(net.npcPlayers.get('npc_bird_commander'), 'Bird commander should auto-respawn via update tick');
 });
 
+test('Bird commander: randomly selects any real online user (local or remote) to follow', () => {
+  const env = createTestEnv();
+  const net = new env.window.EphemeralOfficeNetwork();
+  net.connect({ name: 'Alice', unit: 'PP10', x: 200, y: 200 });
+
+  // Add remote player Bob
+  net.upsertRemotePlayer({
+    id: 'usr_bob',
+    name: 'Bob',
+    unit: 'PP20',
+    avatarId: 'frog_eng',
+    x: 800,
+    y: 800,
+  });
+
+  const bird = net.npcPlayers.get('npc_bird_commander');
+  assert.ok(bird);
+
+  env.window.GATHER_CONFIG.security.birdFollowChance = 1.0;
+  bird.followPlayerUntil = 0;
+
+  // Mock Math.random to pick Bob (index 1 of 2 players)
+  let randomCount = 0;
+  env.Math.random = () => {
+    randomCount++;
+    if (randomCount === 1) return 0.05; // passes followChance
+    return 0.99; // picks Bob: index 1 out of 2 players
+  };
+
+  net.update(60); // tick % 240 === 60 triggers follow selection
+  assert.equal(bird.followTargetId, 'usr_bob', 'Bird commander should randomly select remote player Bob');
+  assert.match(bird.murmur.text, /Bob/, 'Murmur should address Bob dynamically');
+});
+
 test('private chat is broadcast over ephemeral transports when cloud connected', async () => {
   const env = createTestEnv();
   const net = new env.window.EphemeralOfficeNetwork();
