@@ -71,6 +71,8 @@
       const state = {
         equippedSlots: localPlayer.equippedSlots,
         backpack: localPlayer.inventory,
+        overflow: localPlayer.overflow || [],
+        wornOutfitUid: localPlayer.wornOutfitUid || null,
         heldItem: localPlayer.heldItem,
         activeEquipIndex: localPlayer.activeEquipIndex,
         isInjured: !!localPlayer.isInjured,
@@ -131,7 +133,7 @@
   // 依照 24 小時時段與武器強度階梯 (5%~20%) 計算加權隨機道具與武器
   function getRandomHeldItemMeta() {
     return window.getWeightedRandomItem
-      ? window.getWeightedRandomItem(window.GATHER_CONFIG.items)
+      ? window.getWeightedRandomItem(window.GATHER_CONFIG.items.filter(i=>i.category!=='outfit'))
       : window.GATHER_CONFIG.items[0];
   }
 
@@ -146,7 +148,7 @@
     id: 'local',
     name: '',
     unit: '',
-    avatarId: 'frog_eng',
+    avatarId: 'office_1',
     status: 'active',
     heldItem: '🪑',
     equippedMeta: null,
@@ -155,6 +157,8 @@
     activeEquipIndex: 0,
     // 持有物品儲物欄 (未裝備的道具與武器)
     inventory: [],
+    overflow: [],
+    wornOutfitUid: null,
     weaponSwing: null, // { emoji, ticksLeft, totalTicks }
     actionState: null, // 12 種情境動作 ID (含 sleep_bed)
     isInjured: false,  // 🚑 重傷狀態
@@ -234,10 +238,13 @@
     if (
       saved &&
       Array.isArray(saved.equippedSlots) &&
-      (saved.equippedSlots.some(Boolean) || (saved.backpack && saved.backpack.length > 0))
+      (saved.equippedSlots.some(Boolean) || saved.backpack || saved.overflow)
     ) {
       localPlayer.equippedSlots = saved.equippedSlots;
       localPlayer.inventory = saved.backpack || [];
+      localPlayer.overflow = saved.overflow || [];
+      localPlayer.wornOutfitUid = saved.wornOutfitUid || null;
+      window.OfficeWardrobe.migrate(localPlayer);
       localPlayer.activeEquipIndex =
         typeof saved.activeEquipIndex === 'number' ? saved.activeEquipIndex : 0;
       localPlayer.heldItem = saved.heldItem || '🪑';
@@ -313,6 +320,10 @@
       },
       onCombatPickup: (item) => { addItemToInventory(item,true);savePersistentState();updateSelfHudCard();showCombatToast(`撿起【${escapeHtml(item.name)}】`); },
       onCombatDamage: (effect) => {
+        if(effect.outfitDamage){
+          const outfit=window.OfficeWardrobe.damage(localPlayer);
+          if(outfit){syncPlayerActiveWeaponState();showCombatToast(outfit.durability ? `${outfit.name} 耐久 -1（${outfit.durability}/5）` : `${outfit.name} 已損毀，恢復日常穿著`);}
+        }
         if(effect.stun && Date.now()>=(localPlayer.stunImmuneUntil||0) && !localPlayer.isInjured){
           cancelContextualAction();localPlayer.stunnedUntil=effect.until;localPlayer.stunImmuneUntil=effect.until+2000;localPlayer.autoWalkTarget=null;localPlayer.knockback=null;
           localPlayer.emote={emoji:'💫',expiresAt:effect.until};showCombatToast('💫 被擊暈 2 秒！');
@@ -720,9 +731,10 @@
       emoji: resolved.emoji || '🪑',
       name: resolved.name || '道具',
       category: resolved.category || 'weapon',
-      power: resolved.power || 24,
-      expBonusPct: resolved.expBonusPct || 10,
-      knockbackExp: resolved.knockbackExp || 25,
+      avatarId: resolved.avatarId || null,
+      power: resolved.power ?? 24,
+      expBonusPct: resolved.expBonusPct ?? 10,
+      knockbackExp: resolved.knockbackExp ?? 25,
       hitsToRepel: resolved.hitsToRepel || 3,
       durability: typeof base?.durability === 'number' ? base.durability : maxDur,
       maxDurability: maxDur,
@@ -752,6 +764,9 @@
   }
 
   function syncPlayerActiveWeaponState() {
+    const outfit = window.OfficeWardrobe.worn(localPlayer);
+    localPlayer.outfitAvatarId = outfit?.avatarId || null;
+    localPlayer.outfitUid = outfit?.uid || null;
     const active = getActiveEquippedItem();
     if (active) {
       localPlayer.heldItem = active.emoji;
@@ -774,94 +789,48 @@
    */
   function addItemToInventory(metaOrEmoji, autoEquip = false) {
     const inst = createItemInstance(metaOrEmoji);
-    if (autoEquip) {
-      const emptyEquipIdx = localPlayer.equippedSlots.findIndex((s) => s === null);
-      if (emptyEquipIdx >= 0) {
-        localPlayer.equippedSlots[emptyEquipIdx] = inst;
-        localPlayer.activeEquipIndex = emptyEquipIdx;
-        syncPlayerActiveWeaponState();
-        return inst;
-      }
-    }
-
-    // 放入持有物品欄 (可堆疊相同 emoji 且滿耐久的物品)
-    const existingIdx = localPlayer.inventory.findIndex(
-      (s) => inst.durability === inst.maxDurability && s.emoji === inst.emoji && s.durability === inst.maxDurability
-    );
-    if (existingIdx >= 0) {
-      localPlayer.inventory[existingIdx].count += 1;
-    } else {
-      localPlayer.inventory.push({
-        ...inst,
-        count: 1,
-      });
+    if (!window.OfficeWardrobe.add(localPlayer, inst, autoEquip)) {
+      // Already-granted rewards and exchanges must not disappear on a capacity race.
+      localPlayer.overflow.push({...inst, count:1});
+      showCombatToast('背包或服裝已滿，物品保留在暫存領取區');
     }
     syncPlayerActiveWeaponState();
     return inst;
   }
 
-  /**
-   * 從持有物品欄 (inventoryIdx) 裝備 1 個道具至 3 格裝備槽
-   */
   function equipFromBag(bagIdx) {
-    const bagItem = localPlayer.inventory[bagIdx];
-    if (!bagItem) return;
-
-    let targetEquipIdx = localPlayer.equippedSlots.findIndex((s) => s === null);
-    if (targetEquipIdx === -1) {
-      // 若已裝滿 3 個，提示或與當前選中的裝備槽交換
-      targetEquipIdx = localPlayer.activeEquipIndex || 0;
-      const oldEquipped = localPlayer.equippedSlots[targetEquipIdx];
-      if (oldEquipped) {
-        // 將原本的裝備放回持有物品欄
-        localPlayer.inventory.push({
-          ...oldEquipped,
-          count: 1,
-        });
-      }
+    const item = localPlayer.inventory[bagIdx]; if (!item) return;
+    if (window.OfficeWardrobe.isOutfit(item)) {
+      window.OfficeWardrobe.wear(localPlayer, bagIdx);
+      showCombatToast(`${localPlayer.wornOutfitUid === item.uid ? '穿上' : '脫下'}【${escapeHtml(item.name)}】`);
+    } else if (!window.OfficeWardrobe.equip(localPlayer, bagIdx)) {
+      showCombatToast('背包已滿，請先騰出一格再交換裝備'); return;
     }
-
-    // 取出 1 個裝入裝備槽
-    const equippedInst = createItemInstance(bagItem);
-    equippedInst.durability = bagItem.durability || equippedInst.maxDurability;
-    if (bagItem.count > 1) {
-      bagItem.count -= 1;
-    } else {
-      localPlayer.inventory.splice(bagIdx, 1);
-    }
-
-    localPlayer.equippedSlots[targetEquipIdx] = equippedInst;
-    localPlayer.activeEquipIndex = targetEquipIdx;
     syncPlayerActiveWeaponState();
-    showToast(
-      `⚔️ 已裝備【${equippedInst.emoji} ${escapeHtml(equippedInst.name)}】（經驗加成 +${
-        equippedInst.expBonusPct
-      }%｜擊退 +${equippedInst.knockbackExp} EXP｜耐久 ${equippedInst.durability}/${
-        equippedInst.maxDurability
-      }）`,
-      'join'
-    );
   }
 
-  /**
-   * 卸下指定裝備槽 (0~2) 的道具回持有物品欄
-   */
   function unequipSlotToBag(equipIdx) {
-    const slotItem = localPlayer.equippedSlots[equipIdx];
-    if (!slotItem) return;
-    localPlayer.equippedSlots[equipIdx] = null;
-    localPlayer.inventory.push({
-      ...slotItem,
-      count: 1,
-    });
+    if (!window.OfficeWardrobe.unequip(localPlayer, equipIdx)) {
+      showCombatToast('背包已滿，無法卸下裝備'); return;
+    }
     syncPlayerActiveWeaponState();
-    showToast(
-      `🎒 已卸下【${slotItem.emoji} ${escapeHtml(slotItem.name)}】放回持有物品欄`,
-      'info'
-    );
   }
 
   function renderMinecraftInventoryUI() {
+    const wardrobeStatus = document.getElementById('wardrobeStatus');
+    const worn = window.OfficeWardrobe.worn(localPlayer);
+    if(wardrobeStatus) wardrobeStatus.textContent = `背包 ${localPlayer.inventory.length}/10 格 · 服裝 ${window.OfficeWardrobe.outfitCount(localPlayer)}/3 套 · ${worn ? '穿著：'+worn.name+'（'+worn.durability+'/5）' : '日常穿著'}`;
+    const overflowEl=document.getElementById('inventoryOverflow');
+    if(overflowEl){
+      overflowEl.replaceChildren();
+      if(localPlayer.overflow.length){
+        const heading=document.createElement('p');heading.textContent='暫存領取區（只可取出，領取需有背包空間）';overflowEl.appendChild(heading);
+        localPlayer.overflow.forEach((item,index)=>{
+          const button=document.createElement('button');button.type='button';button.textContent=`領取 ${item.emoji} ${item.name} ×${item.count||1}`;
+          button.onclick=()=>{if(window.OfficeWardrobe.claim(localPlayer,index))syncPlayerActiveWeaponState();else showCombatToast('背包或服裝已滿，請先騰出空間');};overflowEl.appendChild(button);
+        });
+      }
+    }
     const modalHotbarEl = document.getElementById('mcModalHotbarGrid');
     const modalGridEl = document.getElementById('mcInventoryGrid');
     const eqIcon = document.getElementById('mcEquippedIcon');
@@ -964,9 +933,9 @@
       });
     }
 
-    // 繪製下方 27 格持有物品儲物欄
+    // 十格背包，穿著中的服裝仍保留原格
     if (modalGridEl) {
-      modalGridEl.innerHTML = Array.from({ length: 27 })
+      modalGridEl.innerHTML = Array.from({ length: 10 })
         .map((_, idx) => {
           const item = localPlayer.inventory[idx];
           if (!item) {
@@ -974,11 +943,12 @@
           }
           return `
             <div class="mc-slot ${
-              item.category === 'weapon' ? 'mc-weapon-slot' : ''
+              item.category === 'weapon' ? 'mc-weapon-slot' : item.category === 'outfit' ? 'mc-outfit-slot' : ''
             }" data-bag-slot="${idx}" title="${escapeHtml(item.name)} (x${
             item.count
-          })｜經驗+${item.expBonusPct}%｜${item.hitsToRepel || 3}次擊退怪｜耐久 ${item.durability}/${item.maxDurability} — 點擊裝入上方裝備欄">
+          })｜經驗+${item.expBonusPct}%｜${item.hitsToRepel || 3}次擊退怪｜耐久 ${item.durability}/${item.maxDurability} — ${item.category === 'outfit' ? '點擊穿上／脫下' : '點擊裝備'}">
               <span>${item.emoji}</span>
+              ${item.category === 'outfit' ? `<span class="outfit-durability">${item.uid === localPlayer.wornOutfitUid ? '穿著 ' : ''}${item.durability}/5</span>` : ''}
               ${item.count > 1 ? `<span class="mc-slot-count">${item.count}</span>` : ''}
             </div>
           `;
@@ -2700,9 +2670,10 @@ function executeOfficeLogin(params) {
         localPlayer.equippedSlots[activeSlotIdx] = null;
         pushCombatLog('系統', `💔 裝備【${wpnEmoji} ${wpnName}】揮擊命中滿 3 次，耐久度歸零損毀消失！`);
         // 🎒 裝備損壞後，自動為玩家裝備儲物欄 (背包) 內現有的物品
-        if (localPlayer.inventory && localPlayer.inventory.length > 0) {
-          const nextItem = localPlayer.inventory[0];
-          equipFromBag(0);
+        const nextBagIndex = localPlayer.inventory.findIndex(i=>i.category!=='outfit');
+        if (nextBagIndex >= 0) {
+          const nextItem = localPlayer.inventory[nextBagIndex];
+          equipFromBag(nextBagIndex);
           showCombatToast(`🎒 裝備損毀，已自動為您換上儲物欄中的【${nextItem.emoji} ${nextItem.name}】！`, 'info');
           pushCombatLog('系統', `🎒 裝備【${wpnEmoji} ${wpnName}】損毀，已自動為您換上儲物欄中的【${nextItem.emoji} ${nextItem.name}】！`);
         } else {
@@ -2722,7 +2693,7 @@ function executeOfficeLogin(params) {
 
   function handleIncomingWeaponAttack(pkt) {
     if (!pkt || pkt.targetId !== network.clientId) return;
-    if(!pkt.hunt) window.OfficeCombat?.send(network,'combat_hurt',{targetId:network.clientId});
+    if(!pkt.hunt) window.OfficeCombat?.send(network,'combat_hurt',{targetId:network.clientId,npc:false});
 
     if (pkt.isCriticalInjury) {
       // 🚑 遭受 5% 致命重傷：原地倒地休養無法動彈 5 分鐘，鏡頭停留在事發現場等待急救
@@ -3348,6 +3319,7 @@ function executeOfficeLogin(params) {
     for (let i = ecosystem.groundItems.length - 1; i >= 0; i--) {
       const item = ecosystem.groundItems[i];
       if (Math.hypot(localPlayer.x - item.x, localPlayer.y - item.y) < 68) {
+        if(!window.OfficeWardrobe.canAdd(localPlayer,item,true)){showCombatToast('背包或服裝已滿');return;}
         if(item.combatDrop){window.OfficeCombat.send(network,'combat_claim',{uid:item.uid});return;}
         const added = addItemToInventory(item, true);
         const removed = ecosystem.groundItems.splice(i, 1)[0];
@@ -4338,7 +4310,7 @@ function executeOfficeLogin(params) {
       const hCtx = hudCanvas.getContext('2d');
       hCtx.clearRect(0, 0, hudCanvas.width, hudCanvas.height);
       window.drawWackyAvatar(hCtx, {
-        avatarId: localPlayer.avatarId,
+        avatarId: localPlayer.outfitAvatarId || localPlayer.avatarId,
         x: 16,
         y: 28,
         dir: 'down',
@@ -4414,7 +4386,7 @@ function executeOfficeLogin(params) {
         cctx.fillRect(16, 8, 4, 4);
       } else {
         window.drawWackyAvatar(cctx, {
-          avatarId: p.avatarId,
+          avatarId: p.outfitAvatarId || p.avatarId,
           x: 14,
           y: 24,
           dir: 'down',
@@ -4870,6 +4842,7 @@ function executeOfficeLogin(params) {
       for (let i = ecosystem.groundItems.length - 1; i >= 0; i--) {
         const gItem = ecosystem.groundItems[i];
         if (gItem.dropY <= 5 && Math.hypot(localPlayer.x - gItem.x, localPlayer.y - gItem.y) < 30) {
+          if(!window.OfficeWardrobe.canAdd(localPlayer,gItem,true))continue;
           if(gItem.combatDrop){if(tick%30===0)window.OfficeCombat.send(network,'combat_claim',{uid:gItem.uid});continue;}
           const added = addItemToInventory(gItem, true);
           const removedG = ecosystem.groundItems.splice(i, 1)[0];
@@ -5106,7 +5079,7 @@ function executeOfficeLogin(params) {
       ctx.save();
       if((network.hunt?.protectedUntil?.[p.id]||0)>Date.now()) ctx.globalAlpha=tick%12<6?.35:1;
       window.drawWackyAvatar(ctx, {
-        avatarId: p.avatarId,
+        avatarId: p.outfitAvatarId || p.avatarId,
         combatDown: !!p.combatDown,
         scareUntil: p.scareUntil || 0,
         x: p.x,

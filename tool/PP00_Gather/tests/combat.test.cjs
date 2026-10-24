@@ -22,3 +22,23 @@ test('recovery assignments use distinct unobstructed positions inside meeting ro
   }
   g.h.packet(g.n,{type:'recovery_release',senderId:'a'});assert(!g.n.combat.recovery.a);
 });
+
+test('costume rolls independently at five percent on defeat, never on ordinary hit',()=>{
+ const g=game();for(const f of ['avatars','wardrobe'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../static/js',f+'.js'),'utf8'),g.c);
+ g.roll(.9);g.h.strike(g.n,'a','npc_aunt');g.advance(300);g.h.strike(g.n,'a','npc_aunt');assert.equal(g.n.combat.items.length,0);g.advance(300);
+ let rolls=[.9,.9,.049,.0];g.c.Math.random=()=>rolls.shift()??.9;g.h.strike(g.n,'a','npc_aunt');assert.equal(g.n.combat.items.length,1);assert.equal(g.n.combat.items[0].category,'outfit');assert.equal(g.n.combat.items[0].durability,5);
+});
+test('NPC clothing damage has forty percent boundary; PvP does not damage clothes',()=>{
+ const g=game();g.roll(.399);g.h.damage(g.n,'a');assert.equal(g.effects[0].outfitDamage,true);g.advance(2000);g.roll(.4);g.h.damage(g.n,'a');assert.equal(g.effects[1].outfitDamage,false);g.advance(2000);g.roll(0);g.h.damage(g.n,'a',false);assert.equal(g.effects[2].outfitDamage,false);
+});
+test('full inventory cannot claim a shared ground drop',()=>{
+ const g=game();for(const f of ['avatars','wardrobe'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../static/js',f+'.js'),'utf8'),g.c);
+ g.n.localPlayer.inventory=Array.from({length:10},(_,i)=>({id:'i'+i,category:'weapon',durability:1,maxDurability:3}));g.n.localPlayer.equippedSlots=[{},{},{}];g.roll(.1);for(let i=0;i<3;i++){g.h.strike(g.n,'a','npc_aunt');g.advance(300);}const uid=g.n.combat.items[0].uid;g.h.send(g.n,'combat_claim',{uid});assert.equal(g.n.combat.items.length,1);assert.equal(g.picked.length,0);
+});
+test('exactly five percent does not drop a costume',()=>{
+ const g=game();for(const f of ['avatars','wardrobe'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../static/js',f+'.js'),'utf8'),g.c);
+ g.roll(.9);for(let i=0;i<2;i++){g.h.strike(g.n,'a','npc_aunt');g.advance(300);}let rolls=[.9,.9,.05];g.c.Math.random=()=>rolls.shift()??.9;g.h.strike(g.n,'a','npc_aunt');assert.equal(g.n.combat.items.length,0);
+});
+test('duplicate combat state does not repeat costume damage effect',()=>{
+ const g=game();g.roll(.1);g.h.damage(g.n,'a');const snapshot=g.n.combat;g.h.packet(g.n,{type:'combat_state',senderId:'a',state:snapshot});assert.equal(g.effects.length,1);assert.equal(g.effects[0].outfitDamage,true);
+});

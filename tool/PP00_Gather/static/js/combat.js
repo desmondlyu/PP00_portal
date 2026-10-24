@@ -28,6 +28,12 @@
     const item={...meta,uid:'loot_'+(e.uid||e.id)+'_'+Date.now(),x:e.x+35,y:e.y+20,dropY:0,combatDrop:true,durability:meta.maxDurability};
     state(n).items.push(item);return item;
   }
+  function costumeLoot(n,e){
+    if(Math.random()>=.05 || !window.OfficeWardrobe)return null;
+    const outfits=window.OfficeWardrobe.outfits,meta=outfits[Math.floor(Math.random()*outfits.length)];
+    const item={...meta,uid:'costume_'+(e.uid||e.id)+'_'+Date.now(),x:e.x-35,y:e.y+20,dropY:0,combatDrop:true,durability:5};
+    state(n).items.push(item);return item;
+  }
   function strike(n,id,targetId){
     if(!n.isRoomMaster())return;
     const a=player(n,id),e=n.npcPlayers.get(targetId)||(n.callbacks.getMobs?.()||[]).find(m=>(m.uid||m.id)===targetId);
@@ -50,20 +56,20 @@
       h.defeatedAt=now;
       h.until=now+(e.isMob?180000:e.isBirdCommander?(window.OfficeHunt?.clock().active?10000:180000):60000);
       e.actionState='sleep_bed';e.isMoving=false;e.knockback=null;e.isFleeing=false;
-      const item=loot(n,e);h.result=`擊倒【${e.name}】${item?'，掉落 '+item.name:'，未掉落道具'}`;h.resultId=now+':'+e.id;
+      const items=[loot(n,e),costumeLoot(n,e)].filter(Boolean);h.result=`擊倒【${e.name}】${items.length?'，掉落 '+items.map(i=>i.name).join('、'):'，未掉落道具'}`;h.resultId=now+':'+e.id;
       n.broadcastPacket('combat_result',{text:h.result,id:h.resultId,owner:id});
       if(id===n.clientId)n.callbacks.onCombatResult?.(h.result);
     }
     emit(n);
   }
-  function damage(n,id){
+  function damage(n,id,npc=true){
     if(!n.isRoomMaster())return;
     const p=player(n,id),s=state(n),now=Date.now();if(!p||p.isInjured||window.OfficeHunt?.clock().active&&window.OfficeHunt.safe(p))return;
     if(now-(s.cooldowns['hurt:'+id]||0)<2000)return;
     s.cooldowns['hurt:'+id]=now;
     // Independent rolls; an existing stun never gets extended.
     const drop=Math.random()<.20,stun=Math.random()<.20;
-    s.effects[id]={id:'hurt_'+id+'_'+now,drop,stun,until:now+2000};emit(n);
+    s.effects[id]={id:'hurt_'+id+'_'+now,drop,stun,outfitDamage:npc&&Math.random()<.40,until:now+2000};emit(n);
   }
   function packet(n,p){
     if(p.type==='combat_state'){apply(n,p);return;}
@@ -84,7 +90,7 @@
       emit(n);return;
     }
     if(p.type==='combat_strike')strike(n,p.senderId,p.targetId);
-    if(p.type==='combat_hurt'&&p.targetId===p.senderId)damage(n,p.senderId);
+    if(p.type==='combat_hurt'&&p.targetId===p.senderId)damage(n,p.senderId,p.npc!==false);
     if(p.type==='combat_drop'&&p.item){
       const a=player(n,p.senderId),s=state(n),effect=s.effects[p.senderId];
       if(!a||!effect?.drop||effect.id!==p.effectId||effect.consumed)return;
@@ -94,6 +100,10 @@
       const s=state(n),a=player(n,p.senderId),i=s.items.findIndex(x=>x.uid===p.uid);
       if(i<0||!a||a.isInjured)return;const item=s.items[i];
       if(Date.now()<(item.pickupAfter||0)||Math.hypot(a.x-item.x,a.y-item.y)>68)return;
+      const bag=a.inventoryState || (Array.isArray(a.inventory)?a:null);
+      if(window.OfficeWardrobe && bag && !window.OfficeWardrobe.canAdd(bag,item,true))return;
+      // Reserve remote capacity until the next state update arrives.
+      if(window.OfficeWardrobe && bag && a!==n.localPlayer)window.OfficeWardrobe.add(bag,item,true);
       s.items.splice(i,1);s.grants[item.uid]={owner:p.senderId,item};emit(n);
     }
   }
