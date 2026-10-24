@@ -70,7 +70,7 @@
       const targets=[n.localPlayer,...n.remotePlayers.values()].filter(p=>!p.isNpc&&!p.isMob&&!p.isInjured&&!safe(p)&&(h.hits[p.id]||0)<3);
       const target=targets.sort((a,b)=>Math.hypot(a.x-bird.x,a.y-bird.y)-Math.hypot(b.x-bird.x,b.y-bird.y))[0];
       bird.isMoving=false;
-      if(target && now>=h.stunnedUntil){
+      if(target && !bird.combatDown && now>=h.stunnedUntil){
         bird.actionState=null;
         if(!bird.huntPathAt||now-bird.huntPathAt>900||bird.huntTarget!==target.id){bird.huntPath=route(bird,target);bird.huntPathAt=now;bird.huntTarget=target.id;}
         const waypoint=bird.huntPath?.[0]||target, dx=waypoint.x-bird.x,dy=waypoint.y-bird.y,d=Math.hypot(dx,dy)||1;
