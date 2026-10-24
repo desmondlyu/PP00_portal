@@ -5,6 +5,7 @@
   let ecosystem, network;
   let tick = 0;
   let isLoggedIn = false;
+  let loginTimestamp = 0;
 
   // 安全性冷卻時間與自動閒置追蹤
   let lastUserActionAt = Date.now();
@@ -238,7 +239,10 @@
     network = new window.EphemeralOfficeNetwork({
       onPlayerJoin: (player) => {
         pushStatusLog('系統', `🟢 ${player.name} (${player.unit}) 已上線進入辦公室！`);
-        showWelcome(player);
+        // 登入歡迎動畫只顯示給「已經在線上」，看到新使用者登入時的提示
+        if (loginTimestamp && Date.now() - loginTimestamp > 3000) {
+          showWelcome(player);
+        }
         renderSidebarRoster();
       },
       onPlayerLeave: (player) => {
@@ -1153,6 +1157,7 @@
 
       document.getElementById('loginOverlay').classList.add('hidden');
       isLoggedIn = true;
+      loginTimestamp = Date.now();
       network.connect(localPlayer, roomCode);
 
       if (window.gatherSupabase) {
@@ -1254,6 +1259,7 @@
         '系統',
         `🎉 歡迎 ${localPlayer.name} 第 ${progression.loginCount} 次上線！打卡獎勵 +50 EXP（${progression.title}）`
       );
+      showToast(`🎉 歡迎 <b>${escapeHtml(localPlayer.name)}</b> 進入辦公室！打卡成功 +50 EXP`, 'join');
       const activeWpn = getActiveEquippedItem();
       if (activeWpn) {
         pushStatusLog(
@@ -3719,6 +3725,10 @@
   let welcomePlaying = false;
 
   function showWelcome(player) {
+    if (!isLoggedIn) { welcomeQueue.length = 0; return; }
+    // 登入歡迎動畫只顯示給「已經在線上」，看到新使用者登入時的提示（剛登入 3 秒內既有玩家不彈出）
+    if (loginTimestamp && Date.now() - loginTimestamp <= 3000) return;
+    if (player && (player.id === network?.clientId || (player.name === localPlayer.name && player.unit === localPlayer.unit))) return;
     welcomeQueue.push({ name: String(player.name || '同事'), unit: String(player.unit || '') });
     playNextWelcome();
   }
@@ -3792,6 +3802,8 @@
     officeLogoutPromise = (async () => {
     savePersistentState();
     isLoggedIn = false;
+    loginTimestamp = 0;
+    welcomeQueue.length = 0;
     if (localPlayer.actionState === 'toilet') {
       const activeStall = window.WORLD_MAP.toiletStalls.find((s) => s.occupiedBy === localPlayer.id);
       if (activeStall) {
@@ -3812,6 +3824,8 @@
       await network.disconnect();
     }
     isLoggedIn = false;
+    loginTimestamp = 0;
+    welcomeQueue.length = 0;
 
     if (window.parent && window.parent !== window) {
       try {

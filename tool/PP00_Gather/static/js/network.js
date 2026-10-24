@@ -429,6 +429,7 @@ class EphemeralOfficeNetwork {
     if (this.localPlayer) {
       this.localPlayer.id = this.clientId;
     }
+    this.connectTimestamp = Date.now();
     this.roomCode = this.sanitizeText(roomCode || 'PP00', 16).toUpperCase() || 'PP00';
     const channelTopic = `pp00_ephemeral_office_${this.roomCode}`;
 
@@ -483,7 +484,9 @@ class EphemeralOfficeNetwork {
           })
           .on('presence', { event: 'join' }, ({ key, newPresences }) => {
             if (key === this.clientId || !newPresences || !newPresences[0]) return;
-            this.upsertRemotePlayer(newPresences[0], true);
+            // 剛登入連線時（前 3.5 秒）收到的 presence.join 屬於頻道既有在線成員，不可視為新加入
+            const isInitialSync = Date.now() - (this.connectTimestamp || 0) < 3500;
+            this.upsertRemotePlayer(newPresences[0], !isInitialSync);
           })
           .on('presence', { event: 'leave' }, ({ key }) => {
             if (key === this.clientId) return;
