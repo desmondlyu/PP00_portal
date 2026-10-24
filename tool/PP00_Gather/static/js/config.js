@@ -207,13 +207,14 @@ window.GATHER_CONFIG = {
     skillCooldownMs: 1200,
     interactCooldownMs: 1200, // 按鍵 E / F / 情境動作防連點洗版冷卻 (1.2 秒)
     idleTimeoutMs: 30000, // 30 秒無動作自動切換為「🟡 閒置」狀態
-    randomDropIntervalMs: 10 * 60 * 1000, // 每 10 分鐘自動隨機生成 5 種掉落物
-    randomDropBatchCount: 5,
+    randomDropIntervalMs: 20 * 60 * 1000, // 每 20 分鐘隨機生成 1~2 種掉落物 (原 10 分鐘太頻繁)
+    randomDropBatchCount: 2, // 每次僅生成 1~2 個掉落物 (原 5 個過多)
+    maxGroundItems: 4, // 全地圖掉落物同時上限 4 個 (原 15 個過多滿地皆是)
     berserkChance: 0.001, // NPC 隨機暴走機率 0.1% (0.001)
     berserkKnockbackPower: 24,
     berserkKnockbackTicks: 28,
-    mobSpawnChance: 0.005, // 小怪物每秒生成機率 0.5% (0.005)
-    maxMobCount: 3, // 場上小怪物同時不超過 3 隻
+    mobSpawnChance: 0.001, // 小怪物每秒生成機率降至 0.1% (原 0.5% 太頻繁，平均 16 分鐘才可能出沒一隻)
+    maxMobCount: 1, // 場上小怪物同時最多僅 1 隻 (原 3 隻過多到處遊蕩)
     mobBerserkChance: 0.01, // 像素方塊怪 1% 機率暴走破壞電腦與實驗室機台
     birdSpawnRate: 1.0, // 鳥人指揮官 100% 常駐於辦公室巡視（全時段在場）
     birdFollowChance: 0.10, // 鳥人指揮官 10% 機率跟隨線上使用者並持續 Murmur

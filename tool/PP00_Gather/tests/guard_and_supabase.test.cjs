@@ -655,3 +655,62 @@ test('NPC hit reactions: 50% detention vs dodge/flee, bird commander dodge and f
   assert.equal(bird.isFleeing, true, 'Bird commander should enter fleeing state');
   assert.equal(bird.emote.emoji, '😱', 'Bird commander should show fear emote');
 });
+
+test('Optimized NPC waypoints are collision-free and anti-stuck logic triggers on blocked ticks', () => {
+  const env = createTestEnv();
+  vm.runInContext(fs.readFileSync(path.join(root, 'world.js'), 'utf8'), env);
+
+  const net = new env.window.EphemeralOfficeNetwork();
+  net.initNPCs();
+
+  // Verify waypoints exist and are non-empty for all key NPCs
+  const vp = net.npcPlayers.get('npc_vp_boss');
+  const dir = net.npcPlayers.get('npc_dir_pp00');
+  const guard = net.npcPlayers.get('npc_security_guard');
+  const bird = net.npcPlayers.get('npc_bird_commander');
+
+  assert.ok(vp && vp.waypoints.length > 5, 'VP boss should have detailed transit waypoints');
+  assert.ok(dir && dir.waypoints.length > 5, 'PP00 director should have detailed transit waypoints');
+  assert.ok(bird && bird.waypoints.length > 5, 'Bird commander should have detailed transit waypoints');
+
+  // Verify none of the waypoints are inside walls
+  [vp, dir, bird].forEach((npc) => {
+    npc.waypoints.forEach((wp, idx) => {
+      const blocked = env.window.isPositionBlocked(wp.x, wp.y, 14);
+      assert.equal(blocked, false, `${npc.name} waypoint #${idx} at (${wp.x}, ${wp.y}) must NOT be inside a wall`);
+    });
+  });
+
+  // Test anti-stuck mechanism: when an NPC is blocked for 16 ticks, it advances to next waypoint
+  const testNpc = {
+    id: 'npc_stuck_test',
+    name: 'Stuck NPC',
+    x: 500,
+    y: 500,
+    targetX: 500, // will be set
+    targetY: 600,
+    waypoints: [{ x: 500, y: 600 }, { x: 700, y: 700 }],
+    waypointIdx: 0,
+    stuckTicks: 15,
+  };
+  net.npcPlayers.set(testNpc.id, testNpc);
+
+  // Force isPositionBlocked to true to simulate an obstacle
+  env.window.isPositionBlocked = () => true;
+  net.update(1);
+
+  assert.equal(testNpc.waypointIdx, 1, 'NPC stuck for >=16 ticks should advance to next waypoint to unstick');
+  assert.equal(testNpc.targetX, 700, 'NPC targetX should be redirected to next waypoint');
+});
+
+test('Monster and item spawn configurations are balanced and capped at lower rates', () => {
+  const env = createTestEnv();
+  const sec = env.window.GATHER_CONFIG.security;
+
+  // Verify lower, balanced rates
+  assert.equal(sec.mobSpawnChance, 0.001, 'Mob spawn rate should be lowered to 0.001 (0.1%/sec)');
+  assert.equal(sec.maxMobCount, 1, 'Max active mobs on map should be capped at 1');
+  assert.equal(sec.randomDropIntervalMs, 20 * 60 * 1000, 'Drop interval should be 20 minutes');
+  assert.equal(sec.randomDropBatchCount, 2, 'Drop batch count should be lowered to 2');
+  assert.equal(sec.maxGroundItems, 4, 'Max ground items should be lowered to 4');
+});
