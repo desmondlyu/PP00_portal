@@ -299,6 +299,15 @@
         pushStatusLog(pkt.senderName, `💭 碎碎念：「${pkt.text}」`);
         renderUnifiedChatAndStatus();
       },
+      onHuntEscape: () => {
+        cancelContextualAction(); localPlayer.x=2350; localPlayer.y=350;
+        localPlayer.autoWalkTarget=null; localPlayer.knockback=null;
+        network.broadcastPacket('state_sync',{player:network.getPublicState()});
+      },
+      onHuntHit: (count) => {
+        localPlayer.emote={emoji:'💥',expiresAt:Date.now()+2000};
+        if(count>=3) handleIncomingWeaponAttack({targetId:network.clientId,isCriticalInjury:true,hunt:true});
+      },
       onGhostScare: (until) => {
         if (!isLoggedIn || Date.now() < (localPlayer.ghostSleepUntil || 0)) return;
         cancelContextualAction();
@@ -2550,6 +2559,7 @@ function executeOfficeLogin(params) {
    * 6. 若被「🦩 鳥人指揮官」抓進會議室，揮擊擊退他可立即解鎖會議室大門脫困
    */
   function triggerWeaponAttack() {
+    if(window.OfficeHunt?.clock().active && window.OfficeHunt.safe(localPlayer)) return;
     if (Date.now() < (localPlayer.ghostSleepUntil || 0)) return;
     if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
       showToast('🚑 身受重傷休養中，無法揮動裝備攻擊！', 'error');
@@ -2666,6 +2676,11 @@ function executeOfficeLogin(params) {
       if (d <= effectiveRadius) {
         hitCount++;
 
+        if (npc.isBirdCommander && window.OfficeHunt?.clock().active) {
+          if(network.isRoomMaster()) window.OfficeHunt.strike(network,network.clientId);
+          else network.broadcastPacket('hunt_strike');
+          return;
+        }
         if (npc.isGhost) {
           if (network.isRoomMaster()) network.resolveGhostStrike(network.clientId);
           else network.broadcastPacket('ghost_strike');
@@ -3205,9 +3220,9 @@ function executeOfficeLogin(params) {
 
       pushStatusLog(
         '系統',
-        `🚑 遭受同事【${pkt.senderName || '同事'}】揮舞【${pkt.weaponEmoji || '🪑'}】致命重擊！你身受重傷，在會議室躺平休養 5 分鐘無法動彈！`
+        pkt.hunt ? '🚑 鳥人追殺中累計受擊三次，已重傷退出本場，等待急救或休養恢復。' : `🚑 遭受同事【${pkt.senderName || '同事'}】揮舞【${pkt.weaponEmoji || '🪑'}】致命重擊！你身受重傷，在會議室躺平休養 5 分鐘無法動彈！`
       );
-      showToast('🚑 遭受致命重擊！身受重傷，在會議室休養 5 分鐘（無法動彈）', 'error');
+      showToast(pkt.hunt ? '🚑 累計受擊三次，重傷退出本場！' : '🚑 遭受致命重擊！身受重傷，在會議室休養 5 分鐘（無法動彈）', 'error');
       if (network) {
         network.broadcastPacket('state_sync', { player: network.getPublicState() });
       }
@@ -5535,6 +5550,8 @@ function executeOfficeLogin(params) {
 
     const sortedPlayers = [...allPlayers].sort((a, b) => a.y - b.y);
     sortedPlayers.forEach((p) => {
+      ctx.save();
+      if((network.hunt?.protectedUntil?.[p.id]||0)>Date.now()) ctx.globalAlpha=tick%12<6?.35:1;
       window.drawWackyAvatar(ctx, {
         avatarId: p.avatarId,
         scareUntil: p.scareUntil || 0,
@@ -5555,8 +5572,13 @@ function executeOfficeLogin(params) {
         healProgress: p.id === localPlayer.id ? (localPlayer.healProgress || 0) : (p.healProgress || 0),
         isFleeing: !!p.isFleeing,
       });
+      ctx.restore();
     });
 
+    if(window.OfficeHunt?.clock().active){
+      ctx.save();ctx.fillStyle='rgba(52,211,153,.15)';ctx.strokeStyle='#34d399';ctx.lineWidth=3;
+      ctx.fillRect(2220,160,280,300);ctx.strokeRect(2220,160,280,300);ctx.fillStyle='#d1fae5';ctx.font='bold 18px sans-serif';ctx.fillText('安全區 SAFE',2280,205);ctx.restore();
+    }
     // 背景固定自動執行的真實系統時間光影變化
     const hourFloat = getCurrentHourFloat();
     window.renderRealTimeLighting(ctx, hourFloat, allPlayers, tick);
