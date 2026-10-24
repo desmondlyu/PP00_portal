@@ -367,7 +367,12 @@ class EphemeralOfficeNetwork {
     const activeTemplates = [];
     if (isNight) {
       // 傍晚 17:00 ~ 清晨 05:00：VP、處長、打掃阿姨不在，警衛登場！
-      activeTemplates.push(...nightTemplates);
+      activeTemplates.push(...nightTemplates, {
+        id: 'npc_night_ghost', name: 'NPC:夜遊幽靈', unit: '夜間巡遊',
+        avatarId: 'ghost', isGhost: true, x: 1120, y: 840,
+        waypoints: [{x:1120,y:520},{x:2120,y:520},{x:2120,y:1180},{x:1120,y:1180},{x:200,y:1180},{x:200,y:520}],
+        murmurs: ['夜深了……還不回家嗎？', '噓……我只是路過。'],
+      });
     } else {
       // 白天 05:00 ~ 17:00：VP、處長、阿姨在場，警衛不在
       activeTemplates.push(...dayTemplates);
@@ -943,6 +948,20 @@ class EphemeralOfficeNetwork {
         }
         break;
       }
+      case 'ghost_strike': {
+        this.resolveGhostStrike(pkt.senderId);
+        break;
+      }
+      case 'ghost_scare': {
+        const ids = [this.clientId, ...[...this.remotePlayers.values()].filter(p => !p.isNpc && !p.isMob).map(p => p.id)].sort();
+        if (pkt.senderId !== ids[0] || !this.isNightTime()) break;
+        const ghost = this.npcPlayers.get('npc_night_ghost');
+        if (ghost) ghost.scareUntil = Date.now() + 1000;
+        if (pkt.targetId === this.clientId && Number.isFinite(pkt.until) && pkt.until > Date.now() && this.callbacks.onGhostScare) {
+          this.callbacks.onGhostScare(Math.min(pkt.until, Date.now() + 5000));
+        }
+        break;
+      }
       case 'world_sync': {
         // 由房長 (Room Master) 統一廣播的權威同步封包
         // 若自己是房長，但收到比自己更小 ID 房長廣播，以更小者為準
@@ -975,6 +994,9 @@ class EphemeralOfficeNetwork {
               localNpc.isMoving = remoteNpc.isMoving;
               localNpc.isBerserk = !!remoteNpc.isBerserk;
               localNpc.isFleeing = !!remoteNpc.isFleeing;
+              for (const field of ['ghostScaredUntil', 'nextScareAt', 'scareUntil']) {
+                if (Number.isFinite(remoteNpc[field])) localNpc[field] = remoteNpc[field];
+              }
               if (remoteNpc.fleeUntil !== undefined) localNpc.fleeUntil = remoteNpc.fleeUntil;
               if (remoteNpc.jumpOffset > 0) localNpc.jumpOffset = remoteNpc.jumpOffset;
               if (remoteNpc.murmur) {
@@ -1047,6 +1069,53 @@ class EphemeralOfficeNetwork {
   /**
    * 更新 NPC 隨機巡視、鳥人指揮官奔跑/10%跟隨碎念/20%拉進會議室關門10秒、以及隨機暴走與武器擊退機制
    */
+  resolveGhostStrike(attackerId) {
+    if (!this.isRoomMaster()) return;
+    const ghost = this.npcPlayers.get('npc_night_ghost');
+    const attacker = attackerId === this.clientId ? this.localPlayer : this.remotePlayers.get(attackerId);
+    if (!ghost || !attacker || Math.hypot(attacker.x - ghost.x, attacker.y - ghost.y) > 210) return;
+    const now = Date.now();
+    this.ghostStrikeTimes ||= new Map();
+    if (now - (this.ghostStrikeTimes.get(attackerId) || 0) < 250) return;
+    this.ghostStrikeTimes.set(attackerId, now);
+    const dodge = Math.random() < .60;
+    ghost.jumpOffset = dodge ? 22 : 12;
+    ghost.emote = {emoji: dodge ? '💨' : '💥', expiresAt: now + 1200};
+    if (!dodge) {
+      const angle = Math.atan2(ghost.y - attacker.y, ghost.x - attacker.x);
+      ghost.knockback = {vx: Math.cos(angle) * 14, vy: Math.sin(angle) * 14, ticksLeft: 24};
+    }
+    this.broadcastPacket('npc_reaction', {npcId: ghost.id, reaction: 'dodge', jumpOffset: ghost.jumpOffset, emote: ghost.emote});
+    return dodge;
+  }
+
+  updateGhost(now) {
+    const ghost = this.npcPlayers.get('npc_night_ghost');
+    if (!ghost || !this.isRoomMaster()) return;
+    for (const npc of this.npcPlayers.values()) {
+      if (!(npc.isSecurityGuard || npc.isBirdCommander)) continue;
+      if (now < (npc.ghostScaredUntil || 0) || Math.hypot(npc.x - ghost.x, npc.y - ghost.y) > 180) continue;
+      npc.ghostScaredUntil = now + 5000;
+      npc.isFleeing = true; npc.fleeUntil = now + 5000;
+      npc.isBerserk = false; npc.followPlayerUntil = 0; npc.followTargetId = null;
+      const angle = Math.atan2(npc.y - ghost.y, npc.x - ghost.x);
+      npc.targetX = Math.max(160, Math.min(2640, npc.x + Math.cos(angle) * 240));
+      npc.targetY = Math.max(160, Math.min(1740, npc.y + Math.sin(angle) * 240));
+      npc.emote = {emoji: '😱', expiresAt: now + 5000};
+    }
+    if (!ghost.nextScareAt) { ghost.nextScareAt = now + 10000; return; }
+    if (now < ghost.nextScareAt) return;
+    const targets = [this.localPlayer, ...this.remotePlayers.values()].filter(p =>
+      p && !p.isNpc && !p.isMob && Math.hypot(p.x - ghost.x, p.y - ghost.y) <= 120);
+    if (!targets.length) return;
+    ghost.nextScareAt = now + 10000;
+    if (Math.random() >= 0.5) return;
+    const target = targets.sort((a,b) => Math.hypot(a.x-ghost.x,a.y-ghost.y)-Math.hypot(b.x-ghost.x,b.y-ghost.y))[0];
+    ghost.scareUntil = now + 1000;
+    this.broadcastPacket('ghost_scare', {targetId: target.id, until: now + 5000});
+    if (target.id === this.clientId && this.callbacks.onGhostScare) this.callbacks.onGhostScare(now + 5000);
+  }
+
   update(tick) {
     const now = Date.now();
 
@@ -1108,6 +1177,8 @@ class EphemeralOfficeNetwork {
       }
     });
 
+    this.updateGhost(now);
+
     // 房長定期統一同步：向所有在線客戶端廣播權威 world_sync 封包 (NPC 位置/動作/碎念、掉落物、怪物、工作站螢幕)
     if (this.isRoomMaster() && tick % 30 === 0 && this.remotePlayers && this.remotePlayers.size > 0) {
       const worldData = {
@@ -1123,6 +1194,9 @@ class EphemeralOfficeNetwork {
           isBerserk: !!npc.isBerserk,
           isFleeing: !!npc.isFleeing,
           fleeUntil: npc.fleeUntil || 0,
+          ghostScaredUntil: npc.ghostScaredUntil || 0,
+          nextScareAt: npc.nextScareAt || 0,
+          scareUntil: npc.scareUntil || 0,
           jumpOffset: Math.round(npc.jumpOffset || 0),
           murmur: npc.murmur || null,
           emote: npc.emote || null,
@@ -1144,7 +1218,7 @@ class EphemeralOfficeNetwork {
     const berserkChance = window.GATHER_CONFIG?.security?.berserkChance ?? 0.001;
     if (this.isRoomMaster() && this.localPlayer && tick % 60 === 0) {
       const candidates = [...this.npcPlayers.values()].filter(
-        (n) => !n.isBerserk && now > n.berserkCooldownUntil && !n.knockback
+        (n) => !n.isGhost && !n.isFleeing && !n.isBerserk && now > n.berserkCooldownUntil && !n.knockback
       );
       if (candidates.length > 0 && Math.random() < berserkChance) {
         const attacker = candidates[Math.floor(Math.random() * candidates.length)];
@@ -1169,6 +1243,27 @@ class EphemeralOfficeNetwork {
     this.npcPlayers.forEach((npc) => {
       const idx = npcSeq++;
 
+      if (now < (npc.ghostScaredUntil || 0)) {
+        if (this.isRoomMaster()) {
+          const dx = npc.targetX - npc.x, dy = npc.targetY - npc.y, d = Math.hypot(dx, dy) || 1;
+          const nx = npc.x + dx / d * Math.min(5.2, d), ny = npc.y + dy / d * Math.min(5.2, d);
+          if (!window.isPositionBlocked(nx, npc.y, 14)) npc.x = nx;
+          if (!window.isPositionBlocked(npc.x, ny, 14)) npc.y = ny;
+        }
+        npc.isMoving = true; npc.jumpOffset = Math.abs(Math.sin(tick * .45)) * 12;
+        return;
+      }
+      if (npc.isGhost && !npc.knockback) {
+        npc.jumpOffset = (npc.jumpOffset || 0) * .85;
+        if (this.isRoomMaster()) {
+          const wp = npc.waypoints[npc.waypointIdx % npc.waypoints.length];
+          const dx = wp.x - npc.x, dy = wp.y - npc.y, d = Math.hypot(dx, dy);
+          if (d < 6) npc.waypointIdx++;
+          else { npc.x += dx / d * 1.8; npc.y += dy / d * 1.8; }
+        }
+        npc.isMoving = true;
+        return;
+      }
       // 處理被擊退時的拋物線物理
       if (npc.knockback && npc.knockback.ticksLeft > 0) {
         const nx = npc.x + npc.knockback.vx;
