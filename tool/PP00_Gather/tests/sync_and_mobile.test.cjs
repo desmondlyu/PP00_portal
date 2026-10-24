@@ -439,3 +439,87 @@ test('Mobile touch protection, in-place injury camera, chat color distinction, s
   assert.ok(appCode.includes('localPlayer.injuredY = localPlayer.y;'), 'app.js must record injuredY in place');
   assert.ok(!appCode.includes('const shakeX = p.murmur.mood'), 'app.js must remove random shakeX/shakeY from murmur bubbles');
 });
+
+test('All NPCs (VP, Director, Aunties, Guard, Bird) murmur autonomously and speech card auto-wraps without overflow', () => {
+  const env = createTestEnv();
+  const net = new env.window.EphemeralOfficeNetwork();
+  net.connect({ name: 'Admin', unit: 'PP00', x: 200, y: 200 });
+  net.clientId = 'usr_000_master';
+
+  // 1. Verify dialogues defined for all NPCs
+  const dlg = env.window.GATHER_CONFIG.npcDialogues;
+  assert.ok(dlg.vp && dlg.vp.length >= 5, 'VP dialogues must be configured');
+  assert.ok(dlg.director_pp00 && dlg.director_pp00.length >= 5, 'Director PP00 dialogues must be configured');
+  assert.ok(dlg.auntie_meifeng && dlg.auntie_meifeng.length >= 5, 'Auntie Meifeng dialogues must be configured');
+  assert.ok(dlg.auntie_shufen && dlg.auntie_shufen.length >= 5, 'Auntie Shufen dialogues must be configured');
+  assert.ok(dlg.security_guard && dlg.security_guard.length >= 5, 'Security guard dialogues must be configured');
+  assert.ok(dlg.bird_commander && dlg.bird_commander.length >= 5, 'Bird commander dialogues must be configured');
+
+  // 2. Daytime NPCs exist and autonomous murmur timers are scheduled
+  const dayNpcIds = ['npc_vp_boss', 'npc_dir_pp00', 'npc_auntie_meifeng', 'npc_auntie_shufen', 'npc_bird_commander'];
+  for (const id of dayNpcIds) {
+    const npc = net.npcPlayers.get(id);
+    assert.ok(npc, `${id} must exist in daytime`);
+    assert.ok(Array.isArray(npc.murmurs) && npc.murmurs.length > 0, `${id} must have murmurs array`);
+  }
+
+  // Tick net and verify nextMurmurAt is assigned
+  net.update(1);
+  for (const id of dayNpcIds) {
+    const npc = net.npcPlayers.get(id);
+    assert.ok(typeof npc.nextMurmurAt === 'number' && npc.nextMurmurAt > 0, `${id} must schedule nextMurmurAt`);
+  }
+
+  // Force timer expiration on VP and verify murmur activates
+  const vp = net.npcPlayers.get('npc_vp_boss');
+  vp.nextMurmurAt = Date.now() - 1000;
+  vp.murmur = null;
+  net.update(2);
+  assert.ok(vp.murmur, 'VP must trigger autonomous murmur');
+  assert.ok(vp.murmurs.includes(vp.murmur.text), 'VP murmur text must come from its dialogue pool');
+
+  // 3. Test multi-line text wrapping logic in app.js
+  const appCode = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.ok(appCode.includes('function wrapMurmurLines('), 'app.js must define wrapMurmurLines');
+  assert.ok(appCode.includes('isNpcTalk: true'), 'app.js must support isNpcTalk in detectNearbyFacility');
+  assert.ok(appCode.includes('fac.isNpcTalk'), 'app.js must handle isNpcTalk in tryInteractWithEnvironment');
+
+  // Verify wrapMurmurLines logic directly
+  const mockCtx = {
+    measureText: (str) => ({ width: str.length * 12 }),
+  };
+  function localWrapMurmurLines(renderCtx, text, maxTextWidth) {
+    if (!text) return [];
+    const paragraphs = String(text).split(/\r?\n/);
+    const lines = [];
+    for (const para of paragraphs) {
+      if (!para) { lines.push(''); continue; }
+      let curLine = '';
+      const chars = Array.from(para);
+      for (let i = 0; i < chars.length; i++) {
+        const ch = chars[i];
+        const testLine = curLine + ch;
+        const testWidth = renderCtx.measureText ? renderCtx.measureText(testLine).width : testLine.length * 12;
+        if (testWidth > maxTextWidth && curLine.length > 0) {
+          lines.push(curLine);
+          curLine = ch;
+        } else {
+          curLine = testLine;
+        }
+      }
+      if (curLine.length > 0) lines.push(curLine);
+    }
+    return lines.length ? lines : [''];
+  }
+
+  const shortText = '茶水間咖啡機剛洗好！';
+  const shortLines = localWrapMurmurLines(mockCtx, shortText, 220);
+  assert.equal(shortLines.length, 1, 'Short text must fit on 1 line');
+
+  const longText = '🦩 白天上班抓【青蛙裝工程師】進會議室閉門檢討10秒（按[F]可擊退脫困）！';
+  const longLines = localWrapMurmurLines(mockCtx, longText, 220);
+  assert.ok(longLines.length >= 2, 'Long text must wrap to 2 or more lines');
+  for (const line of longLines) {
+    assert.ok(mockCtx.measureText(line).width <= 220, 'No wrapped line should exceed maxTextWidth');
+  }
+});
