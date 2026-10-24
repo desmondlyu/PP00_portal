@@ -1256,21 +1256,69 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
   });
 
   ecosystem.groundItems.forEach((item) => {
+    ctx.save();
     const pulse = 1 + Math.sin(tick * 0.12) * 0.14;
-    ctx.strokeStyle = '#10b981';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(item.x - 14 * pulse, item.y - 6 * pulse, 28 * pulse, 14 * pulse);
-
     const confItem = (window.GATHER_CONFIG?.items || []).find((it) => it.id === item.id)
       || (window.GATHER_CONFIG?.weapons || []).find((w) => w.id === item.id) || {};
     const emoji = item.emoji || item.icon || confItem.emoji || '🎁';
+    const itemName = item.name || confItem.name || '道具物件';
+    const isWeapon = !!(item.durabilityMax || confItem.durabilityMax || (window.GATHER_CONFIG?.weapons || []).some((w) => w.id === item.id));
 
-    const drawY = item.y - (item.dropY || 0) + Math.sin(tick * 0.1) * 3;
-    ctx.font = '23px sans-serif';
-    ctx.fillStyle = '#ffffff';
+    // 1. 深色黑曜石立體厚實底座 (加深背景對比，避免被淺色磁磚吃掉)
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.beginPath();
+    ctx.ellipse(item.x, item.y + 4, 18 * pulse, 9 * pulse, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. 加深加粗飽和外框 (武器為深琥珀金、一般道具為深翡翠綠)
+    ctx.strokeStyle = isWeapon ? '#f59e0b' : '#10b981';
+    ctx.lineWidth = 2.8;
+    ctx.stroke();
+
+    ctx.strokeStyle = isWeapon ? '#78350f' : '#064e3b';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(item.x, item.y + 4, 21 * pulse, 11 * pulse, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 3. 道具圖示 (加大為 27px，具備深色立體投影)
+    const floatY = item.y - (item.dropY || 0) + Math.sin(tick * 0.1) * 3.5;
+    ctx.font = '27px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(emoji, item.x, drawY);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 2;
+    ctx.fillText(emoji, item.x, floatY - 2);
+    ctx.shadowColor = 'transparent';
+
+    // 4. 正上方高對比深色膠囊名稱標籤
+    ctx.font = 'bold 11px "Outfit", "Microsoft JhengHei", sans-serif';
+    const tagText = `${emoji} ${itemName}`;
+    const tw = ctx.measureText(tagText).width;
+    const tagW = tw + 16;
+    const tagH = 20;
+    const tagX = item.x - tagW / 2;
+    const tagY = floatY - 28;
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(tagX, tagY, tagW, tagH, 10);
+    } else {
+      ctx.rect(tagX, tagY, tagW, tagH);
+    }
+    ctx.fill();
+    ctx.strokeStyle = isWeapon ? '#f59e0b' : '#34d399';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+
+    ctx.fillStyle = isWeapon ? '#fef08a' : '#ecfdf5';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(tagText, item.x, tagY + tagH / 2);
+
+    ctx.restore();
   });
 
   // 👾 繪製像素方塊怪物 (Low Yield, 客退, Qual Delay, MO, QIT)
