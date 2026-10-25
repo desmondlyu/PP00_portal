@@ -191,39 +191,63 @@
 
 ## 五、 後端資料庫持久化：免 Email 認證之地端與雲端混合架構
 
-為徹底解決「純前端 LocalStorage 清快取蒸發、換電腦無法繼承等級、易遭 F12 竄改」三大痛點，同時**嚴格貫徹「零 Email 註冊、零收信流程、零密碼負擔」**原則，正式引入方案一之混合認證架構。
+### 1. 現行後端資料庫現況診斷（為什麼以前會蒸發？）
+經排查 `static/js/supabaseSync.js`，目前後端資料庫（Supabase）僅開立 3 張資料表，定位為**「即時在線路由器與資安稽核」**，完全未包含長期個人進度存檔：
+- `gather_online_users`：暫態在線表（記錄在線座標、頭像、動作），斷線超過 35 秒即被 `DELETE` 清空。
+- `gather_audit_logs`：純流水帳（僅記錄 login / logout 時間戳與 UserAgent，無數值）。
+- `gather_game_config`：全域動態平衡設定（唯讀）。
 
-### 1. 混合運作機制（方案一：無痛姓名認證 ＋ 4 位數 PIN 碼）
+👉 **結論**：同仁先前的經驗值、等級、背包物品 100% 僅儲存於該電腦瀏覽器的 `localStorage`。一旦換電腦、開無痕、或手動清除瀏覽器歷史快取，等級與心血便直接歸零。
+
+---
+
+### 2. 混合運作機制（方案一：無痛姓名認證 ＋ 4 位數 PIN 碼）
+為了**嚴格貫徹「零 Email 註冊、零收信流程、零密碼負擔」**原則，正式引入方案一之混合認證架構：
+
 - **同仁體驗完全不變**：同仁打開網頁，依然只輸入「英文名 / 綽號（如 `Tony`）」＋「部門（如 `PP32`）」，點擊進入。
-- **首次登入**：
-  - 系統跳出極簡提示：「請設定您的 4 位數通關 PIN 碼（如 1234，換電腦登入防冒用）」。
-  - 於後端資料表自動建立檔案，初始 0 EXP、Lv.1 菜逼八工程師。
-- **後續登入（原電腦）**：
-  - 本地快取自動比對成功，直接秒進辦公室，不用重複輸入 PIN。
-- **換電腦登入（跨裝置繼承）**：
-  - 在新電腦輸入同名同部門時，系統提示輸入 4 位數 PIN 碼。驗證通過後，後端立刻將當前經驗值、等級與解鎖服裝推回該電腦，完美接軌！
+- **首次登入（建檔與設防）**：
+  - 系統彈出極簡輸入框：「請設定您的 4 位數通關 PIN 碼（如 1234，換電腦登入防冒用）」。
+  - 於後端 `gather_user_profiles` 自動建立檔案，初始 0 EXP、Lv.1 菜逼八工程師。
+- **後續登入（原電腦免驗證）**：
+  - 本地快取自動驗證成功，直接秒進辦公室，完全無感、不需重複輸入 PIN 碼。
+- **換電腦登入（跨裝置無縫繼承）**：
+  - 在新電腦輸入同名同部門時，系統提示輸入 4 位數 PIN 碼。驗證通過後，後端立刻將當前經驗值、等級與解鎖服裝推回該電腦，完美跨裝置接軌！
+  - **防冒用保護**：防止其他同仁在其他電腦故意打你的名字把高階帳號拿去大逃殺送頭掉級。
 
-### 2. 後端資料表必存欄位（`gather_user_profiles`）
+---
+
+### 3. 「重新整理畫面（btnGameReload）」熱重載防護機制
+辦公室 HUD 上的「🔄 重新整理」按鈕（`btnGameReload`）具備特殊的保護邏輯，絕不破壞資料：
+1. **非暴力重整（Soft Reload）**：點擊觸發 `triggerGameReload()`，本質為帶時間戳重載最新 JS 檔案，**絕不清除 LocalStorage，更不刪除資料庫**。
+2. **重整前資料 Flush**：在頁面跳轉前 100ms，強制執行一次 `syncUserProfileToBackend()`，將最新的經驗值、等級與外觀同步寫回 Supabase。
+3. **免密自動接續**：頁面重新載入後讀取 Session，自動帶入 `isAutoReload: true` 秒速接回連線。
+4. **防刷打卡防呆**：現行代碼已具備 `isAutoReload` 辨識，重新整理**絕不重複給予 +50 EXP 登入打卡獎勵**，徹底防止狂按 F5 刷經驗。
+
+---
+
+### 4. 後端資料表完整規格（`gather_user_profiles`）
 後端絕不儲存多餘垃圾資訊，僅嚴格保存**「不可遺失之長期心血與外觀資產」**：
 
 ```sql
 create table if not exists gather_user_profiles (
-  user_name text primary key,             -- 主鍵 (小寫，如 'tony')
-  display_name text not null,             -- 顯示暱稱 (如 'Tony')
-  unit text not null,                     -- 部門單位 (如 'PP32')
-  pin_code text not null,                 -- 4 位數簡易防冒用 PIN (如 '1234')
-  exp integer default 0,                  -- 核心：累積經驗值
-  level integer default 1,                -- 核心：當前等級 (1 ~ 20)
-  season integer default 2,               -- 賽季標記 (第二賽季)
-  unlocked_outfits jsonb default '[]'::jsonb, -- 核心資產：扭蛋抽到的珍貴服裝/頭飾清單
-  avatar_id text default 'frog_eng',      -- 偏好外觀頭像 ID
-  total_logins integer default 1,         -- 累計登入次數
-  last_login_at timestamp with time zone default now(),
-  updated_at timestamp with time zone default now()
+  user_name text primary key,                 -- 主鍵 (小寫英文，如 'tony')
+  display_name text not null,                 -- 顯示暱稱 (保留大小寫，如 'Tony')
+  unit text not null,                         -- 部門單位 (如 'PP32')
+  pin_code text not null,                     -- 4 位數簡易防冒用 PIN (如 '1234')
+  exp integer default 0,                      -- 核心：累積經驗值
+  level integer default 1,                    -- 核心：當前等級 (1 ~ 20)
+  season integer default 2,                   -- 賽季標記 (第二賽季 Season 2)
+  unlocked_outfits jsonb default '[]'::jsonb, -- 核心資產：扭蛋抽到的珍貴服裝/頭飾 ID 清單
+  avatar_id text default 'frog_eng',          -- 偏好外觀頭像 ID
+  total_logins integer default 1,             -- 累計登入次數
+  last_login_at timestamp with time zone default now(), -- 最後登入時間
+  updated_at timestamp with time zone default now()    -- 最後異動時間
 );
 ```
 
-### 3. 地端（LocalStorage）vs 後端（Supabase）資料分工邊界
+---
+
+### 5. 地端（LocalStorage）vs 後端（Supabase）資料分工邊界
 
 | 分工層級 | 負責儲存之具體項目 | 儲存理由與特性 |
 | :--- | :--- | :--- |
