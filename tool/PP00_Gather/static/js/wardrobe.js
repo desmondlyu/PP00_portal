@@ -65,7 +65,7 @@
     if ((item.count || 1) > 1) item.count--; else p.overflow.splice(index, 1);
     return true;
   }
-  const outfits = window.COSTUME_CATALOG.map(a => ({id:'outfit_' + a.id, avatarId:a.id, category:'outfit', name:a.name, emoji:a.badge, power:0, expBonusPct:0, knockbackExp:0, maxDurability:5, spawnRate:0, desc:'特殊服裝｜耐久 5｜NPC 命中時 40% 機率扣 1 點'}));
+  const outfits = window.COSTUME_CATALOG.map(a => ({id:'outfit_' + a.id, avatarId:a.id, category:'outfit', wearType:a.wearType, name:a.name, emoji:a.badge, power:0, expBonusPct:0, knockbackExp:0, maxDurability:5, spawnRate:0, desc:'特殊服裝｜耐久 5｜NPC 命中時 40% 機率扣 1 點'}));
   window.GATHER_CONFIG.items.push(...outfits);
   window.OfficeWardrobe = {isOutfit, worn, outfitCount, canAdd, add, migrate, wear, damage, equip, unequip, claim, outfits};
 })();

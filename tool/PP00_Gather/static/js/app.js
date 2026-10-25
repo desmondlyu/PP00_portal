@@ -4318,7 +4318,8 @@ function executeOfficeLogin(params) {
       const hCtx = hudCanvas.getContext('2d');
       hCtx.clearRect(0, 0, hudCanvas.width, hudCanvas.height);
       window.drawWackyAvatar(hCtx, {
-        avatarId: localPlayer.outfitAvatarId || localPlayer.avatarId,
+        avatarId: localPlayer.avatarId,
+        outfitAvatarId: localPlayer.outfitAvatarId,
         x: 16,
         y: 28,
         dir: 'down',
@@ -4394,7 +4395,8 @@ function executeOfficeLogin(params) {
         cctx.fillRect(16, 8, 4, 4);
       } else {
         window.drawWackyAvatar(cctx, {
-          avatarId: p.outfitAvatarId || p.avatarId,
+          avatarId: p.avatarId,
+        outfitAvatarId: p.outfitAvatarId,
           x: 14,
           y: 24,
           dir: 'down',
@@ -5089,7 +5091,8 @@ function executeOfficeLogin(params) {
       ctx.translate(reaction.x,reaction.y-reaction.jump);
       if((network.hunt?.protectedUntil?.[p.id]||0)>Date.now()) ctx.globalAlpha=tick%12<6?.35:1;
       window.drawWackyAvatar(ctx, {
-        avatarId: p.outfitAvatarId || p.avatarId,
+        avatarId: p.avatarId,
+        outfitAvatarId: p.outfitAvatarId,
         combatDown: !!p.combatDown,
         scareUntil: p.scareUntil || 0,
         x: p.x,

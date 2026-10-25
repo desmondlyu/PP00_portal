@@ -3,6 +3,7 @@
 window.COSTUME_CATALOG = [
   {
     id: 'minotaur',
+    wearType: 'headgear',
     name: '牛頭套狂戰士',
     tag: '鼻孔噴氣・霸氣鎮場',
     badge: '🐮',
@@ -12,6 +13,7 @@ window.COSTUME_CATALOG = [
   },
   {
     id: 'frog_eng',
+    wearType: 'suit',
     name: '青蛙裝工程師',
     tag: '充氣偶裝・肝帝代表',
     badge: '🐸',
@@ -21,6 +23,7 @@ window.COSTUME_CATALOG = [
   },
   {
     id: 'wafer_mecha',
+    wearType: 'headgear',
     name: '晶圓盒鋼彈',
     tag: '12吋FOUP・雷射護目鏡',
     badge: '🤖',
@@ -30,6 +33,7 @@ window.COSTUME_CATALOG = [
   },
   {
     id: 'trex_intern',
+    wearType: 'suit',
     name: '充氣暴龍實習生',
     tag: '小短手・甩尾狂奔',
     badge: '🦖',
@@ -39,6 +43,7 @@ window.COSTUME_CATALOG = [
   },
   {
     id: 'boba_head',
+    wearType: 'headgear',
     name: '波霸珍奶頭怪客',
     tag: '全糖少冰・珍珠滾動',
     badge: '🧋',
@@ -48,6 +53,7 @@ window.COSTUME_CATALOG = [
   },
   {
     id: 'kuaikuai_god',
+    wearType: 'suit',
     name: '神聖綠乖乖本尊',
     tag: '機台守護神・綠燈保證',
     badge: '🟢',
@@ -57,15 +63,17 @@ window.COSTUME_CATALOG = [
   },
   {
     id: 'code_wizard',
+    wearType: 'suit',
     name: '鍵盤大法師',
     tag: 'RGB法杖・零Bug咒語',
     badge: '🧙‍♂️',
     primary: '#8b5cf6',
     secondary: '#ddd6fe',
-    desc: '高聳星芒巫師帽配拖地白鬍子，手拿發光 RGB 機械鍵盤當法杖。',
+    desc: '巫師帽、紫色長袍與發光鍵盤法杖，保留原本臉部與眼鏡。',
   },
   {
     id: 'shark_slacker',
+    wearType: 'suit',
     name: '鯊魚布偶摸魚王',
     tag: '嘴叼披薩・茶水間霸主',
     badge: '🦈',
@@ -75,6 +83,7 @@ window.COSTUME_CATALOG = [
   },
   {
     id: 'alien_debug',
+    wearType: 'suit',
     name: '外星天線 Debug 客',
     tag: '雙球天線・腦波通靈',
     badge: '👽',
@@ -84,12 +93,13 @@ window.COSTUME_CATALOG = [
   },
   {
     id: 'crt_bot',
+    wearType: 'headgear',
     name: '復古 CRT 電視頭',
     tag: '映像管顏文字・波形臉',
     badge: '📺',
     primary: '#64748b',
     secondary: '#e2e8f0',
-    desc: '頭是一台復古映像管電腦螢幕，臉部表情會在顏文字與波形間跳動。',
+    desc: '復古映像管外殼頭套，螢幕開口露出原人物的臉與眼鏡。',
   },
 ];
 
@@ -323,6 +333,46 @@ window.getAvatarMetaById = function (avatarId) {
   );
 };
 
+window.getAvatarAppearance = function(baseId,outfitId) {
+  const person=window.AVATAR_CATALOG.find(a=>a.id===baseId)||null;
+  const costume=person?window.COSTUME_CATALOG.find(a=>a.id===outfitId)||null:null;
+  return {person,costume,renderId:costume?.wearType==='suit'&&costume.id!=='code_wizard'?costume.id:baseId};
+};
+function drawWearableLayer(ctx,costume,tick) {
+  if(!costume)return;
+  ctx.save();
+  // Never paint inside the face opening: (-11,-27) to (11,-4).
+  const frame=(color,top=-34,width=19)=>{
+    ctx.fillStyle=color;ctx.fillRect(-width,top,width*2,-27-top);
+    ctx.fillRect(-width,-27,width-11,29);ctx.fillRect(11,-27,width-11,29);ctx.fillRect(-width,-4,width*2,6);
+    ctx.fillStyle='rgba(255,255,255,.3)';ctx.fillRect(-width,top,width*2,2);
+    ctx.fillStyle='rgba(0,0,0,.22)';ctx.fillRect(width-3,top+2,3,29);
+  };
+  switch(costume.id){
+    case 'crt_bot':
+      frame('#64748b');ctx.fillStyle='#1e293b';ctx.fillRect(12,-24,5,15);
+      ctx.fillStyle='#4ade80';ctx.fillRect(13,-8,2,2);ctx.fillStyle='#cbd5e1';ctx.fillRect(13,-5,2,2);
+      ctx.strokeStyle='#94a3b8';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-6,-34);ctx.lineTo(-12,-42);ctx.moveTo(6,-34);ctx.lineTo(12,-42);ctx.stroke();break;
+    case 'minotaur':
+      frame('#92400e',-35,18);ctx.fillStyle='#fef3c7';
+      for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(side*14,-32);ctx.lineTo(side*28,-43);ctx.lineTo(side*24,-29);ctx.lineTo(side*17,-25);ctx.closePath();ctx.fill();}
+      ctx.fillStyle='#b45309';ctx.fillRect(-8,-35,16,7);ctx.strokeStyle='#facc15';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,-30,3,0,Math.PI);ctx.stroke();break;
+    case 'wafer_mecha':
+      frame('#2563eb',-37,20);ctx.fillStyle='#bfdbfe';ctx.fillRect(-16,-35,32,3);ctx.fillRect(-20,-25,6,15);ctx.fillRect(14,-25,6,15);
+      ctx.fillStyle='#22d3ee';ctx.fillRect(-18,-21,2,8);ctx.fillRect(16,-21,2,8);ctx.fillStyle='#475569';ctx.fillRect(-5,-41,10,4);break;
+    case 'boba_head':
+      frame('#d6a46a',-35,18);ctx.fillStyle='#fef3c7';ctx.fillRect(-20,-37,40,4);ctx.fillStyle='#f472b6';ctx.fillRect(7,-48,4,12);
+      ctx.fillStyle='#422006';for(const side of [-1,1])for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(side*14,-20+i*7+Math.sin(tick*.05+i),2,0,Math.PI*2);ctx.fill();}break;
+    case 'code_wizard':
+      ctx.fillStyle='#6d28d9';ctx.beginPath();ctx.moveTo(-10,-4);ctx.lineTo(10,-4);ctx.lineTo(16,17);ctx.lineTo(-16,17);ctx.closePath();ctx.fill();
+      ctx.fillStyle='#facc15';ctx.fillRect(-1,-4,2,21);ctx.fillRect(-14,14,28,2);
+      ctx.fillStyle='#7c3aed';ctx.beginPath();ctx.moveTo(-13,-29);ctx.lineTo(3,-51);ctx.lineTo(12,-29);ctx.closePath();ctx.fill();ctx.fillRect(-17,-29,34,3);
+      ctx.fillStyle='#fde68a';ctx.fillRect(-1,-40,3,3);ctx.fillStyle='#713f12';ctx.fillRect(18,-9,3,28);ctx.fillStyle='#1e293b';ctx.fillRect(14,-14,12,8);
+      for(let i=0;i<4;i++){ctx.fillStyle=['#f472b6','#22d3ee','#a3e635','#facc15'][i];ctx.fillRect(15+i*3,-12,2,3);}break;
+  }
+  ctx.restore();
+}
+
 function fillRoundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
@@ -359,6 +409,7 @@ window.drawWackyAvatar = function (ctx, opts) {
     isFleeing = false,     // 😱 慌張逃跑狀態
   } = opts;
 
+  const appearance=window.getAvatarAppearance(avatarId,opts.outfitAvatarId);
   if (avatarId === 'ghost') {
     const bob = Math.sin(tick * .06) * 5;
     const scare = Date.now() < (opts.scareUntil || 0);
@@ -503,7 +554,7 @@ window.drawWackyAvatar = function (ctx, opts) {
   ctx.rotate(poseRotate);
   ctx.scale(flipX, 1);
 
-  const officePerson = window.AVATAR_CATALOG.find(a => a.id === avatarId);
+  const officePerson = appearance.renderId===avatarId ? appearance.person : null;
   if (officePerson) {
     const sizes = {slim:[.86,1], tall:[.94,1.13], broad:[1.13,1.04], stocky:[1.19,.96], regular:[1,1]};
     ctx.scale(...sizes[officePerson.body]);
@@ -539,7 +590,7 @@ window.drawWackyAvatar = function (ctx, opts) {
   }
 
   // 3. 繪製 10 種使用者誇張角色 + 5 種獨立不重複的專屬 NPC 角色
-  switch (avatarId) {
+  switch (appearance.renderId) {
     case 'minotaur': {
       ctx.fillStyle = '#991b1b';
       fillRoundRect(ctx, -12, -2, 24, 15, 5);
@@ -1269,7 +1320,6 @@ window.drawWackyAvatar = function (ctx, opts) {
       break;
     }
 
-case 'crt_bot':
     default: {
       const a = officePerson || window.AVATAR_CATALOG[0];
       // Pixel-cut clothing, side shading, and individual hair silhouettes.
@@ -1301,6 +1351,8 @@ case 'crt_bot':
       break;
     }
   }
+
+  if(officePerson)drawWearableLayer(ctx,appearance.costume,tick);
 
   // 4. 若是打掃阿姨或啟動「🧹 揮汗大掃除」動作，在手上畫出動態揮舞的黃金長柄掃把
   if ((isSweeper && !actionState) || actionState === 'sweep_floor') {
