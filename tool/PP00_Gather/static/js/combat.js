@@ -36,12 +36,14 @@
     const ids=pools[tier(e)], id=ids[Math.floor(Math.random()*ids.length)];
     const meta=window.GATHER_CONFIG.items.find(i=>i.id===id);
     const item={...meta,uid:'loot_'+(e.uid||e.id)+'_'+Date.now(),x:e.x+35,y:e.y+20,dropY:0,combatDrop:true,durability:meta.maxDurability};
+    window.relocateBlockedDrop?.(item);
     state(n).items.push(item);return item;
   }
   function costumeLoot(n,e){
     if(Math.random()>=.05 || !window.OfficeWardrobe)return null;
     const outfits=window.OfficeWardrobe.outfits,meta=outfits[Math.floor(Math.random()*outfits.length)];
     const item={...meta,uid:'costume_'+(e.uid||e.id)+'_'+Date.now(),x:e.x-35,y:e.y+20,dropY:0,combatDrop:true,durability:5};
+    window.relocateBlockedDrop?.(item);
     state(n).items.push(item);return item;
   }
   function strike(n,id,targetId){
@@ -109,7 +111,7 @@
     if(p.type==='combat_drop'&&p.item){
       const a=player(n,p.senderId),s=state(n),effect=s.effects[p.senderId];
       if(!a||!effect?.drop||effect.id!==p.effectId||effect.consumed)return;
-      effect.consumed=true;s.items.push({...p.item,uid:'lost_'+effect.id,combatDrop:true,x:a.x+60,y:a.y,dropY:0,pickupAfter:Date.now()+2000});emit(n);
+      effect.consumed=true;s.items.push({...p.item,uid:'lost_'+effect.id,combatDrop:true,x:a.x+60,y:a.y,dropY:0,pickupAfter:Date.now()+2000});window.relocateBlockedDrop?.(s.items[s.items.length-1]);emit(n);
     }
     if(p.type==='combat_claim'){
       const s=state(n),a=player(n,p.senderId),i=s.items.findIndex(x=>x.uid===p.uid);
@@ -137,6 +139,7 @@
       if(e.combatDown){e.actionState='sleep_bed';e.isMoving=false;if(e.isMob&&now-(h.defeatedAt||now)>1800)n.callbacks.onCombatMobDefeat?.(e.uid);}
       else if(h.hp<=0 && !e.isMob && n.isRoomMaster()){h.hp=h.maxHp;h.until=0;e.actionState=null;}
     }
+    if(n.isRoomMaster()&&tick%120===0)s.items.forEach(item=>window.relocateBlockedDrop?.(item));
     n.callbacks.onCombatGround?.(s.items);
     if(n.isRoomMaster()&&tick%30===0)emit(n);
   }

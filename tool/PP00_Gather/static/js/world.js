@@ -371,6 +371,48 @@ window.isPositionBlocked = function (x, y, radius = 14, entityId = null) {
   return false;
 };
 
+// Reachable floor is cached until doors/room locks change. Drops use player clearance.
+(function () {
+  let cache;
+  const clearSegment=(a,b)=>{
+    const steps=Math.max(1,Math.ceil(Math.hypot(a.x-b.x,a.y-b.y)/5));
+    for(let i=0;i<=steps;i++)if(window.isPositionBlocked(a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,18))return false;
+    return true;
+  };
+  window.findReachableDropPosition=function(x,y,entry={x:850,y:520}){
+    const map=window.WORLD_MAP,lock=window.MEETING_LOCK_STATE;
+    const key=JSON.stringify([entry.x,entry.y,lock&&Date.now()<lock.lockedUntil?lock.roomId:null,(map.toiletStalls||[]).map(s=>[s.doorOpen>=.5,!!s.occupiedBy])]);
+    if(!cache||cache.map!==map||cache.key!==key){
+      const free=new Map();let start=null,best=Infinity;
+      for(let cy=100;cy<=map.height-100;cy+=20)for(let cx=180;cx<=map.width-135;cx+=20){
+        if(window.isPositionBlocked(cx,cy,18))continue;
+        const p={x:cx,y:cy};free.set(cx+':'+cy,p);
+        const d=Math.hypot(cx-entry.x,cy-entry.y);if(d<best){best=d;start=p;}
+      }
+      const points=start?[start]:[],seen=new Set(start?[start.x+':'+start.y]:[]);
+      for(let i=0;i<points.length;i++){
+        const p=points[i];
+        for(const [dx,dy] of [[20,0],[-20,0],[0,20],[0,-20]]){
+          const k=(p.x+dx)+':'+(p.y+dy),q=free.get(k);
+          if(q&&!seen.has(k)&&clearSegment(p,q)){seen.add(k);points.push(q);}
+        }
+      }
+      cache={map,key,points};
+    }
+    if(!cache.points.length)return null;
+    const desired={x:Number.isFinite(x)?x:entry.x,y:Number.isFinite(y)?y:entry.y};
+    let nearest=cache.points[0],best=Infinity;
+    for(const p of cache.points){const d=(p.x-desired.x)**2+(p.y-desired.y)**2;if(d<best){best=d;nearest=p;}}
+    if(best<=30**2&&clearSegment(nearest,desired))return desired;
+    return {...nearest};
+  };
+  window.relocateBlockedDrop=function(item){
+    const p=window.findReachableDropPosition(item.x,item.y);
+    if(!p)return false;
+    const moved=item.x!==p.x||item.y!==p.y;item.x=p.x;item.y=p.y;return moved;
+  };
+})();
+
 /**
  * 依照 24 小時時段與武器強度階梯 (5%~20%) 計算加權隨機道具
  */
@@ -479,6 +521,9 @@ class OfficeEcosystem {
       dropY: 65,
       ...meta,
     };
+    const position=window.findReachableDropPosition(item.x,item.y);
+    if(!position)return null;
+    Object.assign(item,position);
     this.groundItems.push(item);
     return item;
   }
@@ -525,10 +570,12 @@ class OfficeEcosystem {
           break;
         }
       }
+      const position=window.findReachableDropPosition(rx,ry);
+      if(!position)return;
       this.groundItems.push({
         uid: 'drop_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        x: Math.round(rx),
-        y: Math.round(ry),
+        x: position.x,
+        y: position.y,
         dropY: 110,
         ...meta,
       });
@@ -549,6 +596,8 @@ class OfficeEcosystem {
       (typeof window.network.isRoomMaster === 'function'
         ? window.network.isRoomMaster()
         : true);
+
+    if(isMaster && tick%120===0)this.groundItems.filter(i=>!i.combatDrop).forEach(window.relocateBlockedDrop);
 
     // 1. 每 10 分鐘自動隨機生成 5 種掉落物 (僅房長生成，避免各裝置掉落物不一致)
     if (isMaster && now - this.lastBatchDropAt >= window.GATHER_CONFIG.security.randomDropIntervalMs) {
