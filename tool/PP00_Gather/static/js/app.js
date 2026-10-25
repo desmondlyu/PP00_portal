@@ -104,8 +104,9 @@
         hud.id = 'injuryHudBanner';
         hud.style.position = 'fixed';
         hud.style.top = '14px';
-        hud.style.left = '50%';
-        hud.style.transform = 'translateX(-50%)';
+        hud.style.right = '16px';
+        hud.style.left = 'auto';
+        hud.style.transform = 'none';
         hud.style.zIndex = '99999';
         hud.style.background = 'rgba(220, 38, 38, 0.92)';
         hud.style.color = '#ffffff';
@@ -199,6 +200,7 @@
     y: 120,
     zoom: 1,
     overviewMode: false,
+    minimapHidden: false,
   };
 
   let nearbyPlayers = [];
@@ -2125,6 +2127,12 @@ function executeOfficeLogin(params) {
         if (e.key === 'Escape') document.activeElement.blur();
         return;
       }
+      if (e.key === 'Escape') {
+        if (camera.overviewMode) {
+          setOverviewMode(false);
+          return;
+        }
+      }
 
       // 只要使用者有任何操作，刷新操作時間戳
       lastUserActionAt = Date.now();
@@ -2148,7 +2156,10 @@ function executeOfficeLogin(params) {
         ) {
           e.preventDefault();
           const leftSec = Math.max(1, Math.ceil((localPlayer.restrainedUntil - Date.now()) / 1000));
-          showToast(`🚨 正在受夜間警衛管教拘禁中，無法移動與反擊！（剩餘 ${leftSec} 秒）`, 'error');
+          const reason = localPlayer.beatingSession
+            ? `正在接受【${localPlayer.beatingSession.npc.name}】連續毆打管教中`
+            : '正在受夜間警衛管教拘禁中';
+          showToast(`🚨 ${reason}，無法移動與反擊！（剩餘 ${leftSec} 秒）`, 'error');
           return;
         }
       }
@@ -2273,12 +2284,19 @@ function executeOfficeLogin(params) {
       const sy = e.clientY - rect.top;
 
       const mm = getMinimapRect();
-      if (sx >= mm.x && sx <= mm.x + mm.w && sy >= mm.y && sy <= mm.y + mm.h) {
+      if (mm.w > 0 && !camera.minimapHidden && sx >= mm.x && sx <= mm.x + mm.w && sy >= mm.y && sy <= mm.y + mm.h) {
+        // 點擊雷達右上角 ✕ 關閉雷達
+        if (sx >= mm.x + mm.w - 22 && sy <= mm.y + 22) {
+          camera.minimapHidden = true;
+          showCombatToast('園區雷達小地圖已關閉（點擊全景視角按鈕可重新開啟）');
+          return;
+        }
         const worldX = ((sx - mm.x) / mm.w) * window.WORLD_MAP.width;
         const worldY = ((sy - mm.y) / mm.h) * window.WORLD_MAP.height;
         cancelContextualAction();
         localPlayer.autoWalkTarget = { x: worldX, y: worldY, followId: null };
         pushStatusLog('系統', '已透過雷達設定導航目標點');
+        if (camera.overviewMode) setOverviewMode(false);
         return;
       }
 
@@ -2325,12 +2343,41 @@ function executeOfficeLogin(params) {
       });
     });
 
+    function setOverviewMode(active) {
+      camera.overviewMode = !!active;
+      const btn = document.getElementById('toggleOverviewBtn');
+      if (btn) {
+        btn.classList.toggle('active', camera.overviewMode);
+        const lbl = btn.querySelector('.game-btn-label');
+        if (lbl) lbl.textContent = camera.overviewMode ? '關閉全景' : '全景視角';
+        btn.title = camera.overviewMode ? '關閉全景俯瞰視角 (Esc)' : '切換全景俯瞰視角';
+      }
+      let closeBar = document.getElementById('overviewCloseBar');
+      if (camera.overviewMode) {
+        if (!closeBar) {
+          closeBar = document.createElement('div');
+          closeBar.id = 'overviewCloseBar';
+          closeBar.className = 'overview-close-bar';
+          closeBar.innerHTML = '<span>🗺️ 全景俯瞰模式</span><button type="button" class="overview-close-btn" id="btnExitOverview">✕ 關閉全景 (Esc)</button>';
+          document.body.appendChild(closeBar);
+          document.getElementById('btnExitOverview')?.addEventListener('click', () => setOverviewMode(false));
+        }
+        closeBar.style.display = 'flex';
+      } else if (closeBar) {
+        closeBar.style.display = 'none';
+      }
+      handleResize();
+    }
+    window.setOverviewMode = setOverviewMode;
+    window.closeOverviewMode = () => setOverviewMode(false);
+
     const overviewBtn = document.getElementById('toggleOverviewBtn');
     if (overviewBtn) {
       overviewBtn.addEventListener('click', (e) => {
-        camera.overviewMode = !camera.overviewMode;
-        e.currentTarget.classList.toggle('active', camera.overviewMode);
-        handleResize();
+        if (camera.minimapHidden && !camera.overviewMode) {
+          camera.minimapHidden = false;
+        }
+        setOverviewMode(!camera.overviewMode);
       });
     }
 
@@ -2571,6 +2618,87 @@ function executeOfficeLogin(params) {
    * 5. 若攻擊 VP 大老闆或 PP00 處長：觸發閉門訓話 10 秒並發出 5 句專屬 MURMUR 之一！
    * 6. 若被「🦩 鳥人指揮官」抓進會議室，揮擊擊退他可立即解鎖會議室大門脫困
    */
+  /**
+   * 🥊 攻擊 VP 大老闆、PP00 處長或打掃阿姨時觸發的 50% 專屬抓去辦公室/打掃廁所連續毆打機制
+   * ⚠️ 連續毆打純屬搞笑動畫，絕對不會造成使用者重傷（isInjured 保持 false）
+   */
+  function triggerBossOrAuntieBeating(npc, role) {
+    const now = Date.now();
+    const durationMs = 8000;
+    let targetRoom = 'vp_room';
+    let roomX = 380;
+    let roomY = 310;
+    let weaponEmoji = '🏌️‍♂️';
+    let scoldLines = window.GATHER_CONFIG?.bossScoldDialogues?.vp || ['進辦公室好好反省！'];
+    let introMsg = `🚨 惹怒 VP 大老闆【${npc.name}】！被抓進 VP 室連續痛揍訓話！`;
+
+    if (role === 'dir') {
+      targetRoom = 'dir_pp00';
+      roomX = 755;
+      roomY = 310;
+      weaponEmoji = '📊';
+      scoldLines = window.GATHER_CONFIG?.bossScoldDialogues?.director_pp00 || ['客退報告給我看仔細！'];
+      introMsg = `🚨 敢敲 PP00 處長【${npc.name}】？被抓進處長室連續痛揍訓話！`;
+    } else if (role === 'auntie') {
+      targetRoom = 'restroom';
+      roomX = 2340;
+      roomY = 820;
+      weaponEmoji = '🧹';
+      scoldLines = window.GATHER_CONFIG?.bossScoldDialogues?.cleaner_auntie || ['吃阿姨的黃金拖把連續百烈擊！'];
+      introMsg = `🚨 連打掃阿姨【${npc.name}】都敢惹？被拖進廁所黃金拖把連續毆打！`;
+    }
+
+    localPlayer.x = roomX;
+    localPlayer.y = roomY;
+    npc.x = roomX + 32;
+    npc.y = roomY;
+    localPlayer.autoWalkTarget = null;
+    localPlayer.knockback = null;
+
+    localPlayer.isRestrained = true;
+    localPlayer.restrainedUntil = now + durationMs;
+    localPlayer.isInjured = false; // ⚠️ 不會造成使用者重傷，只是動畫的一種
+    localPlayer.actionState = 'cry';
+
+    window.MEETING_LOCK_STATE = {
+      lockedUntil: now + durationMs,
+      roomId: targetRoom,
+      reason: `${npc.name} 連續毆打管教中`,
+      notifiedRelease: false,
+    };
+
+    npc.isBerserk = true;
+    npc.berserkUntil = now + durationMs;
+    const scoldLine = scoldLines[Math.floor(Math.random() * scoldLines.length)];
+    npc.murmur = {
+      text: scoldLine,
+      mood: 'fire',
+      createdAt: now,
+      expiresAt: now + durationMs,
+    };
+    npc.emote = { emoji: '💢', expiresAt: now + durationMs };
+
+    localPlayer.beatingSession = {
+      npc,
+      role,
+      targetRoom,
+      weaponEmoji,
+      until: now + durationMs,
+      startedAt: now,
+    };
+
+    showToast(introMsg, 'error');
+    pushCombatLog(npc.name, `💢 ${scoldLine}`);
+    pushStatusLog(npc.name, `💢 ${scoldLine}`);
+    if (network) {
+      network.broadcastPacket('status_log', {
+        senderName: npc.name,
+        text: `💢 ${scoldLine}`,
+      });
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
+  }
+
   function triggerWeaponAttack() {
     if(Date.now()<(localPlayer.stunnedUntil||0)) return;
     if(window.OfficeHunt?.clock().active && window.OfficeHunt.safe(localPlayer)) return;
@@ -2621,6 +2749,17 @@ function executeOfficeLogin(params) {
     for (const enemy of [...(ecosystem.mobs || []), ...network.npcPlayers.values()]) {
       if (enemy.combatDown || Math.hypot(enemy.x-localPlayer.x,enemy.y-localPlayer.y)>attackRadius) continue;
       hitCount++;
+
+      // 🥊 還原：攻擊 VP 大老闆、PP00 處長、打掃阿姨時，有 50% 機率被抓去專屬辦公室或廁所連續毆打（純搞笑懲處動畫，不會造成使用者重傷）
+      const isVp = enemy.id === 'npc_vp_boss' || enemy.avatarId === 'npc_vp_uncle';
+      const isDir = enemy.id === 'npc_dir_pp00' || enemy.avatarId === 'npc_dir_pp00_slim';
+      const isAuntie = enemy.id === 'npc_auntie_meifeng' || enemy.id === 'npc_auntie_shufen' || enemy.isSweeper;
+
+      if ((isVp || isDir || isAuntie) && Math.random() < 0.50) {
+        triggerBossOrAuntieBeating(enemy, isVp ? 'vp' : isDir ? 'dir' : 'auntie');
+        return;
+      }
+
       if(now-(enemy.lastCombatLogAt||0)>600){enemy.lastCombatLogAt=now;appendCombatText(`攻擊【${escapeHtml(enemy.name)}】`);}
       window.OfficeCombat.send(network,'combat_strike',{targetId:enemy.uid||enemy.id});
 
@@ -4664,6 +4803,72 @@ function executeOfficeLogin(params) {
       }
     }
 
+    // 🥊 檢查受 VP / PP00 處長 / 打掃阿姨連續毆打管教狀態
+    if (localPlayer.beatingSession) {
+      const sess = localPlayer.beatingSession;
+      if (Date.now() < sess.until) {
+        localPlayer.isMoving = false;
+        localPlayer.autoWalkTarget = null;
+        localPlayer.knockback = null;
+        localPlayer.actionState = 'cry';
+        if (tick % 10 === 0) {
+          sess.npc.weaponSwing = {
+            emoji: sess.weaponEmoji,
+            ticksLeft: 10,
+            totalTicks: 10,
+            startedAt: Date.now(),
+            duration: 180,
+          };
+          sess.npc.jumpOffset = 8 + Math.random() * 8;
+          localPlayer.jumpOffset = Math.sin(tick * 0.9) * 4;
+          localPlayer.emote = {
+            emoji: ['💥', '💫', '😭', '🤕'][Math.floor(Math.random() * 4)],
+            expiresAt: Date.now() + 450,
+          };
+          vfxList.push({
+            type: 'click_ring',
+            x: localPlayer.x + (Math.random() * 16 - 8),
+            y: localPlayer.y - 10 + (Math.random() * 16 - 8),
+            radius: 8,
+            maxRadius: 40,
+            alpha: 0.9,
+            color: '#facc15',
+          });
+          spawnConfetti(localPlayer.x, localPlayer.y - 12);
+        }
+        if (tick % 80 === 0) {
+          const hurtLines = [
+            '哎唷！長官別打了！我錯了！',
+            '疼疼疼！阿姨手下留情！',
+            '嗚嗚嗚再也不敢動手了！',
+            '好痛！考績我不要了，別打了！',
+          ];
+          localPlayer.murmur = {
+            text: hurtLines[Math.floor(Math.random() * hurtLines.length)],
+            mood: 'cry',
+            createdAt: Date.now(),
+            expiresAt: Date.now() + 1600,
+          };
+        }
+        return;
+      } else {
+        const npcName = sess.npc.name;
+        sess.npc.isBerserk = false;
+        localPlayer.beatingSession = null;
+        localPlayer.isRestrained = false;
+        localPlayer.restrainedUntil = 0;
+        localPlayer.actionState = null;
+        cancelContextualAction();
+        ensurePlayerNotStuck();
+        pushStatusLog('系統', `✨ 【${npcName}】連續毆打懲戒結束，消氣放你一馬！`);
+        showToast(`✨ 【${npcName}】管教結束，恢復行動自由！`, 'success');
+        if (network) {
+          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        }
+        return;
+      }
+    }
+
     // 🚨 檢查受夜間警衛管教拘禁狀態：在廁所被管教 10 秒無法動彈與反擊
     if (localPlayer.isRestrained) {
       if (Date.now() < (localPlayer.restrainedUntil || 0)) {
@@ -4938,6 +5143,7 @@ function executeOfficeLogin(params) {
   }
 
   function renderMinimapRadar(ctx, allPlayers) {
+    if (camera.minimapHidden) return;
     const mm = getMinimapRect();
     if (!mm.w) return;
     const scaleX = mm.w / window.WORLD_MAP.width;
@@ -4984,6 +5190,18 @@ function executeOfficeLogin(params) {
     ctx.font = '700 10px "Outfit", sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('🗺️ 園區雷達 (點擊瞬移導航)', mm.x + 8, mm.y + mm.h - 6);
+
+    // 右上角小巧關閉按鈕 ✕
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.85)';
+    ctx.beginPath();
+    ctx.arc(mm.x + mm.w - 11, mm.y + 11, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('✕', mm.x + mm.w - 11, mm.y + 11);
+
     ctx.restore();
   }
 
