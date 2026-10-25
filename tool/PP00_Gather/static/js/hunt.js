@@ -97,11 +97,27 @@
     if(el.hidden)return;
     const hit=n.hunt?.hits[n.clientId]||0;
     const label=c.active?`🚨 鳥人追殺 ${Math.ceil((c.end-now)/1000)} 秒 ｜受擊 ${hit}/3${safe(n.localPlayer)?' ｜安全區':''}`:`🚨 ${Math.ceil((c.next-now)/1000)} 秒後鳥人追殺開始`;
-    if(el.dataset.label!==label){el.dataset.label=label;el.textContent=label;
-      const btn=document.createElement('button');btn.textContent='退出／前往安全區';btn.onclick=()=>n.callbacks.onHuntEscape?.();el.appendChild(btn);}
+    if(el.dataset.label!==label){
+      el.dataset.label=label;
+      el.innerHTML=`<span class="hunt-hud-text">${label}</span>`;
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.textContent='前往安全區';
+      btn.onclick=()=>n.callbacks.onHuntEscape?.();
+      el.appendChild(btn);
+    }
     document.body.classList.toggle('hunt-active',c.active);
-    if(c.active && n.huntAnnounced!==c.start){n.huntAnnounced=c.start;
-      const banner=document.createElement('div');banner.className='hunt-start';banner.textContent='🚨 警告：鳥人指揮官追殺模式啟動';document.body.appendChild(banner);setTimeout(()=>banner.remove(),2800);}
+    if(c.active && n.huntAnnounced!==c.start){
+      n.huntAnnounced=c.start;
+      const banner=document.createElement('div');
+      banner.className='hunt-start';
+      banner.innerHTML='<div class="hunt-start-icon">🚨</div><div class="hunt-start-title">警告：鳥人指揮官追殺模式啟動</div><div class="hunt-start-sub">請盡速前往右上方安全區避難！</div>';
+      document.body.appendChild(banner);
+      setTimeout(()=>{
+        banner.classList.add('fade-out');
+        setTimeout(()=>banner.remove(),600);
+      },1800);
+    }
   }
   window.OfficeHunt={clock,safe,update,strike,receive};
 })();

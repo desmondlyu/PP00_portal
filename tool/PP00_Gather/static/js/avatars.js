@@ -338,55 +338,169 @@ window.getAvatarAppearance = function(baseId,outfitId) {
   const costume=person?window.COSTUME_CATALOG.find(a=>a.id===outfitId)||null:null;
   return {person,costume,renderId:costume?.wearType==='suit'&&costume.id!=='code_wizard'?costume.id:baseId};
 };
-function drawWearableLayer(ctx,costume,tick) {
+function drawWearableLayer(ctx,costume,tick,dir='down') {
   if(!costume)return;
   ctx.save();
-  // Opaque oversized headpieces cover hair, glasses and face; the body stays unchanged.
-  const shell=(color,top=-38,width=22)=>{
-    ctx.fillStyle=color;ctx.fillRect(-width,top,width*2,2-top);
-    ctx.fillStyle='rgba(255,255,255,.3)';ctx.fillRect(-width,top,width*2,3);
-    ctx.fillStyle='rgba(0,0,0,.22)';ctx.fillRect(width-4,top+3,4,-top-1);
-  };
-  switch(costume.id){
+  const isUp = dir === 'up';
+  const isSide = dir === 'left' || dir === 'right';
+
+  switch (costume.id) {
     case 'crt_bot': {
-      shell('#64748b',-38,24);
-      ctx.fillStyle='#0f172a';ctx.fillRect(-20,-32,33,28);
-      ctx.fillStyle='#164e3b';ctx.fillRect(-18,-30,29,24);
-      ctx.fillStyle='#86efac';ctx.fillRect(-13,-24,5,5);ctx.fillRect(2,-24,5,5);ctx.fillRect(-8,-12,11,2);
-      ctx.fillStyle='rgba(134,239,172,.22)';for(let y=-29;y<-6;y+=4)ctx.fillRect(-18,y,29,1);
-      ctx.fillStyle='#1e293b';ctx.fillRect(16,-29,4,13);
-      ctx.fillStyle='#4ade80';ctx.fillRect(16,-11,3,3);ctx.fillStyle='#cbd5e1';ctx.fillRect(16,-6,3,3);
-      ctx.strokeStyle='#94a3b8';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-6,-38);ctx.lineTo(-14,-48);ctx.moveTo(6,-38);ctx.lineTo(14,-48);ctx.stroke();break;
-    }
-    case 'minotaur': {
-      shell('#92400e',-37,22);
-      ctx.fillStyle='#fef3c7';for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(side*14,-33);ctx.lineTo(side*33,-51);ctx.lineTo(side*29,-29);ctx.lineTo(side*18,-22);ctx.closePath();ctx.fill();}
-      ctx.fillStyle='#451a03';ctx.fillRect(-15,-27,11,4);ctx.fillRect(4,-27,11,4);
-      ctx.fillStyle='#fef08a';ctx.fillRect(-12,-23,5,4);ctx.fillRect(7,-23,5,4);
-      ctx.fillStyle='#d6a16c';ctx.fillRect(-16,-16,32,15);ctx.fillStyle='#451a03';ctx.fillRect(-10,-12,5,4);ctx.fillRect(5,-12,5,4);
-      ctx.strokeStyle='#facc15';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,-6,5,0,Math.PI*2);ctx.stroke();break;
-    }
-    case 'wafer_mecha': {
-      shell('#2563eb',-42,23);
-      ctx.fillStyle='#bfdbfe';ctx.fillRect(-18,-39,36,4);ctx.fillRect(-23,-30,6,25);ctx.fillRect(17,-30,6,25);
-      ctx.fillStyle='#0f172a';ctx.fillRect(-16,-30,32,12);ctx.fillStyle='#22d3ee';ctx.fillRect(-13,-27,26,5);
-      ctx.fillStyle='#94a3b8';ctx.fillRect(-12,-15,24,12);ctx.fillStyle='#334155';for(let x=-8;x<=8;x+=4)ctx.fillRect(x,-12,2,6);
-      ctx.fillStyle='#fde047';ctx.fillRect(-3,-46,6,7);ctx.fillStyle='#60a5fa';ctx.fillRect(-30,-32,7,20);ctx.fillRect(23,-32,7,20);break;
-    }
-    case 'boba_head': {
-      shell('#c9955e',-38,21);
-      ctx.fillStyle='#fef3c7';ctx.fillRect(-25,-41,50,5);ctx.fillRect(-18,-34,36,7);
-      ctx.fillStyle='#f472b6';ctx.fillRect(7,-56,5,16);ctx.fillStyle='#fbcfe8';ctx.fillRect(8,-55,2,15);
-      ctx.fillStyle='#f4d3a1';ctx.fillRect(-17,-27,4,21);
-      ctx.fillStyle='#422006';for(let i=0;i<7;i++){const x=-14+(i%4)*9,y=-9-Math.floor(i/4)*9+Math.sin(tick*.06+i)*2;ctx.beginPath();ctx.arc(x,y,3.2,0,Math.PI*2);ctx.fill();}
+      if (isUp) {
+        // 背面：映像管錐形後凸外殼、散熱百葉窗槽、電源粗插座、雙天線
+        ctx.fillStyle = '#475569'; ctx.fillRect(-22, -38, 44, 40);
+        ctx.fillStyle = '#334155'; ctx.fillRect(-16, -34, 32, 32);
+        ctx.fillStyle = '#1e293b';
+        for (let y = -30; y < -10; y += 4) ctx.fillRect(-12, y, 24, 2);
+        ctx.fillStyle = '#0f172a'; ctx.fillRect(4, -10, 8, 6);
+        ctx.fillStyle = '#64748b'; ctx.fillRect(6, -8, 4, 2);
+        ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; ctx.beginPath();
+        ctx.moveTo(-6, -38); ctx.lineTo(-14, -48); ctx.moveTo(6, -38); ctx.lineTo(14, -48); ctx.stroke();
+      } else if (isSide) {
+        // 側面：後方映像管大凸屁股 (-x)，前方垂直平面螢幕 (+x)，發光綠像素側眼與側嘴，單根後斜天線
+        ctx.fillStyle = '#334155'; ctx.fillRect(-24, -34, 18, 30); // 後凸映像管屁股
+        ctx.fillStyle = '#64748b'; ctx.fillRect(-10, -38, 25, 38); // 電視主機身
+        ctx.fillStyle = '#0f172a'; ctx.fillRect(11, -32, 5, 26); // 前螢幕框
+        ctx.fillStyle = '#164e3b'; ctx.fillRect(12, -30, 3, 22); // 綠螢幕側視
+        ctx.fillStyle = '#86efac'; ctx.fillRect(13, -24, 3, 5); ctx.fillRect(13, -12, 3, 2); // 像素側眼與嘴角
+        ctx.fillStyle = '#1e293b'; ctx.fillRect(0, -18, 6, 8);
+        ctx.fillStyle = '#4ade80'; ctx.fillRect(1, -16, 4, 4); // 側邊調台大旋鈕
+        ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; ctx.beginPath();
+        ctx.moveTo(-2, -38); ctx.lineTo(-14, -48); ctx.stroke(); // 後斜天線
+      } else {
+        // 正面：復古映像管螢幕、墨綠背景、亮綠像素雙眼與嘴巴、掃描線、右側控制旋鈕
+        ctx.fillStyle = '#64748b'; ctx.fillRect(-22, -38, 44, 40);
+        ctx.fillStyle = '#0f172a'; ctx.fillRect(-19, -32, 31, 28);
+        ctx.fillStyle = '#164e3b'; ctx.fillRect(-17, -30, 27, 24);
+        ctx.fillStyle = '#86efac'; ctx.fillRect(-12, -24, 5, 5); ctx.fillRect(1, -24, 5, 5); // 像素雙眼
+        ctx.fillRect(-7, -12, 10, 2); // 像素笑嘴
+        ctx.fillStyle = 'rgba(134,239,172,.22)'; for(let y=-29;y<-6;y+=4) ctx.fillRect(-17, y, 27, 1); // 掃描線
+        ctx.fillStyle = '#1e293b'; ctx.fillRect(14, -29, 6, 14);
+        ctx.fillStyle = '#4ade80'; ctx.fillRect(15, -11, 3, 3); ctx.fillStyle = '#cbd5e1'; ctx.fillRect(15, -6, 3, 3);
+        ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; ctx.beginPath();
+        ctx.moveTo(-6, -38); ctx.lineTo(-14, -48); ctx.moveTo(6, -38); ctx.lineTo(14, -48); ctx.stroke();
+      }
       break;
     }
-    case 'code_wizard':
-      ctx.fillStyle='#6d28d9';ctx.beginPath();ctx.moveTo(-10,-4);ctx.lineTo(10,-4);ctx.lineTo(16,17);ctx.lineTo(-16,17);ctx.closePath();ctx.fill();
-      ctx.fillStyle='#facc15';ctx.fillRect(-1,-4,2,21);ctx.fillRect(-14,14,28,2);
-      ctx.fillStyle='#7c3aed';ctx.beginPath();ctx.moveTo(-13,-29);ctx.lineTo(3,-51);ctx.lineTo(12,-29);ctx.closePath();ctx.fill();ctx.fillRect(-17,-29,34,3);
-      ctx.fillStyle='#fde68a';ctx.fillRect(-1,-40,3,3);ctx.fillStyle='#713f12';ctx.fillRect(18,-9,3,28);ctx.fillStyle='#1e293b';ctx.fillRect(14,-14,12,8);
-      for(let i=0;i<4;i++){ctx.fillStyle=['#f472b6','#22d3ee','#a3e635','#facc15'][i];ctx.fillRect(15+i*3,-12,2,3);}break;
+
+    case 'minotaur': {
+      if (isUp) {
+        // 背面：厚實深棕牛頭後殼、後頸深色厚鬃毛、向前延伸的雙大牛角，完全無臉孔與鼻環
+        ctx.fillStyle = '#78350f'; ctx.fillRect(-22, -37, 44, 39);
+        ctx.fillStyle = '#451a03'; ctx.fillRect(-16, -36, 32, 16);
+        ctx.fillStyle = '#291102'; for (let x = -14; x <= 14; x += 6) ctx.fillRect(x, -26, 4, 12);
+        for (const side of [-1, 1]) {
+          ctx.fillStyle = '#fef3c7'; ctx.beginPath();
+          ctx.moveTo(side * 14, -32); ctx.lineTo(side * 32, -49); ctx.lineTo(side * 28, -27); ctx.lineTo(side * 17, -21); ctx.closePath(); ctx.fill();
+        }
+      } else if (isSide) {
+        // 側面：平整後腦與鬃毛 (-x)，前方大幅向前突出的立體米色牛嘴吻部 (+x)，頂點掛著純金大鼻環，單側黃牛眼與向前衝刺的單大牛角
+        ctx.fillStyle = '#78350f'; ctx.fillRect(-22, -37, 24, 38); // 後腦
+        ctx.fillStyle = '#451a03'; ctx.fillRect(-24, -34, 6, 26); // 後頸毛
+        ctx.fillStyle = '#92400e'; ctx.fillRect(0, -37, 12, 32); // 前額
+        ctx.fillStyle = '#d6a16c'; ctx.fillRect(2, -18, 20, 16); // 大幅突出的立體牛嘴吻部 (x: 2 ~ 22)
+        ctx.fillStyle = '#451a03'; ctx.fillRect(14, -13, 5, 4); // 側面突出鼻孔
+        ctx.strokeStyle = '#facc15'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(17, -5, 4.5, 0, Math.PI * 2); ctx.stroke(); // 懸掛在嘴吻最前方的純金大鼻環
+        ctx.fillStyle = '#451a03'; ctx.fillRect(2, -28, 9, 3); // 側面怒眉
+        ctx.fillStyle = '#fef08a'; ctx.fillRect(4, -25, 5, 5); ctx.fillStyle = '#1e293b'; ctx.fillRect(6, -24, 3, 3); // 側面大牛眼
+        ctx.fillStyle = '#fef3c7'; ctx.beginPath(); ctx.moveTo(6, -33); ctx.lineTo(26, -53); ctx.lineTo(22, -31); ctx.lineTo(12, -23); ctx.closePath(); ctx.fill(); // 單根前伸大牛角
+      } else {
+        // 正面：誇張左右對稱雙大牛角、粗黑怒眉、雙黃圓牛眼、超大突出米色牛吻部、雙大黑鼻孔、正中央金大鼻環
+        ctx.fillStyle = '#92400e'; ctx.fillRect(-22, -37, 44, 39);
+        for (const side of [-1, 1]) {
+          ctx.fillStyle = '#fef3c7'; ctx.beginPath();
+          ctx.moveTo(side * 14, -33); ctx.lineTo(side * 33, -51); ctx.lineTo(side * 29, -29); ctx.lineTo(side * 18, -22); ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = '#451a03'; ctx.fillRect(-15, -27, 11, 4); ctx.fillRect(4, -27, 11, 4);
+        ctx.fillStyle = '#fef08a'; ctx.fillRect(-12, -23, 5, 4); ctx.fillRect(7, -23, 5, 4);
+        ctx.fillStyle = '#1e293b'; ctx.fillRect(-10, -22, 3, 3); ctx.fillRect(7, -22, 3, 3);
+        ctx.fillStyle = '#d6a16c'; ctx.fillRect(-16, -16, 32, 15);
+        ctx.fillStyle = '#451a03'; ctx.fillRect(-10, -12, 5, 4); ctx.fillRect(5, -12, 5, 4);
+        ctx.strokeStyle = '#facc15'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, -6, 5, 0, Math.PI * 2); ctx.stroke();
+      }
+      break;
+    }
+
+    case 'wafer_mecha': {
+      if (isUp) {
+        // 背面：深藍後腦裝甲、雙冷卻排氣槽閃爍青藍冷光、金黃 V 字天線後視、護頸外甲
+        ctx.fillStyle = '#1e3a8a'; ctx.fillRect(-22, -42, 44, 43);
+        ctx.fillStyle = '#0f172a'; ctx.fillRect(-14, -28, 9, 14); ctx.fillRect(5, -28, 9, 14);
+        ctx.fillStyle = '#22d3ee'; ctx.fillRect(-12, -24, 5, 6); ctx.fillRect(7, -24, 5, 6);
+        ctx.fillStyle = '#3b82f6'; ctx.fillRect(-16, -12, 32, 8);
+        ctx.fillStyle = '#fde047'; ctx.fillRect(-3, -46, 6, 7);
+      } else if (isSide) {
+        // 側面：後沿護頸裝甲 (-x)，中央耳部圓形機械軸承，前方突出尖銳青色雷射護目鏡 (+x)，下巴散熱格柵，前傾 V 字天線
+        ctx.fillStyle = '#1e3a8a'; ctx.fillRect(-22, -38, 20, 36);
+        ctx.fillStyle = '#60a5fa'; ctx.fillRect(-4, -28, 8, 18); ctx.fillStyle = '#1d4ed8'; ctx.fillRect(-2, -24, 4, 10);
+        ctx.fillStyle = '#2563eb'; ctx.fillRect(4, -38, 16, 34);
+        ctx.fillStyle = '#0f172a'; ctx.fillRect(6, -29, 14, 8);
+        ctx.fillStyle = '#22d3ee'; ctx.fillRect(8, -27, 13, 4); // 發光前突目鏡
+        ctx.fillStyle = '#94a3b8'; ctx.fillRect(6, -16, 12, 10);
+        ctx.fillStyle = '#334155'; ctx.fillRect(10, -14, 3, 6); ctx.fillRect(15, -14, 3, 6);
+        ctx.fillStyle = '#fde047'; ctx.fillRect(2, -47, 6, 8);
+      } else {
+        // 正面：深藍機甲外殼、兩側巨型裝甲耳、晶圓盒頂蓋、青色全覆蓋雷射護目鏡、金黃 V 字天線、機械散熱嘴部格柵
+        ctx.fillStyle = '#2563eb'; ctx.fillRect(-22, -42, 44, 43);
+        ctx.fillStyle = '#bfdbfe'; ctx.fillRect(-18, -39, 36, 4);
+        ctx.fillStyle = '#60a5fa'; ctx.fillRect(-26, -32, 6, 20); ctx.fillRect(20, -32, 6, 20);
+        ctx.fillStyle = '#0f172a'; ctx.fillRect(-16, -30, 32, 12);
+        ctx.fillStyle = '#22d3ee'; ctx.fillRect(-13, -27, 26, 5);
+        ctx.fillStyle = '#94a3b8'; ctx.fillRect(-12, -15, 24, 12);
+        ctx.fillStyle = '#334155'; for (let x = -8; x <= 8; x += 4) ctx.fillRect(x, -12, 2, 6);
+        ctx.fillStyle = '#fde047'; ctx.fillRect(-3, -46, 6, 7);
+      }
+      break;
+    }
+
+    case 'boba_head': {
+      if (isUp) {
+        // 背面：純琥珀奶茶色深色杯身、封膜杯緣、粉紅粗吸管後穿入、杯底暗色珍珠陰影
+        ctx.fillStyle = '#b45309'; ctx.fillRect(-20, -38, 40, 39);
+        ctx.fillStyle = '#fef3c7'; ctx.fillRect(-24, -41, 48, 5);
+        ctx.fillStyle = '#ec4899'; ctx.fillRect(6, -56, 5, 17);
+        ctx.fillStyle = '#451a03'; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(-10 + i * 5, -5, 2.8, 0, Math.PI * 2); ctx.fill(); }
+      } else if (isSide) {
+        // 側面：圓柱透視杯身、封膜厚緣、粗吸管向後斜插、前側透明高光反光條 (+x)、杯底滾動珍珠
+        ctx.fillStyle = '#c9955e'; ctx.fillRect(-18, -38, 36, 39);
+        ctx.fillStyle = '#fef3c7'; ctx.fillRect(-21, -41, 42, 5);
+        ctx.save(); ctx.translate(0, -38); ctx.rotate(-0.25); ctx.fillStyle = '#f472b6'; ctx.fillRect(2, -18, 5, 18); ctx.restore();
+        ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fillRect(10, -33, 4, 25);
+        ctx.fillStyle = '#422006'; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(2 + i * 3.5, -5 + (i % 2) * 2, 3, 0, Math.PI * 2); ctx.fill(); }
+      } else {
+        // 正面：半透明奶茶杯身、白色頂蓋封膜、右上斜插粉紅粗吸管、左側高光線、杯底跳動黑糖波霸珍珠
+        ctx.fillStyle = '#c9955e'; ctx.fillRect(-20, -38, 40, 39);
+        ctx.fillStyle = '#fef3c7'; ctx.fillRect(-24, -41, 48, 5); ctx.fillRect(-18, -34, 36, 5);
+        ctx.fillStyle = '#f472b6'; ctx.fillRect(7, -56, 5, 18); ctx.fillStyle = '#fbcfe8'; ctx.fillRect(8, -55, 2, 17);
+        ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(-15, -28, 4, 22); ctx.fillRect(-9, -28, 2, 22);
+        ctx.fillStyle = '#422006'; for(let i=0; i<7; i++){ const x=-13+(i%4)*8, y=-7-Math.floor(i/4)*7+Math.sin(tick*.08+i)*1.8; ctx.beginPath(); ctx.arc(x,y,3.2,0,Math.PI*2); ctx.fill(); }
+      }
+      break;
+    }
+
+    case 'code_wizard': {
+      if (isUp) {
+        ctx.fillStyle = '#6d28d9'; ctx.beginPath(); ctx.moveTo(-10, -4); ctx.lineTo(10, -4); ctx.lineTo(16, 17); ctx.lineTo(-16, 17); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.moveTo(-14, -29); ctx.lineTo(0, -52); ctx.lineTo(14, -29); ctx.closePath(); ctx.fill(); ctx.fillRect(-17, -29, 34, 3);
+        ctx.fillStyle = '#facc15'; ctx.fillRect(-2, 2, 4, 4);
+      } else if (isSide) {
+        ctx.fillStyle = '#6d28d9'; ctx.fillRect(-12, -4, 22, 21);
+        ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.moveTo(-12, -29); ctx.lineTo(-4, -52); ctx.lineTo(10, -29); ctx.closePath(); ctx.fill(); ctx.fillRect(-15, -29, 28, 3);
+        ctx.fillStyle = '#f1f5f9'; ctx.fillRect(2, -4, 6, 10);
+        ctx.fillStyle = '#713f12'; ctx.fillRect(12, -9, 3, 28);
+      } else {
+        ctx.fillStyle = '#6d28d9'; ctx.beginPath(); ctx.moveTo(-10, -4); ctx.lineTo(10, -4); ctx.lineTo(16, 17); ctx.lineTo(-16, 17); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#facc15'; ctx.fillRect(-1, -4, 2, 21); ctx.fillRect(-14, 14, 28, 2);
+        ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.moveTo(-13, -29); ctx.lineTo(3, -51); ctx.lineTo(12, -29); ctx.closePath(); ctx.fill(); ctx.fillRect(-17, -29, 34, 3);
+        ctx.fillStyle = '#fde68a'; ctx.fillRect(-1, -40, 3, 3);
+        ctx.fillStyle = '#f1f5f9'; ctx.fillRect(-8, -4, 16, 9);
+        ctx.fillStyle = '#713f12'; ctx.fillRect(18, -9, 3, 28); ctx.fillStyle = '#1e293b'; ctx.fillRect(14, -14, 12, 8);
+        for (let i = 0; i < 4; i++) {
+          ctx.fillStyle = ['#f472b6', '#22d3ee', '#a3e635', '#facc15'][i]; ctx.fillRect(15 + i * 3, -12, 2, 3);
+        }
+      }
+      break;
+    }
   }
   ctx.restore();
 }
@@ -616,51 +730,7 @@ window.drawWackyAvatar = function (ctx, opts) {
       fillRoundRect(ctx, -9, -2, 18, 14, 4);
       ctx.fillStyle = '#ef4444';
       ctx.fillRect(-1.5, 0, 3, 9);
-
-      ctx.fillStyle = '#fef3c7';
-      ctx.strokeStyle = '#92400e';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(-12, -16);
-      ctx.quadraticCurveTo(-26, -22, -22, -33);
-      ctx.quadraticCurveTo(-16, -26, -10, -21);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(12, -16);
-      ctx.quadraticCurveTo(26, -22, 22, -33);
-      ctx.quadraticCurveTo(16, -26, 10, -21);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      const headGrad = ctx.createLinearGradient(0, -30, 0, -4);
-      headGrad.addColorStop(0, '#b45309');
-      headGrad.addColorStop(1, '#78350f');
-      ctx.fillStyle = headGrad;
-      fillRoundRect(ctx, -14, -28, 28, 24, 8);
-
-      ctx.fillStyle = '#fca5a5';
-      fillRoundRect(ctx, -10, -14, 20, 10, 5);
-      ctx.fillStyle = '#7f1d1d';
-      ctx.beginPath();
-      ctx.arc(-4, -9, 1.8, 0, Math.PI * 2);
-      ctx.arc(4, -9, 1.8, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = '#facc15';
-      ctx.lineWidth = 2.4;
-      ctx.beginPath();
-      ctx.arc(0, -5, 4.5, 0.15 * Math.PI, 0.85 * Math.PI);
-      ctx.stroke();
-
-      ctx.fillStyle = isBerserk ? '#ef4444' : '#fef08a';
-      ctx.beginPath();
-      ctx.arc(-6, -19, 2.6, 0, Math.PI * 2);
-      ctx.arc(6, -19, 2.6, 0, Math.PI * 2);
-      ctx.fill();
+      drawWearableLayer(ctx, { id: 'minotaur' }, tick, dir);
       break;
     }
 
@@ -721,25 +791,7 @@ window.drawWackyAvatar = function (ctx, opts) {
       ctx.lineTo(0, 5);
       ctx.lineTo(6, 0);
       ctx.stroke();
-
-      ctx.fillStyle = '#e2e8f0';
-      fillRoundRect(ctx, -14, -28, 28, 23, 5);
-      ctx.strokeStyle = '#475569';
-      ctx.lineWidth = 1.5;
-      strokeRoundRect(ctx, -14, -28, 28, 23, 5);
-
-      ctx.fillStyle = '#0f172a';
-      fillRoundRect(ctx, -10, -24, 20, 15, 3);
-      const laserGlow = 0.6 + 0.4 * Math.sin(tick * 0.2);
-      ctx.fillStyle = `rgba(56, 189, 248, ${laserGlow})`;
-      fillRoundRect(ctx, -8, -19, 16, 4, 2);
-      ctx.strokeStyle = '#facc15';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(-9, -33);
-      ctx.lineTo(0, -26);
-      ctx.lineTo(9, -33);
-      ctx.stroke();
+      drawWearableLayer(ctx, { id: 'wafer_mecha' }, tick, dir);
       break;
     }
 
@@ -776,41 +828,7 @@ window.drawWackyAvatar = function (ctx, opts) {
     case 'boba_head': {
       ctx.fillStyle = '#78350f';
       fillRoundRect(ctx, -10, -3, 20, 15, 5);
-
-      ctx.save();
-      ctx.rotate(0.18);
-      ctx.fillStyle = '#ec4899';
-      fillRoundRect(ctx, -3, -38, 6, 16, 2);
-      ctx.restore();
-
-      const teaGrad = ctx.createLinearGradient(0, -26, 0, -4);
-      teaGrad.addColorStop(0, '#fef3c7');
-      teaGrad.addColorStop(0.3, '#fde68a');
-      teaGrad.addColorStop(1, '#b45309');
-      ctx.fillStyle = teaGrad;
-      fillRoundRect(ctx, -13, -27, 26, 24, 6);
-      ctx.fillStyle = '#f8fafc';
-      fillRoundRect(ctx, -15, -29, 30, 4, 2);
-
-      ctx.fillStyle = '#27272a';
-      [
-        [-8, -7],
-        [-4, -6],
-        [0, -8],
-        [4, -6],
-        [8, -7],
-      ].forEach(([px, py], idx) => {
-        const bounce = isMoving ? Math.sin(tick * 0.35 + idx) * 1.8 : 0;
-        ctx.beginPath();
-        ctx.arc(px, py + bounce, 2.2, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      ctx.fillStyle = '#451a03';
-      ctx.beginPath();
-      ctx.arc(-5, -18, 2, 0, Math.PI * 2);
-      ctx.arc(5, -18, 2, 0, Math.PI * 2);
-      ctx.fill();
+      drawWearableLayer(ctx, { id: 'boba_head' }, tick, dir);
       break;
     }
 
@@ -1338,6 +1356,15 @@ window.drawWackyAvatar = function (ctx, opts) {
       break;
     }
 
+    case 'crt_bot': {
+      ctx.fillStyle = '#475569';
+      fillRoundRect(ctx, -11, -5, 22, 18, 4);
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(-2, -3, 4, 14);
+      drawWearableLayer(ctx, { id: 'crt_bot' }, tick, dir);
+      break;
+    }
+
     default: {
       const a = officePerson || window.AVATAR_CATALOG[0];
       // Pixel-cut clothing, side shading, and individual hair silhouettes.
@@ -1360,17 +1387,40 @@ window.drawWackyAvatar = function (ctx, opts) {
       ctx.fillStyle=a.skin;ctx.fillRect(-9,-24,18,19);ctx.fillRect(-3,-6,6,3);
       ctx.fillStyle=a.hair;ctx.fillRect(-10,-27,20,7);ctx.fillRect(-11,-22,4,9);
       if(a.gender==='female')ctx.fillRect(8,-23,5,23);
-      if(dir !== 'up') {
+      if (dir === 'up') {
+        // 背面：後腦頭髮覆蓋全頭，衣服領子後背，不繪製任何五官面容
+        ctx.fillStyle = a.hair;
+        ctx.fillRect(-9, -23, 18, 18);
+        ctx.fillStyle = a.primary;
+        ctx.fillRect(-6, -6, 12, 4);
+      } else if (dir === 'left' || dir === 'right') {
+        // 側面：面朝移動前方 (+x)，後腦與頭頂覆蓋頭髮，前方露出側面五官
+        ctx.fillStyle = a.hair;
+        ctx.fillRect(-10, -24, 11, 18); // 後腦頭髮
+        ctx.fillStyle = '#27272a';
+        ctx.fillRect(3, -15, 2, 2); // 側面單眼朝前凝視
+        ctx.fillStyle = '#a16252';
+        ctx.fillRect(4, -9, 3, 1); // 側面唇鼻微露
+        if (a.glasses) {
+          ctx.strokeStyle = '#334155'; ctx.lineWidth = 1;
+          ctx.strokeRect(1, -17, 6, 5); // 鏡片
+          ctx.fillStyle = '#334155'; ctx.fillRect(-4, -15, 5, 1); // 鏡腳向後延伸
+        }
+        if (a.age >= 45) {
+          ctx.fillStyle = '#bd927e'; ctx.fillRect(2, -11, 3, 1);
+        }
+      } else {
+        // 正面 (dir === 'down')
         ctx.fillStyle='#27272a';ctx.fillRect(-5,-15,2,2);ctx.fillRect(4,-15,2,2);
         ctx.fillStyle='#a16252';ctx.fillRect(-2,-9,4,1);
         if(a.glasses){ctx.strokeStyle='#334155';ctx.lineWidth=1;ctx.strokeRect(-7,-17,7,5);ctx.strokeRect(1,-17,7,5);ctx.fillStyle='#334155';ctx.fillRect(0,-15,1,1);}
         if(a.age>=45){ctx.fillStyle='#bd927e';ctx.fillRect(-7,-10,3,1);ctx.fillRect(5,-10,3,1);}
-      } else {ctx.fillStyle=a.hair;ctx.fillRect(-9,-23,18,16);}
+      }
       break;
     }
   }
 
-  if(officePerson)drawWearableLayer(ctx,appearance.costume,tick);
+  if(officePerson)drawWearableLayer(ctx,appearance.costume,tick,dir);
 
   // 4. 若是打掃阿姨或啟動「🧹 揮汗大掃除」動作，在手上畫出動態揮舞的黃金長柄掃把
   if ((isSweeper && !actionState) || actionState === 'sweep_floor') {
