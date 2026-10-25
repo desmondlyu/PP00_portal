@@ -42,3 +42,14 @@ test('exactly five percent does not drop a costume',()=>{
 test('duplicate combat state does not repeat costume damage effect',()=>{
  const g=game();g.roll(.1);g.h.damage(g.n,'a');const snapshot=g.n.combat;g.h.packet(g.n,{type:'combat_state',senderId:'a',state:snapshot});assert.equal(g.effects.length,1);assert.equal(g.effects[0].outfitDamage,true);
 });
+test('every hit and dodge publishes a timed reaction for master and remote viewers',()=>{
+ const g=game(),e=g.n.npcPlayers.get('npc_aunt');e.isSecurityGuard=true;
+ g.roll(.1);g.h.strike(g.n,'a',e.id);assert.equal(g.n.combat.enemies[e.id].reaction.kind,'dodge');assert.equal(e.combatReaction.kind,'dodge');
+ const remote=game();remote.n.clientId='z';remote.n.remotePlayers.set('a',{id:'a'});remote.n.isRoomMaster=()=>false;
+ remote.h.packet(remote.n,{type:'combat_state',senderId:'a',state:JSON.parse(JSON.stringify(g.n.combat))});assert.equal(remote.n.npcPlayers.get(e.id).combatReaction.kind,'dodge');
+ g.advance(300);g.roll(.9);g.h.strike(g.n,'a',e.id);assert.equal(e.combatReaction.kind,'hit');const pose=g.h.reactionPose(e,100400);assert(pose.jump>0);assert.notEqual(pose.x,0);
+ assert.equal(g.h.reactionPose(e,101000).jump,0);
+});
+test('final defeat keeps an impact animation even though physical knockback stops',()=>{
+ const g=game(),e=g.n.npcPlayers.get('npc_aunt');for(let i=0;i<3;i++){g.h.strike(g.n,'a',e.id);g.advance(300);}assert.equal(g.n.combat.enemies[e.id].hp,0);assert.equal(e.combatReaction.kind,'defeat');assert(g.h.reactionPose(e,100800).jump>0);
+});
