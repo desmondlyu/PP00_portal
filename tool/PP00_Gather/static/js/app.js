@@ -118,6 +118,7 @@
         hud.style.letterSpacing = '0.04em';
         hud.style.backdropFilter = 'blur(8px)';
         hud.style.userSelect = 'none';
+        hud.style.pointerEvents = 'none';
         document.body.appendChild(hud);
       }
       const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - Date.now()) / 1000));
@@ -807,6 +808,7 @@
       showCombatToast('背包已滿，請先騰出一格再交換裝備'); return;
     }
     syncPlayerActiveWeaponState();
+    if(item.category!=='outfit')showCombatToast(`已裝備【${escapeHtml(item.name)}】`);
   }
 
   function unequipSlotToBag(equipIdx) {
@@ -814,6 +816,7 @@
       showCombatToast('背包已滿，無法卸下裝備'); return;
     }
     syncPlayerActiveWeaponState();
+    showCombatToast('已卸下裝備，放回背包');
   }
 
   function renderMinecraftInventoryUI() {
@@ -922,7 +925,7 @@
             localPlayer.activeEquipIndex = idx;
             syncPlayerActiveWeaponState();
             const s = localPlayer.equippedSlots[idx];
-            showToast(
+            showCombatToast(
               `⚔️ 已切換主手武器為：${s.emoji} ${escapeHtml(s.name)}（擊退 +${
                 s.knockbackExp
               } EXP，剩餘耐久 ${s.durability}/${s.maxDurability}）`,
@@ -2620,10 +2623,7 @@ function executeOfficeLogin(params) {
       hitCount++;
       if(now-(enemy.lastCombatLogAt||0)>600){enemy.lastCombatLogAt=now;appendCombatText(`攻擊【${escapeHtml(enemy.name)}】`);}
       window.OfficeCombat.send(network,'combat_strike',{targetId:enemy.uid||enemy.id});
-      if(enemy.isBirdCommander && window.OfficeHunt?.clock().active) {
-        if(network.isRoomMaster()) window.OfficeHunt.strike(network,network.clientId);
-        else network.broadcastPacket('hunt_strike');
-      }
+
     }
 
     // 3. 檢查並打飛附近的線上同事 (Remote Players)，5% 機率造成重傷臥床 5 分鐘
@@ -4204,7 +4204,7 @@ function executeOfficeLogin(params) {
   }
 
   function appendCombatText(htmlText) {
-    if (typeof document === 'undefined' || !window.matchMedia('(max-width: 900px), (pointer: coarse)').matches) return false;
+    if (typeof document === 'undefined') return false;
     let feed = document.getElementById('mobileCombatFeed');
     if (!feed) {
       feed = document.createElement('div');
@@ -4859,7 +4859,7 @@ function executeOfficeLogin(params) {
           }
           const gained = addExp(15);
           updateSelfHudCard();
-          showToast(
+          showCombatToast(
             `🎒 走過撿起隨機掉落物 ${added.emoji} ${escapeHtml(added.name)}（經驗加成 +${
               added.expBonusPct
             }%｜獲得 +${gained} EXP）！`,
@@ -5085,6 +5085,8 @@ function executeOfficeLogin(params) {
     const sortedPlayers = [...allPlayers].sort((a, b) => a.y - b.y);
     sortedPlayers.forEach((p) => {
       ctx.save();
+      const reaction=window.OfficeCombat.reactionPose(p);
+      ctx.translate(reaction.x,reaction.y-reaction.jump);
       if((network.hunt?.protectedUntil?.[p.id]||0)>Date.now()) ctx.globalAlpha=tick%12<6?.35:1;
       window.drawWackyAvatar(ctx, {
         avatarId: p.outfitAvatarId || p.avatarId,
@@ -5100,7 +5102,7 @@ function executeOfficeLogin(params) {
         actionState: p.actionState || null,
         isBerserk: !!p.isBerserk,
         isSweeper: !!p.isSweeper,
-        isKnockedBack: !!(p.knockback && p.knockback.ticksLeft > 0),
+        isKnockedBack: (reaction.active && reaction.kind!=='dodge') || !!(p.knockback && p.knockback.ticksLeft > 0),
         heldItem: p.isNpc ? '' : p.heldItem,
         weaponSwing: p.weaponSwing ? {...p.weaponSwing,progress:p.id===localPlayer.id ? 1-p.weaponSwing.ticksLeft/p.weaponSwing.totalTicks : (Date.now()-p.weaponSwing.startedAt)/300} : null,
         isInjured: p.id === localPlayer.id ? !!localPlayer.isInjured : !!p.isInjured,
