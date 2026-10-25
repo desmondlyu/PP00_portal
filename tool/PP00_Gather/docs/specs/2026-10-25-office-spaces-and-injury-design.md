@@ -189,7 +189,51 @@
 
 ---
 
-## 五、 模組關聯與檔案對照
+## 五、 後端資料庫持久化：免 Email 認證之地端與雲端混合架構
+
+為徹底解決「純前端 LocalStorage 清快取蒸發、換電腦無法繼承等級、易遭 F12 竄改」三大痛點，同時**嚴格貫徹「零 Email 註冊、零收信流程、零密碼負擔」**原則，正式引入方案一之混合認證架構。
+
+### 1. 混合運作機制（方案一：無痛姓名認證 ＋ 4 位數 PIN 碼）
+- **同仁體驗完全不變**：同仁打開網頁，依然只輸入「英文名 / 綽號（如 `Tony`）」＋「部門（如 `PP32`）」，點擊進入。
+- **首次登入**：
+  - 系統跳出極簡提示：「請設定您的 4 位數通關 PIN 碼（如 1234，換電腦登入防冒用）」。
+  - 於後端資料表自動建立檔案，初始 0 EXP、Lv.1 菜逼八工程師。
+- **後續登入（原電腦）**：
+  - 本地快取自動比對成功，直接秒進辦公室，不用重複輸入 PIN。
+- **換電腦登入（跨裝置繼承）**：
+  - 在新電腦輸入同名同部門時，系統提示輸入 4 位數 PIN 碼。驗證通過後，後端立刻將當前經驗值、等級與解鎖服裝推回該電腦，完美接軌！
+
+### 2. 後端資料表必存欄位（`gather_user_profiles`）
+後端絕不儲存多餘垃圾資訊，僅嚴格保存**「不可遺失之長期心血與外觀資產」**：
+
+```sql
+create table if not exists gather_user_profiles (
+  user_name text primary key,             -- 主鍵 (小寫，如 'tony')
+  display_name text not null,             -- 顯示暱稱 (如 'Tony')
+  unit text not null,                     -- 部門單位 (如 'PP32')
+  pin_code text not null,                 -- 4 位數簡易防冒用 PIN (如 '1234')
+  exp integer default 0,                  -- 核心：累積經驗值
+  level integer default 1,                -- 核心：當前等級 (1 ~ 20)
+  season integer default 2,               -- 賽季標記 (第二賽季)
+  unlocked_outfits jsonb default '[]'::jsonb, -- 核心資產：扭蛋抽到的珍貴服裝/頭飾清單
+  avatar_id text default 'frog_eng',      -- 偏好外觀頭像 ID
+  total_logins integer default 1,         -- 累計登入次數
+  last_login_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+```
+
+### 3. 地端（LocalStorage）vs 後端（Supabase）資料分工邊界
+
+| 分工層級 | 負責儲存之具體項目 | 儲存理由與特性 |
+| :--- | :--- | :--- |
+| **後端資料庫 (Supabase)**<br>*永久保存・跨裝置同步* | 1. **帳號核心**：`user_name`、`unit`、`pin_code`<br>2. **長期心血**：`exp`、`level`、`season`<br>3. **珍貴資產**：`unlocked_outfits`（扭蛋抽到的限定外觀清單）<br>4. **統計紀錄**：`total_logins`、`last_login_at` | 換電腦、清快取皆不遺失。<br>具備防作弊公信力，不再能被 F12 隨意修改經驗值。 |
+| **地端快取 (LocalStorage)**<br>*即時運算・暫態數據* | 1. **隨身雜物**：3 格手持武器與當前剩餘耐久度<br>2. **負面計時**：輕微挫傷 🩹 60 秒倒數<br>3. **本機設定**：音量、縮放鏡頭偏好<br>4. **離線快取**：斷線時之降級防禦快取 | 武器揮 3 次就壞、零食隨吃隨掉，屬於暫態雜物，不上雲端減輕伺服器負擔。 |
+| **即時線上表 (Online Users)**<br>*瞬態廣播・離線即刪* | 1. **即時座標**：`x`, `y`, `dir`<br>2. **動作姿勢**：`action_state`（打 Code、躺平、拜拜）<br>3. **心跳偵測**：`last_heartbeat`（每 8 秒發送，離線 35 秒自動 DELETE） | 純粹用於讓螢幕上看得到其他同仁即時走動，不影響個人存檔。 |
+
+---
+
+## 六、 模組關聯與檔案對照
 
 | 功能模組 | 涉及檔案 | 關鍵函式 / 變數 |
 | :--- | :--- | :--- |
@@ -197,13 +241,14 @@
 | **設備互動與判定** | `static/js/app.js` | `detectNearbyFacility()` (增加扭蛋、參拜、電話、工具台互動)<br>`triggerFacilityAction()` |
 | **傷害與分級狀態** | `static/js/app.js`<br>`static/js/combat.js` | `localPlayer.lightInjuredUntil`<br>`handleIncomingWeaponAttack()`<br>`onCombatDamage()` |
 | **衣櫃與扭蛋防呆** | `static/js/wardrobe.js` | `canAdd()` 驗證機制<br>`outfitCount` 限制保護 |
+| **後端認證與同步** | `static/js/supabaseSync.js`<br>`static/js/app.js` | `registerUserNow()` / `fetchUserProfile()`<br>`gather_user_profiles` 存取與 PIN 驗證 |
 | **經驗值計算與扣罰** | `static/js/app.js` | `recalcLevelAndBuff()` (非線性與降等)<br>`addExp()` / `deductExp()`<br>`triggerBossOrAuntieBeating()` (扣 50)<br>`onHuntHit()` (扣 120) |
 | **數值與道具設定** | `static/js/config.js` | `items` 清單中 `rma_report` 參數微調 |
 
 ---
 
-## 六、 後續執行路徑（Implementation & Verification Roadmap）
+## 七、 後續執行路徑（Implementation & Verification Roadmap）
 
-1. **使用者審閱規範**：確認空間配置、非線性階梯與硬核降等扣點機制符合預期。
-2. **制定實作計畫（Writing Plans）**：依序規劃底層資料定義、各房間繪製、互動邏輯實作與單元測試。
-3. **實作驗證（TDD / E2E 測試）**：於 `tests/` 新增對應空間互動、受傷分級與動態降等之自動化測試。
+1. **使用者審閱規範**：確認空間配置、非線性階梯、硬核降等扣點機制與免 Email 後端 Schema 符合預期。
+2. **制定實作計畫（Writing Plans）**：依序規劃後端 Schema 整合、底層資料定義、各房間繪製、互動邏輯實作與單元測試。
+3. **實作驗證（TDD / E2E 測試）**：於 `tests/` 新增對應空間互動、受傷分級、動態降等與 Supabase 同步之自動化測試。
