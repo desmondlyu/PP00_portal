@@ -1495,6 +1495,8 @@ case 'crt_bot':
 
 window.drawMinecraftMob = function (ctx, mob, tick) {
   ctx.save();
+  const reaction=window.OfficeCombat?.reactionPose(mob);
+  if(reaction)ctx.translate(reaction.x,reaction.y-reaction.jump);
   const jumpY = mob.jumpOffset || 0;
   const isKnocked = !!(mob.knockback && mob.knockback.ticksLeft > 0);
   const hop = isKnocked ? 0 : Math.abs(Math.sin(tick * 0.24 + (mob.seed || 0))) * 5;

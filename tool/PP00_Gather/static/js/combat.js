@@ -9,6 +9,16 @@
   function apply(n,pkt){
     if(!master(n,pkt.senderId)||!pkt.state)return;
     n.combat=pkt.state;
+    n.combatVisuals ||= {};
+    for(const e of [...n.npcPlayers.values(),...(n.callbacks.getMobs?.()||[])]){
+      const entityId=e.uid||e.id;
+      const reaction=n.combat.enemies?.[e.uid||e.id]?.reaction;
+      if(reaction && n.combatVisuals[entityId]?.id!==reaction.id){
+        n.combatVisuals[entityId]={...reaction,startedAt:Date.now()};
+        e.emote={emoji:reaction.kind==='dodge'?'💨':'💥',expiresAt:Date.now()+600};
+      }
+      e.combatReaction=n.combatVisuals[entityId];
+    }
     const s=state(n), p=n.localPlayer;if(!p)return;
     n.combatSeen ||= new Set();
     for(const [id,g] of Object.entries(s.grants))if(g.owner===n.clientId&&!n.combatSeen.has(id)){
@@ -48,11 +58,16 @@
     if(h.until>now)return;
     if(h.hp<=0){h.hp=h.maxHp;h.until=0;}
     const dodge=e.isGhost?.60:e.isBirdCommander?.45:e.isSecurityGuard?.25:0;
-    if(Math.random()<dodge){e.emote={emoji:'💨',expiresAt:now+1000};n.broadcastPacket('npc_reaction',{npcId:e.id,reaction:'dodge',emote:e.emote,jumpOffset:20});return;}
+    const angle=Math.atan2(e.y-a.y,e.x-a.x);
+    const reaction=(kind)=>{h.reaction={id:entityId+':'+now+':'+id,kind,angle,startedAt:now,duration:450};};
+    if(Math.random()<dodge){reaction('dodge');emit(n);return;}
+    reaction('hit');
     h.hp--;e.hp=h.hp;e.maxHp=h.maxHp;
-    const angle=Math.atan2(e.y-a.y,e.x-a.x);e.knockback={vx:Math.cos(angle)*16,vy:Math.sin(angle)*16,ticksLeft:20};
+    if(e.isBirdCommander && window.OfficeHunt?.clock().active)window.OfficeHunt.strike?.(n,id);
+    e.knockback={vx:Math.cos(angle)*16,vy:Math.sin(angle)*16,ticksLeft:20};
     e.isBerserk=false;e.emote={emoji:'💥',expiresAt:now+1000};
     if(h.hp===0){
+      reaction('defeat');
       h.defeatedAt=now;
       h.until=now+(e.isMob?180000:e.isBirdCommander?(window.OfficeHunt?.clock().active?10000:180000):60000);
       e.actionState='sleep_bed';e.isMoving=false;e.knockback=null;e.isFleeing=false;
@@ -116,6 +131,7 @@
     }
     for(const e of [...n.npcPlayers.values(),...(n.callbacks.getMobs?.()||[])]){
       const entityId=e.uid||e.id;
+      e.combatReaction=n.combatVisuals?.[entityId];
       const h=s.enemies[entityId];if(!h)continue;
       e.combatDown=h.until>now;e.hp=h.hp;e.maxHp=h.maxHp;
       if(e.combatDown){e.actionState='sleep_bed';e.isMoving=false;if(e.isMob&&now-(h.defeatedAt||now)>1800)n.callbacks.onCombatMobDefeat?.(e.uid);}
@@ -124,5 +140,11 @@
     n.callbacks.onCombatGround?.(s.items);
     if(n.isRoomMaster()&&tick%30===0)emit(n);
   }
-  window.OfficeCombat={tier,health,strike,damage,send,packet,update,state};
+  function reactionPose(e,now=Date.now()){
+    const r=e.combatReaction,t=r?(now-r.startedAt)/r.duration:1;
+    if(!r||t<0||t>=1)return {x:0,y:0,jump:0,active:false};
+    const wave=Math.sin(t*Math.PI),angle=r.angle+(r.kind==='dodge'?Math.PI/2:0);
+    return {x:Math.cos(angle)*wave*20,y:Math.sin(angle)*wave*12,jump:wave*(r.kind==='dodge'?20:12),active:true,kind:r.kind};
+  }
+  window.OfficeCombat={tier,health,strike,damage,send,packet,update,state,reactionPose};
 })();
