@@ -99,7 +99,7 @@ window.COSTUME_CATALOG = [
     badge: '📺',
     primary: '#64748b',
     secondary: '#e2e8f0',
-    desc: '復古映像管外殼頭套，螢幕開口露出原人物的臉與眼鏡。',
+    desc: '大型復古 CRT 頭套完全遮住臉部，螢幕顯示綠色像素表情與掃描線。',
   },
 ];
 
@@ -341,28 +341,46 @@ window.getAvatarAppearance = function(baseId,outfitId) {
 function drawWearableLayer(ctx,costume,tick) {
   if(!costume)return;
   ctx.save();
-  // Never paint inside the face opening: (-11,-27) to (11,-4).
-  const frame=(color,top=-34,width=19)=>{
-    ctx.fillStyle=color;ctx.fillRect(-width,top,width*2,-27-top);
-    ctx.fillRect(-width,-27,width-11,29);ctx.fillRect(11,-27,width-11,29);ctx.fillRect(-width,-4,width*2,6);
-    ctx.fillStyle='rgba(255,255,255,.3)';ctx.fillRect(-width,top,width*2,2);
-    ctx.fillStyle='rgba(0,0,0,.22)';ctx.fillRect(width-3,top+2,3,29);
+  // Opaque oversized headpieces cover hair, glasses and face; the body stays unchanged.
+  const shell=(color,top=-38,width=22)=>{
+    ctx.fillStyle=color;ctx.fillRect(-width,top,width*2,2-top);
+    ctx.fillStyle='rgba(255,255,255,.3)';ctx.fillRect(-width,top,width*2,3);
+    ctx.fillStyle='rgba(0,0,0,.22)';ctx.fillRect(width-4,top+3,4,-top-1);
   };
   switch(costume.id){
-    case 'crt_bot':
-      frame('#64748b');ctx.fillStyle='#1e293b';ctx.fillRect(12,-24,5,15);
-      ctx.fillStyle='#4ade80';ctx.fillRect(13,-8,2,2);ctx.fillStyle='#cbd5e1';ctx.fillRect(13,-5,2,2);
-      ctx.strokeStyle='#94a3b8';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-6,-34);ctx.lineTo(-12,-42);ctx.moveTo(6,-34);ctx.lineTo(12,-42);ctx.stroke();break;
-    case 'minotaur':
-      frame('#92400e',-35,18);ctx.fillStyle='#fef3c7';
-      for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(side*14,-32);ctx.lineTo(side*28,-43);ctx.lineTo(side*24,-29);ctx.lineTo(side*17,-25);ctx.closePath();ctx.fill();}
-      ctx.fillStyle='#b45309';ctx.fillRect(-8,-35,16,7);ctx.strokeStyle='#facc15';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,-30,3,0,Math.PI);ctx.stroke();break;
-    case 'wafer_mecha':
-      frame('#2563eb',-37,20);ctx.fillStyle='#bfdbfe';ctx.fillRect(-16,-35,32,3);ctx.fillRect(-20,-25,6,15);ctx.fillRect(14,-25,6,15);
-      ctx.fillStyle='#22d3ee';ctx.fillRect(-18,-21,2,8);ctx.fillRect(16,-21,2,8);ctx.fillStyle='#475569';ctx.fillRect(-5,-41,10,4);break;
-    case 'boba_head':
-      frame('#d6a46a',-35,18);ctx.fillStyle='#fef3c7';ctx.fillRect(-20,-37,40,4);ctx.fillStyle='#f472b6';ctx.fillRect(7,-48,4,12);
-      ctx.fillStyle='#422006';for(const side of [-1,1])for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(side*14,-20+i*7+Math.sin(tick*.05+i),2,0,Math.PI*2);ctx.fill();}break;
+    case 'crt_bot': {
+      shell('#64748b',-38,24);
+      ctx.fillStyle='#0f172a';ctx.fillRect(-20,-32,33,28);
+      ctx.fillStyle='#164e3b';ctx.fillRect(-18,-30,29,24);
+      ctx.fillStyle='#86efac';ctx.fillRect(-13,-24,5,5);ctx.fillRect(2,-24,5,5);ctx.fillRect(-8,-12,11,2);
+      ctx.fillStyle='rgba(134,239,172,.22)';for(let y=-29;y<-6;y+=4)ctx.fillRect(-18,y,29,1);
+      ctx.fillStyle='#1e293b';ctx.fillRect(16,-29,4,13);
+      ctx.fillStyle='#4ade80';ctx.fillRect(16,-11,3,3);ctx.fillStyle='#cbd5e1';ctx.fillRect(16,-6,3,3);
+      ctx.strokeStyle='#94a3b8';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-6,-38);ctx.lineTo(-14,-48);ctx.moveTo(6,-38);ctx.lineTo(14,-48);ctx.stroke();break;
+    }
+    case 'minotaur': {
+      shell('#92400e',-37,22);
+      ctx.fillStyle='#fef3c7';for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(side*14,-33);ctx.lineTo(side*33,-51);ctx.lineTo(side*29,-29);ctx.lineTo(side*18,-22);ctx.closePath();ctx.fill();}
+      ctx.fillStyle='#451a03';ctx.fillRect(-15,-27,11,4);ctx.fillRect(4,-27,11,4);
+      ctx.fillStyle='#fef08a';ctx.fillRect(-12,-23,5,4);ctx.fillRect(7,-23,5,4);
+      ctx.fillStyle='#d6a16c';ctx.fillRect(-16,-16,32,15);ctx.fillStyle='#451a03';ctx.fillRect(-10,-12,5,4);ctx.fillRect(5,-12,5,4);
+      ctx.strokeStyle='#facc15';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,-6,5,0,Math.PI*2);ctx.stroke();break;
+    }
+    case 'wafer_mecha': {
+      shell('#2563eb',-42,23);
+      ctx.fillStyle='#bfdbfe';ctx.fillRect(-18,-39,36,4);ctx.fillRect(-23,-30,6,25);ctx.fillRect(17,-30,6,25);
+      ctx.fillStyle='#0f172a';ctx.fillRect(-16,-30,32,12);ctx.fillStyle='#22d3ee';ctx.fillRect(-13,-27,26,5);
+      ctx.fillStyle='#94a3b8';ctx.fillRect(-12,-15,24,12);ctx.fillStyle='#334155';for(let x=-8;x<=8;x+=4)ctx.fillRect(x,-12,2,6);
+      ctx.fillStyle='#fde047';ctx.fillRect(-3,-46,6,7);ctx.fillStyle='#60a5fa';ctx.fillRect(-30,-32,7,20);ctx.fillRect(23,-32,7,20);break;
+    }
+    case 'boba_head': {
+      shell('#c9955e',-38,21);
+      ctx.fillStyle='#fef3c7';ctx.fillRect(-25,-41,50,5);ctx.fillRect(-18,-34,36,7);
+      ctx.fillStyle='#f472b6';ctx.fillRect(7,-56,5,16);ctx.fillStyle='#fbcfe8';ctx.fillRect(8,-55,2,15);
+      ctx.fillStyle='#f4d3a1';ctx.fillRect(-17,-27,4,21);
+      ctx.fillStyle='#422006';for(let i=0;i<7;i++){const x=-14+(i%4)*9,y=-9-Math.floor(i/4)*9+Math.sin(tick*.06+i)*2;ctx.beginPath();ctx.arc(x,y,3.2,0,Math.PI*2);ctx.fill();}
+      break;
+    }
     case 'code_wizard':
       ctx.fillStyle='#6d28d9';ctx.beginPath();ctx.moveTo(-10,-4);ctx.lineTo(10,-4);ctx.lineTo(16,17);ctx.lineTo(-16,17);ctx.closePath();ctx.fill();
       ctx.fillStyle='#facc15';ctx.fillRect(-1,-4,2,21);ctx.fillRect(-14,14,28,2);
