@@ -542,21 +542,36 @@ window.drawWackyAvatar = function (ctx, opts) {
   } = opts;
 
   const appearance=window.getAvatarAppearance(avatarId,opts.outfitAvatarId);
-  if (avatarId === 'ghost') {
-    const bob = Math.sin(tick * .06) * 5;
+  if (avatarId === 'ghost' || avatarId === 'ghost_red' || opts.isGhost) {
+    const isRed = opts.isRedGhost || avatarId === 'ghost_red';
+    const isMinion = opts.isMinionGhost;
+    const ghostScale = isRed ? scale * 1.3 : isMinion ? scale * 0.75 : scale;
+    const bob = Math.sin(tick * (isRed ? .12 : .06)) * (isRed ? 7 : 5);
     const scare = Date.now() < (opts.scareUntil || 0);
     ctx.save(); ctx.translate(x, y - 20 + bob - jumpOffset);
-    if(opts.combatDown) ctx.rotate(Math.PI/2);
-    ctx.scale(scale * (scare ? 1.45 : 1), scale * (scare ? 1.45 : 1));
-    ctx.globalAlpha = .78; ctx.shadowColor = '#67e8f9'; ctx.shadowBlur = 18;
-    ctx.fillStyle = '#cffafe';
+    if(opts.combatDown && !isRed) ctx.rotate(Math.PI/2);
+    ctx.scale(ghostScale * (scare ? 1.45 : 1), ghostScale * (scare ? 1.45 : 1));
+    ctx.globalAlpha = isRed ? .92 : .78;
+    ctx.shadowColor = isRed ? '#ef4444' : isMinion ? '#c084fc' : '#67e8f9';
+    ctx.shadowBlur = isRed ? 26 : 18;
+    ctx.fillStyle = isRed ? '#fee2e2' : isMinion ? '#f3e8ff' : '#cffafe';
     ctx.beginPath(); ctx.arc(0, -12, 16, Math.PI, 0);
     ctx.lineTo(16, 15);
     for (let i = 16; i >= -16; i -= 8) ctx.lineTo(i, 15 + ((i / 8) % 2 === 0 ? 6 : 0));
     ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
-    ctx.fillStyle = '#164e63'; ctx.fillRect(-8,-14,5,8); ctx.fillRect(4,-14,5,8);
-    ctx.beginPath(); ctx.ellipse(0, 3, scare ? 6 : 3, scare ? 9 : 4, 0, 0, Math.PI*2); ctx.fill();
-    if (scare) { ctx.strokeStyle = '#a5f3fc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0,0,32 + Math.sin(tick*.3)*8,0,Math.PI*2); ctx.stroke(); }
+    if (isRed) {
+      // 狂暴紅色幽靈血眼與血色巨口
+      ctx.fillStyle = '#dc2626'; ctx.fillRect(-8,-14,5,8); ctx.fillRect(4,-14,5,8);
+      ctx.fillStyle = '#fef08a'; ctx.fillRect(-7,-12,3,4); ctx.fillRect(5,-12,3,4);
+      ctx.fillStyle = '#991b1b';
+      ctx.beginPath(); ctx.ellipse(0, 4, scare ? 7 : 4, scare ? 10 : 5, 0, 0, Math.PI*2); ctx.fill();
+      // 狂暴血焰光環
+      ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0,0,36 + Math.sin(tick*.4)*10,0,Math.PI*2); ctx.stroke();
+    } else {
+      ctx.fillStyle = isMinion ? '#581c87' : '#164e63'; ctx.fillRect(-8,-14,5,8); ctx.fillRect(4,-14,5,8);
+      ctx.beginPath(); ctx.ellipse(0, 3, scare ? 6 : 3, scare ? 9 : 4, 0, 0, Math.PI*2); ctx.fill();
+      if (scare) { ctx.strokeStyle = isMinion ? '#d8b4fe' : '#a5f3fc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0,0,32 + Math.sin(tick*.3)*8,0,Math.PI*2); ctx.stroke(); }
+    }
     ctx.restore(); return;
   }
 

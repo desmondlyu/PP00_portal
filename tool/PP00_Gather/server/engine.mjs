@@ -161,7 +161,9 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     p.channel={kind:'device',at:now,x:p.x,y:p.y,target:b.target};return;
   }
   if(kind==='device_finish'){
-    const c=p.channel,f=s.broken?.[c?.target];if(c?.kind!=='device'||!f?.broken||now-c.at<3000||!near(p,c.x,c.y,25))fail('修復時間不足或設備已修好');
+    const c=p.channel,f=s.broken?.[c?.target];
+    if(c?.kind!=='device'||!f?.broken||!near(p,c.x,c.y,25)){if(c?.kind==='device')p.channel=null;fail('修復時間不足或設備已修好');}
+    if(now-c.at<3000)fail('修復時間不足或設備已修好');
     const t=s.tasks[p.room];if(t?.targetIds?.includes(c.target))fail('請使用 RMA 任務修復');
     f.broken=false;f.handledAt=now;gain(p,30);
     const supplyPool=['coffee','boba','pizza','kuaikuai','wrench','duck','ic_pkg'];
