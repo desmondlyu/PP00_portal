@@ -220,10 +220,12 @@ export function combat(s,p,b,now,rng=Math.random){
   if(weapon&&(targets.length||others.length)&&rng()>=(R.level(p.exp)-1)*.01){
     weapon.durability--;
     if(weapon.durability<=0){
+      const brokenSlot=weapon.slot;
       p.items=p.items.filter(i=>i.uid!==weapon.uid);
-      if(!p.items.some(i=>i.slot!=null)){
+      const emptySlot=[0,1,2].find(s=>!p.items.some(i=>i.slot===s));
+      if(emptySlot!==undefined){
         const nextW=p.items.find(i=>i.slot==null&&i.category!=="outfit");
-        if(nextW){nextW.slot=0;p.activeSlot=0;}
+        if(nextW){nextW.slot=emptySlot;if(p.activeSlot===brokenSlot)p.activeSlot=emptySlot;}
       }
     }
   }

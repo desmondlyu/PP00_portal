@@ -221,7 +221,7 @@ window.GATHER_CONFIG = {
     proximityRadiusPx: 165,
     chatCooldownMs: 900,
     skillCooldownMs: 1200,
-    interactCooldownMs: 1200, // 按鍵 E / 情境動作防連點洗版冷卻 (1.2 秒)
+    interactCooldownMs: 250, // 按鍵 E / 情境動作防連點洗版冷卻 (1.2 秒)
     attackCooldownMs: 250, // 武器擊退快速連發冷卻 (0.25 秒)，大幅提升打擊快感
     directorRepairChance: 0.10, // 機台/電腦損壞時，PP00處長 10% 機率親自出馬修理
     idleTimeoutMs: 30000, // 30 秒無動作自動切換為「🟡 閒置」狀態

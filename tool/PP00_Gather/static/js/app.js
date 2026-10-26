@@ -109,30 +109,33 @@
         hud = document.createElement('div');
         hud.id = 'injuryHudBanner';
         hud.style.position = 'fixed';
-        hud.style.top = '14px';
-        hud.style.right = '16px';
-        hud.style.left = 'auto';
-        hud.style.transform = 'none';
+        hud.style.top = '22%';
+        hud.style.left = '50%';
+        hud.style.right = 'auto';
+        hud.style.transform = 'translate(-50%, -50%)';
         hud.style.zIndex = '99999';
-        hud.style.background = 'rgba(220, 38, 38, 0.92)';
+        hud.style.background = 'linear-gradient(135deg, rgba(220, 38, 38, 0.95), rgba(153, 27, 27, 0.98))';
         hud.style.color = '#ffffff';
-        hud.style.padding = '8px 22px';
-        hud.style.borderRadius = '30px';
+        hud.style.padding = '12px 28px';
+        hud.style.borderRadius = '32px';
         hud.style.fontWeight = '700';
-        hud.style.fontSize = '14px';
-        hud.style.boxShadow = '0 8px 24px rgba(220, 38, 38, 0.55)';
+        hud.style.fontSize = '15px';
+        hud.style.boxShadow = '0 12px 36px rgba(220, 38, 38, 0.65), 0 0 20px rgba(248, 113, 113, 0.4)';
         hud.style.border = '2px solid #fecaca';
         hud.style.letterSpacing = '0.04em';
-        hud.style.backdropFilter = 'blur(8px)';
+        hud.style.backdropFilter = 'blur(12px)';
         hud.style.userSelect = 'none';
         hud.style.pointerEvents = 'none';
+        hud.style.display = 'flex';
+        hud.style.alignItems = 'center';
+        hud.style.gap = '8px';
         document.body.appendChild(hud);
       }
       const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - gameNow()) / 1000));
       const m = String(Math.floor(remSec / 60)).padStart(2, '0');
       const s = String(remSec % 60).padStart(2, '0');
       hud.innerHTML = `🚑 <strong>身受重傷休養中（會議室）</strong>｜無法動彈剩餘：<span style="font-variant-numeric:tabular-nums; color:#fef08a; font-weight:800;">${m}:${s}</span>`;
-      hud.style.display = 'block';
+      hud.style.display = 'flex';
     } else if (hud) {
       hud.style.display = 'none';
     }
@@ -270,12 +273,16 @@
     localPlayer.inventory=p.items.filter(i=>i.slot==null).map(i=>({...i,count:1}));
     localPlayer.equippedSlots=[0,1,2].map(slot=>p.items.find(i=>i.slot===slot)||null);
     localPlayer.activeEquipIndex=p.activeSlot||0;localPlayer.overflow=p.overflow||[];localPlayer.wornOutfitUid=p.worn||null;
-    if (isLoggedIn && !localPlayer.equippedSlots.some(Boolean)) {
-      const nextW = localPlayer.inventory.find(i => i.category !== 'outfit');
-      if (nextW && !season.autoEquipping) {
-        season.autoEquipping = true;
-        seasonSend('equip', { uid: nextW.uid, slot: 0 }).finally(() => { season.autoEquipping = false; });
-        showCombatToast(`🎒 裝備空缺，已自動替補庫存中的【${nextW.emoji} ${nextW.name}】！`, 'info');
+    // 自動將物品儲存欄補上空裝備槽 (支援快捷槽 1~3 全部空位)
+    if (isLoggedIn && !season.autoEquipping) {
+      const emptySlotIdx = [0, 1, 2].findIndex(idx => !localPlayer.equippedSlots[idx]);
+      if (emptySlotIdx !== -1) {
+        const nextW = localPlayer.inventory.find(i => i.category !== 'outfit');
+        if (nextW) {
+          season.autoEquipping = true;
+          seasonSend('equip', { uid: nextW.uid, slot: emptySlotIdx }).finally(() => { season.autoEquipping = false; });
+          showCombatToast(`🎒 裝備空缺，已自動將儲存欄【${nextW.emoji} ${nextW.name}】補上裝備欄 ${emptySlotIdx + 1}！`, 'info');
+        }
       }
     }
     season.effects=p.effects||{};
@@ -370,9 +377,9 @@
     return ecosystem.groundItems.filter(d=>d.seasonDrop&&!d.claimed&&!(d.pickupAfter>gameNow()))
       .map(d=>({d,dist:Math.hypot(d.x-localPlayer.x,d.y-localPlayer.y)}))
       .filter(({d,dist})=>{
-        if(dist>window.OfficeProgression.pickupRadius(progression.level))return false;
-        const steps=Math.max(1,Math.ceil(dist/8));
-        for(let i=0;i<=steps;i++)if(window.isPositionBlocked(localPlayer.x+(d.x-localPlayer.x)*i/steps,localPlayer.y+(d.y-localPlayer.y)*i/steps,18))return false;
+        if(dist>window.OfficeProgression.pickupRadius(progression.level)+20)return false;
+        const steps=Math.max(1,Math.ceil(dist/12));
+        for(let i=0;i<=steps;i++)if(window.isPositionBlocked(localPlayer.x+(d.x-localPlayer.x)*i/steps,localPlayer.y+(d.y-localPlayer.y)*i/steps,4))return false;
         return true;
       }).sort((a,b)=>a.dist-b.dist)[0]?.d||null;
   }
@@ -402,7 +409,13 @@
       localPlayer.actionState='sit_code';
       return true;
     }
-    const fault=Object.entries(snap.broken||{}).find(([id,f])=>{const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];return f.broken&&target&&Math.hypot(localPlayer.x-target.x-target.w/2,localPlayer.y-target.y-target.h-18)<95;});
+    const fault=Object.entries(snap.broken||{}).find(([id,f])=>{
+      const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];
+      if(!f.broken||!target)return false;
+      const cx=Math.max(target.x,Math.min(localPlayer.x,target.x+target.w));
+      const cy=Math.max(target.y,Math.min(localPlayer.y,target.y+target.h));
+      return Math.hypot(localPlayer.x-cx,localPlayer.y-cy)<=95||Math.hypot(localPlayer.x-target.x-target.w/2,localPlayer.y-target.y-target.h-18)<125;
+    });
     if(fault){await seasonSend('device_start',{target:fault[0]});localPlayer.actionState='sit_code';return true;}
     const f=window.OfficeFacilities.nearby(localPlayer,snap);
     if(f){await window.OfficeFacilities.use(f,season.client,()=>({x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState})).catch(seasonError);if(season.client.snapshot.player.channel)localPlayer.actionState=f.id==='shrine'?'pray_kuaikuai':f.id==='lounge'?'play_arcade':'sit_code';return true;}
@@ -536,6 +549,10 @@
         }
       },
       onHuntEscape: () => {
+        if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
+          showToast('🚑 身受重傷休養中，無法前往安全區！', 'error');
+          return;
+        }
         cancelContextualAction(); localPlayer.x=2350; localPlayer.y=350;
         localPlayer.autoWalkTarget=null; localPlayer.knockback=null;
         network.broadcastPacket('state_sync',{player:network.getPublicState()});
@@ -1882,7 +1899,7 @@ async function executeOfficeLogin(params) {
     bar.querySelectorAll('[data-pose]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const now = gameNow();
-        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 1200)) return;
+        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 250)) return;
         lastInteractAt = now;
         lastUserActionAt = now;
         startContextualAction(btn.dataset.pose);
@@ -2300,7 +2317,7 @@ async function executeOfficeLogin(params) {
     document.getElementById('touchInteractBtn').addEventListener('click', () => {
       if (!isLoggedIn) return;
       const now = gameNow();
-      if (now - lastInteractAt < (window.GATHER_CONFIG.security.interactCooldownMs || 1200)) return;
+      if (now - lastInteractAt < (window.GATHER_CONFIG.security.interactCooldownMs || 250)) return;
       lastInteractAt = now; lastUserActionAt = now;
       tryInteractWithEnvironment();
     });
@@ -2427,7 +2444,7 @@ async function executeOfficeLogin(params) {
       if (e.altKey && altPoseMap[e.key]) {
         e.preventDefault();
         const now = gameNow();
-        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 1200)) return;
+        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 250)) return;
         lastInteractAt = now;
         startContextualAction(altPoseMap[e.key]);
         return;
@@ -2445,7 +2462,7 @@ async function executeOfficeLogin(params) {
       if (numberSkillMap[e.key] && !e.altKey && !e.ctrlKey) {
         e.preventDefault();
         const now = gameNow();
-        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 1200)) return;
+        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 250)) return;
         lastInteractAt = now;
         flashSkillHotkeyButton(e.key);
         triggerProximitySkill(numberSkillMap[e.key]);
@@ -2480,7 +2497,7 @@ async function executeOfficeLogin(params) {
       if (k === 'e' || e.code === 'KeyE') {
         e.preventDefault();
         const now = gameNow();
-        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 1200)) return;
+        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 250)) return;
         lastInteractAt = now;
         tryInteractWithEnvironment();
       }
@@ -3579,7 +3596,9 @@ async function executeOfficeLogin(params) {
     for (const ws of window.WORLD_MAP.workstations) {
       const seatX = ws.x + ws.w / 2;
       const seatY = ws.y + ws.h + 18;
-      if (ws.isBroken && Math.hypot(px - seatX, py - seatY) < 95) {
+      const ncx = Math.max(ws.x, Math.min(px, ws.x + ws.w));
+      const ncy = Math.max(ws.y, Math.min(py, ws.y + ws.h));
+      if (ws.isBroken && (Math.hypot(px - ncx, py - ncy) <= 95 || Math.hypot(px - seatX, py - seatY) < 125)) {
         return {
           label: `🔧 修復遭【${ws.brokenBy || '怪物'}】破壞的【${ws.owner}】電腦 (完成獲得經驗) [按E]`,
           shortHint: `[按 E] 🔧 修復電腦`,
@@ -3596,7 +3615,9 @@ async function executeOfficeLogin(params) {
     for (const eq of window.WORLD_MAP.labEquipments) {
       const cx = eq.x + eq.w / 2;
       const cy = eq.y + eq.h + 18;
-      if (eq.isBroken && Math.hypot(px - cx, py - cy) < 110) {
+      const necx = Math.max(eq.x, Math.min(px, eq.x + eq.w));
+      const necy = Math.max(eq.y, Math.min(py, eq.y + eq.h));
+      if (eq.isBroken && (Math.hypot(px - necx, py - necy) <= 100 || Math.hypot(px - cx, py - cy) < 135)) {
         return {
           label: `🔧 修復遭【${eq.brokenBy || '怪物'}】破壞的【${eq.name}】機台 (完成獲得經驗) [按E]`,
           shortHint: `[按 E] 🔧 修復機台`,
