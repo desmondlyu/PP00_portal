@@ -503,7 +503,41 @@
       if(npc){triggerBossOrAuntieBeating(npc,p.beating.role);localPlayer.beatingSession.until=p.beating.until;localPlayer.restrainedUntil=p.beating.until;window.MEETING_LOCK_STATE.lockedUntil=p.beating.until;}
     }
     localPlayer.huntHits=p.huntRound===Math.floor(now/(window.GATHER_CONFIG?.huntPeriod||1800000))?p.huntHits||0:0;
-    if(p.lastDamage?.id!==season.lastDamage&&p.lastDamage){season.lastDamage=p.lastDamage.id;if(now-p.lastDamage.at<5000){localPlayer.emote={emoji:p.lastDamage.stun?'💫':'💥',expiresAt:gameNow()+1500};showCombatToast(p.lastDamage.absorbed?'乖乖護盾吸收攻擊！':p.lastDamage.injury==='critical'?'重傷退場，前往會議室 B':p.lastDamage.injury==='light'?'輕微挫傷：移速降低 30%':'受到攻擊');}}
+    if(p.lastDamage?.id!==season.lastDamage&&p.lastDamage){
+      season.lastDamage=p.lastDamage.id;
+      if(now-p.lastDamage.at<5000){
+        localPlayer.emote={emoji:p.lastDamage.stun?'💫':'💥',expiresAt:gameNow()+1500};
+        showCombatToast(p.lastDamage.absorbed?'乖乖護盾吸收攻擊！':p.lastDamage.injury==='critical'?'重傷退場，前往會議室 B':p.lastDamage.injury==='light'?'輕微挫傷：移速降低 30%':'受到攻擊');
+        // 💥 遭受攻擊時，若正在進行互動（坐下寫 code、上廁所、修機台、祈福等），立即中斷互動並被打飛！
+        if (!localPlayer.isInjured && !localPlayer.isRestrained) {
+          cancelContextualAction();
+          localPlayer.actionState = null;
+          localPlayer.occupiedSpotId = null;
+          localPlayer.autoWalkTarget = null;
+          updatePoseLabelUI();
+
+          let kx = (Math.random() - 0.5) * 2;
+          let ky = (Math.random() - 0.5) * 2;
+          if (p.lastDamage.fromX !== undefined && p.lastDamage.fromY !== undefined) {
+            kx = localPlayer.x - p.lastDamage.fromX;
+            ky = localPlayer.y - p.lastDamage.fromY;
+          }
+          const klen = Math.hypot(kx, ky) || 1;
+          const kPower = 24;
+          localPlayer.knockback = {
+            vx: (kx / klen) * kPower,
+            vy: (ky / klen) * kPower,
+            ticksLeft: 24,
+            totalTicks: 24
+          };
+          localPlayer.jumpOffset = 40;
+          spawnConfetti(localPlayer.x, localPlayer.y - 15);
+          if (network) {
+            network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          }
+        }
+      }
+    }
     if(previous!==p.exp&&isLoggedIn)showCombatToast(`${p.exp>previous?'+':''}${p.exp-previous} EXP`);
     recalcLevelAndBuff();if(oldLevel>progression.level&&isLoggedIn)showCombatToast(`等級下跌！Lv.${oldLevel} → Lv.${progression.level}`);
     syncPlayerActiveWeaponState();updateInjuryCountdownHUD();
@@ -550,7 +584,28 @@
     }
     ecosystem.mobs=ecosystem.mobs.filter(m=>snap.enemies?.[m.uid||m.id]&&window.OfficeCombat.defeatVisible(m));
     for(const q of snap.players){if(q.id===p.id)continue;if(!network.remotePlayers.has(q.clientId))network.upsertRemotePlayer({id:q.clientId,name:q.name,unit:q.unit,x:q.x,y:q.y,avatarId:q.avatarId,status:'active'},true);const remote=network.remotePlayers.get(q.clientId);if(remote){remote.seasonPlayerId=q.id;remote.isInjured=q.effects.injuredUntil>now;remote.lightInjuredUntil=q.effects.lightUntil||0;remote.outfitAvatarId=q.worn;}}
-    if(p.pending&&!season.pendingChoice){season.pendingChoice=true;setTimeout(async()=>{const chosen=await window.OfficeFacilities.choose('抽到 '+p.pending.outfit.name+'，選一套服裝替換；取消保留材料',p.items.filter(i=>i.category==='outfit'));await seasonSend(chosen?'gacha_confirm':'gacha_cancel',chosen?{replace:chosen[0]}:{});season.pendingChoice=false;},0);}
+    // 檢測是否扭蛋獲得新服裝 (包包未滿時直接進入 p.items)
+    if (p.items) {
+      const currentOutfits = p.items.filter(i => i.category === 'outfit');
+      if (season.lastOutfitUids) {
+        for (const out of currentOutfits) {
+          if (!season.lastOutfitUids.has(out.uid)) {
+            showGachaSurpriseModal(out, false);
+            break;
+          }
+        }
+      }
+      season.lastOutfitUids = new Set(currentOutfits.map(i => i.uid));
+    }
+
+    if(p.pending&&!season.pendingChoice){
+      season.pendingChoice=true;
+      showGachaSurpriseModal(p.pending.outfit, true, async () => {
+        const chosen = await window.OfficeFacilities.choose('抽到 ' + p.pending.outfit.name + '，選一套服裝替換；取消保留材料', p.items.filter(i => i.category === 'outfit'));
+        await seasonSend(chosen ? 'gacha_confirm' : 'gacha_cancel', chosen ? { replace: chosen[0] } : {});
+        season.pendingChoice = false;
+      });
+    }
   }
   async function seasonLogin(params) {
     if(!season.client)season.client=new window.GatherProfileClient(window.GATHER_CONFIG.supabaseUrl+'/functions/v1/gather-season2',{storage:localStorage,onSnapshot:applySeasonSnapshot});
@@ -1039,6 +1094,19 @@
           }
         }
         pushStatusLog(pkt.senderName || '同事', `🦵 在廁所門外猛踹門大喊：「${pkt.text || '不要再屎遁'}」！`);
+      },
+      onRemoteToiletState: (pkt) => {
+        if (pkt && pkt.stallId && window.WORLD_MAP?.toiletStalls) {
+          const stall = window.WORLD_MAP.toiletStalls.find((st) => st.id === pkt.stallId);
+          if (stall) {
+            stall.occupiedBy = pkt.occupiedBy || null;
+            if (pkt.doorOpen !== undefined) {
+              stall.doorOpen = pkt.doorOpen;
+            } else if (pkt.occupiedBy) {
+              stall.doorOpen = 0;
+            }
+          }
+        }
       },
       onRemoteStatusLog: (pkt) => {
         if (pkt && pkt.senderName && pkt.text) {
@@ -2221,6 +2289,70 @@ async function executeOfficeLogin(params) {
     updatePoseLabelUI();
   }
 
+  
+  // 🎉 扭蛋大獎驚喜提示視窗 (Gacha Surprise Reveal Modal)
+  function showGachaSurpriseModal(item, isPendingReplace, onConfirm) {
+    if (!item) return;
+    try {
+      const old = document.querySelector('.gacha-modal-backdrop');
+      if (old) old.remove();
+
+      const catalogItem = (window.COSTUME_CATALOG || []).find((c) => c.id === item.id) || {};
+      const outfitName = item.name || catalogItem.name || '傳奇限定造型';
+      const badge = catalogItem.badge || item.badge || item.emoji || '🎁';
+      const tag = catalogItem.tag || (item.wearType === 'headgear' ? '【頭部裝飾】傳奇防具' : '【全身偶裝】傳奇防具');
+      const desc = catalogItem.desc || item.description || '全辦公室最吸睛的專屬造型，穿戴自帶氣場與光環！';
+      const durability = item.durability || item.maxDurability || 5;
+
+      const backdrop = document.createElement('div');
+      backdrop.className = 'gacha-modal-backdrop';
+
+      const modal = document.createElement('div');
+      modal.className = 'gacha-surprise-modal';
+
+      modal.innerHTML = `
+        <div class="gacha-surprise-banner">✨ 扭蛋大獎出爐！CONGRATULATIONS ✨</div>
+        <div class="gacha-icon-glow">
+          <span>${badge}</span>
+        </div>
+        <div class="gacha-outfit-name">${escapeHtml(outfitName)}</div>
+        <div class="gacha-outfit-tag">${escapeHtml(tag)}</div>
+        <div class="gacha-outfit-desc">${escapeHtml(desc)}</div>
+        <div class="gacha-perk-box">
+          <div class="gacha-perk-item">🛡️ <strong>傳奇防禦耐久度：</strong> ${durability} / 5</div>
+          <div class="gacha-perk-item">🔰 <strong>致命傷害抵擋：</strong> 可全額吸收致命攻擊，保護本體不受傷！</div>
+          <div class="gacha-perk-item">🎨 <strong>全場即時同步：</strong> 3D 像素立體偶裝，全體同事即時可見！</div>
+        </div>
+        <button class="gacha-confirm-btn" id="gachaSurpriseConfirmBtn">
+          ${isPendingReplace ? '🎉 選擇替換背包服飾' : '🎉 收入背包！'}
+        </button>
+      `;
+
+      backdrop.appendChild(modal);
+      document.body.appendChild(backdrop);
+
+      if (typeof spawnConfetti === 'function') {
+        spawnConfetti(window.innerWidth / 2, window.innerHeight / 2);
+        setTimeout(() => spawnConfetti(window.innerWidth * 0.35, window.innerHeight * 0.4), 150);
+        setTimeout(() => spawnConfetti(window.innerWidth * 0.65, window.innerHeight * 0.4), 300);
+      }
+
+      const confirmBtn = modal.querySelector('#gachaSurpriseConfirmBtn');
+      confirmBtn.addEventListener('click', () => {
+        backdrop.remove();
+        if (typeof onConfirm === 'function') {
+          onConfirm();
+        }
+      });
+
+      showToast(`🎉 恭喜扭中【${outfitName}】！`, 'success');
+    } catch (e) {
+      console.warn('showGachaSurpriseModal error:', e);
+      if (typeof onConfirm === 'function') onConfirm();
+    }
+  }
+  window.showGachaSurpriseModal = showGachaSurpriseModal;
+
   function cancelContextualAction() {
     if(season.enabled&&season.client?.snapshot?.player?.channel)seasonSend("cancel");
     if (!localPlayer.actionState && !localPlayer.occupiedSpotId) return;
@@ -2231,6 +2363,7 @@ async function executeOfficeLogin(params) {
       localPlayer.x = stall.x - 28;
       localPlayer.y = stall.y + 48;
       setTimeout(() => { stall.doorOpen = 0; }, 420);
+      network?.broadcastPacket('toilet_state', { stallId: stall.id, occupiedBy: null, doorOpen: 0 });
     });
     localPlayer.occupiedSpotId = null;
     localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
@@ -3938,16 +4071,24 @@ async function executeOfficeLogin(params) {
   }
 
   function handleIncomingWeaponAttack(pkt) {
-    if(season.enabled)return;
     if (!pkt || pkt.targetId !== network.clientId) return;
-    if(!pkt.hunt) window.OfficeCombat?.send(network,'combat_hurt',{targetId:network.clientId,npc:false});
-    if (!pkt.isCriticalInjury && Math.random() < 0.20 && gameNow() >= (localPlayer.lightInjuredUntil || 0) && !localPlayer.isInjured) {
+    if (localPlayer.isInjured || localPlayer.isRestrained) return;
+
+    // 💥 遭受武器攻擊時，立即強制中斷任何進行中的互動狀態（坐下寫 code、上廁所、修機台、祈福等）
+    cancelContextualAction();
+    localPlayer.actionState = null;
+    localPlayer.occupiedSpotId = null;
+    localPlayer.autoWalkTarget = null;
+    updatePoseLabelUI();
+
+    if (!season.enabled && !pkt.hunt) window.OfficeCombat?.send(network, 'combat_hurt', { targetId: network.clientId, npc: false });
+    if (!season.enabled && !pkt.isCriticalInjury && Math.random() < 0.20 && gameNow() >= (localPlayer.lightInjuredUntil || 0) && !localPlayer.isInjured) {
       localPlayer.lightInjuredUntil = gameNow() + 60000;
       showCombatToast('🩹 輕微挫傷：移速降低 30% (持續 60 秒)', 'error');
       pushCombatLog('系統', `🩹 遭同事【${pkt.senderName || '同事'}】揮舞武器擊中造成輕微挫傷！移速降低 30%（持續 60 秒）`);
     }
 
-    if (pkt.isCriticalInjury) {
+    if (!season.enabled && pkt.isCriticalInjury) {
       // 🚑 遭受 5% 致命重傷：原地倒地休養無法動彈 5 分鐘，鏡頭停留在事發現場等待急救
       const lockMs = window.GATHER_CONFIG?.security?.userInjuryLockMs || 300000;
       localPlayer.isInjured = true;
@@ -4678,15 +4819,22 @@ async function executeOfficeLogin(params) {
           updatePoseLabelUI();
           spawnConfetti(fac.stall.seatX, fac.stall.seatY - 10);
           pushStatusLog('你', `🌊 【${fac.stall.name}】沖水完畢離開隔間`);
+          network.broadcastPacket('toilet_state', { stallId: fac.stall.id, occupiedBy: null, doorOpen: 0 });
           network.broadcastPacket('state_sync', { player: network.getPublicState() });
-          return;
-        } else {
-          fac.stall.doorOpen = 1;
-          fac.stall.occupiedBy = localPlayer.id;
-          localPlayer.occupiedSpotId = fac.stall.id;
           setTimeout(() => {
             fac.stall.doorOpen = 0;
+            network.broadcastPacket('toilet_state', { stallId: fac.stall.id, occupiedBy: null, doorOpen: 0 });
           }, 420);
+          return;
+        } else {
+          fac.stall.doorOpen = 0;
+          fac.stall.occupiedBy = localPlayer.id;
+          localPlayer.occupiedSpotId = fac.stall.id;
+          network.broadcastPacket('toilet_state', { stallId: fac.stall.id, occupiedBy: localPlayer.id, doorOpen: 0 });
+          startContextualAction('toilet');
+          pushStatusLog('你', `🚪 進入【${fac.stall.name}】關上隔間門鎖上，開始順暢排解壓力...`);
+          network.broadcastPacket('murmur', { text: '💩 呼... 終於輪到我了', mood: 'sweat' });
+          return;
         }
       }
 

@@ -754,6 +754,17 @@ class OfficeEcosystem {
         }
       }
 
+      // 若隔間無佔用者，自動偵測是否已有玩家（本地或遠端）在隔間內部使用馬桶
+      if (!stall.occupiedBy && players) {
+        const insidePlayer = players.find((p) => {
+          const inside = p.x >= stall.x && p.x <= stall.x + stall.w && p.y >= stall.y && p.y <= stall.y + stall.h;
+          return (p.actionState === 'toilet' || Math.hypot(p.x - stall.seatX, p.y - stall.seatY) < 45) && inside;
+        });
+        if (insidePlayer) {
+          stall.occupiedBy = insidePlayer.id;
+        }
+      }
+
       let someoneNear = false;
       if (!stall.occupiedBy && players) {
         for (const p of players) {
@@ -766,6 +777,9 @@ class OfficeEcosystem {
       }
       const targetOpen = stall.occupiedBy ? 0 : someoneNear ? 1 : 0;
       stall.doorOpen += (targetOpen - stall.doorOpen) * 0.18;
+      if (stall.occupiedBy) {
+        stall.doorOpen = 0;
+      }
     });
 
     if (window.WORLD_MAP.restroomSinks) {
@@ -1145,7 +1159,10 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
     ctx.save();
     ctx.translate(stall.x + 6 + kickOffset, stall.y + 12);
     ctx.rotate(-stall.doorOpen * 1.35);
-    draw3DPixelBox(ctx, 0, 0, 14, stall.h - 24, 20, '#fde68a', '#d97706', '#92400e');
+    const doorPrimary = stall.occupiedBy ? '#dc2626' : '#fde68a';
+    const doorSide = stall.occupiedBy ? '#991b1b' : '#d97706';
+    const doorTop = stall.occupiedBy ? '#7f1d1d' : '#92400e';
+    draw3DPixelBox(ctx, 0, 0, 14, stall.h - 24, 20, doorPrimary, doorSide, doorTop);
     // 門鎖綠燈/紅燈
     ctx.fillStyle = stall.occupiedBy ? '#ef4444' : '#22c55e';
     ctx.fillRect(3, 24, 8, 12);

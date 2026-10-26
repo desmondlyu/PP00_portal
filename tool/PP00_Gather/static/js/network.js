@@ -984,6 +984,23 @@ class EphemeralOfficeNetwork {
         }
         break;
       }
+      case 'toilet_state': {
+        if (pkt.stallId && window.WORLD_MAP && window.WORLD_MAP.toiletStalls) {
+          const stall = window.WORLD_MAP.toiletStalls.find((st) => st.id === pkt.stallId);
+          if (stall) {
+            stall.occupiedBy = pkt.occupiedBy || null;
+            if (pkt.doorOpen !== undefined) {
+              stall.doorOpen = pkt.doorOpen;
+            } else if (pkt.occupiedBy) {
+              stall.doorOpen = 0;
+            }
+          }
+        }
+        if (this.callbacks.onRemoteToiletState) {
+          this.callbacks.onRemoteToiletState(pkt);
+        }
+        break;
+      }
       case 'status_log': {
         if (this.callbacks.onRemoteStatusLog) {
           this.callbacks.onRemoteStatusLog(pkt);
