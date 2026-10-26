@@ -9,11 +9,12 @@
   const ok=document.createElement('button');ok.textContent='確認';ok.disabled=true;ok.value='ok';const cancel=document.createElement('button');cancel.textContent='取消';cancel.value='cancel';cancel.formNoValidate=true;form.append(ok,cancel);dialog.append(form);document.body.append(dialog);
   dialog.addEventListener('close',()=>{resolve(dialog.returnValue==='ok'?[...selected]:null);dialog.remove();},{once:true});dialog.showModal();
  });}
- async function use(f,client){
+ async function use(f,client,getPose=()=>undefined){
+  const send=(action,data={})=>client.send(action,{...data,pose:getPose()});
   const p=client.snapshot.player,free=p.items.filter(i=>['weapon','item'].includes(i.category)&&i.slot==null&&!p.pending?.materials.includes(i.uid));
-  if(f.id==='gacha'){const materials=await choose('選擇兩件未裝備道具作為扭蛋材料',free,{count:2});if(!materials)return;await client.send('gacha',{materials});}
-  else if(f.id==='repair'){const target=await choose('選擇要修復的武器',p.items.filter(i=>['weapon','item'].includes(i.category)&&i.durability<i.maxDurability));if(!target)return;const materials=await choose('選擇一件拆解材料',free.filter(i=>i.uid!==target[0]));if(!materials)return;await client.send('repair_start',{target:target[0],materials});}
-  else await client.send(f.action);
+  if(f.id==='gacha'){const materials=await choose('選擇兩件未裝備道具作為扭蛋材料',free,{count:2});if(!materials)return;await send('gacha',{materials});}
+  else if(f.id==='repair'){const target=await choose('選擇要修復的武器',p.items.filter(i=>['weapon','item'].includes(i.category)&&i.durability<i.maxDurability));if(!target)return;const materials=await choose('選擇一件拆解材料',free.filter(i=>i.uid!==target[0]));if(!materials)return;await send('repair_start',{target:target[0],materials});}
+  else await send(f.action);
  }
  root.OfficeFacilities={spots,nearby,choose,use};
 })(globalThis);

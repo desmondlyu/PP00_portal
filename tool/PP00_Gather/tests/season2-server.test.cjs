@@ -42,3 +42,14 @@ test('NPC loot remains thirty percent only on defeat, clothing independently fiv
   E.strike(s,p,'mob_test',100400,()=>roll);assert.equal(Object.keys(s.drops).length,count);
  }
 });
+test('request can move and pick up atomically without a preceding heartbeat',async()=>{
+ const E=await engine(),S=await import('../server/service.mjs'),s=game(),p=s.players.p,token='atomic-pickup';p.tokenHash=await S.digest(token);p.sessionUntil=99999999;p.x=1500;p.y=520;
+ s.drops.a={...E.fresh('coffee'),uid:'a',x:1075,y:520,room:'PP00'};
+ const result=await S.request(s,'pickup',{uid:'a',pose:{x:1000,y:520}},token,100000);assert.equal(result.player.x,1000);assert(result.player.items.some(i=>i.id==='coffee'));
+});
+test('heartbeat can include master world update but ignores it after losing leadership',async()=>{
+ const S=await import('../server/service.mjs'),s=game(),p=s.players.p,token='poll';p.tokenHash=await S.digest(token);p.sessionUntil=99999999;p.lastSeen=100000;s.players.q.lastSeen=0;
+ await S.request(s,'heartbeat',{x:1000,y:520,world:{enemies:[{id:'npc_security_guard',x:1050,y:520}]}},token,100000);assert(s.enemies.npc_security_guard);
+ s.players.q.lastSeen=100001;s.players.q.connection='a';p.connection='z';
+ await S.request(s,'heartbeat',{x:1000,y:520,world:{enemies:[{id:'npc_ghost',x:1050,y:520}]}},token,100001);assert(!s.enemies.npc_ghost);
+});

@@ -20,9 +20,10 @@ Deno.serve(async(req:Request)=>{
   const source=await digest((req.headers.get('x-forwarded-for')||'unknown').split(',')[0].trim());
   const scope=await digest(token||JSON.stringify([b.action,b.data?.name,b.data?.unit,b.data?.pin,source]));
 
+  const transient=['heartbeat','world','snapshot'].includes(b.action);
   for(let attempt=0;attempt<6;attempt++){
    const loaded=await rpc('gather_s2_load');if(!loaded.enabled)return out({error:'新版進度尚未開放'},503);
-   const prior=await rpc('gather_s2_receipt',{p_scope:scope,p_request:b.requestId});
+   const prior=transient?null:await rpc('gather_s2_receipt',{p_scope:scope,p_request:b.requestId});
    if(prior){if(await canReplay(loaded.state,b.action,token,b.requestId,prior._auth,loaded.now))return out(prior);return out({error:'登入已失效，請重新輸入 PIN'},401);}
    let owner:any=null;
    if(!['login','register'].includes(b.action)){try{owner=await identify(loaded.state,token,loaded.now);}catch{return out({error:'登入已失效，請重新輸入 PIN'},401);}}
@@ -31,7 +32,6 @@ Deno.serve(async(req:Request)=>{
    try{result=await request(loaded.state,b.action,{...(b.data||{}),requestId:b.requestId},token,loaded.now,source);}catch(e){return out({error:e.message},400);}
    const current=owner||loaded.state.players[result.player?.id];
    result._auth=current?{playerId:current.id,generation:current.generation,logoutHash:b.action==='logout'?await digest(token):undefined}:null;
-   const transient=['heartbeat','world','snapshot'].includes(b.action);
    if(b.action==='snapshot')return out(result);
    const ok=await rpc('gather_s2_commit',{p_revision:loaded.revision,p_state:loaded.state,p_scope:scope,p_request:b.requestId,p_result:transient?null:result});
    if(ok)return out(result);

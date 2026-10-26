@@ -5,7 +5,7 @@
   let ecosystem, network;
   let tick = 0;
   let isLoggedIn = false;
-  const season = {enabled: window.GATHER_CONFIG.season2 === true, client:null, busy:false, lastPoll:0, polling:false, pendingChoice:false, effects:{}, lastDamage:null};
+  const season = {enabled: window.GATHER_CONFIG.season2 === true, client:null, busy:false, lastPoll:0, polling:false, pendingChoice:false, attacking:false, hiddenDrops:new Set(), effects:{}, lastDamage:null};
   const gameClock=window.OfficeProgression?.clock();
   const gameNow=()=>season.enabled&&gameClock?gameClock.now():Date.now();
   if(season.enabled)window.GatherServerClock=gameClock;
@@ -224,7 +224,7 @@
     showCombatToast(escapeHtml(text),'error');
   }
   async function seasonSend(action,data={}) {
-    try {return await season.client.send(action,data);} catch(e){seasonError(e);return null;}
+    try {return await season.client.send(action,{...data,...(!['heartbeat','world','snapshot'].includes(action)?{pose:{x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState}}:{})});} catch(e){seasonError(e);return null;}
   }
   function applySeasonSnapshot(snap) {
     gameClock?.sync(snap.now);window.GATHER_SEASON_PLAYERS=snap.players;
@@ -252,7 +252,7 @@
     if(previous!==p.exp&&isLoggedIn)showCombatToast(`${p.exp>previous?'+':''}${p.exp-previous} EXP`);
     recalcLevelAndBuff();if(oldLevel>progression.level&&isLoggedIn)showCombatToast(`等級下跌！Lv.${oldLevel} → Lv.${progression.level}`);
     syncPlayerActiveWeaponState();updateInjuryCountdownHUD();
-    ecosystem.groundItems=snap.drops.filter(d=>!d.claimed).map(d=>({...d,dropY:0,combatDrop:true,seasonDrop:true}));
+    ecosystem.groundItems=snap.drops.filter(d=>!d.claimed&&!season.hiddenDrops.has(d.uid)).map(d=>({...d,dropY:0,combatDrop:true,seasonDrop:true}));
     for(const [id,f]of Object.entries(snap.broken||{})){const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];if(target){target.isBroken=f.broken;if(!f.broken){target.brokenBy=null;target.screenState='pass';}}}
     for(const [id,e]of Object.entries(snap.enemies||{}))if(e.mob&&!ecosystem.mobs.some(m=>(m.uid||m.id)===id)){const meta=window.GATHER_CONFIG.minecraftMobs?.find(m=>m.id===e.templateId)||window.GATHER_CONFIG.minecraftMobs?.[0]||{};ecosystem.mobs.push({...meta,id:e.templateId,uid:id,name:e.name,x:e.x,y:e.y,hp:e.hp,maxHp:e.maxHp,isBerserk:false,waypoints:[]});}
     network.combat={enemies:snap.enemies||{}};
@@ -286,12 +286,11 @@
     return result;
   }
   async function seasonPoll() {
-    if(!season.enabled||!isLoggedIn||season.polling||gameNow()-season.lastPoll<2000)return;
+    if(!season.enabled||!isLoggedIn||season.polling||season.client?.busy||gameNow()-season.lastPoll<2000)return;
     season.polling=true;season.lastPoll=gameNow();
     try {
       if(season.client.pending)await season.client.retry();
-      await season.client.send('heartbeat',{x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState});
-      if(network.isRoomMaster())await season.client.send('world',{enemies:[...network.npcPlayers.values(),...(ecosystem.mobs||[])].map(e=>({id:e.uid||e.id,templateId:e.id,name:e.name,x:e.x,y:e.y,attacking:!!(e.isBerserk||e.isAggressive||e.isGhost)})),broken:[...window.WORLD_MAP.workstations.map((e,i)=>e.isBroken?'ws_'+i:null),...window.WORLD_MAP.labEquipments.map((e,i)=>e.isBroken?'lab_'+i:null)].filter(Boolean)});
+      await season.client.send('heartbeat',{x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState,...(network.isRoomMaster()?{world:{enemies:[...network.npcPlayers.values(),...(ecosystem.mobs||[])].map(e=>({id:e.uid||e.id,templateId:e.id,name:e.name,x:e.x,y:e.y,attacking:!!(e.isBerserk||e.isAggressive||e.isGhost)})),broken:[...window.WORLD_MAP.workstations.map((e,i)=>e.isBroken?'ws_'+i:null),...window.WORLD_MAP.labEquipments.map((e,i)=>e.isBroken?'lab_'+i:null)].filter(Boolean)}}:{})});
       season.failures=0;
       const channel=season.client.snapshot?.player?.channel;
       if(channel&&gameNow()-channel.at>=(channel.kind==='lounge'?5000:channel.kind==='heal'?channel.duration:3000)){
@@ -315,14 +314,20 @@
     const snap=season.client.snapshot,p=snap.player;
     if(p.effects.injuredUntil>snap.now||p.effects.lockedUntil>snap.now)return;
     const q=snap.players.find(q=>q.id!==p.id&&(q.effects.injuredUntil>snap.now||q.effects.lightUntil>snap.now)&&Math.hypot(q.x-localPlayer.x,q.y-localPlayer.y)<75);
-    if(q){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await seasonSend('heal_start',{target:q.id});localPlayer.actionState='sit_code';return true;}
+    if(q){await seasonSend('heal_start',{target:q.id});localPlayer.actionState='sit_code';return true;}
     const d=nearbySeasonDrop();
-    if(d){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});const result=await seasonSend('pickup',{uid:d.uid});if(result)showCombatToast(`拾起 ${d.emoji||'🎁'} ${escapeHtml(d.name)}`);return true;}
-    if(snap.task?.claimer===p.id&&Math.hypot(localPlayer.x-snap.task.x,localPlayer.y-snap.task.y)<95){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await seasonSend('rma_start');localPlayer.actionState='sit_code';return true;}
+    if(d){
+      season.hiddenDrops.add(d.uid);ecosystem.groundItems=ecosystem.groundItems.filter(i=>i.uid!==d.uid);
+      vfxList.push({type:'click_ring',x:d.x,y:d.y,radius:4,maxRadius:40,alpha:1,color:'#34d399'});
+      try{const result=await seasonSend('pickup',{uid:d.uid});if(result)showCombatToast(`拾起 ${d.emoji||'🎁'} ${escapeHtml(d.name)}`);
+        else if(!ecosystem.groundItems.some(i=>i.uid===d.uid)&&season.client.snapshot.drops.some(i=>i.uid===d.uid&&!i.claimed))ecosystem.groundItems.push(d);
+      }finally{season.hiddenDrops.delete(d.uid);}return true;
+    }
+    if(snap.task?.claimer===p.id&&Math.hypot(localPlayer.x-snap.task.x,localPlayer.y-snap.task.y)<95){await seasonSend('rma_start');localPlayer.actionState='sit_code';return true;}
     const fault=Object.entries(snap.broken||{}).find(([id,f])=>{const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];return f.broken&&target&&Math.hypot(localPlayer.x-target.x-target.w/2,localPlayer.y-target.y-target.h-18)<95;});
-    if(fault){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await seasonSend('device_start',{target:fault[0]});localPlayer.actionState='sit_code';return true;}
+    if(fault){await seasonSend('device_start',{target:fault[0]});localPlayer.actionState='sit_code';return true;}
     const f=window.OfficeFacilities.nearby(localPlayer,snap);
-    if(f){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await window.OfficeFacilities.use(f,season.client).catch(seasonError);if(season.client.snapshot.player.channel)localPlayer.actionState=f.id==='shrine'?'pray_kuaikuai':f.id==='lounge'?'play_arcade':'sit_code';return true;}
+    if(f){await window.OfficeFacilities.use(f,season.client,()=>({x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState})).catch(seasonError);if(season.client.snapshot.player.channel)localPlayer.actionState=f.id==='shrine'?'pray_kuaikuai':f.id==='lounge'?'play_arcade':'sit_code';return true;}
     return false;
   }
 
@@ -2827,7 +2832,24 @@ async function executeOfficeLogin(params) {
   }
 
   function triggerWeaponAttack() {
-    if(season.enabled){if(gameNow()-lastWeaponAttackAt<300||!isLoggedIn)return;lastWeaponAttackAt=gameNow();const w=getActiveEquippedItem();if(!w){showCombatToast("請先裝備武器");return;}localPlayer.weaponSwing={emoji:w.emoji,ticksLeft:18,totalTicks:18,startedAt:gameNow(),duration:300};network.broadcastPacket("weapon_swing",{emoji:w.emoji});seasonSend("heartbeat",{x:localPlayer.x,y:localPlayer.y}).then(()=>seasonSend("attack"));return;}
+    if(season.enabled){
+      if(gameNow()-lastWeaponAttackAt<300||!isLoggedIn||season.attacking)return;
+      const effects=season.effects,now=gameNow();
+      if(['injuredUntil','lockedUntil','stunnedUntil','ghostUntil'].some(k=>effects[k]>now)){showCombatToast('目前狀態無法攻擊');return;}
+      const w=getActiveEquippedItem();if(!w){showCombatToast('請先裝備武器');return;}
+      lastWeaponAttackAt=now;season.attacking=true;
+      localPlayer.weaponSwing={emoji:w.emoji,ticksLeft:18,totalTicks:18,startedAt:now,duration:300};network.broadcastPacket('weapon_swing',{emoji:w.emoji});
+      const previews=[];
+      for(const e of [...network.npcPlayers.values(),...(ecosystem.mobs||[])]){
+        if(e.combatDown||Math.hypot(e.x-localPlayer.x,e.y-localPlayer.y)>135)continue;
+        const dx=e.x-localPlayer.x,dy=e.y-localPlayer.y,steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/8));let blocked=false;
+        for(let i=0;i<=steps;i++)if(window.isPositionBlocked(localPlayer.x+dx*i/steps,localPlayer.y+dy*i/steps,18)){blocked=true;break;}
+        if(blocked)continue;
+        const id=window.OfficeCombat.predictImpact(e,Math.atan2(dy,dx));previews.push([e,id]);
+      }
+      seasonSend('attack').finally(()=>{season.attacking=false;for(const [e,id]of previews)if(e.combatReaction?.id===id)e.combatReaction=null;});
+      return;
+    }
     if(gameNow()<(localPlayer.stunnedUntil||0)) return;
     if(window.OfficeHunt?.clock().active && window.OfficeHunt.safe(localPlayer)) return;
     if (gameNow() < (localPlayer.ghostSleepUntil || 0)) return;
@@ -4511,25 +4533,7 @@ async function executeOfficeLogin(params) {
 
   function showToast(htmlText, type = 'info', onAction = null) {
     pushStatusLog('系統', String(htmlText).replace(/<[^>]*>/g, ''));
-    if (typeof document === 'undefined') return;
-    let container = document.getElementById('gatherToastContainer');
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'gatherToastContainer';
-      container.className = 'gather-toast-container';
-      if (document.body) document.body.appendChild(container);
-    }
-    if (container) {
-      const toast = document.createElement('div');
-      toast.className = `gather-toast-item ${type}`;
-      toast.innerHTML = htmlText;
-      container.appendChild(toast);
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(-10px)';
-        setTimeout(() => toast.remove(), 320);
-      }, 3500);
-    }
+    appendCombatText(htmlText);
   }
 
   window.isChatPanelCollapsed = isChatPanelCollapsed;
