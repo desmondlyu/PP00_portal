@@ -53,3 +53,12 @@ test('overview map can be toggled and closed via button, function, and Escape ke
   assert.ok(appCode.includes('camera.minimapHidden'), 'camera must support minimapHidden flag');
   assert.ok(appCode.includes("camera.minimapHidden = true"), 'minimap must allow closing via close click');
 });
+
+
+test('loginForm submission uses 6-digit passcode, fixed roomCode PP00 and no undefined roomCode reference', () => {
+  const appCode = fs.readFileSync(path.join(__dirname, '../static/js/app.js'), 'utf8');
+  assert.ok(!appCode.includes('unit: rawUnit,\n        roomCode,'), 'Must not reference undefined roomCode');
+  assert.ok(!appCode.includes('unit: rawUnit,\r\n        roomCode,'), 'Must not reference undefined roomCode (CRLF)');
+  assert.ok(appCode.includes("roomCode: 'PP00'"), "Must explicitly set roomCode: 'PP00'");
+  assert.ok(appCode.includes('pattern="[0-9]{6}"') || appCode.includes('/^\\d{6}$/'), 'Must validate 6-digit passcode');
+});

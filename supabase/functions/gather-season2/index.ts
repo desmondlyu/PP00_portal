@@ -1,12 +1,31 @@
 // Opaque Gather session authentication is performed in service.mjs, not by the gateway JWT.
 import {request,digest,identify,canReplay} from './service.mjs';
-const url=Deno.env.get('SUPABASE_URL')!,key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+function resolveKey(): string {
+  const raw = Deno.env.get('SUPABASE_SECRET_KEYS') || '';
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === 'object' && parsed) {
+        const candidate = parsed.default || Object.values(parsed).find((v: any) => typeof v === 'string');
+        if (candidate) return String(candidate);
+      }
+    } catch {}
+  }
+  return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SECRET_KEY') || '';
+}
+const url=Deno.env.get('SUPABASE_URL')!,key=resolveKey();
 const allowed=new Set(['https://desmondlyu.github.io','http://localhost:8139','http://localhost:5173']);
 async function rpc(name:string,args:unknown={}){
  const res=await fetch(url+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(args)});
- if(!res.ok)throw new Error('後端暫時無法使用');return res.json();
+ if(!res.ok){
+   const txt = await res.text().catch(()=>'');
+   console.error(`RPC ${name} failed [${res.status}]:`, txt);
+   throw new Error('後端暫時無法使用');
+ }
+ return res.json();
 }
 Deno.serve(async(req:Request)=>{
+ console.log('Runtime config:', { hasUrl: !!url, urlPrefix: (url||'').slice(0, 15), keyLen: (key||'').length });
  const origin=req.headers.get('Origin')||'';
  const headers={'Content-Type':'application/json','Access-Control-Allow-Origin':allowed.has(origin)?origin:'https://desmondlyu.github.io','Access-Control-Allow-Headers':'content-type,apikey,authorization,x-gather-session','Access-Control-Allow-Methods':'POST,OPTIONS','Vary':'Origin','Cache-Control':'no-store'};
  const out=(body:any,status=200)=>{const {_auth,...publicBody}=body||{};return new Response(JSON.stringify(publicBody),{status,headers});};
@@ -24,9 +43,9 @@ Deno.serve(async(req:Request)=>{
   for(let attempt=0;attempt<6;attempt++){
    const loaded=await rpc('gather_s2_load');if(!loaded.enabled)return out({error:'新版進度尚未開放'},503);
    const prior=transient?null:await rpc('gather_s2_receipt',{p_scope:scope,p_request:b.requestId});
-   if(prior){if(await canReplay(loaded.state,b.action,token,b.requestId,prior._auth,loaded.now))return out(prior);return out({error:'登入已失效，請重新輸入 PIN'},401);}
+   if(prior){if(await canReplay(loaded.state,b.action,token,b.requestId,prior._auth,loaded.now))return out(prior);return out({error:'登入已失效，請重新輸入個人密碼'},401);}
    let owner:any=null;
-   if(!['login','register'].includes(b.action)){try{owner=await identify(loaded.state,token,loaded.now);}catch{return out({error:'登入已失效，請重新輸入 PIN'},401);}}
+   if(!['login','register'].includes(b.action)){try{owner=await identify(loaded.state,token,loaded.now);}catch{return out({error:'登入已失效，請重新輸入個人密碼'},401);}}
 
    let result;
    try{result=await request(loaded.state,b.action,{...(b.data||{}),requestId:b.requestId},token,loaded.now,source);}catch(e){return out({error:e.message},400);}
@@ -38,5 +57,8 @@ Deno.serve(async(req:Request)=>{
    // Reload state and validate receipt ownership again on the next CAS attempt.
   }
   return out({error:'辦公室忙碌中，請以同一請求重試'},409);
- }catch(e){return out({error:'同步未完成，請重試'},503);}
+ }catch(e){
+  console.error('Edge function caught error:', e);
+  return out({error:'同步未完成，請重試'},503);
+ }
 });
