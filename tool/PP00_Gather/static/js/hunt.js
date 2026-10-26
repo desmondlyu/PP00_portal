@@ -2,7 +2,7 @@
 (function () {
   const PERIOD = 15 * 60 * 1000, DURATION = 60000;
   const safe = p => p.x >= 2220 && p.x <= 2500 && p.y >= 160 && p.y <= 460;
-  function clock(now = Date.now()) {
+  function clock(now = (window.GatherServerClock?.now() || Date.now())) {
     const start = Math.floor(now / PERIOD) * PERIOD;
     return {start, end: start + DURATION, active: now < start + DURATION,
       warning: now >= start + PERIOD - 10000, next: start + PERIOD};
@@ -47,20 +47,20 @@
   function strike(n,id) {
     if(!clock().active||!n.isRoomMaster())return;
     const p=id===n.clientId?n.localPlayer:n.remotePlayers.get(id), bird=n.npcPlayers.get('npc_bird_commander');
-    const h=state(n,Date.now());
+    const h=state(n,(window.GatherServerClock?.now() || Date.now()));
     if(!p||!bird||safe(p)||p.isInjured||(h.hits[id]||0)>=3||Math.hypot(p.x-bird.x,p.y-bird.y)>140)return;
     h.strikes ||= {};
-    if(Date.now()-(h.strikes[id]||0)<500)return;
-    h.strikes[id]=Date.now();h.stunnedUntil=Date.now()+650;
+    if((window.GatherServerClock?.now() || Date.now())-(h.strikes[id]||0)<500)return;
+    h.strikes[id]=(window.GatherServerClock?.now() || Date.now());h.stunnedUntil=(window.GatherServerClock?.now() || Date.now())+650;
     const angle=Math.atan2(bird.y-p.y,bird.x-p.x);
     for(let i=0;i<4;i++){
       const x=bird.x+Math.cos(angle)*12,y=bird.y+Math.sin(angle)*12;
       if(!window.isPositionBlocked(x,y,14)){bird.x=x;bird.y=y;}
     }
-    bird.jumpOffset=18;bird.emote={emoji:'💫',expiresAt:Date.now()+650};publish(n);
+    bird.jumpOffset=18;bird.emote={emoji:'💫',expiresAt:(window.GatherServerClock?.now() || Date.now())+650};publish(n);
   }
   function update(n,tick) {
-    const now=Date.now(),c=clock(now),h=state(n,now);
+    const now=(window.GatherServerClock?.now() || Date.now()),c=clock(now),h=state(n,now);
     if(n.localPlayer && n.localPlayer.huntRound!==c.start){n.localPlayer.huntRound=c.start;n.localPlayer.huntHits=0;}
     if(c.active && !n.npcPlayers.has('npc_bird_commander')) n.spawnBirdCommander();
     const bird=n.npcPlayers.get('npc_bird_commander');
@@ -80,7 +80,7 @@
         if(d<speed)bird.huntPath?.shift();
         bird.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');bird.isMoving=true;
         if(Math.hypot(target.x-bird.x,target.y-bird.y)<38 && now>=(h.protectedUntil[target.id]||0) && !window.isPositionBlocked((target.x+bird.x)/2,(target.y+bird.y)/2,8)){
-          h.hits[target.id]=(h.hits[target.id]||0)+1;h.protectedUntil[target.id]=now+2000;
+          if(!window.GATHER_CONFIG?.season2)h.hits[target.id]=(h.hits[target.id]||0)+1;h.protectedUntil[target.id]=now+2000;
           bird.emote={emoji:'💥',expiresAt:now+500};publish(n);
         }
       }

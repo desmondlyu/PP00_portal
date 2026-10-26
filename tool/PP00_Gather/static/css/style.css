@@ -2985,3 +2985,12 @@ body.hunt-active::after {
     pointer-events: none;
   }
 }
+/* Season 2 material selection fits both phone orientations. */
+.s2-picker { background:#101d30;color:#e3effa;border:1px solid #4bb6c7;border-radius:16px;padding:20px;max-width:min(440px,90vw);max-height:70dvh;overflow:auto;box-shadow:0 16px 70px #0009; }
+.s2-picker::backdrop { background:#020b18a0; }
+.s2-picker h3 { margin:0 0 16px;font-size:16px; }
+.s2-picker form { display:grid;gap:10px; }
+.s2-picker label { display:flex;align-items:center;gap:10px;padding:10px;background:#243349;border-radius:8px; }
+.s2-picker button { padding:12px;border:1px solid #5c91a5;border-radius:8px;background:#17546a;color:#fff;font-weight:700; }
+.s2-picker button:disabled { opacity:.4; }
+.s2-login-note { font-size:12px;color:#93c5d7; }

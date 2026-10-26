@@ -1,6 +1,7 @@
 // PP00 Gather Office — 設定檔 (含 10 種情境動作、4 大技能各 5 種隨機敘述、NPC 專屬 36+ 句台詞庫)
 
 window.GATHER_CONFIG = {
+  season2: true,
   appName: 'PP00 Gather Office',
   version: 'v2.0.0-3dpixel',
   supabaseUrl: 'https://fvfekakjjzhocpprcbgi.supabase.co',
@@ -48,6 +49,7 @@ window.GATHER_CONFIG = {
 
   // 12 種情境動作與專屬快捷鍵 (含新增「🛌 睡覺」與 Alt+快捷鍵)
   contextualActions: [
+    {id:'play_arcade',label:'打電動',icon:'🎮',zoneHint:'電競室',desc:'手持控制器玩遊戲'},
     { id: 'sit_code', label: '💻 坐下寫Code', hotkey: 'Alt+1', altKey: '1', icon: '💻', zoneHint: '辦公桌 [E]', desc: '坐下敲鍵盤寫Code' },
     { id: 'toilet', label: '🚽 上廁所', hotkey: 'Alt+2', altKey: '2', icon: '🚽', zoneHint: '馬桶間 [E]', desc: '關門蹲馬桶解放' },
     { id: 'wash_hands', label: '🧼 洗手搓泡', hotkey: 'Alt+3', altKey: '3', icon: '🧼', zoneHint: '洗手台 [E]', desc: '開水搓泡泡洗手' },

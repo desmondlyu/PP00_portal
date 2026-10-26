@@ -5,10 +5,14 @@
   let ecosystem, network;
   let tick = 0;
   let isLoggedIn = false;
+  const season = {enabled: window.GATHER_CONFIG.season2 === true, client:null, busy:false, lastPoll:0, polling:false, pendingChoice:false, effects:{}, lastDamage:null};
+  const gameClock=window.OfficeProgression?.clock();
+  const gameNow=()=>season.enabled&&gameClock?gameClock.now():Date.now();
+  if(season.enabled)window.GatherServerClock=gameClock;
   let loginTimestamp = 0;
 
   // 安全性冷卻時間與自動閒置追蹤
-  let lastUserActionAt = Date.now();
+  let lastUserActionAt = gameNow();
   let lastInteractAt = 0;
   let lastWeaponAttackAt = 0;
   let isAutoIdled = false;
@@ -33,7 +37,7 @@
         avatarId: localPlayer.avatarId,
         roomCode: (network && network.roomCode) || 'PP00',
         autoLogin: !!autoLogin,
-        savedAt: Date.now(),
+        savedAt: gameNow(),
       };
       localStorage.setItem(LOGIN_SESSION_KEY, JSON.stringify(session));
     } catch (e) {
@@ -51,7 +55,8 @@
     }
   }
 
-  function triggerGameReload() {
+  async function triggerGameReload() {
+    if(season.enabled&&season.client){try{await season.client.flush();}catch(e){seasonError(e);return;}}
     if (!isLoggedIn) {
       window.location.reload();
       return;
@@ -61,7 +66,7 @@
     saveLoginSession(true);
     setTimeout(() => {
       const cleanUrl = window.location.origin + window.location.pathname;
-      window.location.href = `${cleanUrl}?v=${Date.now()}`;
+      window.location.href = `${cleanUrl}?v=${gameNow()}`;
     }, 150);
   }
 
@@ -98,7 +103,7 @@
   // 浮動提示重傷休養 5 分鐘倒數 HUD
   function updateInjuryCountdownHUD() {
     let hud = document.getElementById('injuryHudBanner');
-    if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
+    if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
       if (!hud) {
         hud = document.createElement('div');
         hud.id = 'injuryHudBanner';
@@ -122,7 +127,7 @@
         hud.style.pointerEvents = 'none';
         document.body.appendChild(hud);
       }
-      const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - Date.now()) / 1000));
+      const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - gameNow()) / 1000));
       const m = String(Math.floor(remSec / 60)).padStart(2, '0');
       const s = String(remSec % 60).padStart(2, '0');
       hud.innerHTML = `🚑 <strong>身受重傷休養中（會議室）</strong>｜無法動彈剩餘：<span style="font-variant-numeric:tabular-nums; color:#fef08a; font-weight:800;">${m}:${s}</span>`;
@@ -212,6 +217,102 @@
   const vfxList = [];
   let selectedAvatarIndex = 1;
 
+
+  function seasonError(error) {
+    const text=String(error.message||error);
+    if(text.includes('登入已失效')){isLoggedIn=false;season.client?.clear();document.getElementById('loginOverlay')?.classList.remove('hidden');}
+    showCombatToast(escapeHtml(text),'error');
+  }
+  async function seasonSend(action,data={}) {
+    try {return await season.client.send(action,data);} catch(e){seasonError(e);return null;}
+  }
+  function applySeasonSnapshot(snap) {
+    gameClock?.sync(snap.now);window.GATHER_SEASON_PLAYERS=snap.players;
+    const p=snap.player;if(!p)return;
+    const previous=progression.exp, oldLevel=progression.level;
+    progression.exp=p.exp;progression.loginCount=p.totalLogins||1;
+    localPlayer.avatarId=p.avatarId;
+    localPlayer.inventory=p.items.filter(i=>i.slot==null).map(i=>({...i,count:1}));
+    localPlayer.equippedSlots=[0,1,2].map(slot=>p.items.find(i=>i.slot===slot)||null);
+    localPlayer.activeEquipIndex=p.activeSlot||0;localPlayer.overflow=p.overflow||[];localPlayer.wornOutfitUid=p.worn||null;
+    season.effects=p.effects||{};
+    const now=snap.now,e=season.effects,wasInjured=localPlayer.isInjured;
+    localPlayer.isInjured=e.injuredUntil>now;localPlayer.injuredUntil=e.injuredUntil||0;
+    localPlayer.stunnedUntil=e.stunnedUntil||0;localPlayer.ghostSleepUntil=e.ghostUntil||0;
+    localPlayer.isRestrained=e.lockedUntil>now;localPlayer.restrainedUntil=e.lockedUntil||0;
+    if(localPlayer.isInjured||localPlayer.isRestrained){localPlayer.x=p.x;localPlayer.y=p.y;localPlayer.knockback=null;localPlayer.autoWalkTarget=null;}
+    if(localPlayer.isInjured)localPlayer.actionState='sleep_bed';
+    else if(wasInjured)localPlayer.actionState=null;
+    if(p.beating?.until>now && localPlayer.beatingSession?.until!==p.beating.until){
+      const npc=network?.npcPlayers.get(p.beating.npcId);
+      if(npc){triggerBossOrAuntieBeating(npc,p.beating.role);localPlayer.beatingSession.until=p.beating.until;localPlayer.restrainedUntil=p.beating.until;window.MEETING_LOCK_STATE.lockedUntil=p.beating.until;}
+    }
+    localPlayer.huntHits=p.huntRound===Math.floor(now/900000)?p.huntHits||0:0;
+    if(p.lastDamage?.id!==season.lastDamage&&p.lastDamage){season.lastDamage=p.lastDamage.id;if(now-p.lastDamage.at<5000){localPlayer.emote={emoji:p.lastDamage.stun?'💫':'💥',expiresAt:gameNow()+1500};showCombatToast(p.lastDamage.absorbed?'乖乖護盾吸收攻擊！':p.lastDamage.injury==='critical'?'重傷退場，前往會議室 B':p.lastDamage.injury==='light'?'輕微挫傷：移速降低 30%':'受到攻擊');}}
+    if(previous!==p.exp&&isLoggedIn)showCombatToast(`${p.exp>previous?'+':''}${p.exp-previous} EXP`);
+    recalcLevelAndBuff();if(oldLevel>progression.level&&isLoggedIn)showCombatToast(`等級下跌！Lv.${oldLevel} → Lv.${progression.level}`);
+    syncPlayerActiveWeaponState();updateInjuryCountdownHUD();
+    ecosystem.groundItems=snap.drops.filter(d=>!d.claimed).map(d=>({...d,dropY:0,combatDrop:true,seasonDrop:true}));
+    for(const [id,f]of Object.entries(snap.broken||{})){const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];if(target){target.isBroken=f.broken;if(!f.broken){target.brokenBy=null;target.screenState='pass';}}}
+    for(const [id,e]of Object.entries(snap.enemies||{}))if(e.mob&&!ecosystem.mobs.some(m=>(m.uid||m.id)===id)){const meta=window.GATHER_CONFIG.minecraftMobs?.find(m=>m.id===e.templateId)||window.GATHER_CONFIG.minecraftMobs?.[0]||{};ecosystem.mobs.push({...meta,id:e.templateId,uid:id,name:e.name,x:e.x,y:e.y,hp:e.hp,maxHp:e.maxHp,isBerserk:false,waypoints:[]});}
+    network.combat={enemies:snap.enemies||{}};
+    for(const [id,e]of Object.entries(snap.enemies||{})){
+      const npc=network.npcPlayers.get(id)||(ecosystem.mobs||[]).find(m=>(m.uid||m.id)===id);if(!npc)continue;
+      npc.hp=e.hp;npc.maxHp=e.maxHp;npc.combatDown=e.until>now;
+      if(npc.combatDown){npc.actionState='sleep_bed';npc.isMoving=false;}else if(npc.actionState==='sleep_bed')npc.actionState=null;
+      if(e.reaction&&npc.combatReaction?.id!==e.reaction.id){npc.combatReaction={...e.reaction,startedAt:gameNow()-Math.max(0,now-e.reaction.at)};if(now-e.reaction.at<1000)showCombatToast(`${escapeHtml(e.name||id)} ${e.reaction.kind==='dodge'?'閃避':e.reaction.kind==='defeat'?'被擊倒':'受到擊退'}`);}
+    }
+    for(const q of snap.players){if(q.id===p.id)continue;if(!network.remotePlayers.has(q.clientId))network.upsertRemotePlayer({id:q.clientId,name:q.name,unit:q.unit,x:q.x,y:q.y,avatarId:q.avatarId,status:'active'},true);const remote=network.remotePlayers.get(q.clientId);if(remote){remote.seasonPlayerId=q.id;remote.isInjured=q.effects.injuredUntil>now;remote.lightInjuredUntil=q.effects.lightUntil||0;remote.outfitAvatarId=q.worn;}}
+    if(p.pending&&!season.pendingChoice){season.pendingChoice=true;setTimeout(async()=>{const chosen=await window.OfficeFacilities.choose('抽到 '+p.pending.outfit.name+'，選一套服裝替換；取消保留材料',p.items.filter(i=>i.category==='outfit'));await seasonSend(chosen?'gacha_confirm':'gacha_cancel',chosen?{replace:chosen[0]}:{});season.pendingChoice=false;},0);}
+  }
+  async function seasonLogin(params) {
+    if(!season.client)season.client=new window.GatherProfileClient(window.GATHER_CONFIG.supabaseUrl+'/functions/v1/gather-season2',{storage:localStorage,onSnapshot:applySeasonSnapshot});
+    await season.client.recover();
+    let result;
+    if(params.isAutoReload&&season.client.token){result=await season.client.send('resume',{connection:network.clientId});}
+    else {
+      const pin=document.getElementById('loginPin').value;
+      const register=document.getElementById('loginRegister').checked;
+      const legacy=[];const old=loadLoginSession();
+      if(register&&old?.name?.toLowerCase()===params.name.toLowerCase()&&old.unit===params.unit){
+        const saved=loadPersistentState();if(saved){localStorage.setItem('gather_legacy_readonly_backup',JSON.stringify(saved));for(const i of [...(saved.equippedSlots||[]),...(saved.backpack||[]),...(saved.overflow||[])].filter(Boolean))for(let n=0;n<Math.min(i.count||1,100);n++)legacy.push(i);}
+      }
+      result=await season.client.send(register?'register':'login',{name:params.name,unit:params.unit,pin,avatarId:params.avatarId,connection:network.clientId,legacy});
+    }
+    return result;
+  }
+  async function seasonPoll() {
+    if(!season.enabled||!isLoggedIn||season.polling||gameNow()-season.lastPoll<2000)return;
+    season.polling=true;season.lastPoll=gameNow();
+    try {
+      if(season.client.pending)await season.client.retry();
+      await season.client.send('heartbeat',{x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState});
+      if(network.isRoomMaster())await season.client.send('world',{enemies:[...network.npcPlayers.values(),...(ecosystem.mobs||[])].map(e=>({id:e.uid||e.id,templateId:e.id,name:e.name,x:e.x,y:e.y,attacking:!!(e.isBerserk||e.isAggressive||e.isGhost)})),broken:[...window.WORLD_MAP.workstations.map((e,i)=>e.isBroken?'ws_'+i:null),...window.WORLD_MAP.labEquipments.map((e,i)=>e.isBroken?'lab_'+i:null)].filter(Boolean)});
+      season.failures=0;
+      const drop=ecosystem.groundItems.find(d=>d.seasonDrop&&Math.hypot(localPlayer.x-d.x,localPlayer.y-d.y)<30+progression.level-1);if(drop&&!localPlayer.isInjured&&!localPlayer.isRestrained)await season.client.send('pickup',{uid:drop.uid});
+      const channel=season.client.snapshot?.player?.channel;
+      if(channel&&gameNow()-channel.at>=(channel.kind==='lounge'?5000:channel.kind==='heal'?channel.duration:3000)){
+        await season.client.send(channel.kind==='rma'?'rma_finish':channel.kind==='heal'?'heal_finish':channel.kind==='device'?'device_finish':'facility_finish');localPlayer.actionState=null;
+      }
+    } catch(e){season.failures=(season.failures||0)+1;if(String(e.message).includes('登入已失效'))seasonError(e);else if(!document.hidden&&season.failures>=3){const badge=document.getElementById('netModeBadge');if(badge){badge.textContent='雲端連線中斷・正在重試';badge.classList.add('disconnected');}}}
+    finally{season.polling=false;}
+  }
+  async function seasonInteract() {
+    if(!season.client?.snapshot)return;
+    const snap=season.client.snapshot,p=snap.player;
+    if(p.effects.injuredUntil>snap.now||p.effects.lockedUntil>snap.now)return;
+    const q=snap.players.find(q=>q.id!==p.id&&(q.effects.injuredUntil>snap.now||q.effects.lightUntil>snap.now)&&Math.hypot(q.x-localPlayer.x,q.y-localPlayer.y)<75);
+    if(q){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await seasonSend('heal_start',{target:q.id});localPlayer.actionState='sit_code';return true;}
+    if(snap.task?.claimer===p.id&&Math.hypot(localPlayer.x-snap.task.x,localPlayer.y-snap.task.y)<95){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await seasonSend('rma_start');localPlayer.actionState='sit_code';return true;}
+    const fault=Object.entries(snap.broken||{}).find(([id,f])=>{const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];return f.broken&&target&&Math.hypot(localPlayer.x-target.x-target.w/2,localPlayer.y-target.y-target.h-18)<95;});
+    if(fault){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await seasonSend('device_start',{target:fault[0]});localPlayer.actionState='sit_code';return true;}
+    const f=window.OfficeFacilities.nearby(localPlayer,snap);
+    if(f){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await window.OfficeFacilities.use(f,season.client).catch(seasonError);if(season.client.snapshot.player.channel)localPlayer.actionState=f.id==='shrine'?'pray_kuaikuai':f.id==='lounge'?'play_arcade':'sit_code';return true;}
+    const d=ecosystem.groundItems.find(d=>Math.hypot(d.x-localPlayer.x,d.y-localPlayer.y)<30+progression.level-1);
+    if(d){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await seasonSend('pickup',{uid:d.uid});return true;}
+    return false;
+  }
+
   function init() {
     document.documentElement.classList.toggle("embedded-office", window.parent !== window);
     canvas = document.getElementById('officeCanvas');
@@ -227,7 +328,7 @@
           delete persisted.birdCommanderExiled;
           changed = true;
         }
-        if (persisted.birdCommanderRestUntil && Date.now() >= persisted.birdCommanderRestUntil) {
+        if (persisted.birdCommanderRestUntil && gameNow() >= persisted.birdCommanderRestUntil) {
           delete persisted.birdCommanderRestUntil;
           changed = true;
         }
@@ -256,12 +357,12 @@
         saved.birdCommanderExiled = false;
         savePersistentState();
       }
-      if (saved.birdCommanderRestUntil && Date.now() < saved.birdCommanderRestUntil) {
+      if (saved.birdCommanderRestUntil && gameNow() < saved.birdCommanderRestUntil) {
         localPlayer.birdCommanderRestUntil = saved.birdCommanderRestUntil;
       } else {
         localPlayer.birdCommanderRestUntil = 0;
       }
-      if (saved.isInjured && saved.injuredUntil > Date.now()) {
+      if (saved.isInjured && saved.injuredUntil > gameNow()) {
         localPlayer.isInjured = true;
         localPlayer.injuredUntil = saved.injuredUntil;
         localPlayer.x = 400; // 會議室 A
@@ -287,7 +388,7 @@
         pushStatusLog('系統', `👾 怪物【${mob.name}】暴走，衝向 ${target.name}！按 [F] 揮裝備擊退！`);
       },
       onEquipmentBroken: (mob, target) => {
-        pushStatusLog('系統', `💥 【${target.name}】遭怪物【${mob.name}】破壞！靠近按 [E] 修復直接升級！`);
+        pushStatusLog('系統', `💥 【${target.name}】遭怪物【${mob.name}】破壞！靠近按 [E] 修復獲得經驗！`);
       },
     });
 
@@ -295,7 +396,7 @@
       onPlayerJoin: (player) => {
         pushStatusLog('系統', `🟢 ${player.name} (${player.unit}) 已上線進入辦公室！`);
         // 登入歡迎動畫只顯示給「已經在線上」，看到新使用者登入時的提示
-        if (loginTimestamp && Date.now() - loginTimestamp > 3000) {
+        if (loginTimestamp && gameNow() - loginTimestamp > 3000) {
           showWelcome(player);
         }
         renderSidebarRoster();
@@ -316,18 +417,18 @@
         localPlayer.actionState='sleep_bed';localPlayer.autoWalkTarget=null;localPlayer.knockback=null;
         if(changed){savePersistentState();network.broadcastPacket('state_sync',{player:network.getPublicState()});}
       },
-      onCombatMobDefeat: (uid) => {if(network.isRoomMaster()){ecosystem.mobs=ecosystem.mobs.filter(m=>m.uid!==uid);ecosystem.lastMobDefeatedAt=Date.now();}},
-      onCombatResult: (text) => { showCombatToast(text); addExp(30,'擊倒目標'); },
-      onCombatGround: (items) => {
+      onCombatMobDefeat: (uid) => {if(network.isRoomMaster()){ecosystem.mobs=ecosystem.mobs.filter(m=>m.uid!==uid);ecosystem.lastMobDefeatedAt=gameNow();}},
+      onCombatResult: (text) => {if(season.enabled)return; showCombatToast(text); addExp(30,'擊倒目標'); },
+      onCombatGround: (items) => {if(season.enabled)return;
         ecosystem.groundItems = [...ecosystem.groundItems.filter(i=>!i.combatDrop), ...items];
       },
-      onCombatPickup: (item) => { addItemToInventory(item,true);savePersistentState();updateSelfHudCard();showCombatToast(`撿起【${escapeHtml(item.name)}】`); },
-      onCombatDamage: (effect) => {
+      onCombatPickup: (item) => {if(season.enabled)return; addItemToInventory(item,true);savePersistentState();updateSelfHudCard();showCombatToast(`撿起【${escapeHtml(item.name)}】`); },
+      onCombatDamage: (effect) => {if(season.enabled)return;
         if(effect.outfitDamage){
           const outfit=window.OfficeWardrobe.damage(localPlayer);
           if(outfit){syncPlayerActiveWeaponState();showCombatToast(outfit.durability ? `${outfit.name} 耐久 -1（${outfit.durability}/5）` : `${outfit.name} 已損毀，恢復日常穿著`);}
         }
-        if(effect.stun && Date.now()>=(localPlayer.stunImmuneUntil||0) && !localPlayer.isInjured){
+        if(effect.stun && gameNow()>=(localPlayer.stunImmuneUntil||0) && !localPlayer.isInjured){
           cancelContextualAction();localPlayer.stunnedUntil=effect.until;localPlayer.stunImmuneUntil=effect.until+2000;localPlayer.autoWalkTarget=null;localPlayer.knockback=null;
           localPlayer.emote={emoji:'💫',expiresAt:effect.until};showCombatToast('💫 被擊暈 2 秒！');
         }
@@ -343,14 +444,14 @@
         localPlayer.autoWalkTarget=null; localPlayer.knockback=null;
         network.broadcastPacket('state_sync',{player:network.getPublicState()});
       },
-      onHuntHit: (count) => {
+      onHuntHit: (count) => {if(season.enabled)return;
         window.OfficeCombat?.send(network,'combat_hurt',{targetId:network.clientId});
-        localPlayer.emote={emoji:'💥',expiresAt:Date.now()+2000};
+        localPlayer.emote={emoji:'💥',expiresAt:gameNow()+2000};
         if(count>=3) handleIncomingWeaponAttack({targetId:network.clientId,isCriticalInjury:true,hunt:true});
       },
-      onGhostScare: (until) => {
+      onGhostScare: (until) => {if(season.enabled)return;
         window.OfficeCombat?.send(network,'combat_hurt',{targetId:network.clientId});
-        if (!isLoggedIn || Date.now() < (localPlayer.ghostSleepUntil || 0)) return;
+        if (!isLoggedIn || gameNow() < (localPlayer.ghostSleepUntil || 0)) return;
         cancelContextualAction();
         localPlayer.autoWalkTarget = null;
         localPlayer.knockback = null;
@@ -386,7 +487,7 @@
         pushStatusLog(guard.name, `🏏 警棍命中【${mob.name}】！成功消滅方塊怪！`);
         showToast(`🏏 夜間警衛擊退了【${mob.name}】！`, 'security');
       },
-      onRemoteHealStart: (pkt) => {
+      onRemoteHealStart: (pkt) => {if(season.enabled)return;
         if (localPlayer.id === pkt.targetId) {
           localPlayer.beingHealed = true;
           localPlayer.beingHealedBy = pkt.healerName;
@@ -394,20 +495,20 @@
         }
         pushStatusLog('系統', `🩹 【${pkt.healerName}】正在對【${pkt.targetName || '重傷同仁'}】展開 5 秒急救醫療！`);
       },
-      onRemoteHealProgress: (pkt) => {
+      onRemoteHealProgress: (pkt) => {if(season.enabled)return;
         if (localPlayer.id === pkt.targetId) {
           localPlayer.beingHealed = true;
           localPlayer.healProgress = pkt.progress;
         }
       },
-      onRemoteHealCancel: (pkt) => {
+      onRemoteHealCancel: (pkt) => {if(season.enabled)return;
         if (localPlayer.id === pkt.targetId) {
           localPlayer.beingHealed = false;
           localPlayer.healProgress = 0;
           showToast('⚠️ 急救醫療中斷！', 'error');
         }
       },
-      onRemoteHealComplete: (pkt) => {
+      onRemoteHealComplete: (pkt) => {if(season.enabled)return;
         if (localPlayer.id === pkt.targetId) {
           localPlayer.isInjured = false;
           localPlayer.injuredUntil = 0;
@@ -449,6 +550,7 @@
           mobs: (typeof ecosystem !== 'undefined' && ecosystem && ecosystem.mobs)
             ? ecosystem.mobs.map((m) => ({
                 id: m.id,
+                uid: m.uid,
                 type: m.type,
                 name: m.name,
                 x: m.x,
@@ -480,7 +582,7 @@
         if (network && network.isRoomMaster()) return;
 
         // 同步掉落物 (防禦性補全 emoji 與屬性，杜絕 undefined 道具標籤)
-        if (Array.isArray(pkt.groundItems) && typeof ecosystem !== 'undefined' && ecosystem) {
+        if (!season.enabled && Array.isArray(pkt.groundItems) && typeof ecosystem !== 'undefined' && ecosystem) {
           ecosystem.groundItems = pkt.groundItems.map((gi) => {
             const confItem = (window.GATHER_CONFIG?.items || []).find((it) => it.id === gi.id)
               || (window.GATHER_CONFIG?.weapons || []).find((w) => w.id === gi.id) || {};
@@ -504,11 +606,11 @@
 
         // 同步方塊怪
         if (Array.isArray(pkt.mobs) && typeof ecosystem !== 'undefined' && ecosystem) {
-          const localMobMap = new Map((ecosystem.mobs || []).map((m) => [m.id, m]));
+          const localMobMap = new Map((ecosystem.mobs || []).map((m) => [m.uid||m.id, m]));
           ecosystem.mobs = pkt.mobs
             .filter((rm) => rm.hp > 0)
             .map((rm) => {
-              const localMob = localMobMap.get(rm.id);
+              const localMob = localMobMap.get(rm.uid||rm.id);
               if (!localMob) return { ...rm };
               localMob.hp = rm.hp;
               localMob.isBerserk = rm.isBerserk;
@@ -614,13 +716,13 @@
         const targetName = isSelf ? '你' : (target.name || '同仁');
         pushStatusLog('系統', `🦩 【${npc.name}】開始隨機跟隨【${targetName}】並碎念（按 [F] 揮擊 20% 機率得道具經驗）`);
       },
-      onMeetingPull: (npc, roomId, targetX, targetY, target) => {
+      onMeetingPull: (npc, roomId, targetX, targetY, target) => {if(season.enabled)return;
         const isSelf = !target || target.id === localPlayer.id;
         const targetName = isSelf ? '你' : (target.name || '同仁');
         if (isSelf) {
           const lockMs = window.GATHER_CONFIG?.security?.meetingLockMs || 10000;
           window.MEETING_LOCK_STATE = {
-            lockedUntil: Date.now() + lockMs,
+            lockedUntil: gameNow() + lockMs,
             roomId,
             reason: '鳥人指揮官閉門討論 10 秒',
             notifiedRelease: false,
@@ -729,8 +831,8 @@
     const resolved = { ...full, ...(typeof base === 'object' ? base : {}) };
     const maxDur = resolved.maxDurability || window.GATHER_CONFIG?.security?.weaponMaxDurability || 3;
     return {
-      uid: 'inst_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-      id: resolved.id || 'item_' + Date.now(),
+      uid: 'inst_' + gameNow() + '_' + Math.random().toString(36).slice(2, 6),
+      id: resolved.id || 'item_' + gameNow(),
       emoji: resolved.emoji || '🪑',
       name: resolved.name || '道具',
       category: resolved.category || 'weapon',
@@ -791,6 +893,7 @@
    * 若 autoEquip 為 true 且目前裝備未滿 3 個，會自動裝入空槽；否則收入持有物品欄
    */
   function addItemToInventory(metaOrEmoji, autoEquip = false) {
+    if(season.enabled)return createItemInstance(metaOrEmoji);
     const inst = createItemInstance(metaOrEmoji);
     if (!window.OfficeWardrobe.add(localPlayer, inst, autoEquip)) {
       // Already-granted rewards and exchanges must not disappear on a capacity race.
@@ -803,6 +906,7 @@
 
   function equipFromBag(bagIdx) {
     const item = localPlayer.inventory[bagIdx]; if (!item) return;
+    if(season.enabled){seasonSend("equip",{uid:item.uid});return;}
     if (window.OfficeWardrobe.isOutfit(item)) {
       window.OfficeWardrobe.wear(localPlayer, bagIdx);
       showCombatToast(`${localPlayer.wornOutfitUid === item.uid ? '穿上' : '脫下'}【${escapeHtml(item.name)}】`);
@@ -814,6 +918,7 @@
   }
 
   function unequipSlotToBag(equipIdx) {
+    if(season.enabled){const i=localPlayer.equippedSlots[equipIdx];if(i)seasonSend("equip",{uid:i.uid});return;}
     if (!window.OfficeWardrobe.unequip(localPlayer, equipIdx)) {
       showCombatToast('背包已滿，無法卸下裝備'); return;
     }
@@ -824,7 +929,7 @@
   function renderMinecraftInventoryUI() {
     const wardrobeStatus = document.getElementById('wardrobeStatus');
     const worn = window.OfficeWardrobe.worn(localPlayer);
-    if(wardrobeStatus) wardrobeStatus.textContent = `背包 ${localPlayer.inventory.length}/10 格 · 服裝 ${window.OfficeWardrobe.outfitCount(localPlayer)}/3 套 · ${worn ? '穿著：'+worn.name+'（'+worn.durability+'/5）' : '日常穿著'}`;
+    if(wardrobeStatus) wardrobeStatus.textContent = `總攜帶 ${season.enabled?(localPlayer.inventory.length+getEquippedCount()):localPlayer.inventory.length}/10 件 · 服裝 ${window.OfficeWardrobe.outfitCount(localPlayer)}/3 套 · ${worn ? '穿著：'+worn.name+'（'+worn.durability+'/5）' : '日常穿著'}`;
     const overflowEl=document.getElementById('inventoryOverflow');
     if(overflowEl){
       overflowEl.replaceChildren();
@@ -832,7 +937,7 @@
         const heading=document.createElement('p');heading.textContent='暫存領取區（只可取出，領取需有背包空間）';overflowEl.appendChild(heading);
         localPlayer.overflow.forEach((item,index)=>{
           const button=document.createElement('button');button.type='button';button.textContent=`領取 ${item.emoji} ${item.name} ×${item.count||1}`;
-          button.onclick=()=>{if(window.OfficeWardrobe.claim(localPlayer,index))syncPlayerActiveWeaponState();else showCombatToast('背包或服裝已滿，請先騰出空間');};overflowEl.appendChild(button);
+          button.onclick=()=>{if(season.enabled){seasonSend("claim_legacy",{uid:item.uid});return;}if(window.OfficeWardrobe.claim(localPlayer,index))syncPlayerActiveWeaponState();else showCombatToast('背包或服裝已滿，請先騰出空間');};overflowEl.appendChild(button);
         });
       }
     }
@@ -925,6 +1030,7 @@
           const idx = Number(card.dataset.equipSlot);
           if (localPlayer.equippedSlots[idx]) {
             localPlayer.activeEquipIndex = idx;
+          if(season.enabled)seasonSend("active",{slot:idx});
             syncPlayerActiveWeaponState();
             const s = localPlayer.equippedSlots[idx];
             showCombatToast(
@@ -1027,6 +1133,7 @@
   }
 
   function addExp(amount, reasonText, applyEquipBonus = true) {
+    if(season.enabled)return 0;
     const equipBonusPct = applyEquipBonus ? getTotalEquippedExpBonusPct() : 0;
     const finalAmount = Math.max(1, Math.round(amount * (1 + equipBonusPct / 100)));
     progression.exp += finalAmount;
@@ -1053,6 +1160,7 @@
   }
 
   function forceLevelUp(facilityName) {
+    if(season.enabled){showCombatToast("設備已修復；Season 2 獎勵由後端結算");return;}
     // 補足至下一等級所需 EXP（每 100 EXP 升 1 級，保證立即升 1 級！）
     const nextLevelExp = progression.level * 100;
     const needed = Math.max(100, nextLevelExp - progression.exp);
@@ -1075,6 +1183,7 @@
   }
 
   function recalcLevelAndBuff() {
+    if(season.enabled){const R=window.OfficeProgression;progression.level=R.level(progression.exp);progression.title=R.title(progression.level);progression.speedBonusPct=(progression.level-1)*2;localPlayer.speed=R.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow());updateSelfHudCard();return;}
     const lv = Math.min(20, Math.floor(progression.exp / 100) + 1);
     progression.level = lv;
     const titles = [
@@ -1250,6 +1359,7 @@
   // 3. NPC 暴走攻擊命中：角色自動被打飛拋物線（絕不定身，可隨時自由移動！）
   // =========================================================================
   function triggerBerserkKnockback(npc, reason) {
+    if(season.enabled)return;
     window.OfficeCombat?.send(network,'combat_hurt',{targetId:network.clientId});
     // 計算從攻擊者指向玩家的擊飛向量
     let dx = localPlayer.x - npc.x;
@@ -1275,7 +1385,7 @@
       totalTicks,
     };
     localPlayer.jumpOffset = 46;
-    localPlayer.emote = { emoji: '💫', expiresAt: Date.now() + 2800 };
+    localPlayer.emote = { emoji: '💫', expiresAt: gameNow() + 2800 };
 
     // 產生擊飛震波與火花粒子
     vfxList.push({
@@ -1311,7 +1421,8 @@
   // =========================================================================
   // 4. 登入視窗、可縮合面板、情境動作按鈕與左下整合聊天 UI 綁定
   // =========================================================================
-function executeOfficeLogin(params) {
+async function executeOfficeLogin(params) {
+      if(season.enabled){try{const snap=await seasonLogin(params);params={...params,avatarId:snap.player.avatarId,roomCode:"PP00"};}catch(e){const err=document.getElementById("loginErrorMsg");err.textContent=e.message;err.style.display="block";return;}}
       const { name, unit, roomCode, status, avatarId, isAutoReload = false } = params;
       const cleanName = network.sanitizeText(name, 16);
       const cleanRoom = network.sanitizeText(roomCode || 'PP00', 16) || 'PP00';
@@ -1330,8 +1441,8 @@ function executeOfficeLogin(params) {
       // 首次登入預設不贈送初始裝備，完全徒手，由玩家在場景中撿拾或互動取得
 
       // 計算上線次數與經驗加成（若是重整自動載入，保留現有經驗不重複刷打卡加成）
-      initAndIncrementLoginExp(cleanName, isAutoReload);
-      lastUserActionAt = Date.now();
+      if(!season.enabled)initAndIncrementLoginExp(cleanName, isAutoReload);
+      lastUserActionAt = gameNow();
 
       // 請求桌面原生通知權限（方便縮小後接受同事私聊）
       if ('Notification' in window && Notification.permission === 'default') {
@@ -1341,20 +1452,20 @@ function executeOfficeLogin(params) {
       const overlay = document.getElementById('loginOverlay');
       if (overlay) overlay.classList.add('hidden');
       isLoggedIn = true;
-      loginTimestamp = Date.now();
-      network.connect(localPlayer, cleanRoom);
+      loginTimestamp = gameNow();
+      network.connect(localPlayer, season.enabled?cleanRoom+'-S2':cleanRoom);
 
       if (window.gatherSupabase) {
         window.gatherSupabase.init({
           callbacks: {
-            onError: () => showToast('資料同步尚未成功；最近狀態可能未儲存，請確認網路連線。', 'error'),
-            onAuditLogInsert: (log) => {
+            onError: () => {if(!document.hidden)showCombatToast('連線正在恢復；雲端交易將重新確認');},
+            onAuditLogInsert: (log) => {if(season.enabled)return;
               if (log && log.client_id !== network.clientId) {
                 const action = log.event_type === 'login' ? '上線進入' : '離線離開';
                 showToast(`🔔 <b>${escapeHtml(log.user_name)}</b> (${escapeHtml(log.unit)}) 已${action}辦公室！`, 'join');
               }
             },
-            onOnlineUsersFetched: (users) => {
+            onOnlineUsersFetched: (users) => {if(season.enabled)return;
               if (Array.isArray(users)) {
                 users.forEach((u) => {
                   if (u.client_id && u.client_id !== network.clientId) {
@@ -1375,7 +1486,7 @@ function executeOfficeLogin(params) {
                 renderSidebarRoster();
               }
             },
-            onUserTableChange: (payload) => {
+            onUserTableChange: (payload) => {if(season.enabled)return;
               if (payload && payload.new && payload.new.client_id !== network.clientId) {
                 if (payload.eventType === 'DELETE') {
                   const leavingId = payload.old?.client_id;
@@ -1407,7 +1518,7 @@ function executeOfficeLogin(params) {
       }
 
       // 確保鳥人指揮官出勤狀態正常
-      if (localPlayer.birdCommanderRestUntil && Date.now() < localPlayer.birdCommanderRestUntil) {
+      if (localPlayer.birdCommanderRestUntil && gameNow() < localPlayer.birdCommanderRestUntil) {
         if (network) network.npcPlayers.delete('npc_bird_commander');
       } else {
         localPlayer.birdCommanderRestUntil = 0;
@@ -1417,12 +1528,12 @@ function executeOfficeLogin(params) {
       }
 
       // 若處於重傷休養狀態，強制定位於會議室休養
-      if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
+      if (!season.enabled && localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
         localPlayer.x = 400; // 會議室 A
         localPlayer.y = 1350;
         localPlayer.actionState = 'sleep_bed';
         updateInjuryCountdownHUD();
-        const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - Date.now()) / 1000));
+        const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - gameNow()) / 1000));
         const m = String(Math.floor(remSec / 60)).padStart(2, '0');
         const s = String(remSec % 60).padStart(2, '0');
         pushStatusLog(
@@ -1441,7 +1552,8 @@ function executeOfficeLogin(params) {
       renderMinecraftInventoryUI();
       renderSidebarRoster();
 
-      if (isAutoReload) {
+      if (season.enabled) {showCombatToast(`Season 2 · ${progression.title} · ${progression.exp} EXP`);}
+      else if (isAutoReload) {
         pushStatusLog(
           '系統',
           `🔄 已成功重新載入最新版本程式碼！歡迎回到辦公室，${localPlayer.name}（${progression.title}）！`
@@ -1673,7 +1785,7 @@ function executeOfficeLogin(params) {
 
     bar.querySelectorAll('[data-pose]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const now = Date.now();
+        const now = gameNow();
         if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 1200)) return;
         lastInteractAt = now;
         lastUserActionAt = now;
@@ -1692,6 +1804,7 @@ function executeOfficeLogin(params) {
   }
 
   function cancelContextualAction() {
+    if(season.enabled&&season.client?.snapshot?.player?.channel)seasonSend("cancel");
     if (!localPlayer.actionState && !localPlayer.occupiedSpotId) return;
     window.WORLD_MAP.toiletStalls.forEach((stall) => {
       if (stall.occupiedBy !== localPlayer.id) return;
@@ -1708,8 +1821,8 @@ function executeOfficeLogin(params) {
   }
 
   function startContextualAction(actionId) {
-    if(Date.now()<(localPlayer.stunnedUntil||0)) return;
-    if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
+    if(gameNow()<(localPlayer.stunnedUntil||0)) return;
+    if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
       showToast('🚑 身受重傷休養中，無法動彈或切換動作！', 'error');
       return;
     }
@@ -1911,11 +2024,11 @@ function executeOfficeLogin(params) {
 
     // 倒數 9 秒自動關閉，滑鼠移入時暫停計時
     let remainingMs = 9000;
-    let timerStartedAt = Date.now();
+    let timerStartedAt = gameNow();
     let isPaused = false;
 
     const startTimer = (duration) => {
-      timerStartedAt = Date.now();
+      timerStartedAt = gameNow();
       centerPrivateChatTimeout = setTimeout(() => {
         dismissCenterPrivateChatBox();
       }, duration);
@@ -1927,7 +2040,7 @@ function executeOfficeLogin(params) {
       if (!isPaused && centerPrivateChatTimeout) {
         clearTimeout(centerPrivateChatTimeout);
         centerPrivateChatTimeout = null;
-        remainingMs = Math.max(1000, remainingMs - (Date.now() - timerStartedAt));
+        remainingMs = Math.max(1000, remainingMs - (gameNow() - timerStartedAt));
         isPaused = true;
         const fill = card.querySelector('#cpProgressFill');
         if (fill) fill.style.animationPlayState = 'paused';
@@ -2071,7 +2184,7 @@ function executeOfficeLogin(params) {
       touchMove.x = distance > 10 ? x / distance : 0;
       touchMove.y = distance > 10 ? y / distance : 0;
       knob.style.transform = `translate(${x * factor}px, ${y * factor}px)`;
-      lastUserActionAt = Date.now();
+      lastUserActionAt = gameNow();
     }
     pad.addEventListener('pointerdown', (event) => {
       if (!isLoggedIn || activePointer !== null) return;
@@ -2090,7 +2203,7 @@ function executeOfficeLogin(params) {
     });
     document.getElementById('touchInteractBtn').addEventListener('click', () => {
       if (!isLoggedIn) return;
-      const now = Date.now();
+      const now = gameNow();
       if (now - lastInteractAt < (window.GATHER_CONFIG.security.interactCooldownMs || 1200)) return;
       lastInteractAt = now; lastUserActionAt = now;
       tryInteractWithEnvironment();
@@ -2135,7 +2248,7 @@ function executeOfficeLogin(params) {
       }
 
       // 只要使用者有任何操作，刷新操作時間戳
-      lastUserActionAt = Date.now();
+      lastUserActionAt = gameNow();
       if (isAutoIdled && localPlayer.status === 'idle') {
         isAutoIdled = false;
         localPlayer.status = 'active';
@@ -2149,13 +2262,13 @@ function executeOfficeLogin(params) {
       const k = e.key.toLowerCase();
 
       // 🚨 檢查受夜間警衛管教拘禁狀態：無法動彈與反擊 10 秒
-      if (localPlayer.isRestrained && Date.now() < (localPlayer.restrainedUntil || 0)) {
+      if (localPlayer.isRestrained && gameNow() < (localPlayer.restrainedUntil || 0)) {
         if (
           ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'f', 'e', ' ', '1', '2', '3', '4', '5', '6'].includes(k) ||
           e.altKey
         ) {
           e.preventDefault();
-          const leftSec = Math.max(1, Math.ceil((localPlayer.restrainedUntil - Date.now()) / 1000));
+          const leftSec = Math.max(1, Math.ceil((localPlayer.restrainedUntil - gameNow()) / 1000));
           const reason = localPlayer.beatingSession
             ? `正在接受【${localPlayer.beatingSession.npc.name}】連續毆打管教中`
             : '正在受夜間警衛管教拘禁中';
@@ -2165,13 +2278,13 @@ function executeOfficeLogin(params) {
       }
 
       // 🚑 檢查重傷休養狀態：無法動彈
-      if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
+      if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
         if (
           ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'f', 'e', ' ', '1', '2', '3', '4', '5', '6'].includes(k) ||
           e.altKey
         ) {
           e.preventDefault();
-          const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - Date.now()) / 1000));
+          const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - gameNow()) / 1000));
           const m = String(Math.floor(remSec / 60)).padStart(2, '0');
           const s = String(remSec % 60).padStart(2, '0');
           showToast(`🚑 身受重傷休養中（會議室 B 休養中，剩餘 ${m}:${s}）`, 'error');
@@ -2188,7 +2301,7 @@ function executeOfficeLogin(params) {
       // Alt + 數字鍵：切換情境動作 (含 🛌 睡覺)
       if (e.altKey && altPoseMap[e.key]) {
         e.preventDefault();
-        const now = Date.now();
+        const now = gameNow();
         if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 1200)) return;
         lastInteractAt = now;
         startContextualAction(altPoseMap[e.key]);
@@ -2206,7 +2319,7 @@ function executeOfficeLogin(params) {
       // 數字鍵 1~6 觸發置中互動功能 (含 1200ms 安全冷卻)
       if (numberSkillMap[e.key] && !e.altKey && !e.ctrlKey) {
         e.preventDefault();
-        const now = Date.now();
+        const now = gameNow();
         if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 1200)) return;
         lastInteractAt = now;
         flashSkillHotkeyButton(e.key);
@@ -2241,7 +2354,7 @@ function executeOfficeLogin(params) {
       // 熱鍵 E：設備互動 / 踹門 (含 1200ms 安全冷卻)
       if (k === 'e' || e.code === 'KeyE') {
         e.preventDefault();
-        const now = Date.now();
+        const now = gameNow();
         if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 1200)) return;
         lastInteractAt = now;
         tryInteractWithEnvironment();
@@ -2260,15 +2373,15 @@ function executeOfficeLogin(params) {
       if (!isLoggedIn) return;
 
       // 🚑 檢查重傷休養狀態：無法點擊地面移動
-      if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
-        const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - Date.now()) / 1000));
+      if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
+        const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - gameNow()) / 1000));
         const m = String(Math.floor(remSec / 60)).padStart(2, '0');
         const s = String(remSec % 60).padStart(2, '0');
         showToast(`🚑 身受重傷休養中（會議室 B 休養中，剩餘 ${m}:${s}）`, 'error');
         return;
       }
 
-      lastUserActionAt = Date.now();
+      lastUserActionAt = gameNow();
       if (isAutoIdled && localPlayer.status === 'idle') {
         isAutoIdled = false;
         localPlayer.status = 'active';
@@ -2446,7 +2559,7 @@ function executeOfficeLogin(params) {
   }
 
   function triggerProximitySkill(skillType, allowRemoteWave = false) {
-    const now = Date.now();
+    const now = gameNow();
     if (now - network.lastSkillAt < window.GATHER_CONFIG.security.skillCooldownMs) return;
 
     if (skillType === 'chat') {
@@ -2489,6 +2602,7 @@ function executeOfficeLogin(params) {
 
     switch (skillType) {
       case 'exchange': {
+        if(season.enabled){const q=season.client.snapshot.players.find(p=>p.clientId===target.id),i=getActiveEquippedItem();if(!q||!i){showCombatToast('請選擇線上同事並先裝備要贈送的道具');return;}seasonSend('gift',{target:q.id,uid:i.uid});return;}
         const myOldItem = localPlayer.heldItem;
         const theirOldItem = target.heldItem || getRandomWeaponMeta().emoji;
         ecosystem.addThrownItem(localPlayer.x, localPlayer.y - 20, target.x, target.y - 20, myOldItem);
@@ -2623,7 +2737,7 @@ function executeOfficeLogin(params) {
    * ⚠️ 連續毆打純屬搞笑動畫，絕對不會造成使用者重傷（isInjured 保持 false）
    */
   function triggerBossOrAuntieBeating(npc, role) {
-    const now = Date.now();
+    const now = gameNow();
     const durationMs = 8000;
     let targetRoom = 'vp_room';
     let roomX = 380;
@@ -2700,14 +2814,15 @@ function executeOfficeLogin(params) {
   }
 
   function triggerWeaponAttack() {
-    if(Date.now()<(localPlayer.stunnedUntil||0)) return;
+    if(season.enabled){if(gameNow()-lastWeaponAttackAt<300||!isLoggedIn)return;lastWeaponAttackAt=gameNow();const w=getActiveEquippedItem();if(!w){showCombatToast("請先裝備武器");return;}localPlayer.weaponSwing={emoji:w.emoji,ticksLeft:18,totalTicks:18,startedAt:gameNow(),duration:300};network.broadcastPacket("weapon_swing",{emoji:w.emoji});seasonSend("heartbeat",{x:localPlayer.x,y:localPlayer.y}).then(()=>seasonSend("attack"));return;}
+    if(gameNow()<(localPlayer.stunnedUntil||0)) return;
     if(window.OfficeHunt?.clock().active && window.OfficeHunt.safe(localPlayer)) return;
-    if (Date.now() < (localPlayer.ghostSleepUntil || 0)) return;
-    if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
+    if (gameNow() < (localPlayer.ghostSleepUntil || 0)) return;
+    if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
       showCombatToast('🚑 身受重傷休養中，無法揮動裝備攻擊！', 'error');
       return;
     }
-    const now = Date.now();
+    const now = gameNow();
     const atkCd = window.GATHER_CONFIG?.security?.attackCooldownMs || 250;
     if (now - lastWeaponAttackAt < atkCd) return;
     lastWeaponAttackAt = now;
@@ -2728,7 +2843,7 @@ function executeOfficeLogin(params) {
       emoji: wpnEmoji,
       ticksLeft: 18,
       totalTicks: 18,
-      startedAt: Date.now(), duration: 300,
+      startedAt: gameNow(), duration: 300,
     };
     network.broadcastPacket('weapon_swing',{emoji:wpnEmoji});
     localPlayer.jumpOffset = 10;
@@ -2839,6 +2954,7 @@ function executeOfficeLogin(params) {
   }
 
   function handleIncomingWeaponAttack(pkt) {
+    if(season.enabled)return;
     if (!pkt || pkt.targetId !== network.clientId) return;
     if(!pkt.hunt) window.OfficeCombat?.send(network,'combat_hurt',{targetId:network.clientId,npc:false});
 
@@ -2846,7 +2962,7 @@ function executeOfficeLogin(params) {
       // 🚑 遭受 5% 致命重傷：原地倒地休養無法動彈 5 分鐘，鏡頭停留在事發現場等待急救
       const lockMs = window.GATHER_CONFIG?.security?.userInjuryLockMs || 300000;
       localPlayer.isInjured = true;
-      localPlayer.injuredUntil = Date.now() + lockMs;
+      localPlayer.injuredUntil = gameNow() + lockMs;
       cancelContextualAction();
       window.OfficeCombat.send(network,'recovery_request',{until:localPlayer.injuredUntil});
       localPlayer.actionState = 'sleep_bed';
@@ -2886,7 +3002,7 @@ function executeOfficeLogin(params) {
       totalTicks,
     };
     localPlayer.jumpOffset = 44;
-    localPlayer.emote = { emoji: '💫', expiresAt: Date.now() + 3000 };
+    localPlayer.emote = { emoji: '💫', expiresAt: gameNow() + 3000 };
     spawnConfetti(localPlayer.x, localPlayer.y - 20);
 
     pushCombatLog(
@@ -2896,7 +3012,8 @@ function executeOfficeLogin(params) {
   }
 
   function handleIncomingSkillEffect(pkt) {
-    const now = Date.now();
+    if(season.enabled)return;
+    const now = gameNow();
     if (pkt.skill === 'wave') {
       pushStatusLog(pkt.senderName, '👋 向你熱情揮手！');
     } else if (pkt.skill === 'zap' && pkt.targetId === network.clientId) {
@@ -3021,6 +3138,7 @@ function executeOfficeLogin(params) {
 
     // 2. 六間主管獨立辦公室/會議室 (各 3 張獨立椅子：主座 + 訪客 A + 訪客 B)
     window.WORLD_MAP.directorBlocks.forEach((blk) => {
+      if(blk.unit!=="PP00")return;
       const roomLabel = blk.title;
       spots.push({
         id: `seat_dir_${blk.unit}_main`,
@@ -3260,6 +3378,7 @@ function executeOfficeLogin(params) {
    * 偵測玩家靠近哪種辦公室設備或獨立座椅 (規則 3 & 9)
    */
   function detectNearbyFacility() {
+    if(season.enabled){const f=window.OfficeFacilities.nearby(localPlayer,season.client?.snapshot);if(f)return {label:f.label,shortHint:"[E] "+f.label,seasonFacility:true,...f};}
     const px = localPlayer.x;
     const py = localPlayer.y;
 
@@ -3280,8 +3399,8 @@ function executeOfficeLogin(params) {
       const seatY = ws.y + ws.h + 18;
       if (ws.isBroken && Math.hypot(px - seatX, py - seatY) < 95) {
         return {
-          label: `🔧 修復遭【${ws.brokenBy || '怪物'}】破壞的【${ws.owner}】電腦 (完成升一級) [按E]`,
-          shortHint: `[按 E] 🔧 修復電腦 (升級!)`,
+          label: `🔧 修復遭【${ws.brokenBy || '怪物'}】破壞的【${ws.owner}】電腦 (完成獲得經驗) [按E]`,
+          shortHint: `[按 E] 🔧 修復電腦`,
           actionId: 'sit_code',
           targetX: seatX,
           targetY: seatY,
@@ -3297,8 +3416,8 @@ function executeOfficeLogin(params) {
       const cy = eq.y + eq.h + 18;
       if (eq.isBroken && Math.hypot(px - cx, py - cy) < 110) {
         return {
-          label: `🔧 修復遭【${eq.brokenBy || '怪物'}】破壞的【${eq.name}】機台 (完成升一級) [按E]`,
-          shortHint: `[按 E] 🔧 修復機台 (升級!)`,
+          label: `🔧 修復遭【${eq.brokenBy || '怪物'}】破壞的【${eq.name}】機台 (完成獲得經驗) [按E]`,
+          shortHint: `[按 E] 🔧 修復機台`,
           actionId: 'pray_kuaikuai',
           targetX: cx,
           targetY: cy,
@@ -3434,7 +3553,7 @@ function executeOfficeLogin(params) {
       targetName: target.name,
       targetX: target.x,
       targetY: target.y,
-      startTime: Date.now(),
+      startTime: gameNow(),
       duration: 5000,
     };
     localPlayer.actionState = 'wash_hands'; // 包紮搓手動作
@@ -3452,8 +3571,9 @@ function executeOfficeLogin(params) {
     pushStatusLog(localPlayer.name, `🩹 開始對【${target.name}】進行 5 秒緊急醫療！`);
   }
 
-  function tryInteractWithEnvironment() {
-    if (localPlayer.isInjured && Date.now() < (localPlayer.injuredUntil || 0)) {
+  async function tryInteractWithEnvironment() {
+    if(season.enabled){if(season.busy)return;season.busy=true;try{if(await seasonInteract())return;}finally{season.busy=false;}}
+    if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
       showToast('🚑 身受重傷休養中，無法進行設施互動！', 'error');
       return;
     }
@@ -3463,7 +3583,7 @@ function executeOfficeLogin(params) {
       return;
     }
     // 1. 掉落物撿拾
-    for (let i = ecosystem.groundItems.length - 1; i >= 0; i--) {
+    for (let i = season.enabled ? -1 : ecosystem.groundItems.length - 1; i >= 0; i--) {
       const item = ecosystem.groundItems[i];
       if (Math.hypot(localPlayer.x - item.x, localPlayer.y - item.y) < 68) {
         if(!window.OfficeWardrobe.canAdd(localPlayer,item,true)){showCombatToast('背包或服裝已滿');return;}
@@ -3505,12 +3625,12 @@ function executeOfficeLogin(params) {
         ];
         const kickText = kickPool[Math.floor(Math.random() * kickPool.length)];
         localPlayer.jumpOffset = 14;
-        localPlayer.emote = { emoji: '🦵', expiresAt: Date.now() + 3500 };
+        localPlayer.emote = { emoji: '🦵', expiresAt: gameNow() + 3500 };
         localPlayer.murmur = {
           text: kickText,
           mood: 'fire',
-          createdAt: Date.now(),
-          expiresAt: Date.now() + 5000,
+          createdAt: gameNow(),
+          expiresAt: gameNow() + 5000,
         };
         network.broadcastPacket('toilet_kick', {
           senderName: localPlayer.name,
@@ -3523,6 +3643,7 @@ function executeOfficeLogin(params) {
 
       // 修復設備
       if (fac.repairTarget && fac.repairTarget.isBroken) {
+        if(season.enabled){showCombatToast("設備故障正在同步，請稍後再按 E");return;}
         fac.repairTarget.isBroken = false;
         fac.repairTarget.brokenBy = null;
         if (fac.repairTarget.kind) {
@@ -3579,11 +3700,11 @@ function executeOfficeLogin(params) {
         const st = window.TAIWAN_STOCK_STATE;
         if (st.direction < 0 || String(st.changeText).startsWith('▼') || String(st.changeText).startsWith('-')) {
           localPlayer.actionState = 'cry';
-          localPlayer.emote = { emoji: '😭', expiresAt: Date.now() + 6000 };
+          localPlayer.emote = { emoji: '😭', expiresAt: gameNow() + 6000 };
           pushStatusLog('你', `😭 看到加權指數今日下跌 ${st.changeText}，抱頭崩潰大哭！`);
         } else if (st.direction > 0 || String(st.changeText).startsWith('▲') || String(st.changeText).startsWith('+')) {
           localPlayer.actionState = 'cheer_stock';
-          localPlayer.emote = { emoji: '🎉', expiresAt: Date.now() + 6000 };
+          localPlayer.emote = { emoji: '🎉', expiresAt: gameNow() + 6000 };
           pushStatusLog('你', `🚀 看到加權指數今日強勢大漲 ${st.changeText}，狂歡慶祝！`);
         } else {
           localPlayer.actionState = 'watch_stock';
@@ -3621,8 +3742,8 @@ function executeOfficeLogin(params) {
           npc.murmur = {
             text: line,
             mood,
-            createdAt: Date.now(),
-            expiresAt: Date.now() + duration,
+            createdAt: gameNow(),
+            expiresAt: gameNow() + duration,
           };
           if (network) {
             network.broadcastPacket('murmur', {
@@ -3668,7 +3789,7 @@ function executeOfficeLogin(params) {
   // =========================================================================
   function pushUserChat(senderName, senderUnit, text, isSelf = false, isPrivate = false, targetName = '') {
     const chatItem = {
-      id: 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      id: 'chat_' + gameNow() + '_' + Math.random().toString(36).slice(2, 6),
       senderName,
       senderUnit,
       text,
@@ -3677,7 +3798,7 @@ function executeOfficeLogin(params) {
       isPrivate,
       targetName,
       kind: 'chat',
-      createdAt: Date.now(),
+      createdAt: gameNow(),
     };
     userChatHistory.push(chatItem);
     const maxChatLines = window.GATHER_CONFIG?.security?.maxUserChatLines || 20;
@@ -3700,12 +3821,12 @@ function executeOfficeLogin(params) {
 
   function pushStatusLog(senderName, text) {
     statusLogHistory.push({
-      id: 'stat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      id: 'stat_' + gameNow() + '_' + Math.random().toString(36).slice(2, 6),
       senderName,
       text,
       timeStr: getFormatTime(),
       kind: 'status',
-      createdAt: Date.now(),
+      createdAt: gameNow(),
     });
     const maxStatLines = window.GATHER_CONFIG?.security?.maxStatusLogLines || 10;
     while (statusLogHistory.length > maxStatLines) {
@@ -3790,7 +3911,7 @@ function executeOfficeLogin(params) {
     const cleanText = network.sanitizeText(text, 100);
     if (!cleanText) return false;
 
-    const now = Date.now();
+    const now = gameNow();
     if (now - network.lastChatAt < window.GATHER_CONFIG.security.chatCooldownMs) return false;
     network.lastChatAt = now;
     lastUserActionAt = now;
@@ -3838,7 +3959,7 @@ function executeOfficeLogin(params) {
     const cleanText = network.sanitizeText(text, 100);
     if (!cleanText) return false;
 
-    const now = Date.now();
+    const now = gameNow();
     if (now - network.lastChatAt < window.GATHER_CONFIG.security.chatCooldownMs) return false;
     network.lastChatAt = now;
     lastUserActionAt = now;
@@ -3871,7 +3992,7 @@ function executeOfficeLogin(params) {
       const title = `💬 PP00 虛擬辦公室 · ${senderName}${senderUnit ? ` (${senderUnit})` : ''}`;
       const notif = new Notification(title, {
         body: text,
-        tag: 'pp00_chat_' + Date.now(),
+        tag: 'pp00_chat_' + gameNow(),
         renotify: true,
         silent: false,
       });
@@ -4259,7 +4380,7 @@ function executeOfficeLogin(params) {
         } else {
           // 💭 規則 8：發送 Murmur 訊息整合在聊天室窗內切換
           const mood = mode.replace('murmur_', '') || 'normal';
-          const now = Date.now();
+          const now = gameNow();
           localPlayer.murmur = {
             text,
             mood,
@@ -4281,7 +4402,7 @@ function executeOfficeLogin(params) {
         const newStatus = e.target.value;
         localPlayer.status = newStatus;
         isAutoIdled = false;
-        lastUserActionAt = Date.now();
+        lastUserActionAt = gameNow();
         network.broadcastPacket('state_sync', { player: network.getPublicState() });
         const stMeta = window.GATHER_CONFIG.statuses.find((s) => s.id === newStatus);
         pushStatusLog('你', `線上狀態切換為：${stMeta ? stMeta.icon + ' ' + stMeta.label : newStatus}`);
@@ -4296,7 +4417,7 @@ function executeOfficeLogin(params) {
   function showWelcome(player) {
     if (!isLoggedIn) { welcomeQueue.length = 0; return; }
     // 登入歡迎動畫只顯示給「已經在線上」，看到新使用者登入時的提示（剛登入 3 秒內既有玩家不彈出）
-    if (loginTimestamp && Date.now() - loginTimestamp <= 3000) return;
+    if (loginTimestamp && gameNow() - loginTimestamp <= 3000) return;
     if (player && (player.id === network?.clientId || (player.name === localPlayer.name && player.unit === localPlayer.unit))) return;
     welcomeQueue.push({ name: String(player.name || '同事'), unit: String(player.unit || '') });
     playNextWelcome();
@@ -4407,6 +4528,7 @@ function executeOfficeLogin(params) {
   window.logoutAndLeaveOffice = function () {
     if (officeLogoutPromise) return officeLogoutPromise;
     officeLogoutPromise = (async () => {
+    if(season.enabled&&season.client){try{await season.client.flush();await season.client.send("logout");season.client.clear();}catch(e){officeLogoutPromise=null;seasonError(e);return;}}
     savePersistentState();
     saveLoginSession(false);
     isLoggedIn = false;
@@ -4743,9 +4865,10 @@ function executeOfficeLogin(params) {
   }
 
   function updateLocalPlayerMovement() {
-    if(Date.now()<(localPlayer.stunnedUntil||0)){localPlayer.isMoving=false;localPlayer.knockback=null;return;}
+    if(season.enabled&&isLoggedIn){localPlayer.speed=window.OfficeProgression.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow());if(localPlayer.speed===0&&!localPlayer.beatingSession){localPlayer.isMoving=false;return;}if((keys.w||keys.a||keys.s||keys.d||keys.ArrowUp||keys.ArrowDown||keys.ArrowLeft||keys.ArrowRight||touchMove.x||touchMove.y)&&season.client?.snapshot?.player?.channel){if(!season.cancelling){season.cancelling=true;seasonSend("cancel").finally(()=>season.cancelling=false);}localPlayer.actionState=null;}}
+    if(gameNow()<(localPlayer.stunnedUntil||0)){localPlayer.isMoving=false;localPlayer.knockback=null;return;}
     if (!isLoggedIn) return;
-    if (Date.now() < (localPlayer.ghostSleepUntil || 0)) {
+    if (gameNow() < (localPlayer.ghostSleepUntil || 0)) {
       localPlayer.actionState = 'slack_nap'; localPlayer.isMoving = false; return;
     }
     if (localPlayer.ghostSleepUntil) {
@@ -4758,7 +4881,7 @@ function executeOfficeLogin(params) {
     if (
       window.MEETING_LOCK_STATE &&
       window.MEETING_LOCK_STATE.lockedUntil > 0 &&
-      Date.now() >= window.MEETING_LOCK_STATE.lockedUntil
+      gameNow() >= window.MEETING_LOCK_STATE.lockedUntil
     ) {
       window.MEETING_LOCK_STATE.lockedUntil = 0;
       window.MEETING_LOCK_STATE.roomId = null;
@@ -4806,7 +4929,7 @@ function executeOfficeLogin(params) {
     // 🥊 檢查受 VP / PP00 處長 / 打掃阿姨連續毆打管教狀態
     if (localPlayer.beatingSession) {
       const sess = localPlayer.beatingSession;
-      if (Date.now() < sess.until) {
+      if (gameNow() < sess.until) {
         localPlayer.isMoving = false;
         localPlayer.autoWalkTarget = null;
         localPlayer.knockback = null;
@@ -4816,14 +4939,14 @@ function executeOfficeLogin(params) {
             emoji: sess.weaponEmoji,
             ticksLeft: 10,
             totalTicks: 10,
-            startedAt: Date.now(),
+            startedAt: gameNow(),
             duration: 180,
           };
           sess.npc.jumpOffset = 8 + Math.random() * 8;
           localPlayer.jumpOffset = Math.sin(tick * 0.9) * 4;
           localPlayer.emote = {
             emoji: ['💥', '💫', '😭', '🤕'][Math.floor(Math.random() * 4)],
-            expiresAt: Date.now() + 450,
+            expiresAt: gameNow() + 450,
           };
           vfxList.push({
             type: 'click_ring',
@@ -4846,8 +4969,8 @@ function executeOfficeLogin(params) {
           localPlayer.murmur = {
             text: hurtLines[Math.floor(Math.random() * hurtLines.length)],
             mood: 'cry',
-            createdAt: Date.now(),
-            expiresAt: Date.now() + 1600,
+            createdAt: gameNow(),
+            expiresAt: gameNow() + 1600,
           };
         }
         return;
@@ -4871,7 +4994,7 @@ function executeOfficeLogin(params) {
 
     // 🚨 檢查受夜間警衛管教拘禁狀態：在廁所被管教 10 秒無法動彈與反擊
     if (localPlayer.isRestrained) {
-      if (Date.now() < (localPlayer.restrainedUntil || 0)) {
+      if (gameNow() < (localPlayer.restrainedUntil || 0)) {
         localPlayer.isMoving = false;
         localPlayer.autoWalkTarget = null;
         localPlayer.knockback = null;
@@ -4909,8 +5032,8 @@ function executeOfficeLogin(params) {
     }
 
     // 🩹 推進正在進行中的 5 秒緊急醫療會話
-    if (activeHealingSession) {
-      const elapsed = Date.now() - activeHealingSession.startTime;
+    if (!season.enabled && activeHealingSession) {
+      const elapsed = gameNow() - activeHealingSession.startTime;
       const progress = Math.min(1, elapsed / activeHealingSession.duration);
       const targetP = network.remotePlayers.get(activeHealingSession.targetId);
 
@@ -4961,7 +5084,7 @@ function executeOfficeLogin(params) {
 
     // 🚑 檢查重傷休養狀態：躺在會議室因重傷無法動彈 5 分鐘
     if (localPlayer.isInjured) {
-      if (Date.now() < (localPlayer.injuredUntil || 0)) {
+      if (gameNow() < (localPlayer.injuredUntil || 0)) {
         // 重傷期間無法動彈！固定在受傷倒地現場並保持 sleep_bed 躺平動作
         if (typeof localPlayer.injuredX === 'number' && typeof localPlayer.injuredY === 'number') {
           localPlayer.x = localPlayer.injuredX;
@@ -5007,7 +5130,7 @@ function executeOfficeLogin(params) {
     dy += touchMove.y;
 
     if (dx !== 0 || dy !== 0) {
-      lastUserActionAt = Date.now();
+      lastUserActionAt = gameNow();
       localPlayer.autoWalkTarget = null;
       cancelContextualAction();
       const len = Math.hypot(dx, dy);
@@ -5054,7 +5177,7 @@ function executeOfficeLogin(params) {
         localPlayer.y = nextY;
       }
 
-      for (let i = ecosystem.groundItems.length - 1; i >= 0; i--) {
+      for (let i = season.enabled ? -1 : ecosystem.groundItems.length - 1; i >= 0; i--) {
         const gItem = ecosystem.groundItems[i];
         if (gItem.dropY <= 5 && Math.hypot(localPlayer.x - gItem.x, localPlayer.y - gItem.y) < 30) {
           if(!window.OfficeWardrobe.canAdd(localPlayer,gItem,true))continue;
@@ -5234,6 +5357,7 @@ function executeOfficeLogin(params) {
       return;
     }
 
+    seasonPoll();
     updateLocalPlayerMovement();
     network.update(tick);
     const allPlayers = [localPlayer, ...network.getAllOtherPlayers()];
@@ -5243,7 +5367,7 @@ function executeOfficeLogin(params) {
     // 檢查無動作 30 秒自動切換為「🟡 閒置」狀態
     if (
       localPlayer.status === 'active' &&
-      Date.now() - lastUserActionAt > (window.GATHER_CONFIG?.security?.idleTimeoutMs || 30000)
+      gameNow() - lastUserActionAt > (window.GATHER_CONFIG?.security?.idleTimeoutMs || 30000)
     ) {
       localPlayer.status = 'idle';
       isAutoIdled = true;
@@ -5278,6 +5402,11 @@ function executeOfficeLogin(params) {
     ctx.translate(-camera.x, -camera.y);
 
     window.renderOfficeWorld(ctx, ecosystem, tick);
+    if(season.enabled){
+      const snap=season.client?.snapshot,task=snap?.task;
+      if(task?.claimer){ctx.save();ctx.strokeStyle='#f87171';ctx.setLineDash([8,8]);ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(localPlayer.x,localPlayer.y);ctx.lineTo(task.x,task.y);ctx.stroke();ctx.fillStyle='#ef4444';ctx.fillRect(task.x-30,task.y-38,60,8);ctx.restore();}
+      const c=snap?.player?.channel;if(c){ctx.save();ctx.textAlign='center';ctx.font='bold 15px sans-serif';ctx.fillStyle='#a5f3fc';const duration=c.kind==='lounge'?5000:c.kind==='heal'?c.duration:3000;ctx.fillText(`互動中 ${Math.min(100,Math.floor((gameNow()-c.at)/duration*100))}%`,localPlayer.x,localPlayer.y-95);ctx.restore();}
+    }
 
     if (nearbyPlayers.length > 0) {
       const radius = window.GATHER_CONFIG.security.proximityRadiusPx;
@@ -5307,7 +5436,7 @@ function executeOfficeLogin(params) {
       ctx.save();
       const reaction=window.OfficeCombat.reactionPose(p);
       ctx.translate(reaction.x,reaction.y-reaction.jump);
-      if((network.hunt?.protectedUntil?.[p.id]||0)>Date.now()) ctx.globalAlpha=tick%12<6?.35:1;
+      if((network.hunt?.protectedUntil?.[p.id]||0)>gameNow()) ctx.globalAlpha=tick%12<6?.35:1;
       window.drawWackyAvatar(ctx, {
         avatarId: p.avatarId,
         outfitAvatarId: p.outfitAvatarId,
@@ -5325,12 +5454,13 @@ function executeOfficeLogin(params) {
         isSweeper: !!p.isSweeper,
         isKnockedBack: (reaction.active && reaction.kind!=='dodge') || !!(p.knockback && p.knockback.ticksLeft > 0),
         heldItem: p.isNpc ? '' : p.heldItem,
-        weaponSwing: p.weaponSwing ? {...p.weaponSwing,progress:p.id===localPlayer.id ? 1-p.weaponSwing.ticksLeft/p.weaponSwing.totalTicks : (Date.now()-p.weaponSwing.startedAt)/300} : null,
+        weaponSwing: p.weaponSwing ? {...p.weaponSwing,progress:p.id===localPlayer.id ? 1-p.weaponSwing.ticksLeft/p.weaponSwing.totalTicks : (gameNow()-p.weaponSwing.startedAt)/300} : null,
         isInjured: p.id === localPlayer.id ? !!localPlayer.isInjured : !!p.isInjured,
         beingHealed: p.id === localPlayer.id ? !!localPlayer.beingHealed : !!p.beingHealed,
         healProgress: p.id === localPlayer.id ? (localPlayer.healProgress || 0) : (p.healProgress || 0),
         isFleeing: !!p.isFleeing,
       });
+      if(season.enabled&&!p.isNpc){const e=p.id===localPlayer.id?season.effects:season.client?.snapshot?.players.find(q=>q.clientId===p.id)?.effects;const now=gameNow();if(e?.shieldUntil>now){ctx.strokeStyle='#86efac';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x,p.y-28,34,45,0,0,Math.PI*2);ctx.stroke();}if(e?.lightUntil>now){ctx.font='18px sans-serif';ctx.fillText('🩹',p.x-10,p.y-80);}}
       ctx.restore();
     });
 
@@ -5387,10 +5517,10 @@ function executeOfficeLogin(params) {
 
     // 收集所有正在進行的急救事件 (本地醫護 或 遠端醫護)
     const healSessions = [];
-    if (activeHealingSession) {
+    if (!season.enabled && activeHealingSession) {
       const targetP = network.remotePlayers.get(activeHealingSession.targetId);
       if (targetP) {
-        const elapsed = Date.now() - activeHealingSession.startTime;
+        const elapsed = gameNow() - activeHealingSession.startTime;
         healSessions.push({
           healer: localPlayer,
           injured: targetP,
@@ -5511,7 +5641,7 @@ function executeOfficeLogin(params) {
   }
 
   function drawPlayerNameplateAndBubbles(ctx, p, isSelf) {
-    const now = Date.now();
+    const now = gameNow();
     const st =
       window.GATHER_CONFIG.statuses.find((s) => s.id === p.status) ||
       window.GATHER_CONFIG.statuses[0];

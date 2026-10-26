@@ -3,7 +3,7 @@
 class EphemeralOfficeNetwork {
   constructor(callbacks) {
     this.callbacks = callbacks || {};
-    this.clientId = 'usr_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now().toString(36);
+    this.clientId = 'usr_' + Math.random().toString(36).slice(2, 10) + '_' + (window.GatherServerClock?.now() || Date.now()).toString(36);
     this.sessionToken = this.generateSessionSign(this.clientId);
     this.roomCode = 'PP00';
     this.localPlayer = null;
@@ -346,7 +346,7 @@ class EphemeralOfficeNetwork {
           changed = true;
         }
         if (persisted.birdCommanderRestUntil) {
-          if (Date.now() < persisted.birdCommanderRestUntil) {
+          if ((window.GatherServerClock?.now() || Date.now()) < persisted.birdCommanderRestUntil) {
             birdResting = true;
           } else {
             delete persisted.birdCommanderRestUntil;
@@ -397,7 +397,7 @@ class EphemeralOfficeNetwork {
         actionUntil: 0,
         isBerserk: false,
         berserkUntil: 0,
-        berserkCooldownUntil: Date.now() + 18000,
+        berserkCooldownUntil: (window.GatherServerClock?.now() || Date.now()) + 18000,
         followPlayerUntil: 0,
         meetingLockCooldownUntil: 0,
         meetingPullCount: 0,
@@ -466,7 +466,7 @@ class EphemeralOfficeNetwork {
       actionUntil: 0,
       isBerserk: false,
       berserkUntil: 0,
-      berserkCooldownUntil: Date.now() + 18000,
+      berserkCooldownUntil: (window.GatherServerClock?.now() || Date.now()) + 18000,
       followPlayerUntil: 0,
       meetingLockCooldownUntil: 0,
       meetingPullCount: 0,
@@ -521,7 +521,7 @@ class EphemeralOfficeNetwork {
     if (this.localPlayer) {
       this.localPlayer.id = this.clientId;
     }
-    this.connectTimestamp = Date.now();
+    this.connectTimestamp = (window.GatherServerClock?.now() || Date.now());
     this.roomCode = this.sanitizeText(roomCode || 'PP00', 16).toUpperCase() || 'PP00';
     const channelTopic = `pp00_ephemeral_office_${this.roomCode}`;
 
@@ -577,7 +577,7 @@ class EphemeralOfficeNetwork {
           .on('presence', { event: 'join' }, ({ key, newPresences }) => {
             if (key === this.clientId || !newPresences || !newPresences[0]) return;
             // 剛登入連線時（前 3.5 秒）收到的 presence.join 屬於頻道既有在線成員，不可視為新加入
-            const isInitialSync = Date.now() - (this.connectTimestamp || 0) < 3500;
+            const isInitialSync = (window.GatherServerClock?.now() || Date.now()) - (this.connectTimestamp || 0) < 3500;
             this.upsertRemotePlayer(newPresences[0], !isInitialSync);
           })
           .on('presence', { event: 'leave' }, ({ key }) => {
@@ -654,6 +654,7 @@ class EphemeralOfficeNetwork {
    * 若有多人連線，由所有真實使用者 ID 排序後最小者擔任權威主機，負責運算 NPC AI、怪物、掉落物與螢幕狀態。
    */
   isRoomMaster() {
+    if(window.GATHER_CONFIG?.season2&&window.GATHER_SEASON_PLAYERS?.length){return window.GATHER_SEASON_PLAYERS.map(p=>p.clientId).sort()[0]===this.clientId;}
     if (!this.clientId) return true;
     if (!this.remotePlayers || this.remotePlayers.size === 0) return true;
     const realIds = [this.clientId];
@@ -667,13 +668,13 @@ class EphemeralOfficeNetwork {
   }
 
   broadcastPacket(type, data = {}) {
-    const nonce = Math.random().toString(36).slice(2, 10) + '_' + Date.now();
+    const nonce = Math.random().toString(36).slice(2, 10) + '_' + (window.GatherServerClock?.now() || Date.now());
     const packet = {
       type,
       senderId: this.clientId,
       token: this.sessionToken,
       nonce,
-      timestamp: Date.now(),
+      timestamp: (window.GatherServerClock?.now() || Date.now()),
       ...data,
     };
 
@@ -737,7 +738,7 @@ class EphemeralOfficeNetwork {
       jumpOffset: existing.jumpOffset || 0,
       murmur: existing.murmur || null,
       emote: existing.emote || null,
-      lastSeen: Date.now(),
+      lastSeen: (window.GatherServerClock?.now() || Date.now()),
     });
     this.remotePlayers.set(pData.id, merged);
 
@@ -757,6 +758,7 @@ class EphemeralOfficeNetwork {
 
     switch (pkt.type) {
       case 'heal_start': {
+        if(window.GATHER_CONFIG?.season2)break;
         if (this.localPlayer && this.localPlayer.id === pkt.targetId) {
           this.localPlayer.beingHealed = true;
           this.localPlayer.beingHealedBy = pkt.healerName;
@@ -772,6 +774,7 @@ class EphemeralOfficeNetwork {
         break;
       }
       case 'heal_progress': {
+        if(window.GATHER_CONFIG?.season2)break;
         if (this.localPlayer && this.localPlayer.id === pkt.targetId) {
           this.localPlayer.beingHealed = true;
           this.localPlayer.healProgress = pkt.progress;
@@ -787,6 +790,7 @@ class EphemeralOfficeNetwork {
         break;
       }
       case 'heal_cancel': {
+        if(window.GATHER_CONFIG?.season2)break;
         if (this.localPlayer && this.localPlayer.id === pkt.targetId) {
           this.localPlayer.beingHealed = false;
           this.localPlayer.healProgress = 0;
@@ -802,6 +806,7 @@ class EphemeralOfficeNetwork {
         break;
       }
       case 'heal_complete': {
+        if(window.GATHER_CONFIG?.season2)break;
         if (this.localPlayer && this.localPlayer.id === pkt.targetId) {
           this.localPlayer.isInjured = false;
           this.localPlayer.injuredUntil = 0;
@@ -845,8 +850,8 @@ class EphemeralOfficeNetwork {
           sender.murmur = {
             text: this.sanitizeText(pkt.text, 100),
             mood: pkt.mood || 'normal',
-            createdAt: Date.now(),
-            expiresAt: Date.now() + ttl,
+            createdAt: (window.GatherServerClock?.now() || Date.now()),
+            expiresAt: (window.GatherServerClock?.now() || Date.now()) + ttl,
           };
         }
         if (this.callbacks.onRemoteMurmur) {
@@ -856,8 +861,8 @@ class EphemeralOfficeNetwork {
             senderUnit: sender ? sender.unit : (pkt.senderUnit || 'PP00'),
             text: this.sanitizeText(pkt.text, 100),
             mood: pkt.mood || 'normal',
-            createdAt: Date.now(),
-            expiresAt: Date.now() + ttl,
+            createdAt: (window.GatherServerClock?.now() || Date.now()),
+            expiresAt: (window.GatherServerClock?.now() || Date.now()) + ttl,
           });
         }
         break;
@@ -881,8 +886,8 @@ class EphemeralOfficeNetwork {
             senderUnit: this.sanitizeText(pkt.senderUnit || (sender ? sender.unit : 'PP00'), 8),
             text: this.sanitizeText(pkt.text, 100),
             isNearby,
-            createdAt: Date.now(),
-            expiresAt: Date.now() + (window.GATHER_CONFIG?.security?.chatMessageTtlMs || 30000),
+            createdAt: (window.GatherServerClock?.now() || Date.now()),
+            expiresAt: (window.GatherServerClock?.now() || Date.now()) + (window.GATHER_CONFIG?.security?.chatMessageTtlMs || 30000),
           });
         }
         break;
@@ -899,7 +904,7 @@ class EphemeralOfficeNetwork {
               text: this.sanitizeText(pkt.text, 100),
               targetId: pkt.targetId,
               targetName: this.sanitizeText(pkt.targetName || this.localPlayer.name, 16),
-              createdAt: Date.now(),
+              createdAt: (window.GatherServerClock?.now() || Date.now()),
             });
           }
         }
@@ -940,8 +945,8 @@ class EphemeralOfficeNetwork {
           npc.murmur = {
             text: pkt.murmurText || '🦩 抓進會議室檢討10秒！',
             mood: 'fire',
-            createdAt: Date.now(),
-            expiresAt: Date.now() + 10000,
+            createdAt: (window.GatherServerClock?.now() || Date.now()),
+            expiresAt: (window.GatherServerClock?.now() || Date.now()) + 10000,
           };
         }
         const roomX = pkt.roomId === 'meet_a' ? 400 : 925;
@@ -958,12 +963,12 @@ class EphemeralOfficeNetwork {
       }
       case 'weapon_swing': {
         const p=this.remotePlayers.get(pkt.senderId);
-        if(p) p.weaponSwing={emoji:this.sanitizeText(pkt.emoji||'',8),startedAt:Date.now()};
+        if(p) p.weaponSwing={emoji:this.sanitizeText(pkt.emoji||'',8),startedAt:(window.GatherServerClock?.now() || Date.now())};
         break;
       }
       case 'recovery_request': case 'recovery_release':
       case 'combat_state': case 'combat_result': case 'combat_strike': case 'combat_hurt': case 'combat_drop': case 'combat_claim': {
-        window.OfficeCombat?.packet(this,pkt);break;
+        if(!window.GATHER_CONFIG.season2)window.OfficeCombat?.packet(this,pkt);break;
       }
       case 'hunt_state': {
         window.OfficeHunt?.receive(this,pkt); break;
@@ -979,9 +984,9 @@ class EphemeralOfficeNetwork {
         const ids = [this.clientId, ...[...this.remotePlayers.values()].filter(p => !p.isNpc && !p.isMob).map(p => p.id)].sort();
         if (pkt.senderId !== ids[0] || !this.isNightTime()) break;
         const ghost = this.npcPlayers.get('npc_night_ghost');
-        if (ghost) ghost.scareUntil = Date.now() + 1000;
-        if (pkt.targetId === this.clientId && Number.isFinite(pkt.until) && pkt.until > Date.now() && this.callbacks.onGhostScare) {
-          this.callbacks.onGhostScare(Math.min(pkt.until, Date.now() + 5000));
+        if (ghost) ghost.scareUntil = (window.GatherServerClock?.now() || Date.now()) + 1000;
+        if (pkt.targetId === this.clientId && Number.isFinite(pkt.until) && pkt.until > (window.GatherServerClock?.now() || Date.now()) && this.callbacks.onGhostScare) {
+          this.callbacks.onGhostScare(Math.min(pkt.until, (window.GatherServerClock?.now() || Date.now()) + 5000));
         }
         break;
       }
@@ -991,7 +996,7 @@ class EphemeralOfficeNetwork {
         if (this.clientId && pkt.senderId && pkt.senderId > this.clientId && this.isRoomMaster()) {
           break;
         }
-        this.lastMasterSyncTime = Date.now();
+        this.lastMasterSyncTime = (window.GatherServerClock?.now() || Date.now());
         if (Array.isArray(pkt.npcs)) {
           pkt.npcs.forEach((remoteNpc) => {
             let localNpc = this.npcPlayers.get(remoteNpc.id);
@@ -1044,7 +1049,7 @@ class EphemeralOfficeNetwork {
         if (targetNpc) {
           if (pkt.reaction === 'dodge') {
             targetNpc.jumpOffset = pkt.jumpOffset || 22;
-            targetNpc.emote = pkt.emote || { emoji: '💨', expiresAt: Date.now() + 3000 };
+            targetNpc.emote = pkt.emote || { emoji: '💨', expiresAt: (window.GatherServerClock?.now() || Date.now()) + 3000 };
             if (typeof pkt.targetX === 'number') targetNpc.targetX = pkt.targetX;
             if (typeof pkt.targetY === 'number') targetNpc.targetY = pkt.targetY;
             if (typeof pkt.x === 'number') targetNpc.x = pkt.x;
@@ -1052,9 +1057,9 @@ class EphemeralOfficeNetwork {
             if (pkt.murmur) targetNpc.murmur = pkt.murmur;
           } else if (pkt.reaction === 'flee') {
             targetNpc.isFleeing = true;
-            targetNpc.fleeUntil = pkt.fleeUntil || (Date.now() + 7000);
+            targetNpc.fleeUntil = pkt.fleeUntil || ((window.GatherServerClock?.now() || Date.now()) + 7000);
             targetNpc.jumpOffset = pkt.jumpOffset || 14;
-            targetNpc.emote = pkt.emote || { emoji: '😱', expiresAt: Date.now() + 5000 };
+            targetNpc.emote = pkt.emote || { emoji: '😱', expiresAt: (window.GatherServerClock?.now() || Date.now()) + 5000 };
             if (typeof pkt.targetX === 'number') targetNpc.targetX = pkt.targetX;
             if (typeof pkt.targetY === 'number') targetNpc.targetY = pkt.targetY;
             if (pkt.murmur) targetNpc.murmur = pkt.murmur;
@@ -1097,7 +1102,7 @@ class EphemeralOfficeNetwork {
     const ghost = this.npcPlayers.get('npc_night_ghost');
     const attacker = attackerId === this.clientId ? this.localPlayer : this.remotePlayers.get(attackerId);
     if (!ghost || !attacker || Math.hypot(attacker.x - ghost.x, attacker.y - ghost.y) > 210) return;
-    const now = Date.now();
+    const now = (window.GatherServerClock?.now() || Date.now());
     this.ghostStrikeTimes ||= new Map();
     if (now - (this.ghostStrikeTimes.get(attackerId) || 0) < 250) return;
     this.ghostStrikeTimes.set(attackerId, now);
@@ -1140,7 +1145,7 @@ class EphemeralOfficeNetwork {
   }
 
   update(tick) {
-    const now = Date.now();
+    const now = (window.GatherServerClock?.now() || Date.now());
 
     // 晝夜輪替檢查：每 120 tick (約 2 秒) 檢查一次目前是否為夜間 (17:00 ~ 05:00)
     // 若時段發生跨越，自動重新初始化 NPC 陣容
@@ -1200,7 +1205,7 @@ class EphemeralOfficeNetwork {
       }
     });
 
-    window.OfficeCombat?.update(this,tick);
+    if(!window.GATHER_CONFIG.season2)window.OfficeCombat?.update(this,tick);
     window.OfficeHunt?.update(this, tick);
     this.updateGhost(now);
 

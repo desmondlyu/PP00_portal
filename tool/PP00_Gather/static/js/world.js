@@ -27,11 +27,11 @@ window.WORLD_MAP = {
   zones: [
     { id: 'vp_room', name: 'VP Office', sub: '大老闆室', x: 380, y: 92, spawnX: 380, spawnY: 350, color: '#f59e0b' },
     { id: 'dir_pp00', name: 'PP00', sub: '處長室', x: 760, y: 92, spawnX: 760, spawnY: 350, color: '#ec4899' },
-    { id: 'dir_pp10', name: 'PP10', sub: '主管會議室', x: 1000, y: 92, spawnX: 1000, spawnY: 350, color: '#8b5cf6' },
-    { id: 'dir_pp20', name: 'PP20', sub: '主管會議室', x: 1240, y: 92, spawnX: 1240, spawnY: 350, color: '#6366f1' },
-    { id: 'dir_pp30', name: 'PP30', sub: '主管會議室', x: 1480, y: 92, spawnX: 1480, spawnY: 350, color: '#3b82f6' },
-    { id: 'dir_pp40', name: 'PP40', sub: '主管會議室', x: 1720, y: 92, spawnX: 1720, spawnY: 350, color: '#0ea5e9' },
-    { id: 'dir_pp50', name: 'PP50', sub: '主管會議室', x: 1965, y: 92, spawnX: 1965, spawnY: 350, color: '#14b8a6' },
+    { id: 'dir_pp10', name: 'PP10', sub: 'RMA 救火指揮所', x: 1000, y: 92, spawnX: 1000, spawnY: 350, color: '#8b5cf6' },
+    { id: 'dir_pp20', name: 'PP20', sub: '電競娛樂 Lounge', x: 1240, y: 92, spawnX: 1240, spawnY: 350, color: '#6366f1' },
+    { id: 'dir_pp30', name: 'PP30', sub: '裝備修復工具台', x: 1480, y: 92, spawnX: 1480, spawnY: 350, color: '#3b82f6' },
+    { id: 'dir_pp40', name: 'PP40', sub: '綠乖乖聖殿', x: 1720, y: 92, spawnX: 1720, spawnY: 350, color: '#0ea5e9' },
+    { id: 'dir_pp50', name: 'PP50', sub: '盲盒扭蛋福利社', x: 1965, y: 92, spawnX: 1965, spawnY: 350, color: '#14b8a6' },
     { id: 'pantry', name: 'Pantry', sub: '茶水休憩區', x: 2400, y: 92, spawnX: 2350, spawnY: 350, color: '#f97316' },
     { id: 'pe_zone', name: 'PE Zone', sub: '產品工程區', x: 640, y: 595, spawnX: 640, spawnY: 840, color: '#0284c7' },
     { id: 'te_zone', name: 'TE Zone', sub: '測試工程區', x: 1660, y: 595, spawnX: 1660, spawnY: 840, color: '#059669' },
@@ -104,11 +104,11 @@ window.WORLD_MAP = {
 
   directorBlocks: [
     { unit: 'PP00', title: 'PP00 處長室', x: 645, y: 70, w: 225, h: 370, accent: '#ec4899', manager: 'PP00 處長' },
-    { unit: 'PP10', title: 'PP10 主管會議室', x: 886, y: 70, w: 224, h: 370, accent: '#8b5cf6', manager: 'PP10 主管會議室' },
-    { unit: 'PP20', title: 'PP20 主管會議室', x: 1126, y: 70, w: 224, h: 370, accent: '#6366f1', manager: 'PP20 主管會議室' },
-    { unit: 'PP30', title: 'PP30 主管會議室', x: 1366, y: 70, w: 224, h: 370, accent: '#3b82f6', manager: 'PP30 主管會議室' },
-    { unit: 'PP40', title: 'PP40 主管會議室', x: 1606, y: 70, w: 224, h: 370, accent: '#0ea5e9', manager: 'PP40 主管會議室' },
-    { unit: 'PP50', title: 'PP50 主管會議室', x: 1846, y: 70, w: 234, h: 370, accent: '#14b8a6', manager: 'PP50 主管會議室' },
+    { unit: 'PP10', title: 'RMA 救火指揮所', x: 886, y: 70, w: 224, h: 370, accent: '#8b5cf6', manager: 'RMA 救火指揮所' },
+    { unit: 'PP20', title: '電競娛樂 Lounge', x: 1126, y: 70, w: 224, h: 370, accent: '#6366f1', manager: '電競娛樂 Lounge' },
+    { unit: 'PP30', title: '裝備修復工具台', x: 1366, y: 70, w: 224, h: 370, accent: '#3b82f6', manager: '裝備修復工具台' },
+    { unit: 'PP40', title: '綠乖乖聖殿', x: 1606, y: 70, w: 224, h: 370, accent: '#0ea5e9', manager: '綠乖乖聖殿' },
+    { unit: 'PP50', title: '盲盒扭蛋福利社', x: 1846, y: 70, w: 234, h: 370, accent: '#14b8a6', manager: '盲盒扭蛋福利社' },
   ],
 
   // 4 間可開門走進去上廁所的獨立廁所隔間 (支援開門動畫 doorOpen: 0~1，熱鍵 [E])
@@ -199,6 +199,51 @@ window.WORLD_MAP = {
     { x: 810, y: 1450, w: 250, h: 135 },
   ],
 };
+
+// Each facility reuses the existing desk collider and leaves the southern aisle open.
+function drawFacilityRoom(ctx,b,tick){
+  const x=b.x,cx=x+b.w/2,y=b.y;
+  const palette={PP10:['#f87171','#7f1d1d','RMA HOTLINE'],PP20:['#a78bfa','#312e81','PLAY / RECOVER'],PP30:['#7dd3fc','#164e63','WORKSHOP'],PP40:['#86efac','#14532d','GOOD YIELD'],PP50:['#fde68a','#831843','COSTUME GACHA']}[b.unit];
+  const [light,dark,label]=palette;
+  ctx.save();
+  ctx.strokeStyle=light+'66';ctx.lineWidth=3;ctx.strokeRect(x+14,y+22,b.w-28,265);
+  draw3DPixelBox(ctx,x+52,y+105,120,56,20,'#64748b','#334155','#1e293b');
+  if(b.unit==='PP10'){
+    draw3DPixelBox(ctx,x+36,y+47,150,40,5,'#e2e8f0','#94a3b8','#475569');
+    ctx.fillStyle='#ef4444';for(let i=0;i<4;i++)ctx.fillRect(x+48,y+48+i*7,55+i*11,3);
+    for(let i=0;i<4;i++)draw3DPixelBox(ctx,x+62+i*4,y+108-i*4,35,15,5,'#fff','#cbd5e1','#64748b');
+    draw3DPixelBox(ctx,cx+10,y+112,40,18,12,'#ef4444','#991b1b','#450a0a');
+    ctx.strokeStyle='#fca5a5';ctx.lineWidth=6;ctx.beginPath();ctx.arc(cx+30,y+102,17,Math.PI,0);ctx.stroke();
+    ctx.fillStyle=tick%60<30?'#f87171':'#7f1d1d';ctx.fillRect(cx-8,y+16,16,9);
+  }else if(b.unit==='PP20'){
+    draw3DPixelBox(ctx,x+48,y+58,128,65,8,'#1e293b','#0f172a','#020617');
+    ctx.fillStyle='#312e81';ctx.fillRect(x+54,y+52,116,48);ctx.fillStyle='#22d3ee';ctx.fillRect(cx-30+Math.sin(tick/15)*20,y+75,18,14);
+    ctx.fillStyle='#f472b6';ctx.fillRect(cx+25,y+64,14,26);
+    for(let i=0;i<2;i++){draw3DPixelBox(ctx,x+62+i*66,y+208,42,36,18,'#7c3aed','#4c1d95','#2e1065');ctx.fillStyle='#67e8f9';ctx.fillRect(x+70+i*66,y+205,24,4);}
+    ctx.fillStyle=light;ctx.fillRect(x+20,y+275,b.w-40,3);
+  }else if(b.unit==='PP30'){
+    draw3DPixelBox(ctx,x+50,y+44,124,54,5,'#1e293b','#0f172a','#020617');
+    ctx.strokeStyle='#94a3b8';ctx.lineWidth=4;for(let i=0;i<4;i++){const tx=x+68+i*26;ctx.beginPath();ctx.moveTo(tx,y+45);ctx.lineTo(tx,y+77);ctx.stroke();ctx.fillStyle=light;ctx.fillRect(tx-5,y+43,10,8);}
+    draw3DPixelBox(ctx,cx-32,y+110,34,23,15,'#cbd5e1','#64748b','#334155');
+    ctx.fillStyle='#fbbf24';for(let i=0;i<4;i++)ctx.fillRect(cx+14+i*8,y+108+(i%2)*10,5,5);
+    draw3DPixelBox(ctx,cx-30,y+215,60,40,10,'#475569','#1e293b','#0f172a');
+  }else if(b.unit==='PP40'){
+    draw3DPixelBox(ctx,cx-48,y+58,96,80,16,'#15803d','#14532d','#052e16');
+    ctx.fillStyle='#facc15';ctx.fillRect(cx-37,y+48,74,14);ctx.fillRect(cx-37,y+104,74,14);
+    ctx.fillStyle='#fef9c3';ctx.font='900 20px sans-serif';ctx.textAlign='center';ctx.fillText('乖乖',cx,y+88);
+    for(let i=0;i<2;i++)draw3DPixelBox(ctx,cx-62+i*84,y+220,40,25,5,'#fbbf24','#b45309','#78350f');
+    ctx.strokeStyle='#86efac88';ctx.beginPath();ctx.ellipse(cx,y+176,60+Math.sin(tick/25)*5,16,0,0,Math.PI*2);ctx.stroke();
+  }else{
+    draw3DPixelBox(ctx,cx-45,y+36,90,95,16,'#fbbf24','#be185d','#831843');
+    ctx.fillStyle='#bae6fd';ctx.fillRect(cx-34,y+30,68,55);
+    const colors=['#f472b6','#a78bfa','#22d3ee','#fbbf24','#34d399'];for(let i=0;i<10;i++){ctx.fillStyle=colors[i%5];ctx.fillRect(cx-27+(i%5)*12,y+47+Math.floor(i/5)*17,9,9);}
+    ctx.fillStyle='#475569';ctx.fillRect(cx-15,y+106,30,11);ctx.fillStyle='#fdf2f8';ctx.fillRect(cx+19,y+87,15,5);
+    for(let i=0;i<2;i++)draw3DPixelBox(ctx,x+18+i*156,y+210,30,40,18,'#f9a8d4','#9d174d','#500724');
+  }
+  ctx.textAlign='center';ctx.fillStyle=light;ctx.font='800 12px sans-serif';ctx.fillText(label,cx,y+286);ctx.fillStyle='#e2e8f0';ctx.font='700 13px sans-serif';ctx.fillText(b.title,cx,y+308);
+  ctx.fillStyle='#94a3b8';ctx.font='11px sans-serif';ctx.fillText('靠近按 E 互動',cx,y+340);
+  ctx.restore();
+}
 
 // Small reusable tiles keep material detail deterministic and avoid per-frame noise.
 // All decorations are visual only; WORLD_MAP remains the collision source of truth.
@@ -600,7 +645,7 @@ class OfficeEcosystem {
     if(isMaster && tick%120===0)this.groundItems.filter(i=>!i.combatDrop).forEach(window.relocateBlockedDrop);
 
     // 1. 每 10 分鐘自動隨機生成 5 種掉落物 (僅房長生成，避免各裝置掉落物不一致)
-    if (isMaster && now - this.lastBatchDropAt >= window.GATHER_CONFIG.security.randomDropIntervalMs) {
+    if (!window.GATHER_CONFIG.season2 && isMaster && now - this.lastBatchDropAt >= window.GATHER_CONFIG.security.randomDropIntervalMs) {
       this.lastBatchDropAt = now;
       this.spawnBatchRandomDrops(window.GATHER_CONFIG.security.randomDropBatchCount || 5);
     }
@@ -902,6 +947,7 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
     ctx.fillStyle = blk.accent + '28';
     ctx.fillRect(blk.x + 8, blk.y + 8, blk.w - 16, blk.h - 16);
 
+    if(blk.unit!=='PP00'){drawFacilityRoom(ctx,blk,tick);return;}
     draw3DPixelBox(ctx, blk.x + 52, blk.y + 105, 120, 56, 20, '#e2e8f0', '#94a3b8', '#64748b');
     draw3DPixelBox(ctx, blk.x + 92, blk.y + 72, 40, 28, 16, blk.accent, '#334155', '#0f172a');
     draw3DPixelBox(ctx, blk.x + 68, blk.y + 96, 64, 18, 14, '#22c55e', '#0f172a', '#1e293b');
@@ -913,7 +959,7 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
     ctx.fillStyle = blk.accent + 'bb';
     ctx.font = '800 15px "Outfit", monospace';
     ctx.textAlign = 'center';
-    const roomTitle = blk.unit === 'PP00' ? 'PP00 處長室' : `${blk.unit} 主管會議室`;
+    const roomTitle = blk.title;
     ctx.fillText(roomTitle, blk.x + blk.w / 2, blk.y + 295);
   });
 
