@@ -284,13 +284,9 @@
     let result;
     if(params.isAutoReload&&season.client.token){result=await season.client.send('resume',{connection:network.clientId});}
     else {
-      const pin=document.getElementById('loginPin').value;
-      const register=document.getElementById('loginRegister').checked;
-      const legacy=[];const old=loadLoginSession();
-      if(register&&old?.name?.toLowerCase()===params.name.toLowerCase()&&old.unit===params.unit){
-        const saved=loadPersistentState();if(saved){localStorage.setItem('gather_legacy_readonly_backup',JSON.stringify(saved));for(const i of [...(saved.equippedSlots||[]),...(saved.backpack||[]),...(saved.overflow||[])].filter(Boolean))for(let n=0;n<Math.min(i.count||1,100);n++)legacy.push(i);}
-      }
-      result=await season.client.send(register?'register':'login',{name:params.name,unit:params.unit,pin,avatarId:params.avatarId,connection:network.clientId,legacy});
+      const pin=(document.getElementById('loginPasscode')?.value||"").trim();
+      const legacy=[];
+      result=await season.client.send('login',{name:params.name,unit:params.unit,pin,avatarId:params.avatarId,connection:network.clientId,legacy});
     }
     return result;
   }
@@ -1714,7 +1710,7 @@ async function executeOfficeLogin(params) {
       e.preventDefault();
       const rawName = document.getElementById('loginName').value;
       const cleanName = network.sanitizeText(rawName, 16);
-      const roomCode = network.sanitizeText(document.getElementById('loginPasscode').value, 16);
+      const passVal = (document.getElementById('loginPasscode')?.value || '').trim();
       const errEl = document.getElementById('loginErrorMsg');
 
       if (!cleanName) {
@@ -1728,8 +1724,8 @@ async function executeOfficeLogin(params) {
         errEl.style.display = 'block';
         return;
       }
-      if (!roomCode || roomCode.length < 2) {
-        errEl.textContent = '⚠️ 請輸入有效的辦公室安全通行碼（預設 PP00）';
+      if (!passVal || !/^\d{6}$/.test(passVal)) {
+        errEl.textContent = '⚠️ 請輸入 6 位數個人雲端密碼（純數字）';
         errEl.style.display = 'block';
         return;
       }
