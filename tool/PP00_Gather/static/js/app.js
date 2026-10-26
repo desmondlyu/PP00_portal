@@ -174,7 +174,7 @@
     if (!localPlayer.isInjured) return;
     localPlayer.isInjured = false;
     localPlayer.injuredUntil = 0;
-    localPlayer.actionState = null;
+    localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
     localPlayer.autoWalkTarget = null;
     localPlayer.knockback = null;
     savePersistentState();
@@ -339,9 +339,18 @@
     localPlayer.isInjured=e.injuredUntil>now;localPlayer.injuredUntil=e.injuredUntil||0;
     localPlayer.stunnedUntil=e.stunnedUntil||0;localPlayer.ghostSleepUntil=e.ghostUntil||0;
     localPlayer.isRestrained=e.lockedUntil>now;localPlayer.restrainedUntil=e.lockedUntil||0;
-    if(localPlayer.isInjured||localPlayer.isRestrained){localPlayer.x=p.x;localPlayer.y=p.y;localPlayer.knockback=null;localPlayer.autoWalkTarget=null;}
+    if(localPlayer.isInjured||localPlayer.isRestrained){
+      if (Number.isFinite(p.x) && Number.isFinite(p.y)) {
+        localPlayer.x=p.x;
+        localPlayer.y=p.y;
+        localPlayer.injuredX=p.x;
+        localPlayer.injuredY=p.y;
+      }
+      localPlayer.knockback=null;
+      localPlayer.autoWalkTarget=null;
+    }
     if(localPlayer.isInjured)localPlayer.actionState='sleep_bed';
-    else if(wasInjured)localPlayer.actionState=null;
+    else if(wasInjured){localPlayer.actionState=null;localPlayer.injuredX=null;localPlayer.injuredY=null;}
     if(p.beating?.until>now && localPlayer.beatingSession?.until!==p.beating.until){
       const npc=network?.npcPlayers.get(p.beating.npcId);
       if(npc){triggerBossOrAuntieBeating(npc,p.beating.role);localPlayer.beatingSession.until=p.beating.until;localPlayer.restrainedUntil=p.beating.until;window.MEETING_LOCK_STATE.lockedUntil=p.beating.until;}
@@ -426,7 +435,8 @@
     return ecosystem.groundItems.filter(d=>d.seasonDrop&&!d.claimed&&!(d.pickupAfter>gameNow()))
       .map(d=>({d,dist:Math.hypot(d.x-localPlayer.x,d.y-localPlayer.y)}))
       .filter(({d,dist})=>{
-        if(dist>window.OfficeProgression.pickupRadius(progression.level)+20)return false;
+        const pickupRad = window.OfficeProgression?.pickupRadius ? window.OfficeProgression.pickupRadius(progression.level) : 80;
+        if(dist > pickupRad + 20) return false;
         const steps=Math.max(1,Math.ceil(dist/12));
         for(let i=0;i<=steps;i++)if(window.isPositionBlocked(localPlayer.x+(d.x-localPlayer.x)*i/steps,localPlayer.y+(d.y-localPlayer.y)*i/steps,4))return false;
         return true;
@@ -466,7 +476,7 @@
       return Math.hypot(localPlayer.x-cx,localPlayer.y-cy)<=95||Math.hypot(localPlayer.x-target.x-target.w/2,localPlayer.y-target.y-target.h-18)<125;
     });
     if(fault){await seasonSend('device_start',{target:fault[0]});localPlayer.actionState='sit_code';return true;}
-    const f=window.OfficeFacilities.nearby(localPlayer,snap);
+    const f=window.OfficeFacilities?.nearby?.(localPlayer,snap);
     if(f){await window.OfficeFacilities.use(f,season.client,()=>({x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState})).catch(seasonError);if(season.client.snapshot.player.channel)localPlayer.actionState=f.id==='shrine'?'pray_kuaikuai':f.id==='lounge'?'play_arcade':'sit_code';return true;}
     return false;
   }
@@ -573,7 +583,7 @@
         renderUnifiedChatAndStatus();
       },
       onRecoveryLocation: (spot) => {
-        if(!localPlayer.isInjured)return;
+        if(!localPlayer.isInjured || !spot || !Number.isFinite(spot.x) || !Number.isFinite(spot.y)) return;
         const changed=localPlayer.injuredX!==spot.x||localPlayer.injuredY!==spot.y;
         localPlayer.x=localPlayer.injuredX=spot.x;localPlayer.y=localPlayer.injuredY=spot.y;
         localPlayer.actionState='sleep_bed';localPlayer.autoWalkTarget=null;localPlayer.knockback=null;
@@ -680,7 +690,7 @@
           localPlayer.injuredUntil = 0;
           localPlayer.beingHealed = false;
           localPlayer.healProgress = 0;
-          localPlayer.actionState = null;
+          localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
           savePersistentState();
           updatePoseLabelUI();
           updateInjuryCountdownHUD();
@@ -1370,7 +1380,7 @@
       if (localPlayer.actionState === 'play_arcade') {
         localPlayer.lightInjuredUntil = 0;
         localPlayer.isInjured = false;
-        localPlayer.actionState = null;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
         updatePoseLabelUI();
         showCombatToast('✨ 療傷完成！身心愉悅，挫傷已痊癒！', 'join');
         savePersistentState();
@@ -1402,7 +1412,7 @@
   }
 
   function recalcLevelAndBuff() {
-    if(season.enabled){const R=window.OfficeProgression;progression.level=R.level(progression.exp);progression.title=R.title(progression.level);progression.speedBonusPct=(progression.level-1)*2;localPlayer.speed=R.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow());updateSelfHudCard();return;}
+    if(season.enabled){const R=window.OfficeProgression;if(R){progression.level=R.level(progression.exp);progression.title=R.title(progression.level);progression.speedBonusPct=(progression.level-1)*2;localPlayer.speed=R.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow());}updateSelfHudCard();return;}
     const lv = Math.min(20, Math.floor(progression.exp / 100) + 1);
     progression.level = lv;
     const titles = [
@@ -1601,7 +1611,7 @@
     window.WORLD_MAP.toiletStalls.forEach((s) => {
       if (s.occupiedBy === localPlayer.id) s.occupiedBy = null;
     });
-    localPlayer.actionState = null;
+    localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
     localPlayer.autoWalkTarget = null;
     localPlayer.knockback = {
       vx: Math.cos(angle) * power,
@@ -2040,7 +2050,7 @@ async function executeOfficeLogin(params) {
       setTimeout(() => { stall.doorOpen = 0; }, 420);
     });
     localPlayer.occupiedSpotId = null;
-    localPlayer.actionState = null;
+    localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
     updatePoseLabelUI();
     network.broadcastPacket('state_sync', { player: network.getPublicState() });
   }
@@ -2059,7 +2069,7 @@ async function executeOfficeLogin(params) {
     const sameAction = localPlayer.actionState === actionId;
     cancelContextualAction();
     if (sameAction || !actionId) {
-      localPlayer.actionState = null;
+      localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
       pushStatusLog('你', '已恢復一般行走狀態');
     } else {
       localPlayer.actionState = actionId;
@@ -3236,7 +3246,7 @@ async function executeOfficeLogin(params) {
 
               setTimeout(() => {
                 if (localPlayer.actionState === 'sleep_bed') {
-                  localPlayer.actionState = null;
+                  localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
                   updatePoseLabelUI();
                 }
               }, 2000);
@@ -3443,7 +3453,7 @@ async function executeOfficeLogin(params) {
       return;
     }
     if(gameNow()<(localPlayer.stunnedUntil||0)) return;
-    if(window.OfficeHunt?.clock().active && window.OfficeHunt.safe(localPlayer)) return;
+    if(window.OfficeHunt?.clock?.()?.active && window.OfficeHunt?.safe?.(localPlayer)) return;
     if (gameNow() < (localPlayer.ghostSleepUntil || 0)) return;
     if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
       showCombatToast('🚑 身受重傷休養中，無法揮動裝備攻擊！', 'error');
@@ -3597,7 +3607,7 @@ async function executeOfficeLogin(params) {
       localPlayer.isInjured = true;
       localPlayer.injuredUntil = gameNow() + lockMs;
       cancelContextualAction();
-      window.OfficeCombat.send(network,'recovery_request',{until:localPlayer.injuredUntil});
+      window.OfficeCombat?.send?.(network,'recovery_request',{until:localPlayer.injuredUntil});
       localPlayer.actionState = 'sleep_bed';
       localPlayer.autoWalkTarget = null;
       localPlayer.knockback = null;
@@ -3625,7 +3635,7 @@ async function executeOfficeLogin(params) {
     const power = pkt.power || 26;
     const totalTicks = 26;
 
-    localPlayer.actionState = null;
+    localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
     updatePoseLabelUI();
     localPlayer.autoWalkTarget = null;
     localPlayer.knockback = {
@@ -3694,7 +3704,7 @@ async function executeOfficeLogin(params) {
     const target = network.getAllOtherPlayers().find((p) => p.id === targetId);
     if (!target) return;
     selectedTargetId = target.id;
-    localPlayer.actionState = null;
+    localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
     updatePoseLabelUI();
     camera.overviewMode = false;
     document.getElementById('toggleOverviewBtn').classList.remove('active');
@@ -4012,7 +4022,7 @@ async function executeOfficeLogin(params) {
    */
   function detectNearbyFacility() {
     if(season.enabled){const d=nearbySeasonDrop();if(d)return {label:'拾取 '+d.name,shortHint:'[E / 互動] 拾取 '+d.name,seasonDrop:true};}
-    if(season.enabled){const f=window.OfficeFacilities.nearby(localPlayer,season.client?.snapshot);if(f)return {label:f.label,shortHint:"[E] "+f.label,seasonFacility:true,...f};}
+    if(season.enabled){const f=window.OfficeFacilities?.nearby?.(localPlayer,season.client?.snapshot);if(f)return {label:f.label,shortHint:"[E] "+f.label,seasonFacility:true,...f};}
     else {
       const f=window.OfficeFacilities?.nearby(localPlayer);
       if(f)return {label:f.label,shortHint:"[E] "+f.label,nonSeasonFacility:true,...f};
@@ -4317,7 +4327,7 @@ async function executeOfficeLogin(params) {
         if (fac.isExitToilet) {
           fac.stall.doorOpen = 1;
           fac.stall.occupiedBy = null;
-          localPlayer.actionState = null;
+          localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
           localPlayer.occupiedSpotId = null;
           updatePoseLabelUI();
           spawnConfetti(fac.stall.seatX, fac.stall.seatY - 10);
@@ -4365,7 +4375,7 @@ async function executeOfficeLogin(params) {
 
       // 🚶 起身離開目前佔用位置
       if (fac.isLeaving) {
-        localPlayer.actionState = null;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
         localPlayer.occupiedSpotId = null;
         updatePoseLabelUI();
         network.broadcastPacket('state_sync', { player: network.getPublicState() });
@@ -5175,7 +5185,7 @@ async function executeOfficeLogin(params) {
       if (s.occupiedBy === localPlayer.id) s.occupiedBy = null;
     });
     localPlayer.occupiedSpotId = null;
-    localPlayer.actionState = null;
+    localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
 
     if (window.gatherSupabase) {
       await window.gatherSupabase.logoutUser();
@@ -5500,7 +5510,7 @@ async function executeOfficeLogin(params) {
     // 🚑 檢查重傷休養狀態：重傷躺平無法動彈，即時動態更新倒數並提供緊急甦醒按鈕
     if (localPlayer.isInjured) {
       if (gameNow() < (localPlayer.injuredUntil || 0)) {
-        if (typeof localPlayer.injuredX === 'number' && typeof localPlayer.injuredY === 'number') {
+        if (Number.isFinite(localPlayer.injuredX) && Number.isFinite(localPlayer.injuredY)) {
           localPlayer.x = localPlayer.injuredX;
           localPlayer.y = localPlayer.injuredY;
         } else {
@@ -5520,7 +5530,7 @@ async function executeOfficeLogin(params) {
         // 休養期滿，傷勢痊癒！
         localPlayer.isInjured = false;
         localPlayer.injuredUntil = 0;
-        localPlayer.actionState = null;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
         savePersistentState();
         updatePoseLabelUI();
         updateInjuryCountdownHUD();
@@ -5535,7 +5545,7 @@ async function executeOfficeLogin(params) {
       updateInjuryCountdownHUD();
     }
 
-    if(season.enabled&&isLoggedIn){localPlayer.speed=window.OfficeProgression.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow());if(localPlayer.speed===0&&!localPlayer.beatingSession){localPlayer.isMoving=false;return;}if((keys.w||keys.a||keys.s||keys.d||keys.ArrowUp||keys.ArrowDown||keys.ArrowLeft||keys.ArrowRight||touchMove.x||touchMove.y)&&season.client?.snapshot?.player?.channel){if(!season.cancelling){season.cancelling=true;seasonSend("cancel").finally(()=>season.cancelling=false);}localPlayer.actionState=null;}}
+    if(season.enabled&&isLoggedIn){localPlayer.speed=(window.OfficeProgression?.speed ? window.OfficeProgression.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow()) : localPlayer.baseSpeed);if(localPlayer.speed===0&&!localPlayer.beatingSession){localPlayer.isMoving=false;return;}if((keys.w||keys.a||keys.s||keys.d||keys.ArrowUp||keys.ArrowDown||keys.ArrowLeft||keys.ArrowRight||touchMove.x||touchMove.y)&&season.client?.snapshot?.player?.channel){if(!season.cancelling){season.cancelling=true;seasonSend("cancel").finally(()=>season.cancelling=false);}localPlayer.actionState=null;}}
     else if(!season.enabled&&isLoggedIn){
       localPlayer.speed = (localPlayer.baseSpeed * (1 + (progression.speedBonusPct || 0) / 100)) * (gameNow() < (localPlayer.lightInjuredUntil || 0) ? 0.7 : 1);
     }
@@ -5557,7 +5567,7 @@ async function executeOfficeLogin(params) {
     ) {
       window.MEETING_LOCK_STATE.lockedUntil = 0;
       window.MEETING_LOCK_STATE.roomId = null;
-      localPlayer.actionState = null;
+      localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
       updatePoseLabelUI();
       ensurePlayerNotStuck();
       showToast('🔓 10 秒閉門會議結束！會議室大門已自動開啟，你已自由脫困！', 'join');
@@ -5652,7 +5662,7 @@ async function executeOfficeLogin(params) {
         localPlayer.beatingSession = null;
         localPlayer.isRestrained = false;
         localPlayer.restrainedUntil = 0;
-        localPlayer.actionState = null;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
         cancelContextualAction();
         ensurePlayerNotStuck();
         pushStatusLog('系統', `✨ 【${npcName}】連續毆打懲戒結束，消氣放你一馬！`);
@@ -5720,7 +5730,7 @@ async function executeOfficeLogin(params) {
           });
         }
         activeHealingSession = null;
-        localPlayer.actionState = null;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
       } else if (elapsed >= activeHealingSession.duration) {
         // 滿 5 秒：急救圓滿大成功！傷者立即恢復！
         if (network) {
@@ -5741,7 +5751,7 @@ async function executeOfficeLogin(params) {
         showToast(`🎉 成功治癒【${activeHealingSession.targetName}】！獲得 ${gained} EXP 急救獎勵！`, 'join');
         pushStatusLog('系統', `💖 同仁【${localPlayer.name}】完成 5 秒精湛急救，成功治癒【${activeHealingSession.targetName}】！`);
         activeHealingSession = null;
-        localPlayer.actionState = null;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
       } else {
         // 每 10 tick 廣播一次醫療進度
         if (tick % 10 === 0 && network) {
@@ -5911,7 +5921,7 @@ async function executeOfficeLogin(params) {
     ctx.save();
     ctx.fillStyle = 'rgba(15, 23, 42, 0.86)';
     ctx.beginPath();
-    ctx.roundRect(mm.x, mm.y, mm.w, mm.h, 12);
+    if (typeof ctx.roundRect === 'function') { ctx.roundRect(mm.x, mm.y, mm.w, mm.h, 12); } else { ctx.rect(mm.x, mm.y, mm.w, mm.h); }
     ctx.fill();
     ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
     ctx.lineWidth = 2;
@@ -5936,6 +5946,7 @@ async function executeOfficeLogin(params) {
     );
 
     allPlayers.forEach((p) => {
+      if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return;
       const px = mm.x + p.x * scaleX;
       const py = mm.y + p.y * scaleY;
       ctx.fillStyle =
@@ -5993,166 +6004,289 @@ async function executeOfficeLogin(params) {
       return;
     }
 
+    // 1. 遊戲邏輯與網路模擬階段（獨立捕捉異常，避免中斷 Canvas 畫面渲染）
     try {
       seasonPoll();
       updateLocalPlayerMovement();
       updateInjuryCountdownHUD();
-      network.update(tick);
-    const allPlayers = [localPlayer, ...network.getAllOtherPlayers()];
-    ecosystem.update(tick, allPlayers);
-    updateProximityState();
+      if (network && typeof network.update === 'function') {
+        network.update(tick);
+      }
+      const allPlayers = [localPlayer, ...(network ? network.getAllOtherPlayers() : [])];
+      if (ecosystem && typeof ecosystem.update === 'function') {
+        ecosystem.update(tick, allPlayers);
+      }
+      updateProximityState();
 
-    // 檢查無動作 30 秒自動切換為「🟡 閒置」狀態
-    if (
-      localPlayer.status === 'active' &&
-      gameNow() - lastUserActionAt > (window.GATHER_CONFIG?.security?.idleTimeoutMs || 30000)
-    ) {
-      localPlayer.status = 'idle';
-      isAutoIdled = true;
-      const sel = document.getElementById('selfStatusSelect');
-      if (sel) sel.value = 'idle';
-      network.broadcastPacket('state_sync', { player: network.getPublicState() });
-      pushStatusLog('系統', '30 秒無操作，自動切換為「🟡 閒置」狀態');
-      renderSidebarRoster();
+      // 檢查無動作 30 秒自動切換為「🟡 閒置」狀態
+      if (
+        localPlayer.status === 'active' &&
+        gameNow() - lastUserActionAt > (window.GATHER_CONFIG?.security?.idleTimeoutMs || 30000)
+      ) {
+        localPlayer.status = 'idle';
+        isAutoIdled = true;
+        const sel = document.getElementById('selfStatusSelect');
+        if (sel) sel.value = 'idle';
+        if (network && typeof network.broadcastPacket === 'function') {
+          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        }
+        pushStatusLog('系統', '30 秒無操作，自動切換為「🟡 閒置」狀態');
+        renderSidebarRoster();
+      }
+    } catch (simErr) {
+      console.warn('Simulation tick error (isolated):', simErr);
     }
 
-    if (camera.overviewMode) {
-      fitOverviewCamera();
-    } else {
-      const viewW = canvas.width / camera.zoom;
-      const viewH = canvas.height / camera.zoom;
-      const targetCamX = Math.max(
-        0,
-        Math.min(window.WORLD_MAP.width - viewW, localPlayer.x - viewW / 2)
-      );
-      const targetCamY = Math.max(
-        0,
-        Math.min(window.WORLD_MAP.height - viewH, localPlayer.y - viewH / 2)
-      );
-      camera.x += (targetCamX - camera.x) * 0.14;
-      camera.y += (targetCamY - camera.y) * 0.14;
-    }
+    // 2. Canvas 畫面渲染階段（保證每幀繪製世界地圖、人物、光影與雷達）
+    try {
+      if (!canvas || !ctx) {
+        requestAnimationFrame(gameLoop);
+        return;
+      }
 
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
-    ctx.scale(camera.zoom, camera.zoom);
-    ctx.translate(-camera.x, -camera.y);
+      if (camera.overviewMode) {
+        fitOverviewCamera();
+      } else {
+        const zoom = (Number.isFinite(camera.zoom) && camera.zoom > 0) ? camera.zoom : 1;
+        camera.zoom = zoom;
+        const viewW = canvas.width / zoom;
+        const viewH = canvas.height / zoom;
+        const px = Number.isFinite(localPlayer.x) ? localPlayer.x : 880;
+        const py = Number.isFinite(localPlayer.y) ? localPlayer.y : 525;
+        localPlayer.x = px;
+        localPlayer.y = py;
 
-    window.renderOfficeWorld(ctx, ecosystem, tick);
-    if(season.enabled){
-      const snap=season.client?.snapshot,task=snap?.task;
-      if(task?.claimer){ctx.save();const isReporting=task.stage==='reporting';ctx.strokeStyle=isReporting?'#22c55e':'#f87171';ctx.setLineDash([8,8]);ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(localPlayer.x,localPlayer.y);ctx.lineTo(task.x,task.y);ctx.stroke();ctx.fillStyle=isReporting?'#22c55e':'#ef4444';ctx.fillRect(task.x-30,task.y-38,60,8);ctx.restore();}
-      const c=snap?.player?.channel;if(c){ctx.save();const textScale=camera.overviewMode?1:Math.max(1,1/camera.zoom);ctx.translate(localPlayer.x,localPlayer.y);ctx.scale(textScale,textScale);ctx.translate(-localPlayer.x,-localPlayer.y);ctx.textAlign='center';ctx.font='800 16px "PingFang TC", "Microsoft JhengHei", sans-serif';ctx.fillStyle='#fef08a';ctx.strokeStyle='#020617';ctx.lineWidth=4;ctx.lineJoin='round';const duration=c.kind==='lounge'?5000:c.kind==='heal'?c.duration:3000;const text=`互動中 ${Math.min(100,Math.floor((gameNow()-c.at)/duration*100))}%`;ctx.strokeText(text,localPlayer.x,localPlayer.y-120);ctx.fillText(text,localPlayer.x,localPlayer.y-120);ctx.restore();}
-    }
+        const mapW = window.WORLD_MAP?.width || 2800;
+        const mapH = window.WORLD_MAP?.height || 1800;
+        const maxCamX = Math.max(0, mapW - viewW);
+        const maxCamY = Math.max(0, mapH - viewH);
+        const targetCamX = Math.max(0, Math.min(maxCamX, px - viewW / 2));
+        const targetCamY = Math.max(0, Math.min(maxCamY, py - viewH / 2));
 
-    if (nearbyPlayers.length > 0) {
-      const radius = window.GATHER_CONFIG.security.proximityRadiusPx;
+        if (!Number.isFinite(camera.x)) camera.x = targetCamX;
+        if (!Number.isFinite(camera.y)) camera.y = targetCamY;
+
+        camera.x += (targetCamX - camera.x) * 0.14;
+        camera.y += (targetCamY - camera.y) * 0.14;
+      }
+
+      if (!Number.isFinite(camera.x)) camera.x = 300;
+      if (!Number.isFinite(camera.y)) camera.y = 120;
+      if (!Number.isFinite(camera.zoom) || camera.zoom <= 0) camera.zoom = 1;
+
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
-      ctx.strokeStyle = 'rgba(34, 197, 94, 0.5)';
-      ctx.fillStyle = 'rgba(34, 197, 94, 0.08)';
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([6, 6]);
-      ctx.beginPath();
-      ctx.arc(localPlayer.x, localPlayer.y, radius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      try {
+        ctx.scale(camera.zoom, camera.zoom);
+        ctx.translate(-camera.x, -camera.y);
 
-      nearbyPlayers.forEach((np) => {
-        ctx.strokeStyle = np.isBerserk ? '#ef4444' : 'rgba(56, 189, 248, 0.78)';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(localPlayer.x, localPlayer.y + 6);
-        ctx.lineTo(np.x, np.y + 6);
-        ctx.stroke();
-      });
-      ctx.restore();
-    }
+        if (typeof window.renderOfficeWorld === 'function') {
+          window.renderOfficeWorld(ctx, ecosystem, tick);
+        }
 
-    const sortedPlayers = allPlayers.filter(p=>p.isMob?window.OfficeCombat.defeatVisible(p):true).sort((a, b) => a.y - b.y);
-    sortedPlayers.forEach((p) => {
-      ctx.save();
-      const reaction=window.OfficeCombat.reactionPose(p);
-      ctx.translate(reaction.x,reaction.y-reaction.jump);
-      if((network.hunt?.protectedUntil?.[p.id]||0)>gameNow()) ctx.globalAlpha=tick%12<6?.35:1;
-      window.drawWackyAvatar(ctx, {
-        avatarId: p.avatarId,
-        outfitAvatarId: p.outfitAvatarId,
-        combatDown: !!p.combatDown,
-        scareUntil: p.scareUntil || 0,
-        x: p.x,
-        y: p.y,
-        dir: p.dir,
-        isMoving: p.isMoving,
-        tick,
-        scale: p.id === 'npc_vp_boss' ? 1.16 : 1.05,
-        jumpOffset: p.jumpOffset || 0,
-        actionState: p.actionState || null,
-        isBerserk: !!p.isBerserk,
-        isSweeper: !!p.isSweeper,
-        isKnockedBack: (reaction.active && reaction.kind!=='dodge') || !!(p.knockback && p.knockback.ticksLeft > 0),
-        heldItem: p.isNpc ? '' : p.heldItem,
-        weaponSwing: p.weaponSwing ? {...p.weaponSwing,progress:p.id===localPlayer.id ? 1-p.weaponSwing.ticksLeft/p.weaponSwing.totalTicks : (gameNow()-p.weaponSwing.startedAt)/300} : null,
-        isInjured: p.id === localPlayer.id ? !!localPlayer.isInjured : !!p.isInjured,
-        beingHealed: p.id === localPlayer.id ? !!localPlayer.beingHealed : !!p.beingHealed,
-        healProgress: p.id === localPlayer.id ? (localPlayer.healProgress || 0) : (p.healProgress || 0),
-        isFleeing: !!p.isFleeing,
-      });
-      const isLightInjured = season.enabled && !p.isNpc ? ((p.id === localPlayer.id ? season.effects?.lightUntil : season.client?.snapshot?.players.find(q=>q.clientId===p.id)?.effects?.lightUntil) > gameNow()) : ((p.id === localPlayer.id ? localPlayer.lightInjuredUntil : p.lightInjuredUntil) > gameNow());
-      if(season.enabled&&!p.isNpc){const e=p.id===localPlayer.id?season.effects:season.client?.snapshot?.players.find(q=>q.clientId===p.id)?.effects;const now=gameNow();if(e?.shieldUntil>now){ctx.strokeStyle='#86efac';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x,p.y-28,34,45,0,0,Math.PI*2);ctx.stroke();}}
-      if(isLightInjured){ctx.font='18px sans-serif';ctx.fillText('🩹',p.x-10,p.y-80);}
-      ctx.restore();
-    });
+        if (season.enabled) {
+          const snap = season.client?.snapshot, task = snap?.task;
+          if (task?.claimer && Number.isFinite(task.x) && Number.isFinite(task.y)) {
+            ctx.save();
+            const isReporting = task.stage === 'reporting';
+            ctx.strokeStyle = isReporting ? '#22c55e' : '#f87171';
+            ctx.setLineDash([8, 8]);
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(localPlayer.x, localPlayer.y);
+            ctx.lineTo(task.x, task.y);
+            ctx.stroke();
+            ctx.fillStyle = isReporting ? '#22c55e' : '#ef4444';
+            ctx.fillRect(task.x - 30, task.y - 38, 60, 8);
+            ctx.restore();
+          }
+          const c = snap?.player?.channel;
+          if (c) {
+            ctx.save();
+            const textScale = camera.overviewMode ? 1 : Math.max(1, 1 / camera.zoom);
+            ctx.translate(localPlayer.x, localPlayer.y);
+            ctx.scale(textScale, textScale);
+            ctx.translate(-localPlayer.x, -localPlayer.y);
+            ctx.textAlign = 'center';
+            ctx.font = '800 16px "PingFang TC", "Microsoft JhengHei", sans-serif';
+            ctx.fillStyle = '#fef08a';
+            ctx.strokeStyle = '#020617';
+            ctx.lineWidth = 4;
+            ctx.lineJoin = 'round';
+            const duration = c.kind === 'lounge' ? 5000 : c.kind === 'heal' ? c.duration : 3000;
+            const text = `互動中 ${Math.min(100, Math.floor((gameNow() - c.at) / duration * 100))}%`;
+            ctx.strokeText(text, localPlayer.x, localPlayer.y - 120);
+            ctx.fillText(text, localPlayer.x, localPlayer.y - 120);
+            ctx.restore();
+          }
+        }
 
-    if(window.OfficeHunt?.clock().active){
-      ctx.save();ctx.fillStyle='rgba(52,211,153,.15)';ctx.strokeStyle='#34d399';ctx.lineWidth=3;
-      ctx.fillRect(2220,160,280,300);ctx.strokeRect(2220,160,280,300);ctx.fillStyle='#d1fae5';ctx.font='bold 18px sans-serif';ctx.fillText('安全區 SAFE',2280,205);ctx.restore();
-    }
-    // 背景固定自動執行的真實系統時間光影變化
-    const hourFloat = getCurrentHourFloat();
-    window.renderRealTimeLighting(ctx, hourFloat, allPlayers, tick);
+        if (nearbyPlayers && nearbyPlayers.length > 0) {
+          const radius = window.GATHER_CONFIG?.security?.proximityRadiusPx || 120;
+          ctx.save();
+          ctx.strokeStyle = 'rgba(34, 197, 94, 0.5)';
+          ctx.fillStyle = 'rgba(34, 197, 94, 0.08)';
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([6, 6]);
+          ctx.beginPath();
+          ctx.arc(localPlayer.x, localPlayer.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
 
-    sortedPlayers.forEach((p) => {
-      const hp=network.combat?.enemies[p.uid||p.id];
-      if(hp){ctx.save();ctx.fillStyle='#0f172a';ctx.fillRect(p.x-22,p.y-72,44,5);ctx.fillStyle=hp.hp>0?'#34d399':'#ef4444';ctx.fillRect(p.x-22,p.y-72,44*Math.max(0,hp.hp/hp.maxHp),5);ctx.restore();}
-      drawPlayerNameplateAndBubbles(ctx, p, p.id === localPlayer.id);
-    });
+          nearbyPlayers.forEach((np) => {
+            if (!np) return;
+            ctx.strokeStyle = np.isBerserk ? '#ef4444' : 'rgba(56, 189, 248, 0.78)';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(localPlayer.x, localPlayer.y + 6);
+            ctx.lineTo(np.x, np.y + 6);
+            ctx.stroke();
+          });
+          ctx.restore();
+        }
 
-    // 若靠近設備（電腦、馬桶、洗手台、茶水間等），在角色上方額外繪製醒目的 [按 E] 互動提示膠囊
-    if (nearbyFacilityAction && !localPlayer.knockback) {
-      ctx.save();
-      const textScale = camera.overviewMode ? 1 : Math.max(1, 1 / camera.zoom);
-      ctx.translate(localPlayer.x, localPlayer.y);
-      ctx.scale(textScale, textScale);
-      ctx.translate(-localPlayer.x, -localPlayer.y);
-      const hintText = nearbyFacilityAction.shortHint || '[按 E] 啟動設備互動';
-      ctx.font = '900 16px "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif';
-      const hw = ctx.measureText(hintText).width + 28;
-      const hx = localPlayer.x - hw / 2;
-      const hy = localPlayer.y - 106 - (localPlayer.jumpOffset || 0) + Math.sin(tick * 0.2) * 2.5;
-      ctx.fillStyle = 'rgba(8, 16, 32, 0.97)';
-      ctx.beginPath();
-      ctx.roundRect(hx, hy, hw, 30, 10);
-      ctx.fill();
-      ctx.strokeStyle = '#facc15';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.fillStyle = '#fef08a';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.strokeStyle = '#020617';
-      ctx.lineWidth = 3;
-      ctx.lineJoin = 'round';
-      ctx.strokeText(hintText, localPlayer.x, hy + 15.5);
-      ctx.fillText(hintText, localPlayer.x, hy + 15.5);
-      ctx.restore();
-    }
+        const allPlayers = [localPlayer, ...(network ? network.getAllOtherPlayers() : [])];
+        const sortedPlayers = allPlayers
+          .filter(p => p && (p.isMob ? (window.OfficeCombat?.defeatVisible ? window.OfficeCombat.defeatVisible(p) : true) : true))
+          .sort((a, b) => (a.y || 0) - (b.y || 0));
 
-    renderMedicalHealingAnimations(ctx, tick);
-    renderVfxList(ctx);
-    ctx.restore();
+        sortedPlayers.forEach((p) => {
+          if (!p) return;
+          ctx.save();
+          const reaction = window.OfficeCombat?.reactionPose ? window.OfficeCombat.reactionPose(p) : { x: 0, y: 0, jump: 0, active: false };
+          ctx.translate(reaction.x || 0, (reaction.y || 0) - (reaction.jump || 0));
+          if ((network?.hunt?.protectedUntil?.[p.id] || 0) > gameNow()) ctx.globalAlpha = tick % 12 < 6 ? 0.35 : 1;
+          if (typeof window.drawWackyAvatar === 'function') {
+            window.drawWackyAvatar(ctx, {
+              avatarId: p.avatarId,
+              outfitAvatarId: p.outfitAvatarId,
+              combatDown: !!p.combatDown,
+              scareUntil: p.scareUntil || 0,
+              x: p.x,
+              y: p.y,
+              dir: p.dir,
+              isMoving: p.isMoving,
+              tick,
+              scale: p.id === 'npc_vp_boss' ? 1.16 : 1.05,
+              jumpOffset: p.jumpOffset || 0,
+              actionState: p.actionState || null,
+              isBerserk: !!p.isBerserk,
+              isSweeper: !!p.isSweeper,
+              isKnockedBack: (reaction.active && reaction.kind !== 'dodge') || !!(p.knockback && p.knockback.ticksLeft > 0),
+              heldItem: p.isNpc ? '' : p.heldItem,
+              weaponSwing: p.weaponSwing ? {
+                ...p.weaponSwing,
+                progress: p.id === localPlayer.id ? 1 - p.weaponSwing.ticksLeft / p.weaponSwing.totalTicks : (gameNow() - p.weaponSwing.startedAt) / 300
+              } : null,
+              isInjured: p.id === localPlayer.id ? !!localPlayer.isInjured : !!p.isInjured,
+              beingHealed: p.id === localPlayer.id ? !!localPlayer.beingHealed : !!p.beingHealed,
+              healProgress: p.id === localPlayer.id ? (localPlayer.healProgress || 0) : (p.healProgress || 0),
+              isFleeing: !!p.isFleeing,
+            });
+          }
+          const isLightInjured = season.enabled && !p.isNpc
+            ? ((p.id === localPlayer.id ? season.effects?.lightUntil : season.client?.snapshot?.players?.find(q => q.clientId === p.id)?.effects?.lightUntil) > gameNow())
+            : ((p.id === localPlayer.id ? localPlayer.lightInjuredUntil : p.lightInjuredUntil) > gameNow());
+          if (season.enabled && !p.isNpc) {
+            const e = p.id === localPlayer.id ? season.effects : season.client?.snapshot?.players?.find(q => q.clientId === p.id)?.effects;
+            const now = gameNow();
+            if (e?.shieldUntil > now) {
+              ctx.strokeStyle = '#86efac';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.ellipse(p.x, p.y - 28, 34, 45, 0, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+          }
+          if (isLightInjured) {
+            ctx.font = '18px sans-serif';
+            ctx.fillText('🩹', p.x - 10, p.y - 80);
+          }
+          ctx.restore();
+        });
 
-    renderMinimapRadar(ctx, allPlayers);
+        if (window.OfficeHunt?.clock?.()?.active) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(52,211,153,.15)';
+          ctx.strokeStyle = '#34d399';
+          ctx.lineWidth = 3;
+          ctx.fillRect(2220, 160, 280, 300);
+          ctx.strokeRect(2220, 160, 280, 300);
+          ctx.fillStyle = '#d1fae5';
+          ctx.font = 'bold 18px sans-serif';
+          ctx.fillText('安全區 SAFE', 2280, 205);
+          ctx.restore();
+        }
+
+        const hourFloat = getCurrentHourFloat();
+        if (typeof window.renderRealTimeLighting === 'function') {
+          window.renderRealTimeLighting(ctx, hourFloat, allPlayers, tick);
+        }
+
+        sortedPlayers.forEach((p) => {
+          if (!p) return;
+          const hp = network?.combat?.enemies?.[p.uid || p.id];
+          if (hp) {
+            ctx.save();
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(p.x - 22, p.y - 72, 44, 5);
+            ctx.fillStyle = hp.hp > 0 ? '#34d399' : '#ef4444';
+            ctx.fillRect(p.x - 22, p.y - 72, 44 * Math.max(0, hp.hp / hp.maxHp), 5);
+            ctx.restore();
+          }
+          if (typeof drawPlayerNameplateAndBubbles === 'function') {
+            drawPlayerNameplateAndBubbles(ctx, p, p.id === localPlayer.id);
+          }
+        });
+
+        if (nearbyFacilityAction && !localPlayer.knockback) {
+          ctx.save();
+          const textScale = camera.overviewMode ? 1 : Math.max(1, 1 / camera.zoom);
+          ctx.translate(localPlayer.x, localPlayer.y);
+          ctx.scale(textScale, textScale);
+          ctx.translate(-localPlayer.x, -localPlayer.y);
+          const hintText = nearbyFacilityAction.shortHint || '[按 E] 啟動設備互動';
+          ctx.font = '900 16px "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif';
+          const hw = ctx.measureText(hintText).width + 28;
+          const hx = localPlayer.x - hw / 2;
+          const hy = localPlayer.y - 106 - (localPlayer.jumpOffset || 0) + Math.sin(tick * 0.2) * 2.5;
+          ctx.fillStyle = 'rgba(8, 16, 32, 0.97)';
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(hx, hy, hw, 30, 10);
+          } else {
+            ctx.rect(hx, hy, hw, 30);
+          }
+          ctx.fill();
+          ctx.strokeStyle = '#facc15';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.fillStyle = '#fef08a';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.strokeStyle = '#020617';
+          ctx.lineWidth = 3;
+          ctx.lineJoin = 'round';
+          ctx.strokeText(hintText, localPlayer.x, hy + 15.5);
+          ctx.fillText(hintText, localPlayer.x, hy + 15.5);
+          ctx.restore();
+        }
+
+        if (typeof renderMedicalHealingAnimations === 'function') {
+          renderMedicalHealingAnimations(ctx, tick);
+        }
+        if (typeof renderVfxList === 'function') {
+          renderVfxList(ctx);
+        }
+      } finally {
+        ctx.restore();
+      }
+
+      const allPlayersForRadar = [localPlayer, ...(network ? network.getAllOtherPlayers() : [])];
+      if (typeof renderMinimapRadar === 'function') {
+        renderMinimapRadar(ctx, allPlayersForRadar);
+      }
     } catch (loopErr) {
       console.error('gameLoop caught error:', loopErr);
     } finally {

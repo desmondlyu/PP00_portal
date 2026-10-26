@@ -1129,7 +1129,7 @@ class EphemeralOfficeNetwork {
     const ghost = this.npcPlayers.get('npc_night_ghost');
     if (!ghost || ghost.combatDown || !this.isRoomMaster()) return;
     for (const npc of this.npcPlayers.values()) {
-      if (!(npc.isSecurityGuard || npc.isBirdCommander) || (npc.isBirdCommander && window.OfficeHunt?.clock().active)) continue;
+      if (!(npc.isSecurityGuard || npc.isBirdCommander) || (npc.isBirdCommander && window.OfficeHunt?.clock?.()?.active)) continue;
       if (now < (npc.ghostScaredUntil || 0) || Math.hypot(npc.x - ghost.x, npc.y - ghost.y) > 180) continue;
       npc.ghostScaredUntil = now + 5000;
       npc.isFleeing = true; npc.fleeUntil = now + 5000;
@@ -1290,7 +1290,7 @@ class EphemeralOfficeNetwork {
           return;
         }
       }
-      if (npc.isBirdCommander && window.OfficeHunt?.clock().active) return;
+      if (npc.isBirdCommander && window.OfficeHunt?.clock?.()?.active) return;
 
       if (now < (npc.ghostScaredUntil || 0)) {
         if (this.isRoomMaster()) {
