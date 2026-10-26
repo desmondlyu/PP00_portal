@@ -100,10 +100,17 @@
     if(el.dataset.label!==label){
       el.dataset.label=label;
       el.innerHTML=`<span class="hunt-hud-text">${label}</span>`;
+      const isInjured=!!(n.localPlayer?.isInjured&&(n.localPlayer.injuredUntil||0)>now);
       const btn=document.createElement('button');
       btn.type='button';
       btn.textContent='前往安全區';
-      btn.onclick=()=>n.callbacks.onHuntEscape?.();
+      if(isInjured){
+        btn.disabled=true;
+        btn.classList.add('disabled');
+        btn.title='身受重傷休養中，無法前往安全區';
+      }else{
+        btn.onclick=()=>n.callbacks.onHuntEscape?.();
+      }
       el.appendChild(btn);
     }
     document.body.classList.toggle('hunt-active',c.active);

@@ -1093,147 +1093,176 @@ html {
   left: 48px;
 }
 
-/* 置中整合工具條：將情境互動選單、快捷鍵互動功能與 Murmur 工具條放在下方中間 */
+/* 置中整合工具條：手遊風格精緻懸浮 Action Bar Dock */
 .bottom-center-command-dock {
   pointer-events: auto;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
-  gap: 10px;
-  background: rgba(15, 23, 42, 0.92);
-  backdrop-filter: blur(16px);
-  border: 1.5px solid rgba(56, 189, 248, 0.42);
-  border-radius: 18px;
-  padding: 8px 14px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  gap: 8px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(9, 14, 26, 0.98) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(56, 189, 248, 0.45);
+  border-radius: 22px;
+  padding: 7px 16px 9px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.68), 0 0 24px rgba(56, 189, 248, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.15);
   max-width: 100%;
-}
-
-.self-avatar-badge {
-  font-size: 20px;
-}
-
-.murmur-bar-card {
-  display: flex;
-  align-items: center;
-  min-width: 310px;
-  border-left: 1px solid rgba(148, 163, 184, 0.25);
-  padding-left: 10px;
-}
-
-.murmur-form {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-}
-
-.murmur-mood-select {
-  padding: 6px 8px;
-  border-radius: 9px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(30, 41, 59, 0.9);
-  color: #fff;
-  font-size: 11.5px;
-}
-
-.murmur-input {
-  flex: 1;
-  min-width: 150px;
-  padding: 6px 10px;
-  border-radius: 9px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(30, 41, 59, 0.9);
-  color: #fff;
-  font-size: 12px;
-  outline: none;
-}
-
-.murmur-send-btn {
-  padding: 6px 12px;
-  border-radius: 9px;
-  border: none;
-  background: var(--grad-emerald);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
 }
 
 .proximity-skill-dock {
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 2px 4px;
-  border-radius: 10px;
+  width: 100%;
+  border-radius: 12px;
   transition: all 0.2s;
 }
 
 .proximity-skill-dock.nearby-active {
   background: rgba(34, 197, 94, 0.12);
-  box-shadow: 0 0 18px rgba(34, 197, 94, 0.28);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.32);
 }
 
 .prox-target-label {
-  font-size: 10.5px;
-  color: #cbd5e1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+  padding: 3px 14px;
+  border-radius: 20px;
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.22);
   text-align: center;
 }
 
 .prox-target-label kbd {
-  background: rgba(56, 189, 248, 0.2);
-  border: 1px solid rgba(56, 189, 248, 0.5);
+  background: rgba(56, 189, 248, 0.22);
+  border: 1px solid rgba(56, 189, 248, 0.6);
   border-radius: 4px;
-  padding: 0 4px;
+  padding: 0 5px;
   color: #7dd3fc;
-  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
 }
 
 .skill-btn-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
+.touch-skills-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 手機遊戲風格精緻圓角膠囊按鈕 */
 .skill-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 9px;
-  border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.32);
-  background: rgba(30, 41, 59, 0.92);
-  color: #f8fafc;
-  font-size: 11.5px;
-  font-weight: 600;
+  justify-content: center;
+  gap: 5px;
+  height: 38px;
+  padding: 0 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.96) 100%);
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   cursor: pointer;
-  transition: transform 0.12s, background 0.15s, border-color 0.15s;
+  user-select: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: transform 0.14s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.14s ease, border-color 0.14s ease, background 0.14s ease;
 }
 
-.skill-btn:hover,
+.skill-btn:hover {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.85) 0%, rgba(29, 78, 216, 0.95) 100%);
+  border-color: rgba(96, 165, 250, 0.8);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.45), 0 0 14px rgba(56, 189, 248, 0.4);
+  transform: translateY(-2px) scale(1.03);
+  color: #ffffff;
+}
+
+.skill-btn:active {
+  transform: translateY(1px) scale(0.97);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
 .skill-btn.hotkey-flash {
-  background: #2563eb;
-  border-color: #60a5fa;
-  transform: translateY(-2px);
+  animation: skillFlash 0.35s ease;
 }
 
+@keyframes skillFlash {
+  0% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.08); filter: brightness(1.6); box-shadow: 0 0 20px #38bdf8; }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+/* 快捷鍵發光小標籤 */
 .hk-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 4px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(250, 204, 21, 0.65);
+  min-width: 17px;
+  height: 17px;
+  padding: 0 3px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
+  border: 1px solid rgba(250, 204, 21, 0.75);
   color: #fde047;
-  font-family: monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 10px;
   font-weight: 800;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* 🎬 情境專屬漸層 */
+.action-pose-toggle-btn {
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.88) 0%, rgba(67, 56, 202, 0.96) 100%);
+  border-color: rgba(165, 180, 252, 0.55);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.action-pose-toggle-btn:hover {
+  background: linear-gradient(180deg, rgba(129, 140, 248, 0.95) 0%, rgba(79, 70, 229, 1) 100%);
+  border-color: #a5b4fc;
+}
+
+/* ⚔️ 擊退專屬熱血漸層 */
+.weapon-atk-btn {
+  background: linear-gradient(180deg, rgba(225, 29, 72, 0.88) 0%, rgba(159, 18, 57, 0.96) 100%);
+  border-color: rgba(251, 113, 133, 0.55);
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.weapon-atk-btn:hover {
+  background: linear-gradient(180deg, rgba(244, 63, 94, 0.95) 0%, rgba(190, 18, 60, 1) 100%);
+  border-color: #fda4af;
+  box-shadow: 0 6px 18px rgba(225, 29, 72, 0.55), 0 0 14px rgba(251, 113, 133, 0.5);
+}
+
+/* 🎒 裝備/物品專屬翡翠金屬漸層 */
+.mc-inv-btn {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.88) 0%, rgba(5, 150, 105, 0.96) 100%);
+  border-color: rgba(52, 211, 153, 0.55);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.mc-inv-btn:hover {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.95) 0%, rgba(16, 185, 129, 1) 100%);
+  border-color: #6ee7b7;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.5), 0 0 14px rgba(52, 211, 153, 0.45);
 }
 
 /* =========================================================================

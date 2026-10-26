@@ -11,7 +11,7 @@ test('hunt mode alert: center beacon banner with fadeout, top-right countdown, a
   assert.ok(huntCode.includes('document.body.classList.toggle(\'hunt-active\''), 'must toggle hunt-active on body for edge glow');
 });
 
-test('status messages and HUD banners are positioned at top-right, not center-top', () => {
+test('status messages and HUD banners: toast/hunt top-right, injury alert centered', () => {
   const css = fs.readFileSync(path.join(__dirname, '../static/css/style.css'), 'utf8');
   const appCode = fs.readFileSync(path.join(__dirname, '../static/js/app.js'), 'utf8');
 
@@ -34,9 +34,9 @@ test('status messages and HUD banners are positioned at top-right, not center-to
   assert.ok(berserkMatch[1].includes('right:'), 'berserk modal must position to right');
   assert.ok(berserkMatch[1].includes('left: auto'), 'berserk modal must not center to left: 50%');
 
-  // 4. injuryHudBanner in app.js must position to top-right
-  assert.ok(appCode.includes("hud.style.right = '16px'"), 'injury HUD banner must position to right: 16px');
-  assert.ok(appCode.includes("hud.style.left = 'auto'"), 'injury HUD banner must clear left centering');
+  // 4. injuryHudBanner in app.js must position to center of screen
+  assert.ok(appCode.includes("hud.style.left = '50%'"), 'injury HUD banner must center horizontally to left: 50%');
+  assert.ok(appCode.includes("hud.style.transform = 'translate(-50%, -50%)'"), 'injury HUD banner must use transform translate to center');
 });
 
 test('overview map can be toggled and closed via button, function, and Escape key', () => {
