@@ -2822,7 +2822,18 @@ async function executeOfficeLogin(params) {
     return null;
   }
 
-  function triggerProximitySkill(skillType, allowRemoteWave = false) {
+  function isNpcEntity(target) {
+    if (!target) return false;
+    return Boolean(
+      target.isNpc ||
+      (typeof target.id === 'string' && (target.id.startsWith('npc_') || target.id.includes('auntie') || target.id.includes('boss') || target.id.includes('guard') || target.id.includes('commander'))) ||
+      (typeof target.name === 'string' && target.name.startsWith('NPC:')) ||
+      (typeof target.unit === 'string' && target.unit.includes('NPC')) ||
+      (network?.npcPlayers && network.npcPlayers.has(target.id))
+    );
+  }
+
+  async function triggerProximitySkill(skillType, allowRemoteWave = false) {
     const now = gameNow();
     if (now - network.lastSkillAt < window.GATHER_CONFIG.security.skillCooldownMs) return;
 
@@ -2840,8 +2851,21 @@ async function executeOfficeLogin(params) {
       return;
     }
 
-    const target = getActiveTargetPlayer();
+    let target = getActiveTargetPlayer();
     const maxRadius = window.GATHER_CONFIG.security.proximityRadiusPx || 180;
+
+    // 揮手特權：若身邊半徑內無目標，自動尋找視野內（520px）最近的 NPC 進行召喚
+    if (!target && skillType === 'wave') {
+      const all = network.getAllOtherPlayers();
+      const npcs = all
+        .filter(p => isNpcEntity(p) && !p.combatDown && !p.id.includes('ghost') && !p.isMob)
+        .map(p => ({ p, dist: Math.hypot(p.x - localPlayer.x, p.y - localPlayer.y) }))
+        .filter(item => item.dist <= 520)
+        .sort((a, b) => a.dist - b.dist);
+      if (npcs.length > 0) {
+        target = npcs[0].p;
+      }
+    }
 
     if (!target) {
       showToast(`📡 身邊半徑 ${maxRadius}px 內沒有同仁或目標，請靠近後再互動！`, 'info');
@@ -2852,13 +2876,16 @@ async function executeOfficeLogin(params) {
 
     // 規定：交換禮物、揮手、靜電戳、乾杯要在指定的半徑範圍內才可以生效，避免遠距觸發
     if (dist > maxRadius) {
-      if (skillType === 'follow') {
+      if (skillType === 'wave' && isNpcEntity(target) && dist <= 550) {
+        // 允許在視野範圍內（550px）遠距揮手召喚 NPC 靠近！
+      } else if (skillType === 'follow') {
         showToast(`🏃 距離 <b>${escapeHtml(target.name)}</b> 較遠，正在自動跟隨走向他身邊...`, 'info');
         walkToPlayer(target.id);
         return;
+      } else {
+        showToast(`⚠️ 距離【${escapeHtml(target.name)}】過遠（${Math.round(dist)}px > 半徑 ${maxRadius}px），需走近身邊才能生效！`, 'error');
+        return;
       }
-      showToast(`⚠️ 距離【${escapeHtml(target.name)}】過遠（${Math.round(dist)}px > 半徑 ${maxRadius}px），需走近身邊才能生效！`, 'error');
-      return;
     }
 
     network.lastSkillAt = now;
@@ -2866,7 +2893,7 @@ async function executeOfficeLogin(params) {
 
     switch (skillType) {
       case 'exchange': {
-        if (target.isNpc) {
+        if (isNpcEntity(target)) {
           // 檢查是否為幽靈或怪物
           const isGhost = target.id.includes('ghost') || target.role === 'ghost';
           const isMob = target.isMob || target.id.startsWith('mob_') || target.templateId;
@@ -2879,30 +2906,46 @@ async function executeOfficeLogin(params) {
             return;
           }
 
-          // 取得玩家背包/裝備中的非外觀道具
-          const playerItems = season.enabled && season.client?.snapshot?.player
-            ? season.client.snapshot.player.items.filter(i => i && i.category !== 'outfit')
-            : (localPlayer.equippedSlots || []).filter(i => i && i.category !== 'outfit').concat((localPlayer.inventory || []).filter(i => i && i.category !== 'outfit'));
+          // 取得玩家背包/裝備中的非外觀道具（不含頭飾服裝）
+          let chosenItem = null;
+          let chosenSlot = null;
+          let chosenFromBag = false;
 
-          if (!playerItems || playerItems.length === 0) {
-            showToast('🎒 你身上沒有可交換的道具或武器（不含頭飾服裝），無法使用！', 'error');
-            return;
-          }
-
-          // 選擇玩家給予的道具
-          let chosenItem = playerItems[0];
-          if (!season.enabled) {
+          if (season.enabled && season.client?.snapshot?.player) {
+            const items = season.client.snapshot.player.items.filter(i => i && i.category !== 'outfit');
+            if (!items.length) {
+              showToast('🎒 你身上沒有可交換的道具或武器（不含頭飾服裝），無法使用！', 'error');
+              return;
+            }
+            const activeItem = localPlayer.equippedSlots[localPlayer.activeEquipIndex];
+            if (activeItem && activeItem.category !== 'outfit') {
+              chosenItem = activeItem;
+            } else {
+              chosenItem = items[0];
+            }
+          } else {
             const activeIdx = localPlayer.activeEquipIndex;
             if (localPlayer.equippedSlots[activeIdx] && localPlayer.equippedSlots[activeIdx].category !== 'outfit') {
               chosenItem = localPlayer.equippedSlots[activeIdx];
-              localPlayer.equippedSlots[activeIdx] = null;
+              chosenSlot = activeIdx;
             } else {
-              const invIdx = localPlayer.inventory.findIndex(i => i && i.category !== 'outfit');
-              if (invIdx !== -1) {
-                chosenItem = localPlayer.inventory[invIdx];
-                localPlayer.inventory.splice(invIdx, 1);
+              const eqIdx = localPlayer.equippedSlots.findIndex(i => i && i.category !== 'outfit');
+              if (eqIdx !== -1) {
+                chosenItem = localPlayer.equippedSlots[eqIdx];
+                chosenSlot = eqIdx;
+              } else {
+                const invIdx = (localPlayer.inventory || []).findIndex(i => i && i.category !== 'outfit');
+                if (invIdx !== -1) {
+                  chosenItem = localPlayer.inventory[invIdx];
+                  chosenFromBag = true;
+                }
               }
             }
+          }
+
+          if (!chosenItem) {
+            showToast('🎒 你身上沒有可交換的道具或武器（不含頭飾服裝），無法使用！', 'error');
+            return;
           }
 
           // NPC 隨機回贈道具池 (不含頭飾服裝)
@@ -2919,15 +2962,38 @@ async function executeOfficeLogin(params) {
           ];
           const returnItemMeta = npcGiftPool[Math.floor(Math.random() * npcGiftPool.length)];
 
-          ecosystem.addThrownItem(localPlayer.x, localPlayer.y - 20, target.x, target.y - 20, chosenItem.emoji || '🎁');
-          ecosystem.addThrownItem(target.x, target.y - 20, localPlayer.x, localPlayer.y - 20, returnItemMeta.emoji);
+          let receivedItem = returnItemMeta;
+          if (season.enabled) {
+            try {
+              const res = await seasonSend('npc_exchange', { uid: chosenItem.uid, npcId: target.id });
+              if (res && res.item) receivedItem = res.item;
+            } catch (_) {
+              if (season.client?.snapshot?.player) {
+                const p = season.client.snapshot.player;
+                p.items = p.items.filter(i => i.uid !== chosenItem.uid);
+                p.items.push({ ...returnItemMeta, uid: 'ex_' + Date.now(), slot: chosenItem.slot });
+                applySeasonSnapshot(season.client.snapshot);
+              }
+            }
+          } else {
+            if (chosenSlot !== null) {
+              localPlayer.equippedSlots[chosenSlot] = null;
+            } else if (chosenFromBag) {
+              const idx = localPlayer.inventory.indexOf(chosenItem);
+              if (idx !== -1) localPlayer.inventory.splice(idx, 1);
+            }
+            receivedItem = addItemToInventory(returnItemMeta, true);
+          }
 
-          const added = addItemToInventory(returnItemMeta, true);
+          // 雙向物品投擲動畫
+          ecosystem.addThrownItem(localPlayer.x, localPlayer.y - 20, target.x, target.y - 20, chosenItem.emoji || '🎁');
+          ecosystem.addThrownItem(target.x, target.y - 20, localPlayer.x, localPlayer.y - 20, receivedItem.emoji);
+
           target.heldItem = chosenItem.emoji || '🎁';
           target.jumpOffset = 14;
           target.emote = { emoji: '🎁', expiresAt: now + 3500 };
           target.murmur = {
-            text: '謝謝你的禮物！這件小回禮送你，收下吧！',
+            text: `謝謝你的禮物！這件【${receivedItem.name}】送你當回禮，收下吧！`,
             mood: 'idea',
             createdAt: now,
             expiresAt: now + 5000,
@@ -2937,8 +3003,8 @@ async function executeOfficeLogin(params) {
           updateSelfHudCard();
           savePersistentState();
 
-          showToast(`🎁 與【${escapeHtml(target.name)}】交換了禮物！獲得【${added.emoji} ${added.name}】！`, 'join');
-          pushStatusLog('系統', `🎁 與【${target.name}】交換禮物：給予【${chosenItem.name || '道具'}】，獲得【${added.emoji} ${added.name}】！`);
+          showToast(`🎁 與【${escapeHtml(target.name)}】交換了禮物！獲得【${receivedItem.emoji} ${receivedItem.name}】！`, 'join');
+          pushStatusLog('系統', `🎁 與【${target.name}】交換禮物：給予【${chosenItem.name || '道具'}】，獲得【${receivedItem.emoji} ${receivedItem.name}】！`);
           break;
         }
 
@@ -2973,6 +3039,7 @@ async function executeOfficeLogin(params) {
       }
       case 'wave': {
         localPlayer.emote = { emoji: '👋', expiresAt: now + 3500 };
+        localPlayer.jumpOffset = 10;
         vfxList.push({
           type: 'click_ring',
           x: localPlayer.x,
@@ -2989,23 +3056,14 @@ async function executeOfficeLogin(params) {
           fromX: localPlayer.x,
           fromY: localPlayer.y,
         });
-        const narrative = pickSkillNarrative('wave', { target: target.name });
-        showToast(narrative, 'info');
 
-        if (target.isNpc) {
+        if (isNpcEntity(target)) {
           // 對 NPC 揮手：召喚對方走過來跟你講話一次，完成後結束
           target.emote = { emoji: '👋', expiresAt: now + 4000 };
           target.jumpOffset = 12;
 
           const savedWaypoints = target.waypoints ? [...target.waypoints] : [];
           const savedIndex = target.currentWaypointIndex || 0;
-
-          const offsetX = target.x > localPlayer.x ? 38 : -38;
-          const targetX = Math.max(160, Math.min(2650, localPlayer.x + offsetX));
-          const targetY = localPlayer.y;
-
-          target.waypoints = [{ x: targetX, y: targetY }];
-          target.currentWaypointIndex = 0;
 
           const npcQuotes = {
             npc_vp_boss: [
@@ -3043,25 +3101,38 @@ async function executeOfficeLogin(params) {
           const list = isAuntie ? auntieQuotes : (npcQuotes[target.id] || npcQuotes.default);
           const quote = list[Math.floor(Math.random() * list.length)];
 
-          setTimeout(() => {
-            target.jumpOffset = 14;
-            target.emote = { emoji: '💬', expiresAt: gameNow() + 4500 };
-            target.murmur = {
+          showToast(`👋 向【${escapeHtml(target.name)}】揮手示意，對方正快步朝你走來...`, 'info');
+          pushStatusLog(localPlayer.name, `👋 向【${target.name}】揮手召喚！`);
+
+          // 設定召喚目標與回呼
+          target.actionState = null;
+          target.actionUntil = 0;
+          target.isMoving = true;
+          target.summonTarget = { x: localPlayer.x, y: localPlayer.y, getX: () => localPlayer.x, getY: () => localPlayer.y };
+          target.summonedUntil = now + 9500;
+          target.onSummonArrival = (npc) => {
+            npc.jumpOffset = 14;
+            npc.emote = { emoji: '💬', expiresAt: gameNow() + 4500 };
+            npc.murmur = {
               text: quote,
               mood: 'idea',
               createdAt: gameNow(),
               expiresAt: gameNow() + 6000,
             };
-            pushStatusLog(target.name, `💬 走上前對你說：「${quote}」`);
-            showToast(`💬 <b>${escapeHtml(target.name)}</b> 走來對你說：「${quote}」`, 'info');
+            pushStatusLog(npc.name, `💬 走上前對你說：「${quote}」`);
+            showToast(`💬 <b>${escapeHtml(npc.name)}</b> 走來對你說：「${quote}」`, 'info');
 
             setTimeout(() => {
               if (savedWaypoints.length > 0) {
-                target.waypoints = savedWaypoints;
-                target.currentWaypointIndex = savedIndex;
+                npc.waypoints = savedWaypoints;
+                npc.currentWaypointIndex = savedIndex;
               }
             }, 4500);
-          }, 800);
+          };
+        } else {
+          // 對玩家：維持原本設計
+          const narrative = pickSkillNarrative('wave', { target: target.name });
+          showToast(narrative, 'info');
         }
         break;
       }
@@ -3076,7 +3147,7 @@ async function executeOfficeLogin(params) {
         });
         target.jumpOffset = 18;
 
-        if (target.isNpc && !target.id.includes('ghost') && !target.isMob) {
+        if (isNpcEntity(target) && !target.id.includes('ghost') && !target.isMob) {
           // 對 NPC 靜電戳：有一定機率冒愛心說三句喜歡你並送禮物；一定機率覺得很噁心並追著攻擊你一次
           const rollLove = Math.random() < 0.50;
           if (rollLove) {
@@ -3112,7 +3183,21 @@ async function executeOfficeLogin(params) {
             const giftMeta = giftPool[Math.floor(Math.random() * giftPool.length)];
             ecosystem.addThrownItem(target.x, target.y - 20, localPlayer.x, localPlayer.y - 20, giftMeta.emoji);
 
-            const added = addItemToInventory(giftMeta, true);
+            let added = giftMeta;
+            if (season.enabled) {
+              try {
+                const res = await seasonSend('npc_love_gift', { npcId: target.id });
+                if (res && res.item) added = res.item;
+              } catch (_) {
+                if (season.client?.snapshot?.player) {
+                  season.client.snapshot.player.items.push({ ...giftMeta, uid: 'love_' + Date.now(), slot: null });
+                  applySeasonSnapshot(season.client.snapshot);
+                }
+              }
+            } else {
+              added = addItemToInventory(giftMeta, true);
+            }
+
             updateSelfHudCard();
             savePersistentState();
 
@@ -3138,25 +3223,22 @@ async function executeOfficeLogin(params) {
               expiresAt: now + 5000,
             };
             showToast(`🤢 【${escapeHtml(target.name)}】覺得你很噁心！「${disgustQuote}」憤怒衝上前揮擊！`, 'error');
-            pushStatusLog(target.name, `🤢 怒斥：「${disgustQuote}」，衝上前反擊你一次！`);
+            pushStatusLog(target.name, `🤢 怒斥：「${disgustQuote}」，衝上前追擊反擊你一次！`);
 
-            // 衝向玩家揮擊一次
-            const savedWaypoints = target.waypoints ? [...target.waypoints] : [];
-            const savedIndex = target.currentWaypointIndex || 0;
-            target.x = localPlayer.x + (target.x > localPlayer.x ? 25 : -25);
-            target.y = localPlayer.y;
-
-            setTimeout(() => {
-              target.weaponSwing = { ticksLeft: 14, totalTicks: 14, startedAt: gameNow() };
-              triggerBerserkKnockback(target, '遭被騷擾的 NPC 憤怒揮擊！');
-              target.emote = { emoji: '😤', expiresAt: gameNow() + 3000 };
-              setTimeout(() => {
-                if (savedWaypoints.length > 0) {
-                  target.waypoints = savedWaypoints;
-                  target.currentWaypointIndex = savedIndex;
-                }
-              }, 2000);
-            }, 500);
+            // 設定衝刺追擊目標與追到後攻擊回呼
+            target.actionState = null;
+            target.actionUntil = 0;
+            target.isMoving = true;
+            target.chaseTarget = { x: localPlayer.x, y: localPlayer.y, getX: () => localPlayer.x, getY: () => localPlayer.y };
+            target.chaseUntil = now + 4500;
+            target.onChaseArrival = (npc) => {
+              npc.weaponSwing = { ticksLeft: 16, totalTicks: 16, startedAt: gameNow() };
+              npc.emote = { emoji: '😤', expiresAt: gameNow() + 3000 };
+              vfxList.push({ type: 'sparks', x: localPlayer.x, y: localPlayer.y });
+              const kx = localPlayer.x > npc.x ? 38 : -38;
+              localPlayer.knockback = { vx: kx, vy: 0, ticks: 12 };
+              showCombatToast(`💥 遭【${npc.name}】憤怒反擊擊退！`, 'error');
+            };
           }
           break;
         }
@@ -3198,64 +3280,75 @@ async function executeOfficeLogin(params) {
           fromX: localPlayer.x,
           fromY: localPlayer.y,
         });
-        const narrative = pickSkillNarrative('cheer', { target: target.name });
-        showToast(narrative, 'join');
 
-        if (target.isNpc) {
+        if (isNpcEntity(target)) {
           // 對 NPC 乾杯：20% 機率讓玩家或對方喝醉暈倒 2 秒，並且掉出道具
           if (Math.random() < 0.20) {
             const isPlayerDrunk = Math.random() < 0.50;
             if (isPlayerDrunk) {
-              // 玩家喝醉暈倒 2 秒並噴出道具
+              // 玩家喝醉暈倒 2 秒並掉落道具
               localPlayer.actionState = 'sleep_bed';
               localPlayer.stunnedUntil = now + 2000;
               localPlayer.emote = { emoji: '😵‍💫', expiresAt: now + 2500 };
               updatePoseLabelUI();
 
-              const myItems = (localPlayer.equippedSlots || []).filter(i => i && i.category !== 'outfit').concat((localPlayer.inventory || []).filter(i => i && i.category !== 'outfit'));
               let droppedItem = null;
-              if (myItems.length > 0) {
-                const idx = localPlayer.activeEquipIndex;
-                if (localPlayer.equippedSlots[idx] && localPlayer.equippedSlots[idx].category !== 'outfit') {
-                  droppedItem = localPlayer.equippedSlots[idx];
-                  localPlayer.equippedSlots[idx] = null;
-                } else {
-                  const invIdx = localPlayer.inventory.findIndex(i => i && i.category !== 'outfit');
-                  if (invIdx !== -1) {
-                    droppedItem = localPlayer.inventory[invIdx];
-                    localPlayer.inventory.splice(invIdx, 1);
+              if (season.enabled && season.client?.snapshot?.player) {
+                const nonOutfits = season.client.snapshot.player.items.filter(i => i && i.category !== 'outfit');
+                if (nonOutfits.length > 0) {
+                  droppedItem = nonOutfits[0];
+                  seasonSend('drop', { uid: droppedItem.uid }).catch(() => {});
+                }
+              } else {
+                const myItems = (localPlayer.equippedSlots || []).filter(i => i && i.category !== 'outfit').concat((localPlayer.inventory || []).filter(i => i && i.category !== 'outfit'));
+                if (myItems.length > 0) {
+                  const idx = localPlayer.activeEquipIndex;
+                  if (localPlayer.equippedSlots[idx] && localPlayer.equippedSlots[idx].category !== 'outfit') {
+                    droppedItem = localPlayer.equippedSlots[idx];
+                    localPlayer.equippedSlots[idx] = null;
+                  } else {
+                    const invIdx = localPlayer.inventory.findIndex(i => i && i.category !== 'outfit');
+                    if (invIdx !== -1) {
+                      droppedItem = localPlayer.inventory[invIdx];
+                      localPlayer.inventory.splice(invIdx, 1);
+                    }
                   }
                 }
+                if (droppedItem) {
+                  ecosystem.groundItems.push({
+                    ...droppedItem,
+                    uid: 'drunk_drop_' + now + '_' + Math.random().toString(36).slice(2, 6),
+                    x: localPlayer.x + 30,
+                    y: localPlayer.y,
+                    dropY: 0,
+                    pickupAfter: now + 1500,
+                    combatDrop: true
+                  });
+                  syncPlayerActiveWeaponState();
+                  updateSelfHudCard();
+                  savePersistentState();
+                }
               }
-              if (droppedItem) {
-                ecosystem.groundItems.push({
-                  ...droppedItem,
-                  uid: 'drunk_drop_' + now + '_' + Math.random().toString(36).slice(2, 6),
-                  x: localPlayer.x + 30,
-                  y: localPlayer.y,
-                  dropY: 0,
-                  pickupAfter: now + 1500,
-                  combatDrop: true
-                });
-                syncPlayerActiveWeaponState();
-                updateSelfHudCard();
-                savePersistentState();
-              }
+
               showCombatToast(`😵‍💫 乾杯酒勁太強！你喝醉倒地暈眩 2 秒${droppedItem ? `，掉落【${droppedItem.emoji || '🎁'} ${droppedItem.name}】` : ''}！`, 'error');
-              pushStatusLog('系統', `😵‍💫 乾杯過猛！你喝醉倒地暈眩 2 秒${droppedItem ? `，手中的【${droppedItem.name}】不小心滾落到地上` : ''}！`);
+              pushStatusLog('系統', `😵‍💫 乾杯過猛！你喝醉倒地暈眩 2 秒${droppedItem ? `，手中的【${droppedItem.name || '道具'}】不小心滾落到地上` : ''}！`);
 
               setTimeout(() => {
                 if (localPlayer.actionState === 'sleep_bed') {
-                  localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
+                  localPlayer.actionState = null;
+                  localPlayer.injuredX = null;
+                  localPlayer.injuredY = null;
                   updatePoseLabelUI();
                 }
               }, 2000);
             } else {
-              // NPC 喝醉暈倒 2 秒並噴出道具
+              // NPC 喝醉暈倒 2 秒並掉落道具
               target.actionState = 'sleep_bed';
+              target.stunnedUntil = now + 2500;
+              target.actionUntil = now + 2500;
               target.isMoving = false;
               target.emote = { emoji: '😵‍💫', expiresAt: now + 2500 };
-              target.murmur = { text: '這酒……好烈……我不行了……嗝！', mood: 'fire', createdAt: now, expiresAt: now + 3000 };
+              target.murmur = { text: '這酒……好烈……我不行了……嗝！', mood: 'fire', createdAt: now, expiresAt: now + 3500 };
 
               const npcDropPool = [
                 { id: 'coffee', name: '熱咖啡', emoji: '☕', category: 'item', maxDurability: 1 },
@@ -3268,6 +3361,10 @@ async function executeOfficeLogin(params) {
                 { id: 'bench', name: '折疊鐵椅', emoji: '🪑', category: 'weapon', maxDurability: 3 },
               ];
               const dropped = npcDropPool[Math.floor(Math.random() * npcDropPool.length)];
+
+              if (season.enabled) {
+                seasonSend('npc_cheer_drop', { x: target.x + 25, y: target.y }).catch(() => {});
+              }
               ecosystem.groundItems.push({
                 ...dropped,
                 uid: 'npc_drop_' + now + '_' + Math.random().toString(36).slice(2, 6),
@@ -3284,10 +3381,17 @@ async function executeOfficeLogin(params) {
               setTimeout(() => {
                 if (target.actionState === 'sleep_bed') {
                   target.actionState = null;
+                  target.stunnedUntil = 0;
                 }
-              }, 2000);
+              }, 2500);
             }
+          } else {
+            showToast(`🍻 與【${escapeHtml(target.name)}】痛快乾杯！大家酒量都很好！`, 'join');
           }
+        } else {
+          // 對玩家：維持原本設計
+          const narrative = pickSkillNarrative('cheer', { target: target.name });
+          showToast(narrative, 'join');
         }
         break;
       }

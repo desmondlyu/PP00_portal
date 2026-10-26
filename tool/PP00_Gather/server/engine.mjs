@@ -70,6 +70,31 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   if(kind==='cancel'){p.channel=null;closePending(p,false);return;}
   if(kind==='gacha_cancel'){closePending(p,false);return;}
   if(locked(p,now))fail('目前狀態無法操作');
+    if(kind==='npc_exchange'){
+    const i=p.items.find(i=>i.uid===b.uid);if(!i||!isMaterial(i)||p.pending?.materials.includes(i.uid))fail('無法交換道具');
+    p.items=p.items.filter(a=>a.uid!==i.uid);
+    const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench','kuaikuai'];
+    const returnId=pick(pool,rng);
+    const d={...fresh(returnId),room:p.room,source:'world',slot:i.slot!=null?i.slot:null};
+    p.items.push(d);
+    gain(p,15);
+    return {item:d};
+  }
+  if(kind==='npc_love_gift'){
+    const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench','kuaikuai'];
+    const giftId=pick(pool,rng);
+    const d={...fresh(giftId),room:p.room,source:'world',slot:null};
+    if(capacity(p,d)){p.items.push(d);}else{p.overflow||=[];p.overflow.push({...d,count:1});}
+    gain(p,15);
+    return {item:d};
+  }
+  if(kind==='npc_cheer_drop'){
+    const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench','kuaikuai'];
+    const dropId=pick(pool,rng);
+    const d={...fresh(dropId),...floor(b.x||p.x+30,b.y||p.y),uid:uid(),room:p.room,source:'world',slot:null,pickupAfter:now+500};
+    s.drops[d.uid]=d;
+    return {drop:d};
+  }
   if(kind==='gift'){
     const q=s.players[b.target],i=p.items.find(i=>i.uid===b.uid);if(!q||q.room!==p.room||!active(q,now)||!near(p,q.x,q.y,180)||!i||!isMaterial(i)||!capacity(q,i)||p.pending?.materials.includes(i.uid))fail('無法贈送道具，請確認距離與背包空間');
     p.items=p.items.filter(a=>a.uid!==i.uid);q.items.push({...i,slot:null,source:'gift'});return;

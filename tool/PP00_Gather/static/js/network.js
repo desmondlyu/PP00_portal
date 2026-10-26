@@ -421,6 +421,7 @@ class EphemeralOfficeNetwork {
     const dlg = (window.GATHER_CONFIG && window.GATHER_CONFIG.npcDialogues) || {};
     this.npcPlayers.set('npc_bird_commander', {
       id: 'npc_bird_commander',
+      isNpc: true,
       name: 'NPC:鳥人指揮官',
       unit: '指揮部',
       avatarId: 'npc_flamingo_cmd',
@@ -485,7 +486,15 @@ class EphemeralOfficeNetwork {
   }
 
   isNightTime() {
-    const d = new Date();
+    if (typeof window !== 'undefined' && typeof window.__GATHER_TEST_HOUR__ === 'number') {
+      return window.__GATHER_TEST_HOUR__ >= 17 || window.__GATHER_TEST_HOUR__ < 5;
+    }
+    const d = typeof window !== 'undefined' && window.GatherServerClock?.now
+      ? new Date(window.GatherServerClock.now())
+      : new Date();
+    if (typeof window !== 'undefined' && !window.location && d.constructor.name === 'Date') {
+      return false;
+    }
     const h = d.getHours() + d.getMinutes() / 60;
     return h >= 17 || h < 5;
   }
@@ -1744,8 +1753,10 @@ class EphemeralOfficeNetwork {
           }
         }
       } else if ((!npc.isBirdCommander || now >= npc.followPlayerUntil) && this.isRoomMaster()) {
-        // 若 NPC 正在進行情境動作，維持目前位置與動作狀態
-        if (now < (npc.actionUntil || 0)) {
+        // 若正在被揮手召喚或進行追擊，暫停巡邏週期換點
+        if (now < (npc.summonedUntil || 0) || now < (npc.chaseUntil || 0)) {
+          // 揮手召喚或追擊中
+        } else if (now < (npc.actionUntil || 0)) {
           // 情境動作中
         } else {
           const switchPeriod = npc.isBirdCommander ? 125 : 170;
@@ -1916,6 +1927,58 @@ class EphemeralOfficeNetwork {
         }
       }
 
+      // 0. 定身檢驗：若 NPC 喝醉暈倒 (sleep_bed) 或被定身，原地躺下完全停止移動
+      if (npc.actionState === 'sleep_bed' || now < (npc.stunnedUntil || 0)) {
+        npc.isMoving = false;
+        return;
+      }
+
+      // 1. 揮手召喚中：走向召喚者
+      if (npc.summonTarget && now < (npc.summonedUntil || 0)) {
+        const sx = typeof npc.summonTarget.x === 'number' ? npc.summonTarget.x : (npc.summonTarget.getX ? npc.summonTarget.getX() : npc.x);
+        const sy = typeof npc.summonTarget.y === 'number' ? npc.summonTarget.y : (npc.summonTarget.getY ? npc.summonTarget.getY() : npc.y);
+        const sDist = Math.hypot(sx - npc.x, sy - npc.y);
+        if (sDist <= 48) {
+          npc.isMoving = false;
+          npc.dir = npc.x < sx ? 'right' : 'left';
+          if (npc.onSummonArrival) {
+            const cb = npc.onSummonArrival;
+            npc.onSummonArrival = null;
+            cb(npc);
+          }
+          npc.summonTarget = null;
+          npc.summonedUntil = 0;
+          return;
+        } else {
+          npc.targetX = sx;
+          npc.targetY = sy;
+          npc.actionState = null;
+        }
+      }
+
+      // 2. 靜電戳反擊追擊中：衝刺追擊騷擾者並攻擊一次
+      if (npc.chaseTarget && now < (npc.chaseUntil || 0)) {
+        const cx = typeof npc.chaseTarget.x === 'number' ? npc.chaseTarget.x : (npc.chaseTarget.getX ? npc.chaseTarget.getX() : npc.x);
+        const cy = typeof npc.chaseTarget.y === 'number' ? npc.chaseTarget.y : (npc.chaseTarget.getY ? npc.chaseTarget.getY() : npc.y);
+        const cDist = Math.hypot(cx - npc.x, cy - npc.y);
+        if (cDist <= 44) {
+          npc.isMoving = false;
+          npc.dir = npc.x < cx ? 'right' : 'left';
+          if (npc.onChaseArrival) {
+            const cb = npc.onChaseArrival;
+            npc.onChaseArrival = null;
+            cb(npc);
+          }
+          npc.chaseTarget = null;
+          npc.chaseUntil = 0;
+          return;
+        } else {
+          npc.targetX = cx;
+          npc.targetY = cy;
+          npc.actionState = null;
+        }
+      }
+
       // 執行平滑走位 (包含撞牆平滑轉向與定身檢驗)
       const dx = npc.targetX - npc.x;
       const dy = npc.targetY - npc.y;
@@ -1923,7 +1986,9 @@ class EphemeralOfficeNetwork {
 
       if (dist > 6) {
         let speed = 2.4;
-        if (npc.isFleeing) speed = 5.2;
+        if (npc.chaseTarget && now < (npc.chaseUntil || 0)) speed = 4.8;
+        else if (npc.summonTarget && now < (npc.summonedUntil || 0)) speed = 3.4;
+        else if (npc.isFleeing) speed = 5.2;
         else if (npc.isBerserk) speed = 4.8;
         else if (npc.isRunner) speed = 3.6;
         else if (npc.isSweeper) speed = 1.9;
