@@ -8,7 +8,7 @@
   const healMs=lv=>Math.max(2000,5000-(lv-1)*150);
   function speed(base,lv,e={},now=Date.now()){
     if(e.injuredUntil>now||e.lockedUntil>now||e.stunnedUntil>now||e.ghostUntil>now)return 0;
-    return Math.min(8,base*(1+(lv-1)*.02+(e.loungeUntil>now?.15:0)+(e.coffeeUntil>now?.2:0))*(e.lightUntil>now?.7:1));
+    return Math.min(8,base*(1+(lv-1)*.02+(e.loungeUntil>now?.15:0)+(e.coffeeUntil>now?.2:0)+(e.shrineSpeedUntil>now?.35:0))*(e.lightUntil>now?.7:1));
   }
   const clock=()=>{let offset=0;return {sync:(server,local=Date.now())=>{offset=server-local;},now:(local=Date.now())=>local+offset};};
   const pickupRadius=lv=>80+Math.max(0,Math.min(19,lv-1));

@@ -469,9 +469,9 @@
     localPlayer.inventory=p.items.filter(i=>i.slot==null).map(i=>({...i,count:1}));
     localPlayer.equippedSlots=[0,1,2].map(slot=>p.items.find(i=>i.slot===slot)||null);
     localPlayer.activeEquipIndex=p.activeSlot||0;localPlayer.overflow=p.overflow||[];localPlayer.wornOutfitUid=p.worn||null;
-    // 自動將物品儲存欄補上空裝備槽 (支援快捷槽 1~3 全部空位)
+    // 自動將物品儲存欄補上空裝備槽 (支援快捷槽 1~3 全部空位，排除玩家主動手動卸除之槽位)
     if (isLoggedIn && !season.autoEquipping) {
-      const emptySlotIdx = [0, 1, 2].findIndex(idx => !localPlayer.equippedSlots[idx]);
+      const emptySlotIdx = [0, 1, 2].findIndex(idx => !localPlayer.equippedSlots[idx] && !season.manualEmptySlots?.has(idx));
       if (emptySlotIdx !== -1) {
         const nextW = localPlayer.inventory.find(i => i.category !== 'outfit');
         if (nextW) {
@@ -502,7 +502,7 @@
       const npc=network?.npcPlayers.get(p.beating.npcId);
       if(npc){triggerBossOrAuntieBeating(npc,p.beating.role);localPlayer.beatingSession.until=p.beating.until;localPlayer.restrainedUntil=p.beating.until;window.MEETING_LOCK_STATE.lockedUntil=p.beating.until;}
     }
-    localPlayer.huntHits=p.huntRound===Math.floor(now/900000)?p.huntHits||0:0;
+    localPlayer.huntHits=p.huntRound===Math.floor(now/(window.GATHER_CONFIG?.huntPeriod||1800000))?p.huntHits||0:0;
     if(p.lastDamage?.id!==season.lastDamage&&p.lastDamage){season.lastDamage=p.lastDamage.id;if(now-p.lastDamage.at<5000){localPlayer.emote={emoji:p.lastDamage.stun?'💫':'💥',expiresAt:gameNow()+1500};showCombatToast(p.lastDamage.absorbed?'乖乖護盾吸收攻擊！':p.lastDamage.injury==='critical'?'重傷退場，前往會議室 B':p.lastDamage.injury==='light'?'輕微挫傷：移速降低 30%':'受到攻擊');}}
     if(previous!==p.exp&&isLoggedIn)showCombatToast(`${p.exp>previous?'+':''}${p.exp-previous} EXP`);
     recalcLevelAndBuff();if(oldLevel>progression.level&&isLoggedIn)showCombatToast(`等級下跌！Lv.${oldLevel} → Lv.${progression.level}`);
@@ -782,16 +782,32 @@
         localPlayer.emote={emoji:'💥',expiresAt:gameNow()+2000};
         if(count>=3) handleIncomingWeaponAttack({targetId:network.clientId,isCriticalInjury:true,hunt:true});
       },
-      onGhostScare: (until) => {if(season.enabled)return;
+      onGhostScare: (until, isAttack) => {
         window.OfficeCombat?.send(network,'combat_hurt',{targetId:network.clientId});
+        if (isAttack) {
+          const nowInj = gameNow();
+          if (nowInj >= (localPlayer.lightInjuredUntil || 0) && !localPlayer.isInjured) {
+            localPlayer.lightInjuredUntil = nowInj + 60000;
+            showCombatToast('🩹 遭幽靈突襲撕裂造成輕微挫傷：移速降低 30% (持續 60 秒)', 'error');
+            pushCombatLog('夜遊幽靈', '👻 怨念利爪突襲！造成輕微挫傷');
+          }
+          const ghost = network?.npcPlayers?.get('npc_night_ghost');
+          let dx = localPlayer.x - (ghost ? ghost.x : localPlayer.x - 20);
+          let dy = localPlayer.y - (ghost ? ghost.y : localPlayer.y);
+          if (Math.hypot(dx, dy) < 1) { dx = 1; dy = 0; }
+          const ang = Math.atan2(dy, dx);
+          localPlayer.knockback = { vx: Math.cos(ang) * 16, vy: Math.sin(ang) * 16, ticksLeft: 20 };
+        }
         if (!isLoggedIn || gameNow() < (localPlayer.ghostSleepUntil || 0)) return;
         cancelContextualAction();
         localPlayer.autoWalkTarget = null;
-        localPlayer.knockback = null;
+        if (!isAttack) localPlayer.knockback = null;
         localPlayer.ghostSleepUntil = until;
         localPlayer.actionState = 'slack_nap';
         localPlayer.isMoving = false;
-        pushStatusLog('夜遊幽靈', '嚇到斷線！原地打瞌睡 5 秒……');
+        localPlayer.emote = { emoji: isAttack ? '💥' : '💫', expiresAt: gameNow() + 3000 };
+        showCombatToast(isAttack ? '👻 遭幽靈怨念突襲撕裂！受到攻擊並嚇暈……' : '👻 遭夜遊幽靈驚嚇！嚇暈斷線 5 秒……', 'error');
+        pushStatusLog('夜遊幽靈', isAttack ? '怨念利爪突襲！嚇暈斷線 5 秒……' : '嚇到斷線！原地打瞌睡 5 秒……');
       },
       onProximityChat: (msg) => {
         const suffix = msg.isNearby ? ' (身邊)' : '';
@@ -1239,7 +1255,11 @@
 
   function equipFromBag(bagIdx) {
     const item = localPlayer.inventory[bagIdx]; if (!item) return;
-    if(season.enabled){seasonSend("equip",{uid:item.uid});return;}
+    if(season.enabled){
+      if(season.manualEmptySlots) season.manualEmptySlots.clear();
+      seasonSend("equip",{uid:item.uid});
+      return;
+    }
     if (window.OfficeWardrobe.isOutfit(item)) {
       window.OfficeWardrobe.wear(localPlayer, bagIdx);
       showCombatToast(`${localPlayer.wornOutfitUid === item.uid ? '穿上' : '脫下'}【${escapeHtml(item.name)}】`);
@@ -1251,7 +1271,13 @@
   }
 
   function unequipSlotToBag(equipIdx) {
-    if(season.enabled){const i=localPlayer.equippedSlots[equipIdx];if(i)seasonSend("equip",{uid:i.uid});return;}
+    if(season.enabled){
+      season.manualEmptySlots = season.manualEmptySlots || new Set();
+      season.manualEmptySlots.add(equipIdx);
+      const i=localPlayer.equippedSlots[equipIdx];
+      if(i)seasonSend("equip",{uid:i.uid});
+      return;
+    }
     if (!window.OfficeWardrobe.unequip(localPlayer, equipIdx)) {
       showCombatToast('背包已滿，無法卸下裝備'); return;
     }
@@ -2793,6 +2819,35 @@ async function executeOfficeLogin(params) {
       if (e.button !== 0) return;
       if (!isLoggedIn) return;
 
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+
+      const mm = getMinimapRect();
+      if (mm.w > 0 && !camera.minimapHidden && sx >= mm.x && sx <= mm.x + mm.w && sy >= mm.y && sy <= mm.y + mm.h) {
+        // 點擊雷達右上角 ✕ 關閉雷達（身受重傷休養中亦可關閉小地圖）
+        if (sx >= mm.x + mm.w - 22 && sy <= mm.y + 22) {
+          camera.minimapHidden = true;
+          showCombatToast('園區雷達小地圖已關閉（點擊全景視角按鈕可重新開啟）');
+          return;
+        }
+        // 若在小地圖非 ✕ 區域點擊導航，受傷時不可移動
+        if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
+          const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - gameNow()) / 1000));
+          const m = String(Math.floor(remSec / 60)).padStart(2, '0');
+          const s = String(remSec % 60).padStart(2, '0');
+          showToast(`🚑 身受重傷休養中（會議室 B 休養中，剩餘 ${m}:${s}）`, 'error');
+          return;
+        }
+        const worldX = ((sx - mm.x) / mm.w) * window.WORLD_MAP.width;
+        const worldY = ((sy - mm.y) / mm.h) * window.WORLD_MAP.height;
+        cancelContextualAction();
+        localPlayer.autoWalkTarget = { x: worldX, y: worldY, followId: null };
+        pushStatusLog('系統', '已透過雷達設定導航目標點');
+        if (camera.overviewMode) setOverviewMode(false);
+        return;
+      }
+
       // 🚑 檢查重傷休養狀態：無法點擊地面移動
       if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
         const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - gameNow()) / 1000));
@@ -2811,27 +2866,6 @@ async function executeOfficeLogin(params) {
         network.broadcastPacket('state_sync', { player: network.getPublicState() });
         pushStatusLog('系統', '恢復操作，切換為「🟢 上線」狀態');
         renderSidebarRoster();
-      }
-
-      const rect = canvas.getBoundingClientRect();
-      const sx = e.clientX - rect.left;
-      const sy = e.clientY - rect.top;
-
-      const mm = getMinimapRect();
-      if (mm.w > 0 && !camera.minimapHidden && sx >= mm.x && sx <= mm.x + mm.w && sy >= mm.y && sy <= mm.y + mm.h) {
-        // 點擊雷達右上角 ✕ 關閉雷達
-        if (sx >= mm.x + mm.w - 22 && sy <= mm.y + 22) {
-          camera.minimapHidden = true;
-          showCombatToast('園區雷達小地圖已關閉（點擊全景視角按鈕可重新開啟）');
-          return;
-        }
-        const worldX = ((sx - mm.x) / mm.w) * window.WORLD_MAP.width;
-        const worldY = ((sy - mm.y) / mm.h) * window.WORLD_MAP.height;
-        cancelContextualAction();
-        localPlayer.autoWalkTarget = { x: worldX, y: worldY, followId: null };
-        pushStatusLog('系統', '已透過雷達設定導航目標點');
-        if (camera.overviewMode) setOverviewMode(false);
-        return;
       }
 
       const clickX = sx / camera.zoom + camera.x;
@@ -3625,6 +3659,19 @@ async function executeOfficeLogin(params) {
       weaponEmoji = '🧹';
       scoldLines = window.GATHER_CONFIG?.bossScoldDialogues?.cleaner_auntie || ['吃阿姨的黃金拖把連續百烈擊！'];
       introMsg = `🚨 連打掃阿姨【${npc.name}】都敢惹？被拖進廁所黃金拖把連續毆打！`;
+    } else if (role === 'guard') {
+      targetRoom = 'pantry';
+      roomX = 2360;
+      roomY = 350;
+      weaponEmoji = window.GATHER_CONFIG?.guardWeaponEmoji || '🏏';
+      scoldLines = window.GATHER_CONFIG?.bossScoldDialogues?.guard || [
+        '敢在辦公區鬧事？進茶水間好好清醒清醒！',
+        '園區保全紀律不容挑戰！吃我警棍百裂擊！',
+        '敢打警衛？在茶水間反省冷靜一下！'
+      ];
+      introMsg = `🚨 敢攻擊園區警衛【${npc.name}】？被拉到茶水間痛毆！`;
+      localPlayer.lightInjuredUntil = now + 60000;
+      showCombatToast('🩹 遭警衛痛毆造成輕微挫傷：移速降低 30% (持續 60 秒)', 'error');
     }
 
     localPlayer.x = roomX;
@@ -3796,11 +3843,16 @@ async function executeOfficeLogin(params) {
       if (enemy.combatDown || Math.hypot(enemy.x-localPlayer.x,enemy.y-localPlayer.y)>attackRadius) continue;
       hitCount++;
 
-      // 🥊 還原：攻擊 VP 大老闆、PP00 處長、打掃阿姨時，有 50% 機率被抓去專屬辦公室或廁所連續毆打（純搞笑懲處動畫，不會造成使用者重傷）
+      // 🥊 還原：攻擊 VP 大老闆、PP00 處長、打掃阿姨時，有 50% 機率被抓去專屬辦公室或廁所連續毆打；攻擊警衛時 80% 機率被拉到茶水間痛毆造成輕微挫傷
       const isVp = enemy.id === 'npc_vp_boss' || enemy.avatarId === 'npc_vp_uncle';
       const isDir = enemy.id === 'npc_dir_pp00' || enemy.avatarId === 'npc_dir_pp00_slim';
       const isAuntie = enemy.id === 'npc_auntie_meifeng' || enemy.id === 'npc_auntie_shufen' || enemy.isSweeper;
+      const isGuard = enemy.id === 'npc_security_guard' || enemy.avatarId === 'npc_security_guard' || enemy.role === 'guard' || (enemy.name && enemy.name.includes('警衛'));
 
+      if (isGuard && Math.random() < 0.80) {
+        triggerBossOrAuntieBeating(enemy, 'guard');
+        return;
+      }
       if ((isVp || isDir || isAuntie) && Math.random() < 0.50) {
         triggerBossOrAuntieBeating(enemy, isVp ? 'vp' : isDir ? 'dir' : 'auntie');
         return;
@@ -3860,6 +3912,7 @@ async function executeOfficeLogin(params) {
     if (hitCount > 0 && !isFist) {
       curWeapon.durability = (curWeapon.durability || 3) - 1;
       if (curWeapon.durability <= 0) {
+        if (season.manualEmptySlots) season.manualEmptySlots.delete(activeSlotIdx);
         localPlayer.equippedSlots[activeSlotIdx] = null;
         pushCombatLog('系統', `💔 裝備【${wpnEmoji} ${wpnName}】揮擊命中滿 3 次，耐久度歸零損毀消失！`);
         // 🎒 裝備損壞後，自動為玩家裝備儲物欄 (背包) 內現有的物品
@@ -5414,6 +5467,8 @@ async function executeOfficeLogin(params) {
     }, 3000);
   }
 
+  const combatToastCooldowns = new Map();
+
   function appendCombatText(htmlText) {
     if (typeof document === 'undefined') return false;
     let feed = document.getElementById('mobileCombatFeed');
@@ -5427,12 +5482,21 @@ async function executeOfficeLogin(params) {
     const parsed = document.createElement('template');
     parsed.innerHTML = String(htmlText);
     const text = parsed.content.textContent || '';
-    if (feed.lastElementChild?.textContent === text) return true;
+    if (!text) return false;
+
+    // 所有提醒訊息 3 秒冷卻防刷屏
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const lastTime = combatToastCooldowns.get(text) || 0;
+    if (now - lastTime < 3000) return false;
+    combatToastCooldowns.set(text, now);
+
     const line = document.createElement('div');
     line.textContent = text;
     feed.appendChild(line);
-    setTimeout(() => line.remove(), 3000);
-    while (feed.children.length > 5) feed.firstElementChild.remove();
+    setTimeout(() => {
+      line.remove();
+    }, 3000);
+    while (feed.children.length > 10) feed.firstElementChild.remove();
     return true;
   }
 
@@ -5442,13 +5506,15 @@ async function executeOfficeLogin(params) {
   }
 
   function showCombatToast(htmlText, type = 'info') {
-    if (appendCombatText(htmlText)) pushStatusLog('系統', String(htmlText).replace(/<[^>]*>/g, ''));
-    else showToast(htmlText, type);
+    if (appendCombatText(htmlText)) {
+      pushStatusLog('系統', String(htmlText).replace(/<[^>]*>/g, ''));
+    }
   }
 
   function showToast(htmlText, type = 'info', onAction = null) {
-    pushStatusLog('系統', String(htmlText).replace(/<[^>]*>/g, ''));
-    appendCombatText(htmlText);
+    if (appendCombatText(htmlText)) {
+      pushStatusLog('系統', String(htmlText).replace(/<[^>]*>/g, ''));
+    }
   }
 
   window.isChatPanelCollapsed = isChatPanelCollapsed;
@@ -5849,7 +5915,8 @@ async function executeOfficeLogin(params) {
       }
     }}
     else if(!season.enabled&&isLoggedIn){
-      localPlayer.speed = (localPlayer.baseSpeed * (1 + (progression.speedBonusPct || 0) / 100)) * (gameNow() < (localPlayer.lightInjuredUntil || 0) ? 0.7 : 1);
+      const shrineSpeedBoost = (gameNow() < (localPlayer.shrineSpeedUntil || 0) ? 0.35 : 0);
+      localPlayer.speed = (localPlayer.baseSpeed * (1 + (progression.speedBonusPct || 0) / 100 + shrineSpeedBoost)) * (gameNow() < (localPlayer.lightInjuredUntil || 0) ? 0.7 : 1);
     }
     if(gameNow()<(localPlayer.stunnedUntil||0)){localPlayer.isMoving=false;localPlayer.knockback=null;return;}
     if (gameNow() < (localPlayer.ghostSleepUntil || 0)) {

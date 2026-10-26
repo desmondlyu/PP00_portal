@@ -38,7 +38,7 @@ export function hurt(s,p,source,now,rng=Math.random){
   p.channel=null;closePending(p,false);
   let injury=null;
   if(source==='hunt'){
-    const round=Math.floor(now/900000);if(p.huntRound!==round){p.huntRound=round;p.huntHits=0;}p.huntHits=(p.huntHits||0)+1;
+    const round=Math.floor(now/1800000);if(p.huntRound!==round){p.huntRound=round;p.huntHits=0;}p.huntHits=(p.huntHits||0)+1;
     if(p.huntHits>=3){award(p,-120);e.injuredUntil=now+R.restMs(R.level(p.exp));recovery(s,p,now);injury='critical';}
   }else {injury=R.injury(rng());if(injury==='critical'){award(p,-80);e.injuredUntil=now+R.restMs(R.level(p.exp));recovery(s,p,now);}else if(injury==='light')e.lightUntil=now+60000;}
   const drop=rng()<.2,stun=rng()<.2;
@@ -168,7 +168,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   if(kind==='facility_finish'){
     const c=p.channel;if(!c||!near(p,c.x,c.y,25)||now-c.at<(c.kind==='lounge'?5000:3000))fail('互動已中斷或時間不足');
     if(c.kind==='lounge'){p.effects.lightUntil=0;p.effects.loungeUntil=now+30000;p.effects.stunImmuneUntil=now+30000;p.effects.loungeCooldown=now+60000;}
-    else if(c.kind==='shrine'){p.effects.shieldUntil=now+180000;p.effects.shieldCooldown=now+180000;}
+    else if(c.kind==='shrine'){p.effects.shieldUntil=now+180000;p.effects.shieldCooldown=now+180000;p.effects.shrineSpeedUntil=now+10000;}
     else if(c.kind==='repair'){material(p,c.materials,1);const i=p.items.find(i=>i.uid===c.target);if(!i||i.durability>=i.maxDurability)fail('維修目標已變更');p.items=p.items.filter(a=>!c.materials.includes(a.uid));i.durability=i.maxDurability;}
     p.channel=null;return;
   }
@@ -267,13 +267,14 @@ export function strike(s,p,targetId,now,rng=Math.random,isFist=false){
   const pushDist=isFist?20:35;
   Object.assign(e,floor(e.x+Math.cos(a)*pushDist,e.y+Math.sin(a)*pushDist));
   if(e.hp<=0){
-    e.until=now+(e.role==='bird'&&now%900000<60000?10000:e.mob?180000:60000);e.reaction.kind='defeat';e.defeatedAt=now;if(e.mob){s.mobDefeatedAt||={};s.mobDefeatedAt[p.room]=now;}gain(p,30);
+    e.until=now+(e.role==='bird'&&now%1800000<60000?10000:e.mob?180000:60000);e.reaction.kind='defeat';e.defeatedAt=now;if(e.mob){s.mobDefeatedAt||={};s.mobDefeatedAt[p.room]=now;}gain(p,30);
     const makeDrop=id=>{const d={...fresh(id),...floor(e.x+35,e.y+20),room:p.room,source:'world',origin:'defeat',createdAt:now};s.drops[d.uid]=d;};
     if(rng()<.3){const ids=e.tier===3?['bench','rma_report']:e.tier===2?['keyboard','wrench','wafer_blade']:['pizza','boba','coffee','duck','ic_pkg'];makeDrop(pick(ids,rng));}
     if(rng()<.05)makeDrop(pick(assets.items.filter(i=>i.category==='outfit'),rng).id);
-  }else if(['vp','dir','auntie'].includes(e.role)&&!(e.busyUntil>now)&&rng()<.5){
-    const dest=e.role==='vp'?{x:380,y:310}:e.role==='dir'?{x:755,y:310}:{x:2340,y:820};
+  }else if(['vp','dir','auntie','guard'].includes(e.role)&&!(e.busyUntil>now)&&(e.role==='guard'?rng()<.8:rng()<.5)){
+    const dest=e.role==='vp'?{x:380,y:310}:e.role==='dir'?{x:755,y:310}:e.role==='guard'?{x:2360,y:350}:{x:2340,y:820};
     Object.assign(p,dest);p.effects.lockedUntil=now+8000;p.beating={npcId:e.id,role:e.role,until:now+8000,startedAt:now};e.busyUntil=now+8000;award(p,-50);
+    if(e.role==='guard')p.effects.lightUntil=now+60000;
   }
 }
 export function combat(s,p,b,now,rng=Math.random){
@@ -316,9 +317,9 @@ export function world(s,p,b,now,rng=Math.random){
     if(!e)e=s.enemies[row.id]={id:row.id,role,tier,hp,maxHp:hp,room:p.room,mob:role==='mob'};
     if(e.room!==p.room||e.mob&&e.hp<=0||e.until>now||e.busyUntil>now)continue;
     e.x=Math.max(55,Math.min(2700,row.x));e.y=Math.max(55,Math.min(1900,row.y));e.name=String(row.name||row.id).slice(0,40);e.templateId=String(row.templateId||row.id);e.lastSeen=now;e.attacking=!!row.attacking;
-    if(row.attacking||role==='bird'&&now%900000<60000){
+    if(row.attacking||role==='bird'&&now%1800000<60000){
       for(const q of online){if(!near(q,e.x,e.y,75)||locked(q,now))continue;
-        if(role==='bird'&&now%900000<60000){if(q.x>=2220&&q.x<=2500&&q.y>=160&&q.y<=460)continue;hurt(s,q,'hunt',now,rng);}
+        if(role==='bird'&&now%1800000<60000){if(q.x>=2220&&q.x<=2500&&q.y>=160&&q.y<=460)continue;hurt(s,q,'hunt',now,rng);}
         else if(role==='ghost'){if(now-(q.lastScare||0)>7000&&rng()<.5){q.lastScare=now;q.effects.ghostUntil=now+5000;}}
         else if(['guard','mob','bird','vp','dir','auntie'].includes(role))hurt(s,q,'npc',now,rng);
       }

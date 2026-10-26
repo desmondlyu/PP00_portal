@@ -2996,7 +2996,7 @@ body.hunt-active::after {
 
   #mobileCombatFeed {
     display: flex; flex-direction: column; gap: 5px;
-    position: fixed; top: calc(68px + env(safe-area-inset-top));
+    position: fixed; top: calc(200px + env(safe-area-inset-top));
     right: calc(10px + env(safe-area-inset-right));
     width: min(235px, 58vw); z-index: 160; pointer-events: none;
     color: #ffffff; font-size: 15px; font-weight: 800; line-height: 1.6;
@@ -3008,6 +3008,9 @@ body.hunt-active::after {
   #mobileCombatFeed > div:last-child { color: #fef08a; }
 
 @media (max-width: 900px), (pointer: coarse) {
+  #mobileCombatFeed {
+    top: calc(68px + env(safe-area-inset-top));
+  }
   #injuryHudBanner {
     top: calc(14px + env(safe-area-inset-top)) !important;
     right: calc(14px + env(safe-area-inset-right)) !important;

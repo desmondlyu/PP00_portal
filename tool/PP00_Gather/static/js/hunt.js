@@ -1,11 +1,13 @@
 // One shared quarter-hour clock; only the elected room master resolves combat.
 (function () {
-  const PERIOD = 15 * 60 * 1000, DURATION = 60000;
+  const getPeriod = () => (typeof window !== 'undefined' && window.GATHER_CONFIG?.huntPeriod != null) ? window.GATHER_CONFIG.huntPeriod : (15 * 60 * 1000);
+  const DURATION = 60000;
   const safe = p => p.x >= 2220 && p.x <= 2500 && p.y >= 160 && p.y <= 460;
   function clock(now = (window.GatherServerClock?.now() || Date.now())) {
-    const start = Math.floor(now / PERIOD) * PERIOD;
+    const period = getPeriod();
+    const start = Math.floor(now / period) * period;
     return {start, end: start + DURATION, active: now < start + DURATION,
-      warning: now >= start + PERIOD - 10000, next: start + PERIOD};
+      warning: now >= start + period - 10000, next: start + period};
   }
   function master(n, id) {
     return [n.clientId, ...[...n.remotePlayers.values()].filter(p => !p.isNpc && !p.isMob).map(p => p.id)].sort()[0] === id;
