@@ -539,6 +539,7 @@ window.drawWackyAvatar = function (ctx, opts) {
     beingHealed = false,   // 🩹 正在接受醫療狀態
     healProgress = 0,      // 醫療進度 0~1
     isFleeing = false,     // 😱 慌張逃跑狀態
+    isGhostFainted = false,// 👻 遭幽靈驚嚇暈倒狀態
   } = opts;
 
   const appearance=window.getAvatarAppearance(avatarId,opts.outfitAvatarId);
@@ -588,6 +589,11 @@ window.drawWackyAvatar = function (ctx, opts) {
     poseOffsetX = Math.sin(tick * 0.9) * 3.5; // 慌張左右劇烈抖動
     poseOffsetY = -Math.abs(Math.sin(tick * 0.6)) * 4; // 慌張小碎步亂跳
     poseRotate = Math.sin(tick * 0.7) * 0.15; // 慌亂歪頭
+  } else if (isGhostFainted || actionState === 'scared_faint') {
+    // 👻 幽靈嚇暈：劇烈發抖後腿軟倒地暈厥
+    poseOffsetY = 12;
+    poseRotate = -Math.PI / 2 + Math.sin(tick * 0.1) * 0.04; // 側身倒地暈厥
+    poseOffsetX = Math.sin(tick * 0.8) * 2; // 全身嚇到發抖抽搐
   } else if ((actionState === 'sit_code' || actionState === 'play_arcade')) {
     poseOffsetY = 5;
     poseOffsetX = Math.sin(tick * 0.7) * 0.8; // 高速打字微震動
@@ -1689,6 +1695,52 @@ window.drawWackyAvatar = function (ctx, opts) {
     const sweatR = -20 + Math.cos(tick * 0.45) * 3;
     ctx.fillText('💦', -16, sweatL);
     ctx.fillText('💦', 16, sweatR);
+    ctx.restore();
+  }
+
+  // 9. 👻 遭幽靈驚嚇暈倒特效 (眩暈星星 💫 + 幽靈小魂魄 👻 + 寒氣抽搐)
+  if (isGhostFainted || actionState === 'scared_faint') {
+    ctx.save();
+    ctx.translate(x + poseOffsetX, y - jumpOffset + poseOffsetY);
+    ctx.scale(scale, scale);
+
+    // 頭頂旋轉眩暈小星星 💫
+    ctx.save();
+    ctx.translate(0, -22);
+    for (let i = 0; i < 3; i++) {
+      const starAng = (tick * 0.14) + (i * Math.PI * 2 / 3);
+      const sx = Math.cos(starAng) * 16;
+      const sy = Math.sin(starAng) * 6;
+      ctx.fillStyle = '#fde047';
+      ctx.shadowColor = '#eab308';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 靈魂出竅緩緩升起特效 👻
+    const soulCycle = ((tick * 0.03) % 1);
+    const soulY = -22 - soulCycle * 32;
+    const soulAlpha = Math.sin(soulCycle * Math.PI) * 0.85;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, soulAlpha);
+    ctx.font = '15px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('👻', Math.sin(tick * 0.08) * 6, soulY);
+    ctx.restore();
+
+    // 幽藍驚嚇寒氣氣泡 💫
+    const chillX = Math.cos(tick * 0.2) * 14;
+    const chillY = -12 + Math.sin(tick * 0.2) * 5;
+    ctx.save();
+    ctx.globalAlpha = 0.6 + Math.sin(tick * 0.3) * 0.3;
+    ctx.font = '12px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('💫', chillX, chillY);
+    ctx.restore();
+
     ctx.restore();
   }
 };

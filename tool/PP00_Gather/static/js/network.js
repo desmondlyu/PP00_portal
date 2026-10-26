@@ -1202,12 +1202,32 @@ class EphemeralOfficeNetwork {
   }
 
   spawnGhostMinions(ghostX, ghostY, now) {
-    const minionWps = [
-      { x: Math.max(160, ghostX - 60), y: ghostY - 40 },
-      { x: Math.min(2640, ghostX + 60), y: ghostY - 40 },
-      { x: Math.min(2640, ghostX + 60), y: ghostY + 40 },
-      { x: Math.max(160, ghostX - 60), y: ghostY + 40 },
+    // 怨念小幽靈巡邏路線：涵蓋中央大廳、VP室門口、會議室、實驗室、洗手間與茶水間各大核心場景
+    const minionWpsA = [
+      { x: 1060, y: 520 },  // 中央北大廳
+      { x: 640, y: 520 },   // 西側走廊
+      { x: 380, y: 350 },   // VP 大老闆辦公室門口
+      { x: 200, y: 520 },   // 接待區
+      { x: 410, y: 1450 },  // Meeting Room A 戰情看盤室
+      { x: 935, y: 1450 },  // Meeting Room B 專案審查室
+      { x: 1400, y: 1200 }, // 南側走廊
+      { x: 1695, y: 1360 }, // Lab 半導體實驗室
+      { x: 2120, y: 820 },  // 洗手間走廊
+      { x: 2350, y: 350 },  // 茶水間咖啡區
     ];
+    const minionWpsB = [
+      { x: 2350, y: 350 },  // 茶水間咖啡區
+      { x: 2120, y: 520 },  // 東北走廊
+      { x: 2255, y: 682 },  // 洗手間洗手台
+      { x: 1820, y: 1520 }, // Lab 實驗室測試深處
+      { x: 1400, y: 1200 }, // 南側走廊
+      { x: 935, y: 1450 },  // Meeting Room B
+      { x: 410, y: 1450 },  // Meeting Room A
+      { x: 200, y: 1180 },  // 西南走廊
+      { x: 380, y: 350 },   // VP 辦公室
+      { x: 1060, y: 520 },  // 回到中央大廳
+    ];
+
     this.npcPlayers.set('npc_ghost_minion_1', {
       id: 'npc_ghost_minion_1',
       name: 'NPC:怨念小幽靈A',
@@ -1218,7 +1238,7 @@ class EphemeralOfficeNetwork {
       isNpc: true,
       x: ghostX - 35,
       y: ghostY - 20,
-      waypoints: minionWps,
+      waypoints: minionWpsA,
       waypointIdx: 0,
       targetX: ghostX - 35,
       targetY: ghostY - 20,
@@ -1237,7 +1257,7 @@ class EphemeralOfficeNetwork {
       isNpc: true,
       x: ghostX + 35,
       y: ghostY + 20,
-      waypoints: minionWps.slice().reverse(),
+      waypoints: minionWpsB,
       waypointIdx: 0,
       targetX: ghostX + 35,
       targetY: ghostY + 20,
@@ -1490,17 +1510,48 @@ class EphemeralOfficeNetwork {
               p && !p.isNpc && !p.isMob && Math.hypot(p.x - npc.x, p.y - npc.y) <= 250
             ).sort((a,b) => Math.hypot(a.x-npc.x,a.y-npc.y)-Math.hypot(b.x-npc.x,b.y-npc.y))[0];
             if (nearUser) targetPoint = { x: nearUser.x, y: nearUser.y };
+          } else if (npc.isMinionGhost) {
+            // 怨念小幽靈巡邏優化：若附近 200px 有玩家則主動靠攏騷擾；若無則環繞紅色幽靈護衛飛行，若母體不在則沿辦公室各大房間巡遊
+            const nearUser = [this.localPlayer, ...this.remotePlayers.values()].filter(p =>
+              p && !p.isNpc && !p.isMob && Math.hypot(p.x - npc.x, p.y - npc.y) <= 200
+            ).sort((a,b) => Math.hypot(a.x-npc.x,a.y-npc.y)-Math.hypot(b.x-npc.x,b.y-npc.y))[0];
+            if (nearUser) {
+              targetPoint = { x: nearUser.x, y: nearUser.y };
+            } else {
+              const red = this.npcPlayers.get('npc_night_ghost');
+              if (red && red.isRedGhost) {
+                const angle = (tick * 0.04) + (npc.id === 'npc_ghost_minion_1' ? 0 : Math.PI);
+                const orbitR = 60 + Math.sin(tick * 0.08) * 15;
+                const ox = red.x + Math.cos(angle) * orbitR;
+                const oy = red.y + Math.sin(angle) * orbitR;
+                if (!window.isPositionBlocked?.(ox, oy, 14)) {
+                  targetPoint = { x: ox, y: oy };
+                } else {
+                  targetPoint = { x: red.x, y: red.y };
+                }
+              }
+            }
           }
           if (!targetPoint && npc.waypoints && npc.waypoints.length) {
             targetPoint = npc.waypoints[npc.waypointIdx % npc.waypoints.length];
           }
           if (targetPoint) {
             const dx = targetPoint.x - npc.x, dy = targetPoint.y - npc.y, d = Math.hypot(dx, dy);
-            if (d < 8) npc.waypointIdx++;
+            if (d < 12) npc.waypointIdx++;
             else {
               const step = Math.min(d, moveSpeed);
-              npc.x += (dx / d) * step;
-              npc.y += (dy / d) * step;
+              const nx = npc.x + (dx / d) * step;
+              const ny = npc.y + (dy / d) * step;
+              if (!window.isPositionBlocked?.(nx, ny, 12)) {
+                npc.x = nx;
+                npc.y = ny;
+              } else if (!window.isPositionBlocked?.(nx, npc.y, 12)) {
+                npc.x = nx;
+              } else if (!window.isPositionBlocked?.(npc.x, ny, 12)) {
+                npc.y = ny;
+              } else {
+                npc.waypointIdx++;
+              }
             }
           }
         }
