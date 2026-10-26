@@ -1042,7 +1042,7 @@ class EphemeralOfficeNetwork {
         const ghost = this.npcPlayers.get('npc_night_ghost');
         if (ghost) ghost.scareUntil = (window.GatherServerClock?.now() || Date.now()) + 1000;
         if (pkt.targetId === this.clientId && Number.isFinite(pkt.until) && pkt.until > (window.GatherServerClock?.now() || Date.now()) && this.callbacks.onGhostScare) {
-          this.callbacks.onGhostScare(Math.min(pkt.until, (window.GatherServerClock?.now() || Date.now()) + 5000));
+          this.callbacks.onGhostScare(Math.min(pkt.until, (window.GatherServerClock?.now() || Date.now()) + 5000), pkt.isAttack);
         }
         break;
       }
@@ -1286,8 +1286,9 @@ class EphemeralOfficeNetwork {
 
     const isRed = ghost.isRedGhost;
     const scareCooldown = isRed ? 2500 : 10000;
-    const scareRadius = isRed ? 180 : 120;
-    const scareChance = isRed ? 0.90 : 0.50;
+    const scareRadius = isRed ? 200 : 140;
+    const scareChance = isRed ? 0.95 : 0.80;
+    const attackChance = isRed ? 0.70 : 0.40;
 
     if (!ghost.nextScareAt) { ghost.nextScareAt = now + scareCooldown; return; }
     if (now < ghost.nextScareAt) return;
@@ -1297,22 +1298,25 @@ class EphemeralOfficeNetwork {
     ghost.nextScareAt = now + scareCooldown;
     if (Math.random() >= scareChance) return;
     const target = targets.sort((a,b) => Math.hypot(a.x-ghost.x,a.y-ghost.y)-Math.hypot(b.x-ghost.x,b.y-ghost.y))[0];
+    const isAttack = Math.random() < attackChance;
     ghost.scareUntil = now + (isRed ? 1500 : 1000);
-    this.broadcastPacket('ghost_scare', {targetId: target.id, until: now + 5000});
-    if (target.id === this.clientId && this.callbacks.onGhostScare) this.callbacks.onGhostScare(now + 5000);
+    ghost.emote = { emoji: isAttack ? '👻💢' : (isRed ? '👿' : '👻'), expiresAt: now + 2000 };
+    this.broadcastPacket('ghost_scare', {targetId: target.id, until: now + 5000, isAttack});
+    if (target.id === this.clientId && this.callbacks.onGhostScare) this.callbacks.onGhostScare(now + 5000, isAttack);
 
     // 兩隻小幽靈協同攻擊
     ['npc_ghost_minion_1', 'npc_ghost_minion_2'].forEach((mId) => {
       const minion = this.npcPlayers.get(mId);
       if (!minion || now < (minion.nextScareAt || 0)) return;
       const mTargets = [this.localPlayer, ...this.remotePlayers.values()].filter(p =>
-        p && !p.isNpc && !p.isMob && Math.hypot(p.x - minion.x, p.y - minion.y) <= 120);
-      if (mTargets.length && Math.random() < 0.75) {
+        p && !p.isNpc && !p.isMob && Math.hypot(p.x - minion.x, p.y - minion.y) <= 130);
+      if (mTargets.length && Math.random() < 0.85) {
         minion.nextScareAt = now + 3500;
         minion.scareUntil = now + 1000;
-        minion.emote = { emoji: '👻', expiresAt: now + 2000 };
-        this.broadcastPacket('ghost_scare', { targetId: mTargets[0].id, until: now + 4000 });
-        if (mTargets[0].id === this.clientId && this.callbacks.onGhostScare) this.callbacks.onGhostScare(now + 4000);
+        const mAttack = Math.random() < 0.50;
+        minion.emote = { emoji: mAttack ? '👻💥' : '👻', expiresAt: now + 2000 };
+        this.broadcastPacket('ghost_scare', { targetId: mTargets[0].id, until: now + 4000, isAttack: mAttack });
+        if (mTargets[0].id === this.clientId && this.callbacks.onGhostScare) this.callbacks.onGhostScare(now + 4000, mAttack);
       }
     });
   }
@@ -1632,6 +1636,13 @@ class EphemeralOfficeNetwork {
 
       // 🦩 鳥人指揮官專屬 AI：僅當真實同仁靠近時，有機率跟隨身旁同仁（結束後冷卻脫離，不隔空全圖死鎖）
       if (npc.isBirdCommander && !npc.isBerserk) {
+        if (npc.isSleepingInVp) {
+          npc.isMoving = false;
+          npc.actionState = 'sleep_bed';
+          npc.followTargetId = null;
+          npc.followPlayerUntil = 0;
+          return;
+        }
         const sec = window.GATHER_CONFIG?.security || {};
         const followChance = sec.birdFollowChance ?? 0.15;
         const followRadius = sec.birdFollowRadiusPx ?? 400; // 靠近 400px (視線範圍內) 才有機會觸發跟隨
@@ -1959,12 +1970,16 @@ class EphemeralOfficeNetwork {
               window.GATHER_CONFIG?.security?.npcContextualActionChance ?? 0.30;
 
             if (npc.isBirdCommander) {
+              if (npc.isSleepingInVp) {
+                npc.isMoving = false;
+                npc.actionState = 'sleep_bed';
+                return;
+              }
               npc.waypointIdx = (npc.waypointIdx + 1) % npc.waypoints.length;
               const birdActions = [
                 'sit_code',
                 'drink_coffee',
                 'slack_nap',
-                'sleep_bed',
                 'pray_kuaikuai',
                 'watch_stock',
                 'victory_dance',
@@ -2224,6 +2239,9 @@ class EphemeralOfficeNetwork {
         }
 
         npc.isMoving = true;
+        if (npc.actionState === 'sleep_bed') {
+          npc.actionState = null;
+        }
         if (Math.abs(dx) > Math.abs(dy)) {
           npc.dir = dx > 0 ? 'right' : 'left';
         } else {

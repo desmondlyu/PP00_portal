@@ -8,6 +8,7 @@ window.GATHER_CONFIG = {
   supabaseAnonKey:
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2ZmVrYWtqanpob2NwcHJjYmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjIzMDEsImV4cCI6MjA5Nzc5ODMwMX0.mdj4AEaK8lunyDTf7aYMFMCUW7BQXimel7TRi4B5o-4',
   defaultRoomCode: 'PP00',
+  huntPeriod: 30 * 60 * 1000, // 鳥人大逃殺時間縮短為每半小時 (30分鐘) 一場
   units: ['PP00', 'PP10', 'PP20', 'PP30', 'PP40', 'PP50', 'PP11', 'PP12', 'PP21', 'PP22', 'PP31', 'PP32', 'PP41', 'PP42', 'PT12', 'PT22'],
   statuses: [
     { id: 'active', label: '上線', dot: '#22c55e', icon: '🟢' },

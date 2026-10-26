@@ -22,7 +22,7 @@ test('scare rolls once per ten seconds and applies exactly five seconds',()=>{
   const g=game();g.n.updateGhost(g.now());assert.equal(g.calls.length,0);
   g.advance(10000);g.n.updateGhost(g.now());assert(g.calls.some(p=>p.type==='ghost_scare'&&p.until===g.now()+5000));
   const count=g.calls.length;g.advance(1);g.n.updateGhost(g.now());assert.equal(g.calls.length,count);
-  g.setRoll(.5);g.advance(10000);g.n.updateGhost(g.now());assert.equal(g.calls.length,count);
+  g.setRoll(.8);g.advance(10000);g.n.updateGhost(g.now());assert.equal(g.calls.length,count);
 });
 test('followers do not independently roll scares or dodge results',()=>{
   const g=game();g.n.clientId='z';g.n.remotePlayers.set('a',{id:'a',x:1120,y:840});
