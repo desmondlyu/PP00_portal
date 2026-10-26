@@ -425,8 +425,18 @@
       await season.client.send('heartbeat',{x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState,...(network.isRoomMaster()?{world:{enemies:[...network.npcPlayers.values(),...(ecosystem.mobs||[])].map(e=>({id:e.uid||e.id,templateId:e.id,name:e.name,x:e.x,y:e.y,attacking:!!(e.isBerserk||e.isAggressive||e.isGhost)})),broken:[...window.WORLD_MAP.workstations.map((e,i)=>e.isBroken?'ws_'+i:null),...window.WORLD_MAP.labEquipments.map((e,i)=>e.isBroken?'lab_'+i:null)].filter(Boolean)}}:{})});
       season.failures=0;
       const channel=season.client.snapshot?.player?.channel;
-      if(channel&&gameNow()-channel.at>=(channel.kind==='lounge'?5000:channel.kind==='heal'?channel.duration:3000)){
-        await season.client.send(channel.kind==='rma'?'rma_finish':channel.kind==='heal'?'heal_finish':channel.kind==='device'?'device_finish':'facility_finish');localPlayer.actionState=null;
+      if(channel){
+        const chDist = Math.hypot(localPlayer.x - channel.x, localPlayer.y - channel.y);
+        if(chDist > 30 || (localPlayer.isMoving && !['sit_code', 'pray_kuaikuai', 'play_arcade'].includes(localPlayer.actionState))){
+          season.client.snapshot.player.channel = null;
+          seasonSend("cancel").catch(() => {});
+          if(['sit_code', 'pray_kuaikuai', 'play_arcade'].includes(localPlayer.actionState)){
+            localPlayer.actionState = null;
+          }
+        } else if(gameNow() - channel.at >= (channel.kind==='lounge'?5000:channel.kind==='heal'?channel.duration:3000)){
+          await season.client.send(channel.kind==='rma'?'rma_finish':channel.kind==='heal'?'heal_finish':channel.kind==='device'?'device_finish':'facility_finish');
+          localPlayer.actionState = null;
+        }
       }
     } catch(e){season.failures=(season.failures||0)+1;if(String(e.message).includes('登入已失效'))seasonError(e);else if(!document.hidden&&season.failures>=3){const badge=document.getElementById('netModeBadge');if(badge){badge.textContent='雲端連線中斷・正在重試';badge.classList.add('disconnected');}}}
     finally{season.polling=false;}
@@ -2948,6 +2958,28 @@ async function executeOfficeLogin(params) {
             return;
           }
 
+          // 依使用者指示降低 NPC 交換禮物機率 (50% 願意交換，50% 婉拒)
+          const acceptTrade = Math.random() < 0.50;
+          if (!acceptTrade) {
+            target.jumpOffset = 10;
+            target.emote = { emoji: '😅', expiresAt: now + 3500 };
+            const declineQuotes = [
+              '哎呀，我身上現在沒有適合給你的東西呢，下次再來換吧！',
+              '這個你留著用吧！我手邊沒有多的回禮能給你呢～',
+              '謝謝你的好意！但公發物資吃緊，改天再來交換喔！'
+            ];
+            const declineText = declineQuotes[Math.floor(Math.random() * declineQuotes.length)];
+            target.murmur = {
+              text: declineText,
+              mood: 'idea',
+              createdAt: now,
+              expiresAt: now + 5000,
+            };
+            showToast(`😅 【${escapeHtml(target.name)}】目前手邊沒有合適的回禮，委婉婉拒了這次交換！`, 'info');
+            pushStatusLog(target.name, `😅 苦笑說：「${declineText}」`);
+            return;
+          }
+
           // NPC 隨機回贈道具池 (不含頭飾服裝)
           const npcGiftPool = [
             { id: 'coffee', name: '熱咖啡', emoji: '☕', category: 'item', maxDurability: 1 },
@@ -3149,7 +3181,8 @@ async function executeOfficeLogin(params) {
 
         if (isNpcEntity(target) && !target.id.includes('ghost') && !target.isMob) {
           // 對 NPC 靜電戳：有一定機率冒愛心說三句喜歡你並送禮物；一定機率覺得很噁心並追著攻擊你一次
-          const rollLove = Math.random() < 0.50;
+          // 依使用者指示提高靜電戳憤怒衝刺追擊機率 (80% 憤怒追擊，20% 告白)
+          const rollLove = Math.random() < 0.20;
           if (rollLove) {
             // 冒愛心 ❤️ 喜歡你並送你禮物
             target.emote = { emoji: '💖', expiresAt: now + 4000 };
@@ -3283,8 +3316,10 @@ async function executeOfficeLogin(params) {
 
         if (isNpcEntity(target)) {
           // 對 NPC 乾杯：20% 機率讓玩家或對方喝醉暈倒 2 秒，並且掉出道具
-          if (Math.random() < 0.20) {
+          // 依使用者指示降低酒醉掉道具機率 (10% 機率喝醉，且醉倒時僅 40% 機率掉落道具)
+          if (Math.random() < 0.10) {
             const isPlayerDrunk = Math.random() < 0.50;
+            const willDrop = Math.random() < 0.40;
             if (isPlayerDrunk) {
               // 玩家喝醉暈倒 2 秒並掉落道具
               localPlayer.actionState = 'sleep_bed';
@@ -3293,13 +3328,13 @@ async function executeOfficeLogin(params) {
               updatePoseLabelUI();
 
               let droppedItem = null;
-              if (season.enabled && season.client?.snapshot?.player) {
+              if (willDrop && season.enabled && season.client?.snapshot?.player) {
                 const nonOutfits = season.client.snapshot.player.items.filter(i => i && i.category !== 'outfit');
                 if (nonOutfits.length > 0) {
                   droppedItem = nonOutfits[0];
                   seasonSend('drop', { uid: droppedItem.uid }).catch(() => {});
                 }
-              } else {
+              } else if (willDrop) {
                 const myItems = (localPlayer.equippedSlots || []).filter(i => i && i.category !== 'outfit').concat((localPlayer.inventory || []).filter(i => i && i.category !== 'outfit'));
                 if (myItems.length > 0) {
                   const idx = localPlayer.activeEquipIndex;
@@ -3360,23 +3395,25 @@ async function executeOfficeLogin(params) {
                 { id: 'keyboard', name: '機械鍵盤', emoji: '⌨️', category: 'weapon', maxDurability: 3 },
                 { id: 'bench', name: '折疊鐵椅', emoji: '🪑', category: 'weapon', maxDurability: 3 },
               ];
-              const dropped = npcDropPool[Math.floor(Math.random() * npcDropPool.length)];
-
-              if (season.enabled) {
-                seasonSend('npc_cheer_drop', { x: target.x + 25, y: target.y }).catch(() => {});
+              let dropped = null;
+              if (willDrop) {
+                dropped = npcDropPool[Math.floor(Math.random() * npcDropPool.length)];
+                if (season.enabled) {
+                  seasonSend('npc_cheer_drop', { x: target.x + 25, y: target.y }).catch(() => {});
+                }
+                ecosystem.groundItems.push({
+                  ...dropped,
+                  uid: 'npc_drop_' + now + '_' + Math.random().toString(36).slice(2, 6),
+                  x: target.x + 25,
+                  y: target.y,
+                  dropY: 0,
+                  pickupAfter: now + 500,
+                  combatDrop: true
+                });
               }
-              ecosystem.groundItems.push({
-                ...dropped,
-                uid: 'npc_drop_' + now + '_' + Math.random().toString(36).slice(2, 6),
-                x: target.x + 25,
-                y: target.y,
-                dropY: 0,
-                pickupAfter: now + 500,
-                combatDrop: true
-              });
 
-              showCombatToast(`🍻 【${escapeHtml(target.name)}】不勝酒力喝醉倒地 2 秒！身上掉落了【${dropped.emoji} ${dropped.name}】！`, 'join');
-              pushStatusLog(target.name, `😵‍💫 喝得滿臉通紅倒地 2 秒，口袋滾落出【${dropped.emoji} ${dropped.name}】！快去撿！`);
+              showCombatToast(`🍻 【${escapeHtml(target.name)}】不勝酒力喝醉倒地 2 秒！${dropped ? `身上掉落了【${dropped.emoji} ${dropped.name}】！` : ''}`, 'join');
+              pushStatusLog(target.name, `😵‍💫 喝得滿臉通紅倒地 2 秒${dropped ? `，口袋滾落出【${dropped.emoji} ${dropped.name}】！快去撿！` : '！'}`);
 
               setTimeout(() => {
                 if (target.actionState === 'sleep_bed') {
@@ -3540,16 +3577,21 @@ async function executeOfficeLogin(params) {
             e.hp=Math.max(0,e.hp-1);
           }
           if(e.hp<=0&&!e.combatDown){
-            e.combatDown=true;
-            e.combatDownAt=Date.now();
-            e.actionState='sleep_bed';
-            e.isMoving=false;
-            showCombatToast(`${escapeHtml(e.name||'目標')} 被擊倒！`);
-            setTimeout(()=>{
-              if(typeof ecosystem !== 'undefined' && ecosystem.mobs){
-                ecosystem.mobs=ecosystem.mobs.filter(m=>m!==e&&(m.uid||m.id)!==(e.uid||e.id));
-              }
-            }, 650);
+            if (e.isGhost || e.id === 'npc_night_ghost') {
+              network.transformRedGhost?.(e);
+              showCombatToast('👻 幽靈遭到擊倒，狂暴化為【恐怖紅色幽靈】並召喚兩隻小幽靈！', 'error');
+            } else {
+              e.combatDown=true;
+              e.combatDownAt=Date.now();
+              e.actionState='sleep_bed';
+              e.isMoving=false;
+              showCombatToast(`${escapeHtml(e.name||'目標')} 被擊倒！`);
+              setTimeout(()=>{
+                if(typeof ecosystem !== 'undefined' && ecosystem.mobs){
+                  ecosystem.mobs=ecosystem.mobs.filter(m=>m!==e&&(m.uid||m.id)!==(e.uid||e.id));
+                }
+              }, 650);
+            }
           }
         }
       }
@@ -5649,7 +5691,16 @@ async function executeOfficeLogin(params) {
       updateInjuryCountdownHUD();
     }
 
-    if(season.enabled&&isLoggedIn){localPlayer.speed=(window.OfficeProgression?.speed ? window.OfficeProgression.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow()) : localPlayer.baseSpeed);if(localPlayer.speed===0&&!localPlayer.beatingSession){localPlayer.isMoving=false;return;}if((keys.w||keys.a||keys.s||keys.d||keys.ArrowUp||keys.ArrowDown||keys.ArrowLeft||keys.ArrowRight||touchMove.x||touchMove.y)&&season.client?.snapshot?.player?.channel){if(!season.cancelling){season.cancelling=true;seasonSend("cancel").finally(()=>season.cancelling=false);}localPlayer.actionState=null;}}
+    if(season.enabled&&isLoggedIn){localPlayer.speed=(window.OfficeProgression?.speed ? window.OfficeProgression.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow()) : localPlayer.baseSpeed);if(localPlayer.speed===0&&!localPlayer.beatingSession){localPlayer.isMoving=false;return;}if((keys.w||keys.a||keys.s||keys.d||keys.ArrowUp||keys.ArrowDown||keys.ArrowLeft||keys.ArrowRight||touchMove.x||touchMove.y||localPlayer.autoWalkTarget||localPlayer.isMoving)&&season.client?.snapshot?.player?.channel){
+      const ch = season.client.snapshot.player.channel;
+      if(Math.hypot(localPlayer.x - ch.x, localPlayer.y - ch.y) > 20){
+        season.client.snapshot.player.channel = null;
+        if(!season.cancelling){season.cancelling=true;seasonSend("cancel").finally(()=>season.cancelling=false);}
+        if(['sit_code', 'pray_kuaikuai', 'play_arcade'].includes(localPlayer.actionState)){
+          localPlayer.actionState=null;
+        }
+      }
+    }}
     else if(!season.enabled&&isLoggedIn){
       localPlayer.speed = (localPlayer.baseSpeed * (1 + (progression.speedBonusPct || 0) / 100)) * (gameNow() < (localPlayer.lightInjuredUntil || 0) ? 0.7 : 1);
     }

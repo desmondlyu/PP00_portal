@@ -378,7 +378,34 @@ class EphemeralOfficeNetwork {
       activeTemplates.push(...nightTemplates, {
         id: 'npc_night_ghost', name: 'NPC:夜遊幽靈', unit: '夜間巡遊',
         avatarId: 'ghost', isGhost: true, x: 1120, y: 840,
-        waypoints: [{x:1120,y:520},{x:2120,y:520},{x:2120,y:1180},{x:1120,y:1180},{x:200,y:1180},{x:200,y:520}],
+        waypoints: [
+          { x: 1060, y: 520 },  // 中央北大廳
+          { x: 640, y: 520 },   // 西側走廊
+          { x: 380, y: 350 },   // 進入 VP 大老闆辦公室門口
+          { x: 380, y: 220 },   // 深入 VP 辦公室內部窗邊
+          { x: 380, y: 350 },   // 出 VP 辦公室
+          { x: 200, y: 520 },   // 大門入口接待區
+          { x: 200, y: 1180 },  // 西南走廊
+          { x: 410, y: 1450 },  // 飄進 Meeting Room A 戰情看盤室
+          { x: 410, y: 1650 },  // 深入 Meeting Room A 會議桌底
+          { x: 410, y: 1380 },  // 出 Meeting Room A
+          { x: 935, y: 1450 },  // 飄進 Meeting Room B 專案審查室
+          { x: 935, y: 1650 },  // 深入 Meeting Room B 投影幕前
+          { x: 935, y: 1200 },  // 出 Meeting Room B
+          { x: 1400, y: 1200 }, // 南側走廊
+          { x: 1695, y: 1360 }, // 飄進 Lab 半導體實驗室機台區
+          { x: 1820, y: 1520 }, // 深入機台測試深處
+          { x: 1800, y: 1205 }, // 出 Lab 實驗室
+          { x: 2120, y: 1180 }, // 東南大道
+          { x: 2120, y: 820 },  // 洗手間門口走廊
+          { x: 2255, y: 682 },  // 穿進洗手間洗手台鏡子前
+          { x: 2420, y: 765 },  // 穿梭於馬桶隔間走道
+          { x: 2160, y: 820 },  // 穿出洗手間
+          { x: 2120, y: 520 },  // 東北走廊
+          { x: 2350, y: 350 },  // 飄進茶水間咖啡機旁
+          { x: 2360, y: 200 },  // 茶水間角落
+          { x: 2120, y: 520 },  // 回到中央大廳
+        ],
         murmurs: ['夜深了……還不回家嗎？', '噓……我只是路過。'],
       });
     } else {
@@ -387,6 +414,18 @@ class EphemeralOfficeNetwork {
     }
 
     if (birdSpawns) {
+      if (isNight && Math.random() < 0.50) {
+        // 🌙 夜晚 50% 機率在 VP 辦公室熟睡
+        birdTemplates.forEach(t => {
+          t.x = 380;
+          t.y = 310;
+          t.actionState = 'sleep_bed';
+          t.isMoving = false;
+          t.isSleepingInVp = true;
+          t.emote = { emoji: '💤', expiresAt: Infinity };
+          t.murmurs = ['zzz……報告明天再看……', '呼嚕……不要叫我開會……zzz'];
+        });
+      }
       activeTemplates.push(...birdTemplates);
     }
 
@@ -1134,9 +1173,105 @@ class EphemeralOfficeNetwork {
     return dodge;
   }
 
+  transformRedGhost(ghost) {
+    const now = (window.GatherServerClock?.now() || Date.now());
+    ghost.combatDown = false;
+    ghost.actionState = null;
+    ghost.isMoving = true;
+    ghost.isRedGhost = true;
+    ghost.name = 'NPC:恐怖紅色幽靈';
+    ghost.avatarId = 'ghost_red';
+    ghost.redGhostUntil = now + 60000;
+    ghost.hp = 5;
+    ghost.maxHp = 5;
+    ghost.jumpOffset = 22;
+    ghost.emote = { emoji: '👿', expiresAt: now + 5000 };
+    ghost.murmur = {
+      text: '竟敢擊倒我……感受深淵血煞的詛咒吧！小鬼們，給我上！🔥',
+      mood: 'fire',
+      createdAt: now,
+      expiresAt: now + 6000,
+    };
+    this.spawnGhostMinions(ghost.x, ghost.y, now);
+    this.broadcastPacket('red_ghost_transform', {
+      ghostId: ghost.id,
+      x: ghost.x,
+      y: ghost.y,
+      until: ghost.redGhostUntil,
+    });
+  }
+
+  spawnGhostMinions(ghostX, ghostY, now) {
+    const minionWps = [
+      { x: Math.max(160, ghostX - 60), y: ghostY - 40 },
+      { x: Math.min(2640, ghostX + 60), y: ghostY - 40 },
+      { x: Math.min(2640, ghostX + 60), y: ghostY + 40 },
+      { x: Math.max(160, ghostX - 60), y: ghostY + 40 },
+    ];
+    this.npcPlayers.set('npc_ghost_minion_1', {
+      id: 'npc_ghost_minion_1',
+      name: 'NPC:怨念小幽靈A',
+      unit: '幽靈隨從',
+      avatarId: 'ghost',
+      isGhost: true,
+      isMinionGhost: true,
+      isNpc: true,
+      x: ghostX - 35,
+      y: ghostY - 20,
+      waypoints: minionWps,
+      waypointIdx: 0,
+      targetX: ghostX - 35,
+      targetY: ghostY - 20,
+      isMoving: true,
+      hp: 2,
+      maxHp: 2,
+      murmurs: ['嘻嘻嘻……抓住你了！', '別想跑！好冷啊……'],
+    });
+    this.npcPlayers.set('npc_ghost_minion_2', {
+      id: 'npc_ghost_minion_2',
+      name: 'NPC:怨念小幽靈B',
+      unit: '幽靈隨從',
+      avatarId: 'ghost',
+      isGhost: true,
+      isMinionGhost: true,
+      isNpc: true,
+      x: ghostX + 35,
+      y: ghostY + 20,
+      waypoints: minionWps.slice().reverse(),
+      waypointIdx: 0,
+      targetX: ghostX + 35,
+      targetY: ghostY + 20,
+      isMoving: true,
+      hp: 2,
+      maxHp: 2,
+      murmurs: ['抓交替囉……嘻嘻！', '冰冷的深淵……'],
+    });
+  }
+
   updateGhost(now) {
     const ghost = this.npcPlayers.get('npc_night_ghost');
-    if (!ghost || ghost.combatDown || !this.isRoomMaster()) return;
+    if (!ghost || !this.isRoomMaster()) return;
+
+    // 檢查恐怖紅色幽靈 1 分鐘時限是否到期
+    if (ghost.isRedGhost) {
+      if (now >= (ghost.redGhostUntil || 0)) {
+        ghost.isRedGhost = false;
+        ghost.name = 'NPC:夜遊幽靈';
+        ghost.avatarId = 'ghost';
+        ghost.emote = { emoji: '💨', expiresAt: now + 3000 };
+        ghost.murmur = {
+          text: '呼……怨氣消散了，先饒過你們……',
+          mood: 'normal',
+          createdAt: now,
+          expiresAt: now + 5000,
+        };
+        this.npcPlayers.delete('npc_ghost_minion_1');
+        this.npcPlayers.delete('npc_ghost_minion_2');
+      }
+    }
+
+    if (ghost.combatDown) return;
+
     for (const npc of this.npcPlayers.values()) {
       if (!(npc.isSecurityGuard || npc.isBirdCommander) || (npc.isBirdCommander && window.OfficeHunt?.clock?.()?.active)) continue;
       if (now < (npc.ghostScaredUntil || 0) || Math.hypot(npc.x - ghost.x, npc.y - ghost.y) > 180) continue;
@@ -1148,17 +1283,38 @@ class EphemeralOfficeNetwork {
       npc.targetY = Math.max(160, Math.min(1740, npc.y + Math.sin(angle) * 240));
       npc.emote = {emoji: '😱', expiresAt: now + 5000};
     }
-    if (!ghost.nextScareAt) { ghost.nextScareAt = now + 10000; return; }
+
+    const isRed = ghost.isRedGhost;
+    const scareCooldown = isRed ? 2500 : 10000;
+    const scareRadius = isRed ? 180 : 120;
+    const scareChance = isRed ? 0.90 : 0.50;
+
+    if (!ghost.nextScareAt) { ghost.nextScareAt = now + scareCooldown; return; }
     if (now < ghost.nextScareAt) return;
     const targets = [this.localPlayer, ...this.remotePlayers.values()].filter(p =>
-      p && !p.isNpc && !p.isMob && Math.hypot(p.x - ghost.x, p.y - ghost.y) <= 120);
-    if (!targets.length) return;
-    ghost.nextScareAt = now + 10000;
-    if (Math.random() >= 0.5) return;
+      p && !p.isNpc && !p.isMob && Math.hypot(p.x - ghost.x, p.y - ghost.y) <= scareRadius);
+    if (!targets.length) { ghost.nextScareAt = now + scareCooldown; return; }
+    ghost.nextScareAt = now + scareCooldown;
+    if (Math.random() >= scareChance) return;
     const target = targets.sort((a,b) => Math.hypot(a.x-ghost.x,a.y-ghost.y)-Math.hypot(b.x-ghost.x,b.y-ghost.y))[0];
-    ghost.scareUntil = now + 1000;
+    ghost.scareUntil = now + (isRed ? 1500 : 1000);
     this.broadcastPacket('ghost_scare', {targetId: target.id, until: now + 5000});
     if (target.id === this.clientId && this.callbacks.onGhostScare) this.callbacks.onGhostScare(now + 5000);
+
+    // 兩隻小幽靈協同攻擊
+    ['npc_ghost_minion_1', 'npc_ghost_minion_2'].forEach((mId) => {
+      const minion = this.npcPlayers.get(mId);
+      if (!minion || now < (minion.nextScareAt || 0)) return;
+      const mTargets = [this.localPlayer, ...this.remotePlayers.values()].filter(p =>
+        p && !p.isNpc && !p.isMob && Math.hypot(p.x - minion.x, p.y - minion.y) <= 120);
+      if (mTargets.length && Math.random() < 0.75) {
+        minion.nextScareAt = now + 3500;
+        minion.scareUntil = now + 1000;
+        minion.emote = { emoji: '👻', expiresAt: now + 2000 };
+        this.broadcastPacket('ghost_scare', { targetId: mTargets[0].id, until: now + 4000 });
+        if (mTargets[0].id === this.clientId && this.callbacks.onGhostScare) this.callbacks.onGhostScare(now + 4000);
+      }
+    });
   }
 
   update(tick) {
@@ -1171,6 +1327,14 @@ class EphemeralOfficeNetwork {
       const hasGuard = this.npcPlayers.has('npc_security_guard');
       if ((isNight && !hasGuard) || (!isNight && hasGuard)) {
         this.initNPCs();
+      }
+      // 白天醒來檢查
+      const bird = this.npcPlayers.get('npc_bird_commander');
+      if (bird && !isNight && bird.isSleepingInVp) {
+        bird.isSleepingInVp = false;
+        bird.actionState = null;
+        bird.isMoving = true;
+        bird.emote = { emoji: '☀️', expiresAt: now + 3000 };
       }
     }
 
@@ -1314,10 +1478,27 @@ class EphemeralOfficeNetwork {
       if (npc.isGhost && !npc.knockback) {
         npc.jumpOffset = (npc.jumpOffset || 0) * .85;
         if (this.isRoomMaster()) {
-          const wp = npc.waypoints[npc.waypointIdx % npc.waypoints.length];
-          const dx = wp.x - npc.x, dy = wp.y - npc.y, d = Math.hypot(dx, dy);
-          if (d < 6) npc.waypointIdx++;
-          else { npc.x += dx / d * 1.8; npc.y += dy / d * 1.8; }
+          const moveSpeed = npc.isRedGhost ? 3.2 : npc.isMinionGhost ? 2.4 : 1.8;
+          let targetPoint = null;
+          if (npc.isRedGhost) {
+            // 恐怖紅色幽靈主動追擊 250px 內的玩家
+            const nearUser = [this.localPlayer, ...this.remotePlayers.values()].filter(p =>
+              p && !p.isNpc && !p.isMob && Math.hypot(p.x - npc.x, p.y - npc.y) <= 250
+            ).sort((a,b) => Math.hypot(a.x-npc.x,a.y-npc.y)-Math.hypot(b.x-npc.x,b.y-npc.y))[0];
+            if (nearUser) targetPoint = { x: nearUser.x, y: nearUser.y };
+          }
+          if (!targetPoint && npc.waypoints && npc.waypoints.length) {
+            targetPoint = npc.waypoints[npc.waypointIdx % npc.waypoints.length];
+          }
+          if (targetPoint) {
+            const dx = targetPoint.x - npc.x, dy = targetPoint.y - npc.y, d = Math.hypot(dx, dy);
+            if (d < 8) npc.waypointIdx++;
+            else {
+              const step = Math.min(d, moveSpeed);
+              npc.x += (dx / d) * step;
+              npc.y += (dy / d) * step;
+            }
+          }
         }
         npc.isMoving = true;
         return;
@@ -1353,6 +1534,16 @@ class EphemeralOfficeNetwork {
           // 首次載入：交錯起始時間 (3~18 秒)，避免全場 NPC 同一瞬間同時說話
           npc.nextMurmurAt = now + 3000 + ((idx * 3600) % 15000) + Math.random() * 2500;
         } else if (now >= npc.nextMurmurAt && (!npc.murmur || now >= npc.murmur.expiresAt)) {
+          if (npc.isBirdCommander && this.isNightTime()) {
+            // 夜晚的指揮官比較不會這麼聒噪：睡覺時極低頻率 (35~60秒)，清醒時安靜巡視 (25~45秒)
+            if (npc.isSleepingInVp) {
+              npc.nextMurmurAt = now + 35000 + Math.random() * 25000;
+              if (Math.random() > 0.15) return;
+            } else {
+              npc.nextMurmurAt = now + 25000 + Math.random() * 20000;
+              if (Math.random() > 0.25) return;
+            }
+          }
           if (npc.murmurs && npc.murmurs.length > 0) {
             const line = npc.murmurs[Math.floor(Math.random() * npc.murmurs.length)];
             let mood = 'normal';

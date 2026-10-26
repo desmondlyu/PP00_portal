@@ -71,8 +71,16 @@
     if(h.hp===0){
       reaction('defeat');
       h.defeatedAt=now;
-      h.until=now+(e.isMob?180000:e.isBirdCommander?(window.OfficeHunt?.clock?.()?.active?10000:180000):60000);
-      e.actionState='sleep_bed';e.isMoving=false;e.knockback=null;e.isFleeing=false;
+      if (e.isGhost || e.id === 'npc_night_ghost') {
+        h.until = 0;
+        e.actionState = null;
+        e.isMoving = true;
+        e.combatDown = false;
+        n.transformRedGhost?.(e);
+      } else {
+        h.until=now+(e.isMob?180000:e.isBirdCommander?(window.OfficeHunt?.clock?.()?.active?10000:180000):60000);
+        e.actionState='sleep_bed';e.isMoving=false;e.knockback=null;e.isFleeing=false;
+      }
       const items=[loot(n,e),costumeLoot(n,e)].filter(Boolean);h.result=`擊倒【${e.name}】${items.length?'，掉落 '+items.map(i=>i.name).join('、'):'，未掉落道具'}`;h.resultId=now+':'+e.id;
       n.broadcastPacket('combat_result',{text:h.result,id:h.resultId,owner:id});
       if(id===n.clientId)n.callbacks.onCombatResult?.(h.result);
