@@ -235,6 +235,14 @@
     localPlayer.inventory=p.items.filter(i=>i.slot==null).map(i=>({...i,count:1}));
     localPlayer.equippedSlots=[0,1,2].map(slot=>p.items.find(i=>i.slot===slot)||null);
     localPlayer.activeEquipIndex=p.activeSlot||0;localPlayer.overflow=p.overflow||[];localPlayer.wornOutfitUid=p.worn||null;
+    if (isLoggedIn && !localPlayer.equippedSlots.some(Boolean)) {
+      const nextW = localPlayer.inventory.find(i => i.category !== 'outfit');
+      if (nextW && !season.autoEquipping) {
+        season.autoEquipping = true;
+        seasonSend('equip', { uid: nextW.uid, slot: 0 }).finally(() => { season.autoEquipping = false; });
+        showCombatToast(`🎒 裝備空缺，已自動替補庫存中的【${nextW.emoji} ${nextW.name}】！`, 'info');
+      }
+    }
     season.effects=p.effects||{};
     const now=snap.now,e=season.effects,wasInjured=localPlayer.isInjured;
     localPlayer.isInjured=e.injuredUntil>now;localPlayer.injuredUntil=e.injuredUntil||0;
