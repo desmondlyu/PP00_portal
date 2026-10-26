@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>PP00 虛擬辦公室 — 3D 像素園區即時互動系統</title>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./static/css/style.css?v=20261025-hunt-sync-v1" />
+  <link rel="stylesheet" href="./static/css/style.css?v=20261026-season2" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 #mcInventoryGrid{grid-template-columns:repeat(5,minmax(0,1fr))}
@@ -87,6 +87,12 @@
           <div id="avatarSelectorGrid" class="avatar-selector-grid"></div>
         </div>
 
+        <div class="s2-login-fields">
+          <label for="loginPin">個人四位數 PIN（首次使用請勾選建立帳號）</label>
+          <input id="loginPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="current-password" aria-label="個人四位數 PIN" />
+          <label><input id="loginRegister" type="checkbox" /> 首次建立 Season 2 帳號</label>
+          <p class="s2-login-note">新版經驗從 0 開始；同名與部門搭配個人 PIN 保存進度。忘記 PIN 請聯絡管理者。</p>
+        </div>
         <div id="loginErrorMsg" class="login-error-msg" role="alert"></div>
 
         <button type="submit" class="btn-enter-office">
@@ -384,14 +390,17 @@
   </div>
   <canvas id="officeCanvas"></canvas>
 
-  <script src="./static/js/config.js?v=20261024-bird-proximity-3min-v9"></script>
-  <script src="./static/js/avatars.js?v=20261025-hunt-sync-v1"></script>
-  <script src="./static/js/wardrobe.js?v=20261025-layered-outfits"></script>
-  <script src="./static/js/world.js?v=20261025-reachable-drops"></script>
-  <script src="./static/js/network.js?v=20261025-wardrobe"></script>
-  <script src="./static/js/combat.js?v=20261025-reachable-drops"></script>
-  <script src="./static/js/hunt.js?v=20261025-hunt-sync-v1"></script>
-  <script src="./static/js/supabaseSync.js?v=20261024-overview-resume"></script>
-  <script src="./static/js/app.js?v=20261025-hunt-sync-v1"></script>
+  <script src="./static/js/config.js?v=20261026-season2"></script>
+  <script src="./static/js/avatars.js?v=20261026-season2"></script>
+  <script src="./static/js/wardrobe.js?v=20261026-season2"></script>
+  <script src="./static/js/world.js?v=20261026-season2"></script>
+  <script src="./static/js/network.js?v=20261026-season2"></script>
+  <script src="./static/js/combat.js?v=20261026-season2"></script>
+  <script src="./static/js/hunt.js?v=20261026-season2"></script>
+  <script src="./static/js/supabaseSync.js?v=20261026-season2"></script>
+  <script src="./static/js/progression.js?v=20261026-season2"></script>
+  <script src="./static/js/profileClient.js?v=20261026-season2"></script>
+  <script src="./static/js/facilities.js?v=20261026-season2"></script>
+  <script src="./static/js/app.js?v=20261026-season2"></script>
 </body>
 </html>

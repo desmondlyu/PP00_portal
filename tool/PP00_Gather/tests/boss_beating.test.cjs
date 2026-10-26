@@ -45,6 +45,8 @@ function setupGame(randomRoll = 0.1) {
   for (const name of ['config', 'world', 'avatars', 'wardrobe', 'combat']) {
     vm.runInContext(fs.readFileSync(path.join(root, name + '.js'), 'utf8'), context);
   }
+  // These fixtures cover the retained legacy/offline path; Season 2 server rules have separate tests.
+  context.window.GATHER_CONFIG.season2 = false;
   let source = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   source = source.replace("  window.addEventListener('DOMContentLoaded', init);", `
     isLoggedIn = true;
