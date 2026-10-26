@@ -134,34 +134,91 @@
       const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - gameNow()) / 1000));
       const m = String(Math.floor(remSec / 60)).padStart(2, '0');
       const s = String(remSec % 60).padStart(2, '0');
+
+      const foodItems = (localPlayer.equippedSlots || []).concat(localPlayer.inventory || [])
+        .filter(i => i && ['coffee', 'pizza', 'boba'].includes(i.id));
+
+      let buttonsHtml = '';
+      if (foodItems.length > 0) {
+        buttonsHtml = `
+          <div style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <button id="btnEmergencyUseItems" type="button" style="
+              background: linear-gradient(135deg, #f59e0b, #d97706);
+              color: #ffffff;
+              border: 1px solid #fcd34d;
+              border-radius: 20px;
+              padding: 6px 14px;
+              font-weight: 800;
+              font-size: 13px;
+              cursor: pointer;
+              box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+              transition: transform 0.12s ease, filter 0.12s ease;
+              outline: none;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+            ">🍱 消除物資縮短時間 (${foodItems.length}個，每樣-2分)</button>
+            <button id="btnEmergencyRevive" type="button" style="
+              background: linear-gradient(135deg, #10b981, #059669);
+              color: #ffffff;
+              border: 1px solid #6ee7b7;
+              border-radius: 20px;
+              padding: 6px 14px;
+              font-weight: 800;
+              font-size: 13px;
+              cursor: pointer;
+              box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+              transition: transform 0.12s ease, filter 0.12s ease;
+              outline: none;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+            ">✨ 立即急救甦醒 (緊急脫困) [-50 EXP]</button>
+          </div>
+        `;
+      } else {
+        buttonsHtml = `
+          <button id="btnEmergencyRevive" type="button" style="
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #ffffff;
+            border: 1px solid #6ee7b7;
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-weight: 800;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+            transition: transform 0.12s ease, filter 0.12s ease;
+            outline: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+          ">✨ 立即急救甦醒 (緊急脫困) [-50 EXP]</button>
+        `;
+      }
+
       hud.innerHTML = `
         <div style="display:flex;align-items:center;gap:8px;">
           <span>🚑 <strong>身受重傷休養中</strong>｜無法動彈剩餘：<span style="font-variant-numeric:tabular-nums; color:#fef08a; font-weight:800;">${m}:${s}</span></span>
         </div>
-        <button id="btnEmergencyRevive" type="button" style="
-          background: linear-gradient(135deg, #10b981, #059669);
-          color: #ffffff;
-          border: 1px solid #6ee7b7;
-          border-radius: 20px;
-          padding: 6px 14px;
-          font-weight: 800;
-          font-size: 13px;
-          cursor: pointer;
-          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-          transition: transform 0.12s ease, filter 0.12s ease;
-          outline: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-        ">✨ 立即急救甦醒 (緊急脫困)</button>
+        ${buttonsHtml}
       `;
+      const btnItems = hud.querySelector('#btnEmergencyUseItems');
+      if (btnItems) {
+        btnItems.onmousedown = (e) => e.stopPropagation();
+        btnItems.ontouchstart = (e) => e.stopPropagation();
+        btnItems.onclick = (e) => {
+          e.stopPropagation();
+          emergencyReviveLocalPlayer('item');
+        };
+      }
       const btn = hud.querySelector('#btnEmergencyRevive');
       if (btn) {
         btn.onmousedown = (e) => e.stopPropagation();
         btn.ontouchstart = (e) => e.stopPropagation();
         btn.onclick = (e) => {
           e.stopPropagation();
-          emergencyReviveLocalPlayer();
+          emergencyReviveLocalPlayer('exp');
         };
       }
       hud.style.display = 'flex';
@@ -171,18 +228,108 @@
   }
 
   function emergencyReviveLocalPlayer() {
+    const mode = arguments[0] || 'auto';
     if (!localPlayer.isInjured) return;
-    localPlayer.isInjured = false;
-    localPlayer.injuredUntil = 0;
+    const now = gameNow();
+    let rem = Math.max(0, (localPlayer.injuredUntil || 0) - now);
+
+    if (season.enabled) {
+      (async () => {
+        const res = await seasonSend('emergency_revive', { mode });
+        if (!res) return;
+        const snap = season.client?.snapshot;
+        const p = snap?.player;
+        const e = p?.effects || season.effects || {};
+        if (e.injuredUntil > now) {
+          const remSec = Math.max(0, Math.ceil((e.injuredUntil - now) / 1000));
+          const m = String(Math.floor(remSec / 60)).padStart(2, '0');
+          const s = String(remSec % 60).padStart(2, '0');
+          showCombatToast(`🍱 消除物資縮短時間成功！剩餘休養：${m}:${s}`, 'info');
+          pushStatusLog('系統', `🍱 消除急救物資（咖啡/披薩/珍奶），休養時間縮短！剩餘 ${m}:${s}`);
+          updateInjuryCountdownHUD();
+          return;
+        }
+        localPlayer.isInjured = false;
+        localPlayer.injuredUntil = 0;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
+        localPlayer.autoWalkTarget = null;
+        localPlayer.knockback = null;
+        savePersistentState();
+        updatePoseLabelUI();
+        updateInjuryCountdownHUD();
+        ensurePlayerNotStuck();
+        if (res.method === 'exp') {
+          showToast('💖 扣除 50 EXP 緊急急救甦醒，恢復自由走動能力！', 'join');
+          pushStatusLog('系統', '💖 扣除 50 EXP 啟動緊急甦醒，成功脫困！');
+        } else {
+          showToast('💖 消除急救物資縮短時間完畢，成功甦醒並恢復自由行動！', 'join');
+          pushStatusLog('系統', '💖 消除急救物資（咖啡/披薩/珍奶），重傷時間扣除完畢，成功甦醒！');
+        }
+        if (network) {
+          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          window.OfficeCombat?.send(network, 'recovery_release');
+        }
+      })();
+      return;
+    }
+
+    // 非 Season 模式 本地同步處理
+    const foodIds = ['coffee', 'pizza', 'boba'];
+    const consumed = [];
+    if (mode !== 'exp') {
+      while (rem > 0) {
+        let foundIdx = -1, inEquip = false;
+        const eqIdx = (localPlayer.equippedSlots || []).findIndex(i => i && foodIds.includes(i.id));
+        if (eqIdx !== -1) { foundIdx = eqIdx; inEquip = true; }
+        else {
+          const invIdx = (localPlayer.inventory || []).findIndex(i => i && foodIds.includes(i.id));
+          if (invIdx !== -1) foundIdx = invIdx;
+        }
+        if (foundIdx === -1) break;
+        let used = null;
+        if (inEquip) {
+          used = localPlayer.equippedSlots[foundIdx];
+          localPlayer.equippedSlots[foundIdx] = null;
+        } else {
+          used = localPlayer.inventory.splice(foundIdx, 1)[0];
+        }
+        consumed.push(used.name || used.id);
+        rem = Math.max(0, rem - 120000);
+      }
+      localPlayer.injuredUntil = now + rem;
+      if (rem <= 0) {
+        localPlayer.isInjured = false;
+        localPlayer.injuredUntil = 0;
+        showToast(`🍱 消耗【${consumed.join('、')}】縮短休養時間，成功完全甦醒！`, 'join');
+        pushStatusLog('系統', `💖 消耗急救物資【${consumed.join('、')}】，成功甦醒！`);
+      } else if (consumed.length > 0 && (mode === 'item' || mode === 'auto')) {
+        const remSec = Math.ceil(rem / 1000);
+        const m = Math.floor(remSec / 60), s = remSec % 60;
+        showToast(`🍱 消除物資縮短了 ${consumed.length * 2} 分鐘！剩餘休養：${m}分${s}秒`, 'info');
+        pushStatusLog('系統', `🍱 消除物資【${consumed.join('、')}】，剩餘休養時間縮短至 ${m}分${s}秒！`);
+        savePersistentState();
+        updateInjuryCountdownHUD();
+        return;
+      }
+    }
+
+    if (localPlayer.isInjured && (mode === 'exp' || (mode === 'auto' && consumed.length === 0))) {
+      try { if (typeof addExp === 'function') addExp(-50); } catch (_) {}
+      localPlayer.isInjured = false;
+      localPlayer.injuredUntil = 0;
+      showToast('💖 扣除 50 EXP 緊急急救甦醒，恢復自由走動能力！', 'join');
+      pushStatusLog('系統', '💖 扣除 50 EXP 啟動緊急甦醒，成功脫困！');
+    }
+
     localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
     localPlayer.autoWalkTarget = null;
     localPlayer.knockback = null;
     savePersistentState();
+    try { syncPlayerActiveWeaponState(); } catch (_) {}
     updatePoseLabelUI();
+    try { updateSelfHudCard(); } catch (_) {}
     updateInjuryCountdownHUD();
     ensurePlayerNotStuck();
-    pushStatusLog('系統', '💖 已啟動緊急急救措施，成功甦醒並恢復自由行動！');
-    showToast('💖 已成功緊急甦醒，恢復自由走動能力！', 'join');
     if (network) {
       network.broadcastPacket('state_sync', { player: network.getPublicState() });
       window.OfficeCombat?.send(network, 'recovery_release');
@@ -5357,7 +5504,7 @@ async function executeOfficeLogin(params) {
   function updateSelfHudCard() {
     const av = window.getAvatarMetaById
       ? window.getAvatarMetaById(localPlayer.avatarId)
-      : window.AVATAR_CATALOG.find((a) => a.id === localPlayer.avatarId) || window.AVATAR_CATALOG[0];
+      : (window.AVATAR_CATALOG || []).find((a) => a.id === localPlayer.avatarId) || window.AVATAR_CATALOG[0];
 
     // 在左下聊天視窗頂部畫布繪製玩家 32x32 像素頭像
     const hudCanvas = document.getElementById('hudSelfAvatarCanvas');

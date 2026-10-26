@@ -69,6 +69,34 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   }
   if(kind==='cancel'){p.channel=null;closePending(p,false);return;}
   if(kind==='gacha_cancel'){closePending(p,false);return;}
+  if(kind==='emergency_revive'){
+    if(!(p.effects.injuredUntil>now))fail('目前未處於重傷休養狀態');
+    const foodIds=['coffee','pizza','boba'];
+    const consumed=[];
+    const mode=b.mode||'auto';
+    if(mode!=='exp'){
+      while(p.effects.injuredUntil>now){
+        const idx=p.items.findIndex(i=>foodIds.includes(i.id));
+        if(idx===-1)break;
+        const [used]=p.items.splice(idx,1);
+        if(p.worn===used.uid)p.worn=null;
+        consumed.push(used.name||itemMeta(used.id)?.name||used.id);
+        p.effects.injuredUntil=Math.max(now,p.effects.injuredUntil-120000);
+      }
+      if(p.effects.injuredUntil<=now){
+        p.effects.injuredUntil=0;
+        p.channel=null;
+        return {success:true,method:'items',consumed,remainingMs:0};
+      }
+      if(mode==='item'||(mode==='auto'&&consumed.length>0)){
+        return {success:true,method:'items_partial',consumed,remainingMs:p.effects.injuredUntil-now};
+      }
+    }
+    award(p,-50);
+    p.effects.injuredUntil=0;
+    p.channel=null;
+    return {success:true,method:'exp',consumed,lostExp:50,remainingMs:0};
+  }
   if(locked(p,now))fail('目前狀態無法操作');
     if(kind==='npc_exchange'){
     const i=p.items.find(i=>i.uid===b.uid);if(!i||!isMaterial(i)||p.pending?.materials.includes(i.uid))fail('無法交換道具');
