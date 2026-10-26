@@ -200,6 +200,58 @@ window.WORLD_MAP = {
   ],
 };
 
+// Pixel statue based on the shrine reference: blue hat, red coat, green shorts,
+// white gloves and the distinctive two-tooth smile. Rasterised onto a 48px grid.
+function drawKuaikuaiShrineMascot(ctx,x,y,scale=2){
+  ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(scale,scale);
+  const rect=(c,x,y,w,h)=>{ctx.fillStyle=c;ctx.fillRect(x,y,w,h);};
+  const poly=(c,points)=>{
+    ctx.fillStyle=c;
+    for(let y=Math.floor(Math.min(...points.map(p=>p[1])));y<Math.max(...points.map(p=>p[1]));y++){
+      const edges=[];
+      for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length];if((a[1]<=y+.5&&b[1]>y+.5)||(b[1]<=y+.5&&a[1]>y+.5))edges.push(a[0]+(y+.5-a[1])*(b[0]-a[0])/(b[1]-a[1]));}
+      edges.sort((a,b)=>a-b);for(let i=0;i+1<edges.length;i+=2)ctx.fillRect(Math.floor(edges[i]),y,Math.ceil(edges[i+1])-Math.floor(edges[i]),1);
+    }
+  };
+  // Feather and broad, curled hat silhouette.
+  poly('#7f1d1d',[[30,4],[39,1],[43,3],[44,10],[41,13],[37,9]]);
+  poly('#ef2626',[[31,4],[39,2],[42,4],[42,9],[39,7],[36,9]]);rect('#fecaca',38,3,3,1);
+  poly('#071e53',[[0,10],[6,7],[9,12],[12,7],[17,2],[24,0],[31,2],[36,7],[39,17],[41,22],[45,22],[47,19],[48,29],[40,32],[9,28],[4,23]]);
+  poly('#07449f',[[1,11],[6,9],[9,14],[14,8],[18,4],[25,2],[31,4],[35,9],[37,18],[40,25],[46,24],[46,28],[39,30],[10,26],[6,21]]);
+  poly('#1558b5',[[12,10],[18,4],[25,2],[31,4],[33,7],[25,5],[19,6]]);
+  // Coat, shorts and oversized shoes.
+  poly('#881515',[[15,30],[28,29],[35,35],[35,41],[28,43],[13,42],[13,37],[6,35],[6,30]]);
+  poly('#e92224',[[15,31],[27,30],[33,35],[33,39],[27,41],[14,40],[15,35],[8,34],[7,31]]);
+  poly('#00665d',[[15,40],[26,40],[29,45],[32,49],[25,50],[21,45],[20,49],[15,49],[13,43]]);
+  rect('#159b84',15,42,5,5);poly('#159b84',[[22,42],[26,42],[29,47],[25,48]]);
+  rect('#ffe0ae',16,48,2,2);rect('#ffe0ae',26,49,2,1);
+  poly('#744311',[[14,49],[19,49],[19,53],[12,54],[2,54],[0,52],[4,49],[8,48]]);
+  poly('#b47b05',[[14,50],[18,50],[18,52],[12,53],[2,53],[5,50],[8,49]]);
+  poly('#744311',[[25,49],[29,49],[36,48],[42,50],[44,53],[40,54],[30,53],[23,53]]);
+  poly('#b47b05',[[25,50],[29,50],[36,49],[41,51],[42,52],[39,53],[30,52],[24,52]]);
+  // Ears and face, with warm outline.
+  poly('#bd8252',[[14,14],[18,15],[19,20],[28,17],[31,21],[34,21],[36,24],[35,28],[31,30],[28,34],[22,35],[16,33],[12,28],[11,23],[12,20],[12,16]]);
+  poly('#ffdfa8',[[14,15],[17,16],[17,20],[20,18],[25,17],[29,19],[30,23],[34,22],[35,24],[34,27],[30,28],[27,32],[22,33],[17,31],[13,27],[12,23],[14,21],[13,18]]);
+  rect('#d99b67',14,17,2,3);rect('#d99b67',32,24,2,2);
+  // Brows, oval eyes, nose and open smile.
+  rect('#35251e',18,18,3,1);rect('#35251e',25,19,3,1);
+  rect('#35251e',18,20,1,3);rect('#35251e',25,21,1,3);rect('#ffffff',18,20,1,1);rect('#ffffff',25,21,1,1);
+  rect('#d99b67',21,23,2,2);
+  poly('#572218',[[15,24],[20,26],[25,26],[29,24],[28,29],[25,32],[21,32],[17,29]]);
+  rect('#ffffff',19,26,2,3);rect('#ffffff',23,27,2,2);
+  poly('#f17b79',[[18,29],[22,28],[26,29],[25,31],[21,31]]);
+  rect('#f6b593',14,24,2,2);rect('#f6b593',28,25,2,2);
+  // Yellow bow and buttons.
+  poly('#ffc910',[[17,33],[21,34],[23,33],[27,34],[27,37],[24,38],[21,35],[19,37],[16,36]]);
+  rect('#ffe453',18,33,2,2);rect('#ffe453',24,34,2,2);rect('#ffd32b',20,39,1,1);
+  // White gloves, palms open in welcome.
+  poly('#aab7c4',[[5,32],[2,30],[1,26],[2,25],[1,23],[3,22],[5,24],[5,21],[7,21],[8,26],[10,25],[11,27],[8,31]]);
+  poly('#ffffff',[[5,31],[3,29],[2,26],[4,27],[3,24],[4,24],[6,27],[6,22],[7,23],[7,28],[10,26],[10,28],[7,31]]);
+  poly('#aab7c4',[[32,35],[33,31],[35,30],[36,33],[41,32],[43,33],[42,35],[44,35],[44,37],[42,38],[40,40],[35,40],[31,38]]);
+  poly('#ffffff',[[33,35],[34,32],[35,31],[35,35],[41,33],[42,34],[38,36],[43,36],[43,37],[39,38],[40,39],[35,39],[32,37]]);
+  ctx.restore();
+}
+
 // Each facility reuses the existing desk collider and leaves the southern aisle open.
 function drawFacilityRoom(ctx,b,tick){
   const x=b.x,cx=x+b.w/2,y=b.y;
@@ -228,9 +280,12 @@ function drawFacilityRoom(ctx,b,tick){
     ctx.fillStyle='#fbbf24';for(let i=0;i<4;i++)ctx.fillRect(cx+14+i*8,y+108+(i%2)*10,5,5);
     draw3DPixelBox(ctx,cx-30,y+215,60,40,10,'#475569','#1e293b','#0f172a');
   }else if(b.unit==='PP40'){
-    draw3DPixelBox(ctx,cx-48,y+58,96,80,16,'#15803d','#14532d','#052e16');
-    ctx.fillStyle='#facc15';ctx.fillRect(cx-37,y+48,74,14);ctx.fillRect(cx-37,y+104,74,14);
-    ctx.fillStyle='#fef9c3';ctx.font='900 20px sans-serif';ctx.textAlign='center';ctx.fillText('乖乖',cx,y+88);
+    // Green sanctuary backboard, gilded plinth and the reference mascot statue.
+    draw3DPixelBox(ctx,cx-66,y+34,132,92,8,'#166534','#14532d','#052e16');
+    ctx.fillStyle='#facc15';ctx.fillRect(cx-60,y+25,120,5);
+    draw3DPixelBox(ctx,cx-54,y+130,108,20,8,'#fde68a','#ca8a04','#854d0e');
+    drawKuaikuaiShrineMascot(ctx,cx-48,y+14,2);
+    ctx.fillStyle='#14532d';ctx.font='900 10px sans-serif';ctx.textAlign='center';ctx.fillText('乖乖保佑 · 系統穩定',cx,y+142);
     for(let i=0;i<2;i++)draw3DPixelBox(ctx,cx-62+i*84,y+220,40,25,5,'#fbbf24','#b45309','#78350f');
     ctx.strokeStyle='#86efac88';ctx.beginPath();ctx.ellipse(cx,y+176,60+Math.sin(tick/25)*5,16,0,0,Math.PI*2);ctx.stroke();
   }else{
