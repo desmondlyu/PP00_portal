@@ -743,7 +743,7 @@ class OfficeEcosystem {
         stall.kickShakeTicks--;
       }
       // 驗證佔用者是否仍在馬桶隔間內，若佔用者已離開則自動釋放鎖定
-      if (stall.occupiedBy && players) {
+      if (!window.GATHER_CONFIG.season2 && stall.occupiedBy && players) {
         const occ = players.find((p) => p.id === stall.occupiedBy);
         if (
           !occ ||
@@ -755,7 +755,7 @@ class OfficeEcosystem {
       }
 
       // 若隔間無佔用者，自動偵測是否已有玩家（本地或遠端）在隔間內部使用馬桶
-      if (!stall.occupiedBy && players) {
+      if (!window.GATHER_CONFIG.season2 && !stall.occupiedBy && players) {
         const insidePlayer = players.find((p) => {
           const inside = p.x >= stall.x && p.x <= stall.x + stall.w && p.y >= stall.y && p.y <= stall.y + stall.h;
           return (p.actionState === 'toilet' || Math.hypot(p.x - stall.seatX, p.y - stall.seatY) < 45) && inside;
@@ -1181,7 +1181,7 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
     ctx.font = '700 10px "Microsoft JhengHei", sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(
-      stall.occupiedBy ? `🔒 ${stall.name} (使用中·按E踹門)` : `${stall.name} [按E上廁所]`,
+      stall.occupiedBy ? `🔒 ${stall.name} (使用中·按E敲門)` : `${stall.name} [按E上廁所]`,
       stall.x + 26,
       stall.y + 28
     );

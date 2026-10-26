@@ -35,6 +35,7 @@ Deno.serve(async(req:Request)=>{
   const raw=await req.text();if(raw.length>60000)return out({error:'請求過大'},413);
   const b=JSON.parse(raw),token=req.headers.get('x-gather-session')||'';
   if(b.action==='status'){const state=await rpc('gather_s2_load');return out({enabled:state.enabled,now:state.now});}
+  if(b.protocol!=='cloud6-20261026')return out({error:'請重新整理遊戲，載入最新登入版本'},426);
   if(!/^[0-9a-f-]{36}$/i.test(b.requestId||'')||typeof b.action!=='string')return out({error:'請求格式不正確'},400);
   const source=await digest((req.headers.get('x-forwarded-for')||'unknown').split(',')[0].trim());
   const scope=await digest(token||JSON.stringify([b.action,b.data?.name,b.data?.unit,b.data?.pin,source]));
@@ -45,7 +46,7 @@ Deno.serve(async(req:Request)=>{
    const prior=transient?null:await rpc('gather_s2_receipt',{p_scope:scope,p_request:b.requestId});
    if(prior){if(await canReplay(loaded.state,b.action,token,b.requestId,prior._auth,loaded.now))return out(prior);return out({error:'登入已失效，請重新輸入個人密碼'},401);}
    let owner:any=null;
-   if(!['login','register'].includes(b.action)){try{owner=await identify(loaded.state,token,loaded.now);}catch{return out({error:'登入已失效，請重新輸入個人密碼'},401);}}
+   if(!['login','register','enter'].includes(b.action)){try{owner=await identify(loaded.state,token,loaded.now);}catch{return out({error:'登入已失效，請重新輸入個人密碼'},401);}}
 
    let result;
    try{result=await request(loaded.state,b.action,{...(b.data||{}),requestId:b.requestId},token,loaded.now,source);}catch(e){return out({error:e.message},400);}

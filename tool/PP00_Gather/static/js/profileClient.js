@@ -8,15 +8,15 @@
    this.queued++;
    const work=async()=>{
     if(this.pending)throw new Error('上一筆操作尚未確認，請先重試同步');
-    const req={action,data,requestId:crypto.randomUUID()};return this.run(req);
+    const req={action,data,protocol:'cloud6-20261026',requestId:crypto.randomUUID()};return this.run(req);
    };const result=this.queue.then(work);const tracked=result.finally(()=>this.queued--);this.queue=tracked.catch(()=>{});return tracked;
   }
   async run(req){
    this.running++;try{
-   this.pending=req;if(!['login','register'].includes(req.action))this.storage?.setItem('gather_s2_pending',JSON.stringify({req,token:this.token}));
+   this.pending=req;if(!['login','register','enter'].includes(req.action))this.storage?.setItem('gather_s2_pending',JSON.stringify({req,token:this.token}));
    try{let result;for(let i=0;i<2;i++){try{result=await this.raw(req);break;}catch(e){if(e.final||i===1)throw e;}}
     this.pending=null;this.storage?.removeItem('gather_s2_pending');if(result.token){this.token=result.token;this.storage?.setItem('gather_s2_token',this.token);}if(result.player){this.snapshot=result;this.onSnapshot(result);}return result;
-   }catch(e){if(e.final){this.pending=null;this.storage?.removeItem('gather_s2_pending');}this.onError(e);throw e;}
+   }catch(e){if(e.final||['login','register','enter'].includes(req.action)){this.pending=null;this.storage?.removeItem('gather_s2_pending');}this.onError(e);throw e;}
    }finally{this.running--;}
   }
   async recover(){const raw=this.storage?.getItem('gather_s2_pending');if(!raw)return;const saved=JSON.parse(raw);if(saved.token!==this.token)return;return this.run(saved.req);}

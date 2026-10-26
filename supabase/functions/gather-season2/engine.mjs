@@ -6,6 +6,10 @@ const near=(p,x,y,d=110)=>Math.hypot(p.x-x,p.y-y)<=d;
 const itemMeta=id=>assets.items.find(i=>i.id===id);
 const nowDate=t=>new Date(t+8*3600000).toISOString().slice(0,10);
 const active=(p,t)=>p.lastSeen>t-35000;
+const stalls=[605,718,831,944].map((y,i)=>({id:'wc_'+(i+1),x:2470,y,seatX:2595,seatY:y+47}));
+const stallOwner=(s,stall,room,now)=>Object.values(s.players).find(q=>q.room===room&&q.stall===stall.id&&q.action==='toilet'&&active(q,now)&&!locked(q,now));
+function leaveToilet(p){const stall=stalls.find(t=>t.id===p.stall);if(stall){p.x=stall.x-28;p.y=stall.y+48;}p.stall=null;if(p.action==='toilet')p.action=null;}
+
 const locked=(p,t)=>p.effects.injuredUntil>t||p.effects.lockedUntil>t||p.effects.stunnedUntil>t||p.effects.ghostUntil>t;
 const isMaterial=i=>i&&['weapon','item'].includes(i.category);
 const outfits=p=>p.items.filter(i=>i.category==='outfit');
@@ -38,7 +42,7 @@ export function hurt(s,p,source,now,rng=Math.random){
   p.channel=null;closePending(p,false);
   let injury=null;
   if(source==='hunt'){
-    const round=Math.floor(now/900000);if(p.huntRound!==round){p.huntRound=round;p.huntHits=0;}p.huntHits=(p.huntHits||0)+1;
+    const round=Math.floor(now/1800000);if(p.huntRound!==round){p.huntRound=round;p.huntHits=0;}p.huntHits=(p.huntHits||0)+1;
     if(p.huntHits>=3){award(p,-120);e.injuredUntil=now+R.restMs(R.level(p.exp));recovery(s,p,now);injury='critical';}
   }else {injury=R.injury(rng());if(injury==='critical'){award(p,-80);e.injuredUntil=now+R.restMs(R.level(p.exp));recovery(s,p,now);}else if(injury==='light')e.lightUntil=now+60000;}
   const drop=rng()<.2,stun=rng()<.2;
@@ -53,23 +57,85 @@ function closePending(p,commit){const g=p.pending;if(!g)return;if(commit){p.item
 export function snapshot(s,id,now){
   const p=s.players[id];return {now,player:p?{...p,credentials:undefined,tokenHash:undefined,sessionUntil:undefined,resumeRecovery:undefined,generation:undefined}:null,
     players:Object.values(s.players).filter(q=>active(q,now)&&q.room===p?.room).map(q=>({id:q.id,clientId:q.connection,name:q.name,unit:q.unit,x:q.x,y:q.y,avatarId:q.avatarId,effects:q.effects,worn:q.items.find(i=>i.uid===q.worn)?.avatarId||null,action:q.action})),
-    broken:s.broken||{},enemies:Object.fromEntries(Object.entries(s.enemies).filter(([,e])=>e.room===p?.room)),drops:Object.values(s.drops).filter(d=>d.room===p?.room||!d.room),task:s.tasks[p?.room]||null};
+    stalls:Object.fromEntries(stalls.flatMap(t=>{const q=stallOwner(s,t,p?.room,now);return q?[[t.id,q.connection]]:[]})),broken:s.broken||{},enemies:Object.fromEntries(Object.entries(s.enemies).filter(([,e])=>e.room===p?.room)),drops:Object.values(s.drops).filter(d=>d.room===p?.room||!d.room),task:s.tasks[p?.room]||null};
 }
 export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   s.enemies ||= {};s.drops ||= {};s.tasks ||= {};s.rate ||= {};
   const p=s.players[id];if(!p)fail('登入已失效');p.effects ||= {};p.items ||= [];
   if(p.pending&&p.pending.until<=now)closePending(p,false);
   const task=s.tasks[p.room];if(task&&((task.until<=now)||task.claimer&&!active(s.players[task.claimer],now))){s.tasks[p.room]={cooldown:now+30000};}
-  if(kind==='signin'){const d=nowDate(now);if(p.lastLoginDate!==d){p.lastLoginDate=d;award(p,50);}return;}
-  if(kind==='logout'){p.tokenHash=null;p.lastSeen=0;p.channel=null;closePending(p,false);p.resumeRecovery=null;return;}
+  if(kind==='signin'){leaveToilet(p);const d=nowDate(now);if(p.lastLoginDate!==d){p.lastLoginDate=d;award(p,50);}return;}
+  if(kind==='logout'){leaveToilet(p);p.tokenHash=null;p.lastSeen=0;p.channel=null;closePending(p,false);p.resumeRecovery=null;return;}
   if(kind==='heartbeat'){
+    const seated=stalls.find(t=>t.id===p.stall);
+    if(seated&&!locked(p,now)&&stallOwner(s,seated,p.room,now)?.id===p.id){p.x=seated.seatX;p.y=seated.seatY;p.action='toilet';p.lastSeen=now;return;}
+    if(p.stall){if(locked(p,now)){p.stall=null;if(p.action==='toilet')p.action=null;}else leaveToilet(p);}
     if(!locked(p,now)&&Number.isFinite(b.x)&&Number.isFinite(b.y)){const f=floor(Math.max(55,Math.min(2700,b.x)),Math.max(55,Math.min(1900,b.y)));p.x=f.x;p.y=f.y;}
     if(p.channel&&!near(p,p.channel.x,p.channel.y,25))p.channel=null;
-    p.lastSeen=now;p.action=typeof b.action==='string'?b.action.slice(0,32):null;return;
+    p.lastSeen=now;p.action=typeof b.action==='string'&&b.action!=='toilet'?b.action.slice(0,32):null;return;
   }
-  if(kind==='cancel'){p.channel=null;closePending(p,false);return;}
+  if(kind==='toilet_exit'){leaveToilet(p);p.lastSeen=now;return;}
+  if(kind==='cancel'){leaveToilet(p);p.channel=null;closePending(p,false);return;}
   if(kind==='gacha_cancel'){closePending(p,false);return;}
+  if(kind==='emergency_revive'){
+    if(!(p.effects.injuredUntil>now))fail('目前未處於重傷休養狀態');
+    const foodIds=['coffee','pizza','boba'];
+    const consumed=[];
+    const mode=b.mode||'auto';
+    if(mode!=='exp'){
+      while(p.effects.injuredUntil>now){
+        const idx=p.items.findIndex(i=>foodIds.includes(i.id));
+        if(idx===-1)break;
+        const [used]=p.items.splice(idx,1);
+        if(p.worn===used.uid)p.worn=null;
+        consumed.push(used.name||itemMeta(used.id)?.name||used.id);
+        p.effects.injuredUntil=Math.max(now,p.effects.injuredUntil-120000);
+      }
+      if(p.effects.injuredUntil<=now){
+        p.effects.injuredUntil=0;
+        p.channel=null;
+        return {success:true,method:'items',consumed,remainingMs:0};
+      }
+      if(mode==='item'||(mode==='auto'&&consumed.length>0)){
+        return {success:true,method:'items_partial',consumed,remainingMs:p.effects.injuredUntil-now};
+      }
+    }
+    award(p,-50);
+    p.effects.injuredUntil=0;
+    p.channel=null;
+    return {success:true,method:'exp',consumed,lostExp:50,remainingMs:0};
+  }
   if(locked(p,now))fail('目前狀態無法操作');
+  if(kind==='toilet_enter'){
+    const t=stalls.find(t=>t.id===b.stall);if(!t||!near(p,t.x,t.y+48,100))fail('請先靠近廁所門');
+    const owner=stallOwner(s,t,p.room,now);if(owner&&owner.id!==p.id)fail('隔間內有人，請敲門催促');
+    leaveToilet(p);p.stall=t.id;p.x=t.seatX;p.y=t.seatY;p.action='toilet';p.lastSeen=now;return;
+  }
+    if(kind==='npc_exchange'){
+    const i=p.items.find(i=>i.uid===b.uid);if(!i||!isMaterial(i)||p.pending?.materials.includes(i.uid))fail('無法交換道具');
+    p.items=p.items.filter(a=>a.uid!==i.uid);
+    const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench','kuaikuai'];
+    const returnId=pick(pool,rng);
+    const d={...fresh(returnId),room:p.room,source:'world',slot:i.slot!=null?i.slot:null};
+    p.items.push(d);
+    gain(p,15);
+    return {item:d};
+  }
+  if(kind==='npc_love_gift'){
+    const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench','kuaikuai'];
+    const giftId=pick(pool,rng);
+    const d={...fresh(giftId),room:p.room,source:'world',slot:null};
+    if(capacity(p,d)){p.items.push(d);}else{p.overflow||=[];p.overflow.push({...d,count:1});}
+    gain(p,15);
+    return {item:d};
+  }
+  if(kind==='npc_cheer_drop'){
+    const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench','kuaikuai'];
+    const dropId=pick(pool,rng);
+    const d={...fresh(dropId),...floor(b.x||p.x+30,b.y||p.y),uid:uid(),room:p.room,source:'world',slot:null,pickupAfter:now+500};
+    s.drops[d.uid]=d;
+    return {drop:d};
+  }
   if(kind==='gift'){
     const q=s.players[b.target],i=p.items.find(i=>i.uid===b.uid);if(!q||q.room!==p.room||!active(q,now)||!near(p,q.x,q.y,180)||!i||!isMaterial(i)||!capacity(q,i)||p.pending?.materials.includes(i.uid))fail('無法贈送道具，請確認距離與背包空間');
     p.items=p.items.filter(a=>a.uid!==i.uid);q.items.push({...i,slot:null,source:'gift'});return;
@@ -115,7 +181,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   if(kind==='facility_finish'){
     const c=p.channel;if(!c||!near(p,c.x,c.y,25)||now-c.at<(c.kind==='lounge'?5000:3000))fail('互動已中斷或時間不足');
     if(c.kind==='lounge'){p.effects.lightUntil=0;p.effects.loungeUntil=now+30000;p.effects.stunImmuneUntil=now+30000;p.effects.loungeCooldown=now+60000;}
-    else if(c.kind==='shrine'){p.effects.shieldUntil=now+180000;p.effects.shieldCooldown=now+180000;}
+    else if(c.kind==='shrine'){p.effects.shieldUntil=now+180000;p.effects.shieldCooldown=now+180000;p.effects.shrineSpeedUntil=now+10000;}
     else if(c.kind==='repair'){material(p,c.materials,1);const i=p.items.find(i=>i.uid===c.target);if(!i||i.durability>=i.maxDurability)fail('維修目標已變更');p.items=p.items.filter(a=>!c.materials.includes(a.uid));i.durability=i.maxDurability;}
     p.channel=null;return;
   }
@@ -136,7 +202,9 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     p.channel={kind:'device',at:now,x:p.x,y:p.y,target:b.target};return;
   }
   if(kind==='device_finish'){
-    const c=p.channel,f=s.broken?.[c?.target];if(c?.kind!=='device'||!f?.broken||now-c.at<3000||!near(p,c.x,c.y,25))fail('修復時間不足或設備已修好');
+    const c=p.channel,f=s.broken?.[c?.target];
+    if(c?.kind!=='device'||!f?.broken||!near(p,c.x,c.y,25)){if(c?.kind==='device')p.channel=null;fail('修復時間不足或設備已修好');}
+    if(now-c.at<3000)fail('修復時間不足或設備已修好');
     const t=s.tasks[p.room];if(t?.targetIds?.includes(c.target))fail('請使用 RMA 任務修復');
     f.broken=false;f.handledAt=now;gain(p,30);
     const supplyPool=['coffee','boba','pizza','kuaikuai','wrench','duck','ic_pkg'];
@@ -212,13 +280,14 @@ export function strike(s,p,targetId,now,rng=Math.random,isFist=false){
   const pushDist=isFist?20:35;
   Object.assign(e,floor(e.x+Math.cos(a)*pushDist,e.y+Math.sin(a)*pushDist));
   if(e.hp<=0){
-    e.until=now+(e.role==='bird'&&now%900000<60000?10000:e.mob?180000:60000);e.reaction.kind='defeat';e.defeatedAt=now;if(e.mob){s.mobDefeatedAt||={};s.mobDefeatedAt[p.room]=now;}gain(p,30);
+    e.until=now+(e.role==='bird'&&now%1800000<60000?10000:e.mob?180000:60000);e.reaction.kind='defeat';e.defeatedAt=now;if(e.mob){s.mobDefeatedAt||={};s.mobDefeatedAt[p.room]=now;}gain(p,30);
     const makeDrop=id=>{const d={...fresh(id),...floor(e.x+35,e.y+20),room:p.room,source:'world',origin:'defeat',createdAt:now};s.drops[d.uid]=d;};
     if(rng()<.3){const ids=e.tier===3?['bench','rma_report']:e.tier===2?['keyboard','wrench','wafer_blade']:['pizza','boba','coffee','duck','ic_pkg'];makeDrop(pick(ids,rng));}
     if(rng()<.05)makeDrop(pick(assets.items.filter(i=>i.category==='outfit'),rng).id);
-  }else if(['vp','dir','auntie'].includes(e.role)&&!(e.busyUntil>now)&&rng()<.5){
-    const dest=e.role==='vp'?{x:380,y:310}:e.role==='dir'?{x:755,y:310}:{x:2340,y:820};
+  }else if(['vp','dir','auntie','guard'].includes(e.role)&&!(e.busyUntil>now)&&(e.role==='guard'?rng()<.8:rng()<.5)){
+    const dest=e.role==='vp'?{x:380,y:310}:e.role==='dir'?{x:755,y:310}:e.role==='guard'?{x:2360,y:350}:{x:2340,y:820};
     Object.assign(p,dest);p.effects.lockedUntil=now+8000;p.beating={npcId:e.id,role:e.role,until:now+8000,startedAt:now};e.busyUntil=now+8000;award(p,-50);
+    if(e.role==='guard')p.effects.lightUntil=now+60000;
   }
 }
 export function combat(s,p,b,now,rng=Math.random){
@@ -227,7 +296,7 @@ export function combat(s,p,b,now,rng=Math.random){
   const cd=isFist?1000:300;
   if(locked(p,now)||(p.lastSwing&&now-p.lastSwing<cd))return;
   p.lastSwing=now;
-  const targets=Object.values(s.enemies).filter(e=>e.room===p.room&&e.hp>0&&(e.mob||!e.lastSeen||now-e.lastSeen<=15000)&&near(p,e.x,e.y,135)&&!(e.until>now));
+  const targets=Object.values(s.enemies).filter(e=>(!Array.isArray(b.targets)||b.targets.includes(e.id))&&e.room===p.room&&e.hp>0&&(e.mob||!e.lastSeen||now-e.lastSeen<=15000)&&near(p,e.x,e.y,135)&&!(e.until>now)).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));
   const others=Object.values(s.players).filter(q=>q.id!==p.id&&q.room===p.room&&active(q,now)&&near(p,q.x,q.y,135));
   for(const e of targets){strike(s,p,e.id,now,rng,isFist);if(p.effects.lockedUntil>now)break;}
   if(!(p.effects.lockedUntil>now))for(const q of others)hurt(s,q,'pvp',now,rng);
@@ -245,7 +314,7 @@ export function combat(s,p,b,now,rng=Math.random){
   }
   p.lastAttack={at:now,emoji:weapon?weapon.emoji:'👊'};
 }
-export function world(s,p,b,now,rng=Math.random){
+export function world(s,p,b,now,rng=Math.random,positionsOnly=false){
   const online=Object.values(s.players).filter(q=>q.room===p.room&&active(q,now)).sort((a,b)=>a.connection.localeCompare(b.connection));
   if(online[0]?.id!==p.id)throw new Error('只有目前房長可更新場景');
   for(const e of Object.values(s.enemies)){
@@ -261,14 +330,15 @@ export function world(s,p,b,now,rng=Math.random){
     if(!e)e=s.enemies[row.id]={id:row.id,role,tier,hp,maxHp:hp,room:p.room,mob:role==='mob'};
     if(e.room!==p.room||e.mob&&e.hp<=0||e.until>now||e.busyUntil>now)continue;
     e.x=Math.max(55,Math.min(2700,row.x));e.y=Math.max(55,Math.min(1900,row.y));e.name=String(row.name||row.id).slice(0,40);e.templateId=String(row.templateId||row.id);e.lastSeen=now;e.attacking=!!row.attacking;
-    if(row.attacking||role==='bird'&&now%900000<60000){
+    if(!positionsOnly&&(row.attacking||role==='bird'&&now%1800000<60000)){
       for(const q of online){if(!near(q,e.x,e.y,75)||locked(q,now))continue;
-        if(role==='bird'&&now%900000<60000){if(q.x>=2220&&q.x<=2500&&q.y>=160&&q.y<=460)continue;hurt(s,q,'hunt',now,rng);}
+        if(role==='bird'&&now%1800000<60000){if(q.x>=2220&&q.x<=2500&&q.y>=160&&q.y<=460)continue;hurt(s,q,'hunt',now,rng);}
         else if(role==='ghost'){if(now-(q.lastScare||0)>7000&&rng()<.5){q.lastScare=now;q.effects.ghostUntil=now+5000;}}
         else if(['guard','mob','bird','vp','dir','auntie'].includes(role))hurt(s,q,'npc',now,rng);
       }
     }
   }
+  if(positionsOnly)return;
   const guards=Object.values(s.enemies).filter(e=>e.room===p.room&&e.role==='guard'&&e.hp>0&&!(e.until>now)&&!e.attacking&&e.lastSeen===now);
   for(const e of Object.values(s.enemies))if(e.room===p.room&&e.mob&&e.hp>0){
     const guard=guards.find(g=>near(g,e.x,e.y,54)&&segment(g.x,g.y,e.x,e.y));

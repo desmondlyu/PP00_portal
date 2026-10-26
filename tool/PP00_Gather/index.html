@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>PP00 虛擬辦公室 — 3D 像素園區即時互動系統</title>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./static/css/style.css?v=20261026-v10-skills-lounge" />
+  <link rel="stylesheet" href="./static/css/style.css?v=20261026-cloud6" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 #mcInventoryGrid{grid-template-columns:repeat(5,minmax(0,1fr))}
@@ -40,8 +40,8 @@
         <div class="ephemeral-security-box">
           <strong>資料儲存說明：</strong><br />
           • 公開聊天透過即時頻道傳送<br />
-          • 上下線紀錄會寫入資料庫，裝備與進度也會保留在此瀏覽器<br />
-          • 私訊暫停使用，等待後端收件者權限保護
+          • 進度、裝備與服裝自動儲存在雲端<br />
+          • 使用相同姓名、部門與個人密碼，可跨裝置接續
         </div>
       </div>
 
@@ -59,15 +59,13 @@
             />
           </div>
           <div class="form-field">
-            <label for="loginPasscode">使用者個人密碼（六碼） *</label>
+            <label for="loginPasscode">使用者個人密碼（六碼）*</label>
             <input
               type="password"
               id="loginPasscode"
-              inputmode="numeric"
-              pattern="[0-9]{6}"
-              maxlength="6"
-              placeholder="請輸入 6 位數個人密碼"
-              autocomplete="current-password"
+              minlength="6" maxlength="6" pattern="[A-Za-z0-9]{6}" autocomplete="current-password"
+              value=""
+              placeholder="六碼英數字，首次使用即建立存檔"
               required
             />
           </div>
@@ -88,10 +86,11 @@
           <div class="avatar-grid-label">十位上班族人物（點擊切換預覽）</div>
           <div id="avatarSelectorGrid" class="avatar-selector-grid"></div>
         </div>
+
         <div id="loginErrorMsg" class="login-error-msg" role="alert"></div>
 
         <button type="submit" class="btn-enter-office">
-          🚀 登入並領取隨機手持道具進入園區（累積上線經驗加成）
+          進入辦公室
         </button>
       </form>
     </div>
@@ -432,17 +431,17 @@
   </div>
   <canvas id="officeCanvas"></canvas>
 
-  <script src="./static/js/config.js?v=20261026-v10-skills-lounge"></script>
-  <script src="./static/js/avatars.js?v=20261026-v10-skills-lounge"></script>
-  <script src="./static/js/wardrobe.js?v=20261026-v10-skills-lounge"></script>
-  <script src="./static/js/world.js?v=20261026-v10-skills-lounge"></script>
-  <script src="./static/js/network.js?v=20261026-v10-skills-lounge"></script>
-  <script src="./static/js/combat.js?v=20261026-v10-skills-lounge"></script>
-  <script src="./static/js/hunt.js?v=20261026-v10-skills-lounge"></script>
-  <script src="./static/js/supabaseSync.js?v=20261026-v10-skills-lounge"></script>
-  <script src="./static/js/progression.js?v=20261026-v10-skills-lounge"></script>
-  <script src="./static/js/profileClient.js?v=20261026-v10-skills-lounge"></script>
-  <script src="./static/js/facilities.js?v=20261026-v10-skills-lounge"></script>
-  <script src="./static/js/app.js?v=20261026-v10-skills-lounge"></script>
+  <script src="./static/js/config.js?v=20261026-cloud6"></script>
+  <script src="./static/js/avatars.js?v=20261026-cloud6"></script>
+  <script src="./static/js/wardrobe.js?v=20261026-cloud6"></script>
+  <script src="./static/js/world.js?v=20261026-cloud6"></script>
+  <script src="./static/js/network.js?v=20261026-cloud6"></script>
+  <script src="./static/js/combat.js?v=20261026-cloud6"></script>
+  <script src="./static/js/hunt.js?v=20261026-cloud6"></script>
+  <script src="./static/js/supabaseSync.js?v=20261026-cloud6"></script>
+  <script src="./static/js/progression.js?v=20261026-cloud6"></script>
+  <script src="./static/js/profileClient.js?v=20261026-cloud6"></script>
+  <script src="./static/js/facilities.js?v=20261026-cloud6"></script>
+  <script src="./static/js/app.js?v=20261026-cloud6"></script>
 </body>
 </html>

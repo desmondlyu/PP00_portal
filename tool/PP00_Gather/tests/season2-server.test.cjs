@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 async function engine(){try{return await import('../server/engine.mjs');}catch(e){if(e.code==='ERR_MODULE_NOT_FOUND')return {};throw e;}}
 const player=(id='p')=>({id,name:id,unit:'PP32',exp:0,season:2,items:[],effects:{},x:1000,y:350,lastSeen:1000,connection:id,room:'PP00'});
-const game=()=>({players:{p:player(),q:player('q')},enemies:{},drops:{},tasks:{},rate:{}});
+const game=()=>({players:{p:player(),q:player('q')},enemies:{},drops:{},tasks:{},rate:{},lastSpawn:{PP00:1000000000000}});
 test('server rejects client XP writes and signs in at Taiwan midnight only once',async()=>{const E=await engine();assert.equal(typeof E.act,'function','server missing');let s=game();assert.throws(()=>E.act(s,'p','set_exp',{exp:9999},1000),/不支援/);s.players.p.lastLoginDate='1970-01-01';E.act(s,'p','signin',{},86400000);assert.equal(s.players.p.exp,50);E.act(s,'p','signin',{},86400000);assert.equal(s.players.p.exp,50);});
 test('server RMA claims are exclusive and completion awards once',async()=>{const E=await engine();assert.ok(E.act);const s=game();s.players.q.x=1000;E.act(s,'p','rma_claim',{},1000,()=>0);assert.throws(()=>E.act(s,'q','rma_claim',{},1000),/搶修/);const t=s.tasks.PP00;assert.equal(t.targets.length,3);for(let i=0;i<3;i++){const cur=t.targets[i];s.players.p.x=cur.x;s.players.p.y=cur.y;E.act(s,'p','rma_start',{},1000+i*4000);E.act(s,'p','rma_finish',{},1000+i*4000+3100);}assert.equal(t.stage,'reporting');assert.equal(s.players.p.exp,60);s.players.p.x=998;s.players.p.y=350;E.act(s,'p','rma_report',{},20000,()=>0);assert.equal(s.players.p.exp,210);assert.equal(s.players.p.items.length,1);assert.throws(()=>E.act(s,'p','rma_report',{},21000),/尚未|任務/);});
 test('gacha cancellation retains materials and repeat result repairs without exceeding capacity',async()=>{const E=await engine();assert.ok(E.act);const s=game(),p=s.players.p;p.x=1960;p.y=350;p.items=[{uid:'a',id:'pizza',category:'weapon',durability:3},{uid:'b',id:'coffee',category:'weapon',durability:3}];E.act(s,'p','gacha',{materials:['a','b']},1000,()=>0);assert.equal(p.items.length,1);assert.equal(p.items[0].category,'outfit');assert.equal(p.items[0].durability,5);assert.equal(p.exp,0);});
@@ -18,7 +18,7 @@ test('real snack catalog items can pay for gacha',async()=>{const E=await engine
 test('pending materials cannot be equipped, damage cancels pending and confirmation revalidates',async()=>{const E=await engine();const s=game(),p=s.players.p;p.x=1963;p.y=350;p.items=E.assets.items.filter(i=>i.category==='outfit').slice(1,4).map((m,i)=>({...m,uid:'o'+i,durability:3})).concat(['wrench','bench'].map((id,i)=>({...E.assets.items.find(m=>m.id===id),uid:'m'+i,durability:3})));E.act(s,'p','gacha',{materials:['m0','m1']},1000,()=>0);assert.throws(()=>E.act(s,'p','equip',{uid:'m0'},1100),/保留/);E.hurt(s,p,'npc',2000,()=>.9);assert.equal(p.pending,null);assert.throws(()=>E.act(s,'p','gacha_confirm',{replace:'o0'},3000),/結束/);});
 test('damage and logout cancel healing channels',async()=>{const E=await engine();const s=game(),p=s.players.p,q=s.players.q;p.x=q.x=900;p.y=q.y=1350;q.effects.injuredUntil=300000;E.act(s,'p','heal_start',{target:'q'},1000);E.hurt(s,p,'npc',2000,()=>.9);assert.equal(p.channel,null);assert.throws(()=>E.act(s,'p','heal_finish',{},8000),/中斷/);E.act(s,'p','heal_start',{target:'q'},9000);E.act(s,'p','logout',{},10000);assert.equal(p.channel,null);});
 test('RMA never chooses equipment already in fault state',async()=>{const E=await engine();const s=game();s.broken=Object.fromEntries(E.assets.tasks.map(t=>[t.id,{broken:true,room:'PP00'}]));assert.throws(()=>E.act(s,'p','rma_claim',{},1000,()=>0),/設備/);});
-test('receipt authorization denies revoked sessions and narrowly permits lost resume recovery',async()=>{const E=await import('../server/service.mjs');assert.equal(typeof E.canReplay,'function','receipt auth missing');const s={players:{},rate:{}};const a=await E.request(s,'register',{name:'Receipt',unit:'PP32',pin:'193820',connection:'r'},'',1000,'src');const requestId='recovery';const b=await E.request(s,'resume',{connection:'r2',requestId},a.token,2000,'src');const meta={playerId:b.player.id,generation:s.players[b.player.id].generation};assert.equal(await E.canReplay(s,'snapshot',a.token,'old',meta,2100),false);assert.equal(await E.canReplay(s,'resume',a.token,requestId,meta,2100),true);assert.equal(await E.canReplay(s,'resume',a.token,requestId,meta,33000),false);await E.request(s,'logout',{},b.token,2500,'src');assert.equal(await E.canReplay(s,'resume',a.token,requestId,meta,2600),false);});
+test('receipt authorization denies revoked sessions and narrowly permits lost resume recovery',async()=>{const E=await import('../server/service.mjs');assert.equal(typeof E.canReplay,'function','receipt auth missing');const s={players:{},rate:{}};const a=await E.request(s,'register',{name:'Receipt',unit:'PP32',pin:'193812',connection:'r'},'',1000,'src');const requestId='recovery';const b=await E.request(s,'resume',{connection:'r2',requestId},a.token,2000,'src');const meta={playerId:b.player.id,generation:s.players[b.player.id].generation};assert.equal(await E.canReplay(s,'snapshot',a.token,'old',meta,2100),false);assert.equal(await E.canReplay(s,'resume',a.token,requestId,meta,2100),true);assert.equal(await E.canReplay(s,'resume',a.token,requestId,meta,33000),false);await E.request(s,'logout',{},b.token,2500,'src');assert.equal(await E.canReplay(s,'resume',a.token,requestId,meta,2600),false);});
 test('weapon and snack equipment grants only server-calculated XP bonus',async()=>{const E=await engine();const s=game(),p=s.players.p;p.items=[{...E.assets.items.find(m=>m.id==='keyboard'),uid:'key',slot:0}];s.drops.d={...E.assets.items.find(m=>m.id==='pizza'),uid:'d',x:p.x,y:p.y,source:'world'};E.act(s,'p','pickup',{uid:'d'},1000);assert.equal(p.exp,18);});
 
 test('pickup accepts interaction range but rejects items across furniture',async()=>{
@@ -84,6 +84,40 @@ test('guard defeats nearby server mob once without player loot or XP; dead mobs 
  E.strike(s,p,'mob_guard',500000,()=>0);assert.equal(p.exp,0);assert.equal(Object.keys(s.drops).length,0);
 });
 test('off-shift stale NPC records cannot be attacked for invisible loot',async()=>{const E=await engine(),s=game(),p=s.players.p;s.enemies.old={id:'old',role:'vp',tier:3,hp:1,maxHp:6,room:'PP00',x:1050,y:350,lastSeen:1000};E.strike(s,p,'old',100000,()=>0);assert.equal(s.enemies.old.hp,1);assert.equal(p.exp,0);assert.equal(Object.keys(s.drops).length,0);});
+test('six-character enter creates or resumes one cloud-only account and ignores legacy assets',async()=>{
+ const S=await import('../server/service.mjs'),s={players:{},rate:{},enemies:{},drops:{},tasks:{}};
+ await assert.rejects(S.request(s,'enter',{name:'Fresh',unit:'PP32',pin:'1234'},'',1000,'src'),/六碼/);
+ const b={name:'Fresh',unit:'PP32',pin:'Ab1234',connection:'a',legacy:[{id:'coffee',durability:3}]},first=await S.request(s,'enter',b,'',2000,'src');assert.equal(first.player.items.length,0);assert.equal(first.player.exp,0);
+ const again=await S.request(s,'enter',{...b,connection:'b'},'',3000,'src');assert.equal(again.player.id,first.player.id);assert.equal(Object.keys(s.players).length,1);
+ await assert.rejects(S.identify(s,first.token,3000),/登入/);
+ const bad=await S.request(s,'enter',{...b,pin:'ab1234'},'',3100,'src');assert(bad.error);
+});
+test('master attack synchronizes current target positions without an extra heartbeat round trip',async()=>{
+ const E=await engine(),S=await import('../server/service.mjs'),s=game(),p=s.players.p,token='master-fresh';p.tokenHash=await S.digest(token);p.sessionUntil=999999;p.lastSeen=10000;s.players.q.lastSeen=0;p.items=[{...E.fresh('pizza'),slot:0}];p.activeSlot=0;
+ s.enemies.mob_fast={id:'mob_fast',role:'mob',mob:true,hp:2,maxHp:2,room:'PP00',x:700,y:520,lastSeen:9000};
+ const r=await S.request(s,'attack',{pose:{x:1000,y:520},targets:['mob_fast'],world:{enemies:[{id:'mob_fast',x:1060,y:520}]}},token,10000);
+ assert.equal(r.enemies.mob_fast.hp,1);assert.equal(r.enemies.mob_fast.reaction.kind,'hit');
+});
+
+test('toilet claims are exclusive, seat remains fixed through heartbeat, release and timeout unlock',async()=>{
+ const E=await engine(),s=game(),p=s.players.p,q=s.players.q;
+ p.x=q.x=2442;p.y=q.y=879;
+ E.act(s,'p','toilet_enter',{stall:'wc_3'},1000);
+ assert.deepEqual([p.x,p.y,p.action,p.stall],[2595,878,'toilet','wc_3']);
+ assert.throws(()=>E.act(s,'q','toilet_enter',{stall:'wc_3'},1001),/有人/);
+ E.act(s,'p','heartbeat',{x:2442,y:879,action:'toilet'},1002);
+ assert.deepEqual([p.x,p.y],[2595,878]);
+ assert.equal(E.snapshot(s,'q',1003).stalls.wc_3,'p');
+ E.act(s,'p','toilet_exit',{},1004);assert.equal(p.stall,null);assert.equal(p.action,null);
+ E.act(s,'q','toilet_enter',{stall:'wc_3'},1005);
+ p.x=2442;p.y=879;E.act(s,'p','toilet_enter',{stall:'wc_3'},37000);
+ assert.equal(p.stall,'wc_3');
+ E.act(s,'p','logout',{},37001);assert.equal(E.snapshot(s,'q',37002).stalls.wc_3,undefined);
+});
+test('toilet entry rejects distant players and arbitrary toilet poses cannot acquire a lock',async()=>{
+ const E=await engine(),s=game();assert.throws(()=>E.act(s,'p','toilet_enter',{stall:'wc_4'},1000),/靠近/);
+ E.act(s,'p','heartbeat',{x:1000,y:350,action:'toilet'},1001);assert.equal(s.players.p.action,null);
+});
 
 test('weapon durability zero automatically refills from backpack inventory', async () => {
   const E = await engine();
