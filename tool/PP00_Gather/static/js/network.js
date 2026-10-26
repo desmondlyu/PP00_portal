@@ -777,7 +777,7 @@ class EphemeralOfficeNetwork {
       inventoryState: pData.inventoryState && Array.isArray(pData.inventoryState.inventory) && Array.isArray(pData.inventoryState.equippedSlots) ? pData.inventoryState : existing.inventoryState || null,
       stunnedUntil: Number(pData.stunnedUntil) || 0,
       status: pData.status || 'active',
-      heldItem: pData.heldItem || '🟢',
+      heldItem: typeof pData.heldItem === 'string' ? pData.heldItem : (pData.heldItem ? String(pData.heldItem) : ''),
       actionState: pData.actionState || null,
       occupiedSpotId: pData.occupiedSpotId || null,
       x: currentX,
