@@ -59,13 +59,15 @@
             />
           </div>
           <div class="form-field">
-            <label for="loginPasscode">辦公室安全通行碼 (Room Code) *</label>
+            <label for="loginPasscode">使用者個人密碼（六碼） *</label>
             <input
               type="password"
               id="loginPasscode"
-              maxlength="16"
-              value="PP00"
-              placeholder="預設 PP00"
+              inputmode="numeric"
+              pattern="[0-9]{6}"
+              maxlength="6"
+              placeholder="請輸入 6 位數個人密碼"
+              autocomplete="current-password"
               required
             />
           </div>
@@ -85,13 +87,6 @@
         <div>
           <div class="avatar-grid-label">十位上班族人物（點擊切換預覽）</div>
           <div id="avatarSelectorGrid" class="avatar-selector-grid"></div>
-        </div>
-
-        <div class="s2-login-fields">
-          <label for="loginPin">個人四位數 PIN（首次使用請勾選建立帳號）</label>
-          <input id="loginPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="current-password" aria-label="個人四位數 PIN" />
-          <label><input id="loginRegister" type="checkbox" /> 首次建立 Season 2 帳號</label>
-          <p class="s2-login-note">新版經驗從 0 開始；同名與部門搭配個人 PIN 保存進度。忘記 PIN 請聯絡管理者。</p>
         </div>
         <div id="loginErrorMsg" class="login-error-msg" role="alert"></div>
 
