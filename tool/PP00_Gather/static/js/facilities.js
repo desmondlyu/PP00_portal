@@ -1,7 +1,7 @@
 // Compact accessible picker; materials are selected explicitly, never silently recycled.
 (function(root){
- const spots=[{id:'rma',x:998,y:350,label:'接聽客訴電話',action:'rma_claim'}, {id:'lounge',x:1238,y:350,label:'打電動療傷・5 秒',action:'lounge_start'}, {id:'repair',x:1478,y:350,label:'保養武器・消耗 1 件材料',action:'repair_start'}, {id:'shrine',x:1718,y:350,label:'乖乖祈福・3 秒',action:'shrine_start'}, {id:'gacha',x:1963,y:350,label:'扭蛋・消耗 2 件材料',action:'gacha'}];
- function nearby(p,s){const task=s?.task;if(task?.claimer===s?.player?.id&&Math.hypot(p.x-task.x,p.y-task.y)<95)return {id:'rma_target',x:task.x,y:task.y,label:'搶修設備・3 秒',action:'rma_start'};return spots.find(f=>Math.hypot(p.x-f.x,p.y-f.y)<90);}
+ const spots=[{id:'rma',x:998,y:350,label:'接聽客訴電話（啟動 RMA 救火搶修）',action:'rma_claim'}, {id:'lounge',x:1238,y:350,label:'打電動療傷・5 秒',action:'lounge_start'}, {id:'repair',x:1478,y:350,label:'保養武器・消耗 1 件材料',action:'repair_start'}, {id:'shrine',x:1718,y:350,label:'乖乖祈福・3 秒',action:'shrine_start'}, {id:'gacha',x:1963,y:350,label:'扭蛋・消耗 2 件材料',action:'gacha'}];
+ function nearby(p,s){const task=s?.task;if(task?.claimer===s?.player?.id){if(task.stage==='reporting'&&Math.hypot(p.x-998,p.y-350)<95)return {id:'rma_report',x:998,y:350,label:'🎖️ 救火任務完成，報到領取獎勵！',action:'rma_report'};if(task.stage==='repairing'&&Math.hypot(p.x-task.x,p.y-task.y)<95){const count=(task.repairedIds?.length||0)+1;return {id:'rma_target',x:task.x,y:task.y,label:`搶修設備 (${count}/3 台)・3 秒`,action:'rma_start'};}}return spots.find(f=>Math.hypot(p.x-f.x,p.y-f.y)<90);}
  function choose(title,items,{count=1,optional=false}={}){return new Promise(resolve=>{
   const dialog=document.createElement('dialog');dialog.className='s2-picker';const heading=document.createElement('h3');heading.textContent=title;dialog.append(heading);
   const form=document.createElement('form');form.method='dialog';const selected=new Set();

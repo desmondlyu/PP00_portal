@@ -123,18 +123,54 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   }
   if(kind==='device_finish'){
     const c=p.channel,f=s.broken?.[c?.target];if(c?.kind!=='device'||!f?.broken||now-c.at<3000||!near(p,c.x,c.y,25))fail('修復時間不足或設備已修好');
-    const t=s.tasks[p.room];if(t?.targetId===c.target)fail('請使用 RMA 任務修復');
-    f.broken=false;f.handledAt=now;gain(p,30);p.channel=null;return;
+    const t=s.tasks[p.room];if(t?.targetIds?.includes(c.target))fail('請使用 RMA 任務修復');
+    f.broken=false;f.handledAt=now;gain(p,30);
+    const supplyPool=['coffee','boba','pizza','kuaikuai','wrench','duck','ic_pkg'];
+    const rewardItem={...fresh(pick(supplyPool,rng)),uid:uid()};
+    if(capacity(p,rewardItem)){p.items.push(rewardItem);}
+    else{const d={...rewardItem,x:p.x,y:p.y,room:p.room,source:'world',origin:'repair',createdAt:now};s.drops[d.uid]=d;}
+    p.channel=null;return;
   }
   if(kind==='rma_claim'){
     if(!near(p,998,350))fail('請靠近電話');if(s.tasks[p.room]?.claimer||s.tasks[p.room]?.cooldown>now)fail('目前搶修中或電話冷卻中');
-    const available=assets.tasks.filter(t=>!s.broken?.[t.id]?.broken);if(!available.length)fail('目前沒有可用設備');
-    const t=pick(available,rng);s.tasks[p.room]={...t,id:uid(),targetId:t.id,claimer:id,until:now+120000};return;
+    const available=assets.tasks.filter(t=>!s.broken?.[t.id]?.broken);if(available.length<3)fail('目前沒有足夠可用設備');s.broken||={};
+    const pool=available.slice(),targets=[];
+    while(targets.length<3&&pool.length>0){const idx=Math.floor(rng()*pool.length);targets.push(pool.splice(idx,1)[0]);}
+    for(const t of targets){s.broken[t.id]={broken:true,room:p.room,rma:true};}
+    s.tasks[p.room]={id:uid(),claimer:id,stage:'repairing',targets:targets.map(t=>({id:t.id,x:t.x,y:t.y,name:t.name})),targetIds:targets.map(t=>t.id),repairedIds:[],targetId:targets[0].id,x:targets[0].x,y:targets[0].y,name:targets[0].name,until:now+300000};return;
   }
-  if(kind==='rma_start'){const t=s.tasks[p.room];if(!t||t.claimer!==id||!near(p,t.x,t.y,90))fail('無有效任務或距離過遠');p.channel={kind:'rma',at:now,x:p.x,y:p.y,task:t.id};return;}
+  if(kind==='rma_start'){
+    const t=s.tasks[p.room];if(!t||t.claimer!==id||t.stage!=='repairing')fail('無有效任務');
+    const targetId=b.target||t.targetId,tgt=t.targets.find(a=>a.id===targetId);
+    if(!tgt||t.repairedIds.includes(tgt.id)||!near(p,tgt.x,tgt.y,90))fail('無有效目標或距離過遠');
+    p.channel={kind:'rma',at:now,x:p.x,y:p.y,task:t.id,target:tgt.id};return;
+  }
   if(kind==='rma_finish'){
-    const t=s.tasks[p.room],c=p.channel;if(!t||t.claimer!==id||c?.task!==t.id||now-c.at<3000||!near(p,t.x,t.y,90))fail('任務尚未完成');
-    if(s.broken?.[t.targetId]){s.broken[t.targetId].broken=false;s.broken[t.targetId].handledAt=now;}award(p,60);s.tasks[p.room]={cooldown:now+30000};p.channel=null;return;
+    const t=s.tasks[p.room],c=p.channel;if(!t||t.claimer!==id||c?.task!==t.id||now-c.at<3000)fail('任務尚未完成');
+    const targetId=c.target||t.targetId,tgt=t.targets.find(a=>a.id===targetId);
+    if(!tgt||!near(p,tgt.x,tgt.y,90))fail('距離目標過遠');
+    if(s.broken?.[targetId]){s.broken[targetId].broken=false;s.broken[targetId].handledAt=now;}
+    if(!t.repairedIds.includes(targetId))t.repairedIds.push(targetId);
+    gain(p,20);
+    p.channel=null;
+    if(t.repairedIds.length>=3){
+      t.stage='reporting';
+      t.targetId='command_post';t.x=998;t.y=350;t.name='救火指揮所';
+    }else{
+      const remaining=t.targets.filter(a=>!t.repairedIds.includes(a.id));
+      if(remaining.length){t.targetId=remaining[0].id;t.x=remaining[0].x;t.y=remaining[0].y;t.name=remaining[0].name;}
+    }
+    return;
+  }
+  if(kind==='rma_report'){
+    const t=s.tasks[p.room];if(!t||t.claimer!==id||t.stage!=='reporting'||!near(p,998,350))fail('尚未完成3台設備搶修或請靠近指揮所');
+    award(p,150);
+    const rewardMeta=pick(assets.items,rng);
+    const rewardItem={...fresh(rewardMeta.id),uid:uid()};
+    if(capacity(p,rewardItem)){p.items.push(rewardItem);}
+    else{const d={...rewardItem,x:p.x,y:p.y,room:p.room,source:'world',origin:'rma_reward',createdAt:now};s.drops[d.uid]=d;}
+    s.tasks[p.room]={cooldown:now+30000,lastReward:{name:rewardItem.name,emoji:rewardItem.emoji,id:rewardItem.id}};
+    p.channel=null;return;
   }
   if(kind==='heal_start'){
     const q=s.players[b.target];if(!q||q.room!==p.room||!near(p,q.x,q.y,75)||!(q.effects.injuredUntil>now||q.effects.lightUntil>now)||p.effects.lightUntil>now)fail('無法急救');
@@ -147,12 +183,20 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   fail('不支援的操作');
 }
 export {assets,R,award,near,active,locked,fresh,uid,nowDate};
-export function strike(s,p,targetId,now,rng=Math.random){
+export function strike(s,p,targetId,now,rng=Math.random,isFist=false){
   const e=s.enemies[targetId];if(!e||e.hp<=0||!e.mob&&e.lastSeen&&now-e.lastSeen>15000||e.room!==p.room||e.until>now||!near(p,e.x,e.y,140)||!segment(p.x,p.y,e.x,e.y)||locked(p,now))return;
   const a=Math.atan2(e.y-p.y,e.x-p.x),dodge=e.role==='ghost'?.6:e.role==='bird'?.45:e.role==='guard'?.25:0;
   e.reaction={id:uid(),kind:'hit',angle:a,at:now,duration:450};
   if(rng()<dodge){e.reaction.kind='dodge';return;}
-  e.hp--;Object.assign(e,floor(e.x+Math.cos(a)*35,e.y+Math.sin(a)*35));
+  if(isFist){
+    e.fistHits=(e.fistHits||0)+1;
+    if(e.fistHits>=10){e.fistHits=0;e.hp=0;}
+    else{e.hp=Math.max(0.1,e.hp-(e.maxHp||2)/10);}
+  }else{
+    e.hp--;
+  }
+  const pushDist=isFist?20:35;
+  Object.assign(e,floor(e.x+Math.cos(a)*pushDist,e.y+Math.sin(a)*pushDist));
   if(e.hp<=0){
     e.until=now+(e.role==='bird'&&now%900000<60000?10000:e.mob?180000:60000);e.reaction.kind='defeat';e.defeatedAt=now;if(e.mob){s.mobDefeatedAt||={};s.mobDefeatedAt[p.room]=now;}gain(p,30);
     const makeDrop=id=>{const d={...fresh(id),...floor(e.x+35,e.y+20),room:p.room,source:'world',origin:'defeat',createdAt:now};s.drops[d.uid]=d;};
@@ -164,14 +208,26 @@ export function strike(s,p,targetId,now,rng=Math.random){
   }
 }
 export function combat(s,p,b,now,rng=Math.random){
-  if(locked(p,now)||now-(p.lastSwing||0)<300)return;
-  const weapon=p.items.find(i=>i.slot===(p.activeSlot||0))||p.items.find(i=>i.slot!=null);if(!weapon)return;p.lastSwing=now;
+  const weapon=p.items.find(i=>i.slot===(p.activeSlot||0))||p.items.find(i=>i.slot!=null);
+  const isFist=!weapon;
+  const cd=isFist?2000:300;
+  if(locked(p,now)||(p.lastSwing&&now-p.lastSwing<cd))return;
+  p.lastSwing=now;
   const targets=Object.values(s.enemies).filter(e=>e.room===p.room&&e.hp>0&&(e.mob||!e.lastSeen||now-e.lastSeen<=15000)&&near(p,e.x,e.y,135)&&!(e.until>now));
   const others=Object.values(s.players).filter(q=>q.id!==p.id&&q.room===p.room&&active(q,now)&&near(p,q.x,q.y,135));
-  for(const e of targets){strike(s,p,e.id,now,rng);if(p.effects.lockedUntil>now)break;}
+  for(const e of targets){strike(s,p,e.id,now,rng,isFist);if(p.effects.lockedUntil>now)break;}
   if(!(p.effects.lockedUntil>now))for(const q of others)hurt(s,q,'pvp',now,rng);
-  if((targets.length||others.length)&&rng()>=(R.level(p.exp)-1)*.01){weapon.durability--;if(weapon.durability<=0){p.items=p.items.filter(i=>i.uid!==weapon.uid);if(!p.items.some(i=>i.slot!=null)){const nextW=p.items.find(i=>i.slot==null&&i.category!=="outfit");if(nextW){nextW.slot=0;p.activeSlot=0;}}}}
-  p.lastAttack={at:now,emoji:weapon.emoji};
+  if(weapon&&(targets.length||others.length)&&rng()>=(R.level(p.exp)-1)*.01){
+    weapon.durability--;
+    if(weapon.durability<=0){
+      p.items=p.items.filter(i=>i.uid!==weapon.uid);
+      if(!p.items.some(i=>i.slot!=null)){
+        const nextW=p.items.find(i=>i.slot==null&&i.category!=="outfit");
+        if(nextW){nextW.slot=0;p.activeSlot=0;}
+      }
+    }
+  }
+  p.lastAttack={at:now,emoji:weapon?weapon.emoji:'👊'};
 }
 export function world(s,p,b,now,rng=Math.random){
   const online=Object.values(s.players).filter(q=>q.room===p.room&&active(q,now)).sort((a,b)=>a.connection.localeCompare(b.connection));
