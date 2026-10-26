@@ -91,6 +91,20 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     const i=p.items.find(i=>i.uid===b.uid);if(!i||p.pending?.materials.includes(i.uid))fail('不能丟棄');p.items=p.items.filter(a=>a.uid!==i.uid);if(p.worn===i.uid)p.worn=null;
     const d={...i,...floor(p.x+45,p.y),uid:uid(),room:p.room,source:'player',slot:null,pickupAfter:now+2000};s.drops[d.uid]=d;return;
   }
+  if(kind==='lounge_game'){
+    if(b.outcome==='win'){
+      const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench'];
+      const itemId=pick(pool,rng);
+      const d={...fresh(itemId),...floor(p.x+30,p.y),room:p.room,source:'world',slot:null};
+      p.items.push(d);
+      gain(p,15);
+      return {item:d};
+    } else if(b.outcome==='lose'){
+      award(p,-10);
+      return {lostExp:10};
+    }
+    return {};
+  }
   if(kind==='lounge_start'||kind==='shrine_start'||kind==='repair_start'){
     const x=kind==='lounge_start'?1238:kind==='shrine_start'?1718:1478;
     if(!near(p,x,350))fail('請靠近設施');
@@ -251,7 +265,7 @@ export function world(s,p,b,now,rng=Math.random){
       for(const q of online){if(!near(q,e.x,e.y,75)||locked(q,now))continue;
         if(role==='bird'&&now%900000<60000){if(q.x>=2220&&q.x<=2500&&q.y>=160&&q.y<=460)continue;hurt(s,q,'hunt',now,rng);}
         else if(role==='ghost'){if(now-(q.lastScare||0)>7000&&rng()<.5){q.lastScare=now;q.effects.ghostUntil=now+5000;}}
-        else if(['guard','mob','bird'].includes(role))hurt(s,q,'npc',now,rng);
+        else if(['guard','mob','bird','vp','dir','auntie'].includes(role))hurt(s,q,'npc',now,rng);
       }
     }
   }

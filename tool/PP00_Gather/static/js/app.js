@@ -499,6 +499,10 @@
       onEquipmentBroken: (mob, target) => {
         pushStatusLog('系統', `💥 【${target.name}】遭怪物【${mob.name}】破壞！靠近按 [E] 修復獲得經驗！`);
       },
+      onMobHitPlayer: (mob, pl) => {
+        if (season.enabled) return;
+        triggerBerserkKnockback(mob, `遭遇怪物【${mob.name}】衝撞！`);
+      },
     });
 
     network = new window.EphemeralOfficeNetwork({
@@ -1247,6 +1251,18 @@
 
   function addExp(amount, reasonText, applyEquipBonus = true) {
     if(season.enabled)return 0;
+    if (amount < 0) {
+      const loss = Math.abs(amount);
+      progression.exp = Math.max(0, progression.exp - loss);
+      if (reasonText) appendCombatText(`-${loss} EXP · ${reasonText}`);
+      const key = 'pp00_gather_exp_' + (localPlayer.name || 'default').toLowerCase();
+      try {
+        localStorage.setItem(key, JSON.stringify({ loginCount: progression.loginCount, exp: progression.exp }));
+      } catch (_) {}
+      recalcLevelAndBuff();
+      updateSelfHudCard();
+      return -loss;
+    }
     const equipBonusPct = applyEquipBonus ? getTotalEquippedExpBonusPct() : 0;
     const finalAmount = Math.max(1, Math.round(amount * (1 + equipBonusPct / 100)));
     progression.exp += finalAmount;
@@ -1271,6 +1287,47 @@
     }
     return finalAmount;
   }
+
+  globalThis.handleNonSeasonArcadeResult = function(outcome) {
+    if (outcome === 'win') {
+      const pool = [
+        { id: 'coffee', name: '熱咖啡', emoji: '☕', category: 'item', maxDurability: 1 },
+        { id: 'boba', name: '波霸珍奶', emoji: '🧋', category: 'item', maxDurability: 1 },
+        { id: 'pizza', name: '美味披薩', emoji: '🍕', category: 'item', maxDurability: 1 },
+        { id: 'kuaikuai', name: '綠乖乖', emoji: '🟢', category: 'item', maxDurability: 1 },
+        { id: 'wrench', name: '工程板手', emoji: '🔧', category: 'weapon', maxDurability: 3 },
+        { id: 'duck', name: '黃色小鴨', emoji: '🦆', category: 'weapon', maxDurability: 3 },
+        { id: 'ic_pkg', name: '封裝晶片', emoji: '💾', category: 'weapon', maxDurability: 3 },
+        { id: 'keyboard', name: '機械鍵盤', emoji: '⌨️', category: 'weapon', maxDurability: 3 },
+        { id: 'bench', name: '折疊鐵椅', emoji: '🪑', category: 'weapon', maxDurability: 3 },
+      ];
+      const item = pool[Math.floor(Math.random() * pool.length)];
+      addItemToInventory(item, true);
+      addExp(15, '電競猜拳勝利！');
+      updateSelfHudCard();
+      showCombatToast(`🎉 電競猜拳大獲全勝！獲得獎勵【${item.emoji} ${item.name}】與 +15 EXP！`);
+    } else if (outcome === 'lose') {
+      addExp(-10, '電競猜拳落敗');
+      updateSelfHudCard();
+      showCombatToast('💀 電競猜拳遺憾落敗，經驗值 -10 EXP！', 'error');
+    }
+  };
+
+  globalThis.startNonSeasonHealing = function() {
+    localPlayer.actionState = 'play_arcade';
+    updatePoseLabelUI();
+    showCombatToast('🎮 正在電競娛樂室打電動療傷中 (5 秒)……');
+    setTimeout(() => {
+      if (localPlayer.actionState === 'play_arcade') {
+        localPlayer.lightInjuredUntil = 0;
+        localPlayer.isInjured = false;
+        localPlayer.actionState = null;
+        updatePoseLabelUI();
+        showCombatToast('✨ 療傷完成！身心愉悅，挫傷已痊癒！', 'join');
+        savePersistentState();
+      }
+    }, 5000);
+  };
 
   function forceLevelUp(facilityName) {
     if(season.enabled){showCombatToast("設備已修復；Season 2 獎勵由後端結算");return;}
@@ -1474,6 +1531,12 @@
   function triggerBerserkKnockback(npc, reason) {
     if(season.enabled)return;
     window.OfficeCombat?.send(network,'combat_hurt',{targetId:network.clientId});
+    const nowInj = gameNow();
+    if (Math.random() < 0.20 && nowInj >= (localPlayer.lightInjuredUntil || 0) && !localPlayer.isInjured) {
+      localPlayer.lightInjuredUntil = nowInj + 60000;
+      showCombatToast('🩹 輕微挫傷：移速降低 30% (持續 60 秒)', 'error');
+      pushCombatLog('系統', `🩹 遭【${npc.name || '敵人'}】重擊造成輕微挫傷！移速降低 30%（持續 60 秒）`);
+    }
     // 計算從攻擊者指向玩家的擊飛向量
     let dx = localPlayer.x - npc.x;
     let dy = localPlayer.y - npc.y;
@@ -3161,6 +3224,11 @@ async function executeOfficeLogin(params) {
     if(season.enabled)return;
     if (!pkt || pkt.targetId !== network.clientId) return;
     if(!pkt.hunt) window.OfficeCombat?.send(network,'combat_hurt',{targetId:network.clientId,npc:false});
+    if (!pkt.isCriticalInjury && Math.random() < 0.20 && gameNow() >= (localPlayer.lightInjuredUntil || 0) && !localPlayer.isInjured) {
+      localPlayer.lightInjuredUntil = gameNow() + 60000;
+      showCombatToast('🩹 輕微挫傷：移速降低 30% (持續 60 秒)', 'error');
+      pushCombatLog('系統', `🩹 遭同事【${pkt.senderName || '同事'}】揮舞武器擊中造成輕微挫傷！移速降低 30%（持續 60 秒）`);
+    }
 
     if (pkt.isCriticalInjury) {
       // 🚑 遭受 5% 致命重傷：原地倒地休養無法動彈 5 分鐘，鏡頭停留在事發現場等待急救
@@ -3584,6 +3652,10 @@ async function executeOfficeLogin(params) {
   function detectNearbyFacility() {
     if(season.enabled){const d=nearbySeasonDrop();if(d)return {label:'拾取 '+d.name,shortHint:'[E / 互動] 拾取 '+d.name,seasonDrop:true};}
     if(season.enabled){const f=window.OfficeFacilities.nearby(localPlayer,season.client?.snapshot);if(f)return {label:f.label,shortHint:"[E] "+f.label,seasonFacility:true,...f};}
+    else {
+      const f=window.OfficeFacilities?.nearby(localPlayer);
+      if(f)return {label:f.label,shortHint:"[E] "+f.label,nonSeasonFacility:true,...f};
+    }
     const px = localPlayer.x;
     const py = localPlayer.y;
 
@@ -3814,6 +3886,10 @@ async function executeOfficeLogin(params) {
     // 2. 觸發設備或座椅互動
     const fac = detectNearbyFacility();
     if (fac) {
+      if (fac.nonSeasonFacility) {
+        window.OfficeFacilities.use(fac, null, () => ({ x: localPlayer.x, y: localPlayer.y }));
+        return;
+      }
       // 佔用阻擋提示
       if (fac.isOccupied) {
         pushStatusLog('系統', `⚠️【${fac.name}】目前已有其他同仁使用中，一個位置僅供一人入座佔領！`);
@@ -5059,6 +5135,9 @@ async function executeOfficeLogin(params) {
 
   function updateLocalPlayerMovement() {
     if(season.enabled&&isLoggedIn){localPlayer.speed=window.OfficeProgression.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow());if(localPlayer.speed===0&&!localPlayer.beatingSession){localPlayer.isMoving=false;return;}if((keys.w||keys.a||keys.s||keys.d||keys.ArrowUp||keys.ArrowDown||keys.ArrowLeft||keys.ArrowRight||touchMove.x||touchMove.y)&&season.client?.snapshot?.player?.channel){if(!season.cancelling){season.cancelling=true;seasonSend("cancel").finally(()=>season.cancelling=false);}localPlayer.actionState=null;}}
+    else if(!season.enabled&&isLoggedIn){
+      localPlayer.speed = (localPlayer.baseSpeed * (1 + (progression.speedBonusPct || 0) / 100)) * (gameNow() < (localPlayer.lightInjuredUntil || 0) ? 0.7 : 1);
+    }
     if(gameNow()<(localPlayer.stunnedUntil||0)){localPlayer.isMoving=false;localPlayer.knockback=null;return;}
     if (!isLoggedIn) return;
     if (gameNow() < (localPlayer.ghostSleepUntil || 0)) {
@@ -5653,7 +5732,9 @@ async function executeOfficeLogin(params) {
         healProgress: p.id === localPlayer.id ? (localPlayer.healProgress || 0) : (p.healProgress || 0),
         isFleeing: !!p.isFleeing,
       });
-      if(season.enabled&&!p.isNpc){const e=p.id===localPlayer.id?season.effects:season.client?.snapshot?.players.find(q=>q.clientId===p.id)?.effects;const now=gameNow();if(e?.shieldUntil>now){ctx.strokeStyle='#86efac';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x,p.y-28,34,45,0,0,Math.PI*2);ctx.stroke();}if(e?.lightUntil>now){ctx.font='18px sans-serif';ctx.fillText('🩹',p.x-10,p.y-80);}}
+      const isLightInjured = season.enabled && !p.isNpc ? ((p.id === localPlayer.id ? season.effects?.lightUntil : season.client?.snapshot?.players.find(q=>q.clientId===p.id)?.effects?.lightUntil) > gameNow()) : ((p.id === localPlayer.id ? localPlayer.lightInjuredUntil : p.lightInjuredUntil) > gameNow());
+      if(season.enabled&&!p.isNpc){const e=p.id===localPlayer.id?season.effects:season.client?.snapshot?.players.find(q=>q.clientId===p.id)?.effects;const now=gameNow();if(e?.shieldUntil>now){ctx.strokeStyle='#86efac';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x,p.y-28,34,45,0,0,Math.PI*2);ctx.stroke();}}
+      if(isLightInjured){ctx.font='18px sans-serif';ctx.fillText('🩹',p.x-10,p.y-80);}
       ctx.restore();
     });
 

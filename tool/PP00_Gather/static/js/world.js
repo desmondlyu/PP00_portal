@@ -868,6 +868,20 @@ class OfficeEcosystem {
         continue;
       }
 
+      // 怪物隨機碰觸/衝撞玩家：造成擊退與輕微挫傷判定
+      if (!mob.combatDown && allPlayers) {
+        for (const pl of allPlayers) {
+          if (pl.id === 'local' && Math.hypot(mob.x - pl.x, mob.y - pl.y) < 38) {
+            if (now - (mob.lastPlayerHitAt || 0) > 4000) {
+              mob.lastPlayerHitAt = now;
+              if (this.callbacks && this.callbacks.onMobHitPlayer) {
+                this.callbacks.onMobHitPlayer(mob, pl);
+              }
+            }
+          }
+        }
+      }
+
       // 每秒檢查一次：1% 機率觸發怪物暴走並鎖定一台未損壞的電腦或實驗室機台進行破壞 (僅房長判定)
       if (isMaster && !mob.isBerserk && tick % 60 === (i * 19) % 60) {
         if (Math.random() < mobBerserkChance) {
