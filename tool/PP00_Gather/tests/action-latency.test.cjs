@@ -1,10 +1,10 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 function game(send){
- const c={console,Date,Math,setTimeout:()=>0,clearTimeout(){},localStorage:{getItem:()=>null},document:{getElementById:()=>null},window:{addEventListener(){}}};vm.createContext(c);
+ const c={console,Date,Math,setTimeout:()=>0,clearTimeout(){},localStorage:{getItem:()=>null,setItem(){},removeItem(){},key(){return null},length:0},document:{getElementById:()=>null},window:{addEventListener(){}}};vm.createContext(c);
  for(const f of ['config','world','progression','combat'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../static/js',f+'.js'),'utf8'),c);
  c.window.OfficeProgression=c.OfficeProgression;c.testSend=send;
  let s=fs.readFileSync(path.join(__dirname,'../static/js/app.js'),'utf8');s=s.replace("  window.addEventListener('DOMContentLoaded', init);",`
- isLoggedIn=true;network={npcPlayers:new Map(),broadcastPacket(){},getAllOtherPlayers:()=>[]};ecosystem={groundItems:[],mobs:[]};
+ isLoggedIn=true;network={npcPlayers:new Map(),isRoomMaster:()=>true,broadcastPacket(){},getAllOtherPlayers:()=>[]};ecosystem={groundItems:[],mobs:[]};
  showCombatToast=()=>{};season.client={send:testSend,snapshot:{player:{id:'p',effects:{}},players:[],drops:[]}};
  window.testGame={season,player:localPlayer,attack:triggerWeaponAttack,interact:seasonInteract,poll:seasonPoll,get network(){return network},get ecosystem(){return ecosystem}};
  `);vm.runInContext(s,c);c.window.isPositionBlocked=()=>false;

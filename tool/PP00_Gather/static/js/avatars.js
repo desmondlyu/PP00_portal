@@ -1825,18 +1825,14 @@ window.drawMinecraftMob = function (ctx, mob, tick) {
   // 繪製怪物頭頂像素方塊血條與名稱牌
   ctx.save();
   ctx.translate(mob.x, mob.y - jumpY - hop - 42);
-  ctx.font = '800 11px "Outfit", "Microsoft JhengHei", monospace';
+  const labelScale=Math.max(1,1/(ctx.getTransform?.().a||1));ctx.scale(labelScale,labelScale);
+  ctx.font = '800 14px "PingFang TC", "Microsoft JhengHei", sans-serif';
   const label = mob.isBerserk ? `💢 [暴走拆機] ${mob.name}` : `👾 ${mob.name}`;
   const tw = ctx.measureText(label).width + 18;
-  ctx.fillStyle = mob.isBerserk ? 'rgba(185, 28, 28, 0.95)' : 'rgba(15, 23, 42, 0.9)';
-  ctx.fillRect(-tw / 2, -14, tw, 19);
-  ctx.strokeStyle = mob.isBerserk ? '#fde047' : mob.primary;
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(-tw / 2, -14, tw, 19);
-
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  ctx.strokeStyle='#020617';ctx.lineWidth=4;ctx.lineJoin='round';ctx.strokeText(label,0,-4.5);
   ctx.fillText(label, 0, -4.5);
 
   // 繪製怪物被各類武器/道具打擊後的即時擊退進度血條

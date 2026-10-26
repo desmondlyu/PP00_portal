@@ -55,10 +55,10 @@ test('overview map can be toggled and closed via button, function, and Escape ke
 });
 
 
-test('loginForm submission uses 6-digit passcode, fixed roomCode PP00 and no undefined roomCode reference', () => {
+test('loginForm submission uses six-character password, fixed roomCode PP00 and no undefined roomCode reference', () => {
   const appCode = fs.readFileSync(path.join(__dirname, '../static/js/app.js'), 'utf8');
   assert.ok(!appCode.includes('unit: rawUnit,\n        roomCode,'), 'Must not reference undefined roomCode');
   assert.ok(!appCode.includes('unit: rawUnit,\r\n        roomCode,'), 'Must not reference undefined roomCode (CRLF)');
   assert.ok(appCode.includes("roomCode: 'PP00'"), "Must explicitly set roomCode: 'PP00'");
-  assert.ok(appCode.includes('pattern="[0-9]{6}"') || appCode.includes('/^\\d{6}$/'), 'Must validate 6-digit passcode');
+  assert.ok(appCode.includes('/^[A-Za-z0-9]{6}$/'), 'Must validate six-character password');
 });

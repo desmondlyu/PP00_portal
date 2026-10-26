@@ -752,7 +752,7 @@ test('Private chat center modal is shown ONLY when chat window is collapsed', ()
     Math,
     setTimeout: (fn) => setTimeout(fn, 0),
     clearTimeout: () => {},
-    localStorage: { getItem: () => null },
+    localStorage: { getItem: () => null, setItem(){}, removeItem(){}, key(){return null}, length:0 },
     document: doc,
     window: {
       addEventListener: () => {},
@@ -884,7 +884,7 @@ test('Selecting a real online user automatically defaults chatSendModeSelect to 
     Math,
     setTimeout: (fn) => setTimeout(fn, 0),
     clearTimeout: () => {},
-    localStorage: { getItem: () => null },
+    localStorage: { getItem: () => null, setItem(){}, removeItem(){}, key(){return null}, length:0 },
     document: doc,
     window: {
       addEventListener: () => {},

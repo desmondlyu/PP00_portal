@@ -985,6 +985,7 @@ class EphemeralOfficeNetwork {
         break;
       }
       case 'toilet_state': {
+        if(window.GATHER_CONFIG?.season2)break; // Cloud owns occupancy; visitors cannot unlock via broadcast.
         if (pkt.stallId && window.WORLD_MAP && window.WORLD_MAP.toiletStalls) {
           const stall = window.WORLD_MAP.toiletStalls.find((st) => st.id === pkt.stallId);
           if (stall) {

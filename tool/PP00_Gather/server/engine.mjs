@@ -6,6 +6,10 @@ const near=(p,x,y,d=110)=>Math.hypot(p.x-x,p.y-y)<=d;
 const itemMeta=id=>assets.items.find(i=>i.id===id);
 const nowDate=t=>new Date(t+8*3600000).toISOString().slice(0,10);
 const active=(p,t)=>p.lastSeen>t-35000;
+const stalls=[605,718,831,944].map((y,i)=>({id:'wc_'+(i+1),x:2470,y,seatX:2595,seatY:y+47}));
+const stallOwner=(s,stall,room,now)=>Object.values(s.players).find(q=>q.room===room&&q.stall===stall.id&&q.action==='toilet'&&active(q,now)&&!locked(q,now));
+function leaveToilet(p){const stall=stalls.find(t=>t.id===p.stall);if(stall){p.x=stall.x-28;p.y=stall.y+48;}p.stall=null;if(p.action==='toilet')p.action=null;}
+
 const locked=(p,t)=>p.effects.injuredUntil>t||p.effects.lockedUntil>t||p.effects.stunnedUntil>t||p.effects.ghostUntil>t;
 const isMaterial=i=>i&&['weapon','item'].includes(i.category);
 const outfits=p=>p.items.filter(i=>i.category==='outfit');
@@ -53,21 +57,25 @@ function closePending(p,commit){const g=p.pending;if(!g)return;if(commit){p.item
 export function snapshot(s,id,now){
   const p=s.players[id];return {now,player:p?{...p,credentials:undefined,tokenHash:undefined,sessionUntil:undefined,resumeRecovery:undefined,generation:undefined}:null,
     players:Object.values(s.players).filter(q=>active(q,now)&&q.room===p?.room).map(q=>({id:q.id,clientId:q.connection,name:q.name,unit:q.unit,x:q.x,y:q.y,avatarId:q.avatarId,effects:q.effects,worn:q.items.find(i=>i.uid===q.worn)?.avatarId||null,action:q.action})),
-    broken:s.broken||{},enemies:Object.fromEntries(Object.entries(s.enemies).filter(([,e])=>e.room===p?.room)),drops:Object.values(s.drops).filter(d=>d.room===p?.room||!d.room),task:s.tasks[p?.room]||null};
+    stalls:Object.fromEntries(stalls.flatMap(t=>{const q=stallOwner(s,t,p?.room,now);return q?[[t.id,q.connection]]:[]})),broken:s.broken||{},enemies:Object.fromEntries(Object.entries(s.enemies).filter(([,e])=>e.room===p?.room)),drops:Object.values(s.drops).filter(d=>d.room===p?.room||!d.room),task:s.tasks[p?.room]||null};
 }
 export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   s.enemies ||= {};s.drops ||= {};s.tasks ||= {};s.rate ||= {};
   const p=s.players[id];if(!p)fail('登入已失效');p.effects ||= {};p.items ||= [];
   if(p.pending&&p.pending.until<=now)closePending(p,false);
   const task=s.tasks[p.room];if(task&&((task.until<=now)||task.claimer&&!active(s.players[task.claimer],now))){s.tasks[p.room]={cooldown:now+30000};}
-  if(kind==='signin'){const d=nowDate(now);if(p.lastLoginDate!==d){p.lastLoginDate=d;award(p,50);}return;}
-  if(kind==='logout'){p.tokenHash=null;p.lastSeen=0;p.channel=null;closePending(p,false);p.resumeRecovery=null;return;}
+  if(kind==='signin'){leaveToilet(p);const d=nowDate(now);if(p.lastLoginDate!==d){p.lastLoginDate=d;award(p,50);}return;}
+  if(kind==='logout'){leaveToilet(p);p.tokenHash=null;p.lastSeen=0;p.channel=null;closePending(p,false);p.resumeRecovery=null;return;}
   if(kind==='heartbeat'){
+    const seated=stalls.find(t=>t.id===p.stall);
+    if(seated&&!locked(p,now)&&stallOwner(s,seated,p.room,now)?.id===p.id){p.x=seated.seatX;p.y=seated.seatY;p.action='toilet';p.lastSeen=now;return;}
+    if(p.stall){if(locked(p,now)){p.stall=null;if(p.action==='toilet')p.action=null;}else leaveToilet(p);}
     if(!locked(p,now)&&Number.isFinite(b.x)&&Number.isFinite(b.y)){const f=floor(Math.max(55,Math.min(2700,b.x)),Math.max(55,Math.min(1900,b.y)));p.x=f.x;p.y=f.y;}
     if(p.channel&&!near(p,p.channel.x,p.channel.y,25))p.channel=null;
-    p.lastSeen=now;p.action=typeof b.action==='string'?b.action.slice(0,32):null;return;
+    p.lastSeen=now;p.action=typeof b.action==='string'&&b.action!=='toilet'?b.action.slice(0,32):null;return;
   }
-  if(kind==='cancel'){p.channel=null;closePending(p,false);return;}
+  if(kind==='toilet_exit'){leaveToilet(p);p.lastSeen=now;return;}
+  if(kind==='cancel'){leaveToilet(p);p.channel=null;closePending(p,false);return;}
   if(kind==='gacha_cancel'){closePending(p,false);return;}
   if(kind==='emergency_revive'){
     if(!(p.effects.injuredUntil>now))fail('目前未處於重傷休養狀態');
@@ -98,6 +106,11 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     return {success:true,method:'exp',consumed,lostExp:50,remainingMs:0};
   }
   if(locked(p,now))fail('目前狀態無法操作');
+  if(kind==='toilet_enter'){
+    const t=stalls.find(t=>t.id===b.stall);if(!t||!near(p,t.x,t.y+48,100))fail('請先靠近廁所門');
+    const owner=stallOwner(s,t,p.room,now);if(owner&&owner.id!==p.id)fail('隔間內有人，請敲門催促');
+    leaveToilet(p);p.stall=t.id;p.x=t.seatX;p.y=t.seatY;p.action='toilet';p.lastSeen=now;return;
+  }
     if(kind==='npc_exchange'){
     const i=p.items.find(i=>i.uid===b.uid);if(!i||!isMaterial(i)||p.pending?.materials.includes(i.uid))fail('無法交換道具');
     p.items=p.items.filter(a=>a.uid!==i.uid);
@@ -283,7 +296,7 @@ export function combat(s,p,b,now,rng=Math.random){
   const cd=isFist?1000:300;
   if(locked(p,now)||(p.lastSwing&&now-p.lastSwing<cd))return;
   p.lastSwing=now;
-  const targets=Object.values(s.enemies).filter(e=>e.room===p.room&&e.hp>0&&(e.mob||!e.lastSeen||now-e.lastSeen<=15000)&&near(p,e.x,e.y,135)&&!(e.until>now));
+  const targets=Object.values(s.enemies).filter(e=>(!Array.isArray(b.targets)||b.targets.includes(e.id))&&e.room===p.room&&e.hp>0&&(e.mob||!e.lastSeen||now-e.lastSeen<=15000)&&near(p,e.x,e.y,135)&&!(e.until>now)).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));
   const others=Object.values(s.players).filter(q=>q.id!==p.id&&q.room===p.room&&active(q,now)&&near(p,q.x,q.y,135));
   for(const e of targets){strike(s,p,e.id,now,rng,isFist);if(p.effects.lockedUntil>now)break;}
   if(!(p.effects.lockedUntil>now))for(const q of others)hurt(s,q,'pvp',now,rng);
@@ -301,7 +314,7 @@ export function combat(s,p,b,now,rng=Math.random){
   }
   p.lastAttack={at:now,emoji:weapon?weapon.emoji:'👊'};
 }
-export function world(s,p,b,now,rng=Math.random){
+export function world(s,p,b,now,rng=Math.random,positionsOnly=false){
   const online=Object.values(s.players).filter(q=>q.room===p.room&&active(q,now)).sort((a,b)=>a.connection.localeCompare(b.connection));
   if(online[0]?.id!==p.id)throw new Error('只有目前房長可更新場景');
   for(const e of Object.values(s.enemies)){
@@ -317,7 +330,7 @@ export function world(s,p,b,now,rng=Math.random){
     if(!e)e=s.enemies[row.id]={id:row.id,role,tier,hp,maxHp:hp,room:p.room,mob:role==='mob'};
     if(e.room!==p.room||e.mob&&e.hp<=0||e.until>now||e.busyUntil>now)continue;
     e.x=Math.max(55,Math.min(2700,row.x));e.y=Math.max(55,Math.min(1900,row.y));e.name=String(row.name||row.id).slice(0,40);e.templateId=String(row.templateId||row.id);e.lastSeen=now;e.attacking=!!row.attacking;
-    if(row.attacking||role==='bird'&&now%1800000<60000){
+    if(!positionsOnly&&(row.attacking||role==='bird'&&now%1800000<60000)){
       for(const q of online){if(!near(q,e.x,e.y,75)||locked(q,now))continue;
         if(role==='bird'&&now%1800000<60000){if(q.x>=2220&&q.x<=2500&&q.y>=160&&q.y<=460)continue;hurt(s,q,'hunt',now,rng);}
         else if(role==='ghost'){if(now-(q.lastScare||0)>7000&&rng()<.5){q.lastScare=now;q.effects.ghostUntil=now+5000;}}
@@ -325,6 +338,7 @@ export function world(s,p,b,now,rng=Math.random){
       }
     }
   }
+  if(positionsOnly)return;
   const guards=Object.values(s.enemies).filter(e=>e.room===p.room&&e.role==='guard'&&e.hp>0&&!(e.until>now)&&!e.attacking&&e.lastSeen===now);
   for(const e of Object.values(s.enemies))if(e.room===p.room&&e.mob&&e.hp>0){
     const guard=guards.find(g=>near(g,e.x,e.y,54)&&segment(g.x,g.y,e.x,e.y));
