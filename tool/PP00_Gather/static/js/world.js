@@ -557,7 +557,7 @@ class OfficeEcosystem {
 
     this.groundItems = [];
     // 初始生成 2 個精選掉落物 (原 6 個過多，維持辦公室清爽)
-    this.spawnBatchRandomDrops(2);
+    if (!window.GATHER_CONFIG.season2) this.spawnBatchRandomDrops(2);
     this.lastBatchDropAt = Date.now();
 
     // 👾 像素方塊怪物清單 (上限 1 隻，開局乾淨 0 隻，後續以 0.1% 低機率自然生成)
@@ -836,7 +836,7 @@ class OfficeEcosystem {
     const maxMobs = window.GATHER_CONFIG?.security?.maxMobCount || 1;
     const mobSpawnChance = window.GATHER_CONFIG?.security?.mobSpawnChance ?? 0.001;
     const mobCooldownPassed = now - (this.lastMobDefeatedAt || 0) > 300000;
-    if (isMaster && mobCooldownPassed && tick % 60 === 30 && this.mobs.length < maxMobs) {
+    if (!window.GATHER_CONFIG.season2 && isMaster && mobCooldownPassed && tick % 60 === 30 && this.mobs.length < maxMobs) {
       if (Math.random() < mobSpawnChance) {
         this.lastMobSpawnAt = now;
         this.spawnMinecraftMob();
@@ -1458,7 +1458,7 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
   // 👾 繪製像素方塊怪物 (Low Yield, 客退, Qual Delay, MO, QIT)
   if (ecosystem.mobs && window.drawMinecraftMob) {
     ecosystem.mobs.forEach((mob) => {
-      window.drawMinecraftMob(ctx, mob, tick);
+      if (!window.OfficeCombat || window.OfficeCombat.defeatVisible(mob)) window.drawMinecraftMob(ctx, mob, tick);
     });
   }
 
