@@ -116,7 +116,7 @@
         hud.style.zIndex = '99999';
         hud.style.background = 'linear-gradient(135deg, rgba(220, 38, 38, 0.95), rgba(153, 27, 27, 0.98))';
         hud.style.color = '#ffffff';
-        hud.style.padding = '12px 28px';
+        hud.style.padding = '12px 24px';
         hud.style.borderRadius = '32px';
         hud.style.fontWeight = '700';
         hud.style.fontSize = '15px';
@@ -125,21 +125,70 @@
         hud.style.letterSpacing = '0.04em';
         hud.style.backdropFilter = 'blur(12px)';
         hud.style.userSelect = 'none';
-        hud.style.pointerEvents = 'none';
+        hud.style.pointerEvents = 'auto';
         hud.style.display = 'flex';
         hud.style.alignItems = 'center';
-        hud.style.gap = '8px';
+        hud.style.gap = '14px';
         document.body.appendChild(hud);
       }
       const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - gameNow()) / 1000));
       const m = String(Math.floor(remSec / 60)).padStart(2, '0');
       const s = String(remSec % 60).padStart(2, '0');
-      hud.innerHTML = `🚑 <strong>身受重傷休養中（會議室）</strong>｜無法動彈剩餘：<span style="font-variant-numeric:tabular-nums; color:#fef08a; font-weight:800;">${m}:${s}</span>`;
+      hud.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span>🚑 <strong>身受重傷休養中</strong>｜無法動彈剩餘：<span style="font-variant-numeric:tabular-nums; color:#fef08a; font-weight:800;">${m}:${s}</span></span>
+        </div>
+        <button id="btnEmergencyRevive" type="button" style="
+          background: linear-gradient(135deg, #10b981, #059669);
+          color: #ffffff;
+          border: 1px solid #6ee7b7;
+          border-radius: 20px;
+          padding: 6px 14px;
+          font-weight: 800;
+          font-size: 13px;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+          transition: transform 0.12s ease, filter 0.12s ease;
+          outline: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        ">✨ 立即急救甦醒 (緊急脫困)</button>
+      `;
+      const btn = hud.querySelector('#btnEmergencyRevive');
+      if (btn) {
+        btn.onmousedown = (e) => e.stopPropagation();
+        btn.ontouchstart = (e) => e.stopPropagation();
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          emergencyReviveLocalPlayer();
+        };
+      }
       hud.style.display = 'flex';
     } else if (hud) {
       hud.style.display = 'none';
     }
   }
+
+  function emergencyReviveLocalPlayer() {
+    if (!localPlayer.isInjured) return;
+    localPlayer.isInjured = false;
+    localPlayer.injuredUntil = 0;
+    localPlayer.actionState = null;
+    localPlayer.autoWalkTarget = null;
+    localPlayer.knockback = null;
+    savePersistentState();
+    updatePoseLabelUI();
+    updateInjuryCountdownHUD();
+    ensurePlayerNotStuck();
+    pushStatusLog('系統', '💖 已啟動緊急急救措施，成功甦醒並恢復自由行動！');
+    showToast('💖 已成功緊急甦醒，恢復自由走動能力！', 'join');
+    if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+      window.OfficeCombat?.send(network, 'recovery_release');
+    }
+  }
+  window.emergencyReviveLocalPlayer = emergencyReviveLocalPlayer;
 
   // 依照 24 小時時段與武器強度階梯 (5%~20%) 計算加權隨機道具與武器
   function getRandomHeldItemMeta() {
@@ -5446,12 +5495,51 @@ async function executeOfficeLogin(params) {
   }
 
   function updateLocalPlayerMovement() {
+    if (!isLoggedIn) return;
+
+    // 🚑 檢查重傷休養狀態：重傷躺平無法動彈，即時動態更新倒數並提供緊急甦醒按鈕
+    if (localPlayer.isInjured) {
+      if (gameNow() < (localPlayer.injuredUntil || 0)) {
+        if (typeof localPlayer.injuredX === 'number' && typeof localPlayer.injuredY === 'number') {
+          localPlayer.x = localPlayer.injuredX;
+          localPlayer.y = localPlayer.injuredY;
+        } else {
+          localPlayer.injuredX = localPlayer.x;
+          localPlayer.injuredY = localPlayer.y;
+        }
+        localPlayer.actionState = 'sleep_bed';
+        localPlayer.isMoving = false;
+        localPlayer.autoWalkTarget = null;
+        localPlayer.knockback = null;
+        updateInjuryCountdownHUD();
+        if (tick % 6 === 0 && network) {
+          network.broadcastPacket('move', { player: network.getPublicState() });
+        }
+        return;
+      } else {
+        // 休養期滿，傷勢痊癒！
+        localPlayer.isInjured = false;
+        localPlayer.injuredUntil = 0;
+        localPlayer.actionState = null;
+        savePersistentState();
+        updatePoseLabelUI();
+        updateInjuryCountdownHUD();
+        pushStatusLog('系統', '✨ 傷勢完全痊癒！你已完成休養，恢復自由行動！');
+        showToast('✨ 傷勢完全痊癒！恢復自由走動能力！', 'join');
+        if (network) {
+          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          window.OfficeCombat?.send(network, 'recovery_release');
+        }
+      }
+    } else {
+      updateInjuryCountdownHUD();
+    }
+
     if(season.enabled&&isLoggedIn){localPlayer.speed=window.OfficeProgression.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow());if(localPlayer.speed===0&&!localPlayer.beatingSession){localPlayer.isMoving=false;return;}if((keys.w||keys.a||keys.s||keys.d||keys.ArrowUp||keys.ArrowDown||keys.ArrowLeft||keys.ArrowRight||touchMove.x||touchMove.y)&&season.client?.snapshot?.player?.channel){if(!season.cancelling){season.cancelling=true;seasonSend("cancel").finally(()=>season.cancelling=false);}localPlayer.actionState=null;}}
     else if(!season.enabled&&isLoggedIn){
       localPlayer.speed = (localPlayer.baseSpeed * (1 + (progression.speedBonusPct || 0) / 100)) * (gameNow() < (localPlayer.lightInjuredUntil || 0) ? 0.7 : 1);
     }
     if(gameNow()<(localPlayer.stunnedUntil||0)){localPlayer.isMoving=false;localPlayer.knockback=null;return;}
-    if (!isLoggedIn) return;
     if (gameNow() < (localPlayer.ghostSleepUntil || 0)) {
       localPlayer.actionState = 'slack_nap'; localPlayer.isMoving = false; return;
     }
@@ -5666,43 +5754,7 @@ async function executeOfficeLogin(params) {
       }
     }
 
-    // 🚑 檢查重傷休養狀態：躺在會議室因重傷無法動彈 5 分鐘
-    if (localPlayer.isInjured) {
-      if (gameNow() < (localPlayer.injuredUntil || 0)) {
-        // 重傷期間無法動彈！固定在受傷倒地現場並保持 sleep_bed 躺平動作
-        if (typeof localPlayer.injuredX === 'number' && typeof localPlayer.injuredY === 'number') {
-          localPlayer.x = localPlayer.injuredX;
-          localPlayer.y = localPlayer.injuredY;
-        } else {
-          localPlayer.injuredX = localPlayer.x;
-          localPlayer.injuredY = localPlayer.y;
-        }
-        localPlayer.actionState = 'sleep_bed';
-        localPlayer.isMoving = false;
-        localPlayer.autoWalkTarget = null;
-        localPlayer.knockback = null;
-        updateInjuryCountdownHUD();
-        if (tick % 6 === 0 && network) {
-          network.broadcastPacket('move', { player: network.getPublicState() });
-        }
-        return;
-      } else {
-        // 5 分鐘休養期滿，傷勢痊癒！
-        localPlayer.isInjured = false;
-        localPlayer.injuredUntil = 0;
-        localPlayer.actionState = null;
-        savePersistentState();
-        updatePoseLabelUI();
-        updateInjuryCountdownHUD();
-        pushStatusLog('系統', '✨ 傷勢完全痊癒！你已在會議室完成 5 分鐘休養，恢復自由行動！');
-        showToast('✨ 傷勢完全痊癒！恢復自由走動能力！', 'join');
-        if (network) {
-          network.broadcastPacket('state_sync', { player: network.getPublicState() });
-        }
-      }
-    } else {
-      updateInjuryCountdownHUD();
-    }
+    // 🚑 重傷休養狀態已於 updateLocalPlayerMovement 開頭優先檢測並即時更新
 
     let dx = 0;
     let dy = 0;
@@ -5941,9 +5993,11 @@ async function executeOfficeLogin(params) {
       return;
     }
 
-    seasonPoll();
-    updateLocalPlayerMovement();
-    network.update(tick);
+    try {
+      seasonPoll();
+      updateLocalPlayerMovement();
+      updateInjuryCountdownHUD();
+      network.update(tick);
     const allPlayers = [localPlayer, ...network.getAllOtherPlayers()];
     ecosystem.update(tick, allPlayers);
     updateProximityState();
@@ -6099,8 +6153,11 @@ async function executeOfficeLogin(params) {
     ctx.restore();
 
     renderMinimapRadar(ctx, allPlayers);
-
-    requestAnimationFrame(gameLoop);
+    } catch (loopErr) {
+      console.error('gameLoop caught error:', loopErr);
+    } finally {
+      requestAnimationFrame(gameLoop);
+    }
   }
 
   /**
