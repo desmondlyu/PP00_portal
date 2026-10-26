@@ -19,3 +19,11 @@ Real cloud two-client API test passed: competing RMA claim, concurrent repeated 
 Live browser at 390×844 passed real cloud registration/reset, timed lounge, shield, and logout. Local API browser at 390×844, 844×390 and 1440×900 passed. Actual simultaneous physical-phone sessions and prolonged weak-network soak were not run.
 Ruling: migration accepts existing legacy items once after catalog/durability validation; those historical items cannot be proven cheat-free. Cost: imported assets may include prior local edits, bounded by the catalog and one-time import.
 Ruling: four-digit PIN retained as requested, PBKDF2 600,000 with salt, session rotation and lockout; it is not enterprise identity assurance. Cost: limited PIN entropy and first-name registration can require administrator recovery.
+
+### 2026-10-26 shrine, pickup and impact follow-up
+
+- PP40 shrine now displays a grid-rasterised mascot statue matching the supplied blue-hat/red-coat/green-shorts reference, with a green backdrop and gilded plinth.
+- Pickup is explicit via E/touch interaction, nearest item first, within 80px + level bonus (max 99px). Removed heartbeat auto-pickup; frontend and server both reject obstructed paths. Existing cooldown and capacity checks remain.
+- Root cause of excess ambient loot: Season 2 server used one item every 30 seconds instead of the existing config's two items every 20 minutes. Server now reads the generated config policy and uses spawn-rate weighting (Taiwan time bonuses). NPC defeat rolls remain independently 30% item / 5% outfit, never per ordinary hit.
+- Root cause of missing impact: 450ms reactions were aged by cloud latency and used server-adjusted timestamps against the renderer's device clock. Newly received reactions now play once for 650ms on the local animation clock; impact/dodge displacement is more visible. Authoritative NPC position is applied on the new event.
+- Validation: 153 Node tests pass with TZ=Asia/Taipei; default UTC exposes six existing day-NPC tests that assume daytime. Portal Vite build passes. Local API browser checks at 390x844, 844x390 and 1440x900 verify manual pickup at 75px, no poll auto-pickup, delayed impact playback and expiration, and shrine rendering. Physical iPhone/network soak not performed.

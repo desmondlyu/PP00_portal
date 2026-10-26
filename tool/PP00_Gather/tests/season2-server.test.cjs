@@ -20,3 +20,25 @@ test('damage and logout cancel healing channels',async()=>{const E=await engine(
 test('RMA never chooses equipment already in fault state',async()=>{const E=await engine();const s=game();s.broken=Object.fromEntries(E.assets.tasks.map(t=>[t.id,{broken:true,room:'PP00'}]));assert.throws(()=>E.act(s,'p','rma_claim',{},1000,()=>0),/設備/);});
 test('receipt authorization denies revoked sessions and narrowly permits lost resume recovery',async()=>{const E=await import('../server/service.mjs');assert.equal(typeof E.canReplay,'function','receipt auth missing');const s={players:{},rate:{}};const a=await E.request(s,'register',{name:'Receipt',unit:'PP32',pin:'1938',connection:'r'},'',1000,'src');const requestId='recovery';const b=await E.request(s,'resume',{connection:'r2',requestId},a.token,2000,'src');const meta={playerId:b.player.id,generation:s.players[b.player.id].generation};assert.equal(await E.canReplay(s,'snapshot',a.token,'old',meta,2100),false);assert.equal(await E.canReplay(s,'resume',a.token,requestId,meta,2100),true);assert.equal(await E.canReplay(s,'resume',a.token,requestId,meta,33000),false);await E.request(s,'logout',{},b.token,2500,'src');assert.equal(await E.canReplay(s,'resume',a.token,requestId,meta,2600),false);});
 test('weapon and snack equipment grants only server-calculated XP bonus',async()=>{const E=await engine();const s=game(),p=s.players.p;p.items=[{...E.assets.items.find(m=>m.id==='keyboard'),uid:'key',slot:0}];s.drops.d={...E.assets.items.find(m=>m.id==='pizza'),uid:'d',x:p.x,y:p.y,source:'world'};E.act(s,'p','pickup',{uid:'d'},1000);assert.equal(p.exp,18);});
+
+test('pickup accepts interaction range but rejects items across furniture',async()=>{
+ const E=await engine(),s=game(),p=s.players.p;p.x=1000;p.y=350;
+ s.drops.near={...E.fresh('pizza'),uid:'near',x:1075,y:350,room:'PP00'};
+ E.act(s,'p','pickup',{uid:'near'},100000);assert.equal(p.items.length,1);
+ p.x=1630;p.y=200;s.drops.wall={...E.fresh('coffee'),uid:'wall',x:1710,y:200,room:'PP00'};
+ assert.throws(()=>E.act(s,'p','pickup',{uid:'wall'},100001),/距離|障礙/);
+});
+test('ambient supplies retain twenty-minute two-item batches',async()=>{
+ const E=await engine(),s=game(),p=s.players.p;s.players.q.lastSeen=0;p.lastSeen=1200000;s.lastSpawn={PP00:0};
+ E.world(s,p,{},1199999,()=>.5);assert.equal(Object.keys(s.drops).length,0);
+ E.world(s,p,{},1200000,()=>.5);assert.equal(Object.keys(s.drops).length,2);
+ E.world(s,p,{},1230000,()=>.5);assert.equal(Object.keys(s.drops).length,2);
+});
+test('NPC loot remains thirty percent only on defeat, clothing independently five percent',async()=>{
+ const E=await engine();
+ for(const [roll,count]of [[.299,1],[.30,0],[.049,2],[.05,1]]){
+  const s=game(),p=s.players.p;s.enemies.mob_test={id:'mob_test',role:'mob',tier:1,hp:2,maxHp:2,x:1050,y:350,room:'PP00'};
+  E.strike(s,p,'mob_test',100000,()=>roll);assert.equal(Object.keys(s.drops).length,0);
+  E.strike(s,p,'mob_test',100400,()=>roll);assert.equal(Object.keys(s.drops).length,count);
+ }
+});

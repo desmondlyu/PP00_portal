@@ -84,7 +84,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   if(kind==='active'){if(!Number.isInteger(b.slot)||b.slot<0||b.slot>2)fail('欄位錯誤');p.activeSlot=b.slot;return;}
   if(kind==='claim_legacy'){const i=p.overflow?.find(i=>i.uid===b.uid);if(!i||!capacity(p,i))fail('無法領取');p.overflow=p.overflow.filter(a=>a.uid!==b.uid);p.items.push(i);return;}
   if(kind==='pickup'){
-    const d=s.drops[b.uid];if(!d||d.claimed||d.room&&d.room!==p.room||d.pickupAfter>now||!near(p,d.x,d.y,30+R.level(p.exp)-1)||!capacity(p,d))fail('物品已被撿走、距離過遠或背包已滿');
+    const d=s.drops[b.uid];if(!d||d.claimed||d.room&&d.room!==p.room||d.pickupAfter>now||!near(p,d.x,d.y,R.pickupRadius(R.level(p.exp)))||!segment(p.x,p.y,d.x,d.y)||!capacity(p,d))fail('物品已被撿走、距離過遠、有障礙物或背包已滿');
     p.items.push({...d,uid:uid(),slot:null});d.claimed=true;if(d.source==='world')gain(p,15);return;
   }
   if(kind==='drop'){
@@ -197,10 +197,19 @@ export function world(s,p,b,now,rng=Math.random){
   for(const id of (b.broken||[]).slice(0,100)){if(!assets.tasks.some(t=>t.id===id))continue;const old=s.broken[id];if(!old||!old.broken&&now-(old.handledAt||0)>30000)s.broken[id]={broken:true,room:p.room};}
   for(const [id,e]of Object.entries(s.enemies))if(e.mob&&now-(e.lastSeen||now)>120000)delete s.enemies[id];
   const room=p.room;
-  if(now-(s.lastSpawn?.[room]||0)>30000){
-    s.lastSpawn||={};s.lastSpawn[room]=now;
-    const existing=Object.values(s.drops).filter(d=>d.room===room&&!d.claimed);
-    if(existing.length<16){const m=pick(assets.items.filter(i=>isMaterial(i)&&i.spawnRate>0),rng);if(m){const d={...fresh(m.id),...floor(300+rng()*1600,550+rng()*1100),room,source:'world',createdAt:now};s.drops[d.uid]=d;}}
+  s.lastSpawn||={};
+  if(!Number.isFinite(s.lastSpawn[room]))s.lastSpawn[room]=now;
+  const policy=assets.dropPolicy;
+  if(now-s.lastSpawn[room]>=policy.intervalMs){
+    s.lastSpawn[room]=now;
+    const existing=Object.values(s.drops).filter(d=>d.room===room&&!d.claimed).length;
+    const hour=new Date(now+8*3600000).getUTCHours();
+    const pool=assets.items.filter(i=>isMaterial(i)&&i.spawnRate>0).map(i=>({item:i,weight:i.spawnRate*((hour>=11&&hour<=13||hour>=15&&hour<=16)&&['pizza','boba','coffee'].includes(i.id)?1.2:(hour>=21||hour<7)&&['coffee','kuaikuai'].includes(i.id)?1.25:1)}));
+    const total=pool.reduce((n,i)=>n+i.weight,0);
+    for(let n=0;n<Math.min(policy.batchCount,16-existing);n++){
+      let roll=rng()*total;const m=(pool.find(i=>(roll-=i.weight)<0)||pool.at(-1))?.item;
+      if(m){const d={...fresh(m.id),...floor(300+rng()*1600,550+rng()*1100),room,source:'world',createdAt:now};s.drops[d.uid]=d;}
+    }
   }
   for(const [id,d]of Object.entries(s.drops))if(d.claimed||d.createdAt&&now-d.createdAt>1800000)delete s.drops[id];
 }

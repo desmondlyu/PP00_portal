@@ -53,3 +53,12 @@ test('every hit and dodge publishes a timed reaction for master and remote viewe
 test('final defeat keeps an impact animation even though physical knockback stops',()=>{
  const g=game(),e=g.n.npcPlayers.get('npc_aunt');for(let i=0;i<3;i++){g.h.strike(g.n,'a',e.id);g.advance(300);}assert.equal(g.n.combat.enemies[e.id].hp,0);assert.equal(e.combatReaction.kind,'defeat');assert(g.h.reactionPose(e,100800).jump>0);
 });
+
+test('delayed cloud reactions play fully on receipt, duplicate polls never restart them',()=>{
+ const g=game(),e=g.n.npcPlayers.get('npc_aunt'),reaction={id:'cloud1',kind:'hit',angle:0,at:1000,duration:450};
+ assert.equal(typeof g.h.receiveReaction,'function');
+ g.h.receiveReaction(e,reaction,103000);assert.equal(e.combatReaction.startedAt,103000);
+ assert(g.h.reactionPose(e,103200).active);
+ g.h.receiveReaction(e,reaction,103300);assert.equal(e.combatReaction.startedAt,103000);
+ assert(!g.h.reactionPose(e,104000).active);
+});

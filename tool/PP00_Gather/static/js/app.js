@@ -260,7 +260,11 @@
       const npc=network.npcPlayers.get(id)||(ecosystem.mobs||[]).find(m=>(m.uid||m.id)===id);if(!npc)continue;
       npc.hp=e.hp;npc.maxHp=e.maxHp;npc.combatDown=e.until>now;
       if(npc.combatDown){npc.actionState='sleep_bed';npc.isMoving=false;}else if(npc.actionState==='sleep_bed')npc.actionState=null;
-      if(e.reaction&&npc.combatReaction?.id!==e.reaction.id){npc.combatReaction={...e.reaction,startedAt:gameNow()-Math.max(0,now-e.reaction.at)};if(now-e.reaction.at<1000)showCombatToast(`${escapeHtml(e.name||id)} ${e.reaction.kind==='dodge'?'閃避':e.reaction.kind==='defeat'?'被擊倒':'受到擊退'}`);}
+      if(e.reaction&&now-e.reaction.at<5000&&window.OfficeCombat.receiveReaction(npc,e.reaction)){
+        // Apply authoritative displacement immediately; the render offset supplies the impact motion.
+        npc.x=e.x;npc.y=e.y;
+        showCombatToast(`${escapeHtml(e.name||id)} ${e.reaction.kind==='dodge'?'閃避':e.reaction.kind==='defeat'?'被擊倒':'受到擊退'}`);
+      }
     }
     for(const q of snap.players){if(q.id===p.id)continue;if(!network.remotePlayers.has(q.clientId))network.upsertRemotePlayer({id:q.clientId,name:q.name,unit:q.unit,x:q.x,y:q.y,avatarId:q.avatarId,status:'active'},true);const remote=network.remotePlayers.get(q.clientId);if(remote){remote.seasonPlayerId=q.id;remote.isInjured=q.effects.injuredUntil>now;remote.lightInjuredUntil=q.effects.lightUntil||0;remote.outfitAvatarId=q.worn;}}
     if(p.pending&&!season.pendingChoice){season.pendingChoice=true;setTimeout(async()=>{const chosen=await window.OfficeFacilities.choose('抽到 '+p.pending.outfit.name+'，選一套服裝替換；取消保留材料',p.items.filter(i=>i.category==='outfit'));await seasonSend(chosen?'gacha_confirm':'gacha_cancel',chosen?{replace:chosen[0]}:{});season.pendingChoice=false;},0);}
@@ -289,7 +293,6 @@
       await season.client.send('heartbeat',{x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState});
       if(network.isRoomMaster())await season.client.send('world',{enemies:[...network.npcPlayers.values(),...(ecosystem.mobs||[])].map(e=>({id:e.uid||e.id,templateId:e.id,name:e.name,x:e.x,y:e.y,attacking:!!(e.isBerserk||e.isAggressive||e.isGhost)})),broken:[...window.WORLD_MAP.workstations.map((e,i)=>e.isBroken?'ws_'+i:null),...window.WORLD_MAP.labEquipments.map((e,i)=>e.isBroken?'lab_'+i:null)].filter(Boolean)});
       season.failures=0;
-      const drop=ecosystem.groundItems.find(d=>d.seasonDrop&&Math.hypot(localPlayer.x-d.x,localPlayer.y-d.y)<30+progression.level-1);if(drop&&!localPlayer.isInjured&&!localPlayer.isRestrained)await season.client.send('pickup',{uid:drop.uid});
       const channel=season.client.snapshot?.player?.channel;
       if(channel&&gameNow()-channel.at>=(channel.kind==='lounge'?5000:channel.kind==='heal'?channel.duration:3000)){
         await season.client.send(channel.kind==='rma'?'rma_finish':channel.kind==='heal'?'heal_finish':channel.kind==='device'?'device_finish':'facility_finish');localPlayer.actionState=null;
@@ -297,19 +300,29 @@
     } catch(e){season.failures=(season.failures||0)+1;if(String(e.message).includes('登入已失效'))seasonError(e);else if(!document.hidden&&season.failures>=3){const badge=document.getElementById('netModeBadge');if(badge){badge.textContent='雲端連線中斷・正在重試';badge.classList.add('disconnected');}}}
     finally{season.polling=false;}
   }
+  function nearbySeasonDrop() {
+    return ecosystem.groundItems.filter(d=>d.seasonDrop&&!d.claimed&&!(d.pickupAfter>gameNow()))
+      .map(d=>({d,dist:Math.hypot(d.x-localPlayer.x,d.y-localPlayer.y)}))
+      .filter(({d,dist})=>{
+        if(dist>window.OfficeProgression.pickupRadius(progression.level))return false;
+        const steps=Math.max(1,Math.ceil(dist/8));
+        for(let i=0;i<=steps;i++)if(window.isPositionBlocked(localPlayer.x+(d.x-localPlayer.x)*i/steps,localPlayer.y+(d.y-localPlayer.y)*i/steps,18))return false;
+        return true;
+      }).sort((a,b)=>a.dist-b.dist)[0]?.d||null;
+  }
   async function seasonInteract() {
     if(!season.client?.snapshot)return;
     const snap=season.client.snapshot,p=snap.player;
     if(p.effects.injuredUntil>snap.now||p.effects.lockedUntil>snap.now)return;
     const q=snap.players.find(q=>q.id!==p.id&&(q.effects.injuredUntil>snap.now||q.effects.lightUntil>snap.now)&&Math.hypot(q.x-localPlayer.x,q.y-localPlayer.y)<75);
     if(q){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await seasonSend('heal_start',{target:q.id});localPlayer.actionState='sit_code';return true;}
+    const d=nearbySeasonDrop();
+    if(d){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});const result=await seasonSend('pickup',{uid:d.uid});if(result)showCombatToast(`拾起 ${d.emoji||'🎁'} ${escapeHtml(d.name)}`);return true;}
     if(snap.task?.claimer===p.id&&Math.hypot(localPlayer.x-snap.task.x,localPlayer.y-snap.task.y)<95){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await seasonSend('rma_start');localPlayer.actionState='sit_code';return true;}
     const fault=Object.entries(snap.broken||{}).find(([id,f])=>{const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];return f.broken&&target&&Math.hypot(localPlayer.x-target.x-target.w/2,localPlayer.y-target.y-target.h-18)<95;});
     if(fault){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await seasonSend('device_start',{target:fault[0]});localPlayer.actionState='sit_code';return true;}
     const f=window.OfficeFacilities.nearby(localPlayer,snap);
     if(f){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await window.OfficeFacilities.use(f,season.client).catch(seasonError);if(season.client.snapshot.player.channel)localPlayer.actionState=f.id==='shrine'?'pray_kuaikuai':f.id==='lounge'?'play_arcade':'sit_code';return true;}
-    const d=ecosystem.groundItems.find(d=>Math.hypot(d.x-localPlayer.x,d.y-localPlayer.y)<30+progression.level-1);
-    if(d){await seasonSend('heartbeat',{x:localPlayer.x,y:localPlayer.y});await seasonSend('pickup',{uid:d.uid});return true;}
     return false;
   }
 
@@ -3378,6 +3391,7 @@ async function executeOfficeLogin(params) {
    * 偵測玩家靠近哪種辦公室設備或獨立座椅 (規則 3 & 9)
    */
   function detectNearbyFacility() {
+    if(season.enabled){const d=nearbySeasonDrop();if(d)return {label:'拾取 '+d.name,shortHint:'[E / 互動] 拾取 '+d.name,seasonDrop:true};}
     if(season.enabled){const f=window.OfficeFacilities.nearby(localPlayer,season.client?.snapshot);if(f)return {label:f.label,shortHint:"[E] "+f.label,seasonFacility:true,...f};}
     const px = localPlayer.x;
     const py = localPlayer.y;
