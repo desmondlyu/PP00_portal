@@ -35,7 +35,8 @@
         unit: localPlayer.unit,
         status: localPlayer.status || 'active',
         avatarId: localPlayer.avatarId,
-        roomCode: (network && network.roomCode) || 'PP00',
+        passcode: (document.getElementById('loginPasscode')?.value || '').trim(),
+        roomCode: 'PP00',
         autoLogin: !!autoLogin,
         savedAt: gameNow(),
       };
@@ -1679,7 +1680,7 @@ async function executeOfficeLogin(params) {
 
       if (nameInput && savedSession.name) nameInput.value = savedSession.name;
       if (unitInput && savedSession.unit) unitInput.value = savedSession.unit;
-      if (passInput && savedSession.roomCode) passInput.value = savedSession.roomCode;
+      if (passInput && savedSession.passcode && /^\d{6}$/.test(savedSession.passcode)) passInput.value = savedSession.passcode;
       if (statusInput && savedSession.status) statusInput.value = savedSession.status;
       if (savedSession.avatarId) {
         const avIdx = window.AVATAR_CATALOG.findIndex((a) => a.id === savedSession.avatarId);
@@ -1735,7 +1736,7 @@ async function executeOfficeLogin(params) {
       executeOfficeLogin({
         name: cleanName,
         unit: rawUnit,
-        roomCode,
+        roomCode: 'PP00',
         status: document.getElementById('loginStatus').value || 'active',
         avatarId: chosenAvatar.id,
         isAutoReload: false,
