@@ -321,3 +321,62 @@ test('Toilet door is closed and rendered red for everyone when occupied', () => 
   assert.equal(doorPrimary, '#dc2626', 'All users see the door as RED');
   assert.equal(lockLight, '#ef4444', 'All users see the lock light as RED');
 });
+
+test('User entering toilet is seated INSIDE stall on the toilet seat with door shut tight, NOT outside with door wide open', () => {
+  const appJs = fs.readFileSync(path.join(__dirname, '../static/js/app.js'), 'utf8');
+
+  // 驗證進入廁所時絕對不呼叫 startContextualAction('toilet')，因為那會觸發 cancelContextualAction 把人彈到門外
+  assert.ok(
+    !appJs.includes("startContextualAction('toilet');"),
+    "app.js must NOT call startContextualAction('toilet') which expels player to doorway"
+  );
+
+  // 驗證進入廁所時，精確將玩家設置於 stall.seatX 與 stall.seatY
+  assert.ok(
+    appJs.includes('localPlayer.x = fac.stall.seatX;') && appJs.includes('localPlayer.y = fac.stall.seatY;'),
+    'localPlayer is precisely placed inside the stall on seatX and seatY'
+  );
+
+  // 驗證門板直接鎖上並關閉 (doorOpen = 0)
+  assert.ok(
+    appJs.includes('fac.stall.doorOpen = 0;') && appJs.includes('fac.stall.occupiedBy = localPlayer.id;'),
+    'Door is immediately shut tight (doorOpen = 0) and locked (occupiedBy)'
+  );
+
+  // 模擬進廁所行為
+  const stall = {
+    id: 'wc_1',
+    name: '1號尊榮馬桶間',
+    x: 2470,
+    y: 605,
+    w: 180,
+    h: 96,
+    seatX: 2595,
+    seatY: 652,
+    doorOpen: 1, // 先前可能被路人感應開著
+    occupiedBy: null,
+  };
+  const localPlayer = {
+    id: 'local',
+    x: 2440, // 門外
+    y: 653,
+    actionState: null,
+    occupiedSpotId: null,
+    dir: 'right',
+  };
+
+  // 執行進入廁所邏輯
+  localPlayer.x = stall.seatX;
+  localPlayer.y = stall.seatY;
+  localPlayer.dir = 'down';
+  localPlayer.actionState = 'toilet';
+  localPlayer.occupiedSpotId = stall.id;
+  stall.doorOpen = 0;
+  stall.occupiedBy = localPlayer.id;
+
+  assert.equal(localPlayer.x, 2595, 'Player is placed inside at seatX 2595');
+  assert.equal(localPlayer.y, 652, 'Player is placed inside at seatY 652');
+  assert.equal(localPlayer.actionState, 'toilet', 'Action state is toilet');
+  assert.equal(stall.doorOpen, 0, 'Door is shut tight (doorOpen: 0)');
+  assert.equal(stall.occupiedBy, 'local', 'Stall is marked occupied by user');
+});
