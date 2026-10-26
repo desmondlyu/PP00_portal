@@ -5692,32 +5692,49 @@ async function executeOfficeLogin(params) {
     // 💬 名牌與文字對話框絕對錨定於角色地面高度 (p.y - 68)，絕不隨受擊跳躍 (jumpOffset) 震動抖動！
     const pillY = p.y - 68;
 
-    ctx.fillStyle = p.isBerserk
-      ? 'rgba(185, 28, 28, 0.96)'
-      : isSelf
-      ? 'rgba(15, 23, 42, 0.94)'
-      : 'rgba(15, 23, 42, 0.97)';
-    ctx.beginPath();
-    ctx.roundRect(pillX, pillY, pillW, pillH, 12);
-    ctx.fill();
-    ctx.strokeStyle = p.isBerserk
-      ? '#facc15'
-      : isSelf
-      ? '#38bdf8'
-      : '#94a3b8';
-    ctx.lineWidth = 1.6;
-    ctx.stroke();
+    const isInteracting = !isSelf && (
+      (typeof selectedTargetId !== 'undefined' && selectedTargetId && (p.id === selectedTargetId || p.uid === selectedTargetId)) ||
+      (typeof nearbyPlayers !== 'undefined' && nearbyPlayers && nearbyPlayers[0] && (nearbyPlayers[0].id === p.id || nearbyPlayers[0].uid === p.id))
+    );
 
-    ctx.fillStyle = p.isBerserk ? '#ef4444' : st.dot;
-    ctx.beginPath();
-    ctx.arc(pillX + 12, pillY + pillH / 2, 4.2, 0, Math.PI * 2);
-    ctx.fill();
+    if (isInteracting) {
+      ctx.fillStyle = p.isBerserk ? 'rgba(185, 28, 28, 0.96)' : 'rgba(15, 23, 42, 0.96)';
+      ctx.beginPath();
+      ctx.roundRect(pillX, pillY, pillW, pillH, 12);
+      ctx.fill();
+      ctx.strokeStyle = p.isBerserk ? '#facc15' : '#38bdf8';
+      ctx.lineWidth = 2.0;
+      ctx.stroke();
 
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(displayLabel, pillX + 21, pillY + pillH / 2 + 0.5);
-    ctx.fillText(itemEmoji, pillX + pillW - 21, pillY + pillH / 2 + 0.5);
+      ctx.fillStyle = p.isBerserk ? '#ef4444' : st.dot;
+      ctx.beginPath();
+      ctx.arc(pillX + 12, pillY + pillH / 2, 4.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(displayLabel, pillX + 21, pillY + pillH / 2 + 0.5);
+      if (itemEmoji) ctx.fillText(itemEmoji, pillX + pillW - 21, pillY + pillH / 2 + 0.5);
+    } else {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.92)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetX = 1;
+      ctx.shadowOffsetY = 1;
+
+      ctx.fillStyle = p.isBerserk ? '#ef4444' : st.dot;
+      ctx.beginPath();
+      ctx.arc(p.x - textWidth / 2 - 8, pillY + pillH / 2, 4.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = p.isBerserk ? '#fca5a5' : '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(displayLabel, p.x - textWidth / 2, pillY + pillH / 2 + 0.5);
+      if (itemEmoji) ctx.fillText(itemEmoji, p.x + textWidth / 2 + 6, pillY + pillH / 2 + 0.5);
+      ctx.restore();
+    }
 
     // 💬 文字氣泡自動換行演算法 (支援 CJK、Emoji 與多行折返，絕不超出卡片)
     function wrapMurmurLines(renderCtx, text, maxTextWidth) {
@@ -5788,42 +5805,56 @@ async function executeOfficeLogin(params) {
         bgCol = 'rgba(49, 33, 8, 0.98)';
       }
 
-      ctx.fillStyle = bgCol;
-      ctx.beginPath();
-      ctx.roundRect(bx, by, msgW, msgH, 9);
-      ctx.fill();
-      ctx.strokeStyle = borderCol;
-      ctx.lineWidth = 1.8;
-      ctx.stroke();
-
-      // 小箭頭指向名牌
-      ctx.fillStyle = bgCol;
-      ctx.beginPath();
-      ctx.moveTo(p.x - 4, by + msgH);
-      ctx.lineTo(p.x + 4, by + msgH);
-      ctx.lineTo(p.x, by + msgH + 5);
-      ctx.closePath();
-      ctx.fill();
-
-      // 打字機漸進顯示 (考慮多行折返)
       const charCount = Math.min(p.murmur.text.length, Math.ceil(elapsed / 22));
       const shownText = p.murmur.text.slice(0, charCount);
       const shownLines = wrapMurmurLines(ctx, shownText, maxTextWidth);
 
-      ctx.fillStyle = p.murmur.mood === 'idea' ? '#fef08a' : '#ffffff';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      for (let i = 0; i < shownLines.length; i++) {
-        const lineText = shownLines[i];
-        const ly = by + padY + i * lineH + lineH / 2;
-        ctx.fillText(lineText, bx + 12, ly);
-      }
+      if (isInteracting) {
+        ctx.fillStyle = bgCol;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, msgW, msgH, 9);
+        ctx.fill();
+        ctx.strokeStyle = borderCol;
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
 
-      // 倒數計時進度條
-      ctx.fillStyle = borderCol;
-      ctx.beginPath();
-      ctx.roundRect(bx + 6, by + msgH - 4, (msgW - 12) * remainRatio, 2.5, 1.2);
-      ctx.fill();
+        ctx.fillStyle = bgCol;
+        ctx.beginPath();
+        ctx.moveTo(p.x - 4, by + msgH);
+        ctx.lineTo(p.x + 4, by + msgH);
+        ctx.lineTo(p.x, by + msgH + 5);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = p.murmur.mood === 'idea' ? '#fef08a' : '#ffffff';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        for (let i = 0; i < shownLines.length; i++) {
+          const lineText = shownLines[i];
+          const ly = by + padY + i * lineH + lineH / 2;
+          ctx.fillText(lineText, bx + 12, ly);
+        }
+
+        ctx.fillStyle = borderCol;
+        ctx.beginPath();
+        ctx.roundRect(bx + 6, by + msgH - 4, (msgW - 12) * remainRatio, 2.5, 1.2);
+        ctx.fill();
+      } else {
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+        ctx.shadowBlur = 5;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+        ctx.fillStyle = p.murmur.mood === 'idea' ? '#fde047' : p.murmur.mood === 'fire' ? '#f87171' : '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (let i = 0; i < shownLines.length; i++) {
+          const lineText = shownLines[i];
+          const ly = by + padY + i * lineH + lineH / 2;
+          ctx.fillText(lineText, p.x, ly);
+        }
+        ctx.restore();
+      }
     }
 
     if (p.emote && now < p.emote.expiresAt) {
