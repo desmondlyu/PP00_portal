@@ -573,7 +573,7 @@ window.drawWackyAvatar = function (ctx, opts) {
     poseOffsetX = Math.sin(tick * 0.9) * 3.5; // 慌張左右劇烈抖動
     poseOffsetY = -Math.abs(Math.sin(tick * 0.6)) * 4; // 慌張小碎步亂跳
     poseRotate = Math.sin(tick * 0.7) * 0.15; // 慌亂歪頭
-  } else if (actionState === 'sit_code') {
+  } else if ((actionState === 'sit_code' || actionState === 'play_arcade')) {
     poseOffsetY = 5;
     poseOffsetX = Math.sin(tick * 0.7) * 0.8; // 高速打字微震動
   } else if (actionState === 'toilet') {
@@ -612,7 +612,7 @@ window.drawWackyAvatar = function (ctx, opts) {
   ctx.scale(scale, scale);
 
   // 💻 若處於「坐下寫 Code」狀態，於角色後方繪製 3D 像素人體工學電競椅背與底座
-  if (actionState === 'sit_code') {
+  if ((actionState === 'sit_code' || actionState === 'play_arcade')) {
     ctx.save();
     ctx.fillStyle = '#1e293b';
     fillRoundRect(ctx, -13, -18, 26, 26, 6);
@@ -699,7 +699,7 @@ window.drawWackyAvatar = function (ctx, opts) {
       : avatarId === 'npc_dir_pp00_slim'
       ? '#334155'
       : '#1e293b';
-  if (actionState === 'sit_code' || actionState === 'toilet' || actionState === 'zen_debug') {
+  if ((actionState === 'sit_code' || actionState === 'play_arcade') || actionState === 'toilet' || actionState === 'zen_debug') {
     fillRoundRect(ctx, -10, 8, 8, 5, 2.5);
     fillRoundRect(ctx, 2, 8, 8, 5, 2.5);
   } else if (avatarId === 'npc_vp_uncle') {
@@ -1734,6 +1734,11 @@ function drawContextAction(ctx, action, tick) {
     ctx.globalAlpha = 1;
   };
   switch (action) {
+    case 'play_arcade': {
+      arm(-12,0,-8,4+Math.sin(tick*.5));arm(12,0,8,4+Math.cos(tick*.5));
+      px(-12,1,24,10,'#334155');px(-8,3,3,6,'#67e8f9');px(-10,5,7,2,'#67e8f9');px(5,3,3,3,'#f472b6');px(9,6,3,3,'#fbbf24');
+      break;
+    }
     case 'sit_code': {
       px(-23, 5, 46, 5, '#a88463'); px(-20, 10, 4, 13, '#655b56'); px(16, 10, 4, 13, '#655b56');
       px(-18, -2, 36, 8, '#334155');

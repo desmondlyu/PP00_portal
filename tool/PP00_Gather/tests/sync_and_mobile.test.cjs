@@ -230,6 +230,7 @@ test('Cleaner Auntie performs wash_hands ONLY in restroom and sweep_floor everyw
 
 test('Injury bandage animation and 5-second medical healing packets restore injured player', () => {
   const env = createTestEnv();
+  env.window.GATHER_CONFIG.season2 = false; // Legacy packets; Season 2 accepts only server healing.
   const net = new env.window.EphemeralOfficeNetwork();
   net.connect({ name: 'Victim', unit: 'PP10', x: 400, y: 1350 });
 
@@ -620,3 +621,6 @@ test('Bird commander: follows only when player is nearby (<= 400px), releases wh
   net.update(60);
   assert.ok(net.npcPlayers.has('npc_bird_commander'), 'Bird commander should respawn after 3 minutes cooldown finishes');
 });
+
+test('Season 2 ignores unauthenticated legacy heal completion packets',()=>{const env=createTestEnv();const n=new env.window.EphemeralOfficeNetwork();n.connect({name:'Victim',unit:'PP32',x:900,y:1350});n.localPlayer.isInjured=true;n.handleIncomingPacket({type:'heal_complete',nonce:'forged',targetId:n.clientId});assert.equal(n.localPlayer.isInjured,true);});
+test('Season 2 master election ignores legacy clients not in authenticated cloud roster',()=>{const e=createTestEnv(),n=new e.window.EphemeralOfficeNetwork();n.clientId='z';n.remotePlayers.set('a',{id:'a',name:'legacy'});e.window.GATHER_SEASON_PLAYERS=[{id:'cloud-z',clientId:'z'}];assert.equal(n.isRoomMaster(),true);});

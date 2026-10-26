@@ -1,0 +1,10 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const fs=require('node:fs'),vm=require('node:vm');
+const scope={};vm.createContext(scope);
+const path=__dirname+'/../static/js/progression.js';
+if(fs.existsSync(path))vm.runInContext(fs.readFileSync(path,'utf8'),scope);
+const R=scope.OfficeProgression;
+test('nonlinear thresholds and loss can cross multiple levels without negative EXP',()=>{assert.ok(R,'progression rules missing');assert.equal(R.level(19999),19);assert.equal(R.level(20000),20);assert.equal(R.level(50000),20);assert.equal(R.change(100,-120),0);assert.equal(R.level(R.change(1020,-120)),5);});
+test('speed combines buffs and injury once and respects hard cap',()=>{assert.ok(R);assert.equal(R.speed(4,1,{lightUntil:100},0),2.8);assert.equal(R.speed(4,20,{},0),5.52);assert.equal(R.speed(10,20,{},0),8);});
+test('rest, heal, and injury boundaries match the agreed rules',()=>{assert.ok(R);assert.equal(R.restMs(20),186000);assert.equal(R.healMs(20),2150);assert.equal(R.injury(.049),'critical');assert.equal(R.injury(.05),'light');assert.equal(R.injury(.2),null);});
+test('server clock offset removes five-minute device skew',()=>{assert.equal(typeof R.clock,'function','clock missing');const c=R.clock();c.sync(1000,301000);assert.equal(c.now(302000),2000);});
