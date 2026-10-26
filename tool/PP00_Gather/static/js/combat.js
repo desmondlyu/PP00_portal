@@ -50,7 +50,7 @@
     if(!n.isRoomMaster())return;
     const a=player(n,id),e=n.npcPlayers.get(targetId)||(n.callbacks.getMobs?.()||[]).find(m=>(m.uid||m.id)===targetId);
     if(!a||!e||a.isInjured||Date.now()<(a.stunnedUntil||0)||Math.hypot(a.x-e.x,a.y-e.y)>140||window.isPositionBlocked((a.x+e.x)/2,(a.y+e.y)/2,8))return;
-    if(window.OfficeHunt?.clock().active&&window.OfficeHunt.safe(a))return;
+    if(window.OfficeHunt?.clock?.()?.active&&window.OfficeHunt?.safe?.(a))return;
     if(!n.npcPlayers.has(e.id)) e.isMob=true;
     const entityId=e.uid||e.id;
     const s=state(n),now=Date.now(),key=id+':'+targetId;
@@ -65,13 +65,13 @@
     if(Math.random()<dodge){reaction('dodge');emit(n);return;}
     reaction('hit');
     h.hp--;e.hp=h.hp;e.maxHp=h.maxHp;
-    if(e.isBirdCommander && window.OfficeHunt?.clock().active)window.OfficeHunt.strike?.(n,id);
+    if(e.isBirdCommander && window.OfficeHunt?.clock?.()?.active)window.OfficeHunt.strike?.(n,id);
     e.knockback={vx:Math.cos(angle)*16,vy:Math.sin(angle)*16,ticksLeft:20};
     e.isBerserk=false;e.emote={emoji:'💥',expiresAt:now+1000};
     if(h.hp===0){
       reaction('defeat');
       h.defeatedAt=now;
-      h.until=now+(e.isMob?180000:e.isBirdCommander?(window.OfficeHunt?.clock().active?10000:180000):60000);
+      h.until=now+(e.isMob?180000:e.isBirdCommander?(window.OfficeHunt?.clock?.()?.active?10000:180000):60000);
       e.actionState='sleep_bed';e.isMoving=false;e.knockback=null;e.isFleeing=false;
       const items=[loot(n,e),costumeLoot(n,e)].filter(Boolean);h.result=`擊倒【${e.name}】${items.length?'，掉落 '+items.map(i=>i.name).join('、'):'，未掉落道具'}`;h.resultId=now+':'+e.id;
       n.broadcastPacket('combat_result',{text:h.result,id:h.resultId,owner:id});
@@ -81,7 +81,7 @@
   }
   function damage(n,id,npc=true){
     if(!n.isRoomMaster())return;
-    const p=player(n,id),s=state(n),now=Date.now();if(!p||p.isInjured||window.OfficeHunt?.clock().active&&window.OfficeHunt.safe(p))return;
+    const p=player(n,id),s=state(n),now=Date.now();if(!p||p.isInjured||window.OfficeHunt?.clock?.()?.active&&window.OfficeHunt?.safe?.(p))return;
     if(now-(s.cooldowns['hurt:'+id]||0)<2000)return;
     s.cooldowns['hurt:'+id]=now;
     // Independent rolls; an existing stun never gets extended.
