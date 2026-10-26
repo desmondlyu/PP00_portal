@@ -11,5 +11,6 @@
     return Math.min(8,base*(1+(lv-1)*.02+(e.loungeUntil>now?.15:0)+(e.coffeeUntil>now?.2:0))*(e.lightUntil>now?.7:1));
   }
   const clock=()=>{let offset=0;return {sync:(server,local=Date.now())=>{offset=server-local;},now:(local=Date.now())=>local+offset};};
-  root.OfficeProgression={clock,thresholds,level,change,title,restMs,healMs,speed,injury:r=>r<.05?'critical':r<.20?'light':null};
+  const pickupRadius=lv=>80+Math.max(0,Math.min(19,lv-1));
+  root.OfficeProgression={pickupRadius,clock,thresholds,level,change,title,restMs,healMs,speed,injury:r=>r<.05?'critical':r<.20?'light':null};
 })(globalThis);
