@@ -216,7 +216,7 @@ window.GATHER_CONFIG = {
 
   // 閱後即焚、防洗版冷卻與遊戲平衡設定
   security: {
-    murmurTtlMs: 8000,
+    murmurTtlMs: 20000,
     chatMessageTtlMs: 30000,
     proximityRadiusPx: 165,
     chatCooldownMs: 900,

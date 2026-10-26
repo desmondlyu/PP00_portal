@@ -503,7 +503,7 @@
         renderSidebarRoster();
       },
       onRemoteMurmur: (pkt) => {
-        pushStatusLog(pkt.senderName, `💭 碎碎念：「${pkt.text}」`);
+        // MURMUR 依需求僅在頭頂氣泡卡片呈現，不寫入左下角聊天記錄
         renderUnifiedChatAndStatus();
       },
       onRecoveryLocation: (spot) => {
@@ -1071,7 +1071,7 @@
       } else {
         eqIcon.textContent = '👊';
         eqName.textContent = '👊 徒手拳頭【未裝備道具・肉身無限耐久】';
-        eqDesc.textContent = '威力 Power 3｜經驗加成 +0%｜擊退需：10 次｜冷卻 2.0 秒｜按 [F] 徒手揮拳擊退！';
+        eqDesc.textContent = '威力 Power 3｜經驗加成 +0%｜擊退需：10 次｜冷卻 1.0 秒｜按 [F] 徒手揮拳擊退！';
       }
     }
 
@@ -2456,7 +2456,7 @@ async function executeOfficeLogin(params) {
         e.preventDefault();
         const modeSel = document.getElementById('chatSendModeSelect');
         if (modeSel) {
-          modeSel.value = 'murmur_normal';
+          modeSel.value = 'murmur';
           dispatchChangeEvent(modeSel);
         }
         const chatInp = document.getElementById('proxChatInput');
@@ -2945,7 +2945,7 @@ async function executeOfficeLogin(params) {
       if(['injuredUntil','lockedUntil','stunnedUntil','ghostUntil'].some(k=>effects[k]>now)){showCombatToast('目前狀態無法攻擊');return;}
       const w=getActiveEquippedItem()||FIST_WEAPON;
       const isFist=!!w.isFist;
-      const cd=isFist?2000:300;
+      const cd=isFist?1000:300;
       if(now-lastWeaponAttackAt<cd||!isLoggedIn||season.attacking){
         if(isFist&&now-lastWeaponAttackAt<cd){
           showCombatToast(`👊 徒手揮拳冷卻中（剩餘 ${((cd-(now-lastWeaponAttackAt))/1000).toFixed(1)} 秒）`);
@@ -3005,7 +3005,7 @@ async function executeOfficeLogin(params) {
     const now = gameNow();
     const curWeapon = getActiveEquippedItem() || FIST_WEAPON;
     const isFist = !!curWeapon.isFist;
-    const atkCd = isFist ? 2000 : (window.GATHER_CONFIG?.security?.attackCooldownMs || 250);
+    const atkCd = isFist ? 1000 : (window.GATHER_CONFIG?.security?.attackCooldownMs || 250);
     if (now - lastWeaponAttackAt < atkCd) {
       if (isFist) showCombatToast(`👊 徒手揮拳冷卻中（剩餘 ${((atkCd - (now - lastWeaponAttackAt)) / 1000).toFixed(1)} 秒）`);
       return;
@@ -4522,7 +4522,7 @@ async function executeOfficeLogin(params) {
               : '🔒 請先在名單或地圖中點選真實線上同事開啟私人對談...';
           }
         } else {
-          chatInput.placeholder = '輸入頭頂碎碎念 Murmur (浮現8秒自動銷毀)...';
+          chatInput.placeholder = '輸入 MURMUR (僅顯示在頭頂卡片，維持20秒)...';
         }
       });
     }
@@ -4561,17 +4561,18 @@ async function executeOfficeLogin(params) {
           const sent = sendPrivateChatMessage(target, text);
           if (sent && chatInput) chatInput.value = '';
         } else {
-          // 💭 規則 8：發送 Murmur 訊息整合在聊天室窗內切換
-          const mood = mode.replace('murmur_', '') || 'normal';
+          // 💭 MURMUR 模式：只會顯示在頭上，維持20秒，有卡片效果，重複MURMUR會蓋掉原本的
+          const mood = 'normal';
           const now = gameNow();
+          const ttl = window.GATHER_CONFIG?.security?.murmurTtlMs || 20000;
           localPlayer.murmur = {
             text,
             mood,
             createdAt: now,
-            expiresAt: now + (window.GATHER_CONFIG?.security?.murmurTtlMs || 8000),
+            expiresAt: now + ttl,
           };
           network.broadcastPacket('player_murmur', { text, mood });
-          pushStatusLog('你', `💭 頭頂碎碎念：「${text}」`);
+          // 注意：MURMUR 只會顯示在頭上，重複發送會蓋掉原本的，不寫入聊天記錄
           lastUserActionAt = now;
           if (chatInput) chatInput.value = '';
         }
@@ -5954,52 +5955,48 @@ async function executeOfficeLogin(params) {
       const shownText = p.murmur.text.slice(0, charCount);
       const shownLines = wrapMurmurLines(ctx, shownText, maxTextWidth);
 
-      if (isInteracting) {
-        ctx.fillStyle = bgCol;
-        ctx.beginPath();
+      // MURMUR 始終以精美圓角卡片與進度條呈現，不受 isInteracting 限制
+      ctx.fillStyle = bgCol;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
         ctx.roundRect(bx, by, msgW, msgH, 9);
-        ctx.fill();
-        ctx.strokeStyle = borderCol;
-        ctx.lineWidth = 1.8;
-        ctx.stroke();
-
-        ctx.fillStyle = bgCol;
-        ctx.beginPath();
-        ctx.moveTo(p.x - 4, by + msgH);
-        ctx.lineTo(p.x + 4, by + msgH);
-        ctx.lineTo(p.x, by + msgH + 5);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillStyle = p.murmur.mood === 'idea' ? '#fef08a' : '#ffffff';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        for (let i = 0; i < shownLines.length; i++) {
-          const lineText = shownLines[i];
-          const ly = by + padY + i * lineH + lineH / 2;
-          ctx.fillText(lineText, bx + 12, ly);
-        }
-
-        ctx.fillStyle = borderCol;
-        ctx.beginPath();
-        ctx.roundRect(bx + 6, by + msgH - 4, (msgW - 12) * remainRatio, 2.5, 1.2);
-        ctx.fill();
       } else {
-        ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
-        ctx.shadowBlur = 5;
-        ctx.shadowOffsetX = 1;
-        ctx.shadowOffsetY = 1;
-        ctx.fillStyle = p.murmur.mood === 'idea' ? '#fde047' : p.murmur.mood === 'fire' ? '#f87171' : '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        for (let i = 0; i < shownLines.length; i++) {
-          const lineText = shownLines[i];
-          const ly = by + padY + i * lineH + lineH / 2;
-          ctx.fillText(lineText, p.x, ly);
-        }
-        ctx.restore();
+        ctx.rect(bx, by, msgW, msgH);
       }
+      ctx.fill();
+      ctx.strokeStyle = borderCol;
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+
+      // 指向角色頭頂的對話三角形尾巴
+      ctx.fillStyle = bgCol;
+      ctx.beginPath();
+      ctx.moveTo(p.x - 4, by + msgH);
+      ctx.lineTo(p.x + 4, by + msgH);
+      ctx.lineTo(p.x, by + msgH + 5);
+      ctx.closePath();
+      ctx.fill();
+
+      // 卡片文字內容
+      ctx.fillStyle = p.murmur.mood === 'idea' ? '#fef08a' : '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i < shownLines.length; i++) {
+        const lineText = shownLines[i];
+        const ly = by + padY + i * lineH + lineH / 2;
+        ctx.fillText(lineText, bx + 12, ly);
+      }
+
+      // 卡片底部 20 秒倒數進度條
+      ctx.fillStyle = borderCol;
+      ctx.beginPath();
+      const progressW = Math.max(0, (msgW - 12) * remainRatio);
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(bx + 6, by + msgH - 4, progressW, 2.5, 1.2);
+      } else {
+        ctx.rect(bx + 6, by + msgH - 4, progressW, 2.5);
+      }
+      ctx.fill();
     }
 
     if (p.emote && now < p.emote.expiresAt) {

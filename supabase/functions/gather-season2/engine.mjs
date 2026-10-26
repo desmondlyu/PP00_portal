@@ -210,7 +210,7 @@ export function strike(s,p,targetId,now,rng=Math.random,isFist=false){
 export function combat(s,p,b,now,rng=Math.random){
   const weapon=p.items.find(i=>i.slot===(p.activeSlot||0))||p.items.find(i=>i.slot!=null);
   const isFist=!weapon;
-  const cd=isFist?2000:300;
+  const cd=isFist?1000:300;
   if(locked(p,now)||(p.lastSwing&&now-p.lastSwing<cd))return;
   p.lastSwing=now;
   const targets=Object.values(s.enemies).filter(e=>e.room===p.room&&e.hp>0&&(e.mob||!e.lastSeen||now-e.lastSeen<=15000)&&near(p,e.x,e.y,135)&&!(e.until>now));

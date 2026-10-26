@@ -103,7 +103,7 @@ test('weapon durability zero automatically refills from backpack inventory', asy
   assert.equal(equipped.uid, 'w2');
 });
 
-test('bare-handed attack works with 2s cooldown and 10 hits to repel without weapon', async () => {
+test('bare-handed attack works with 1s cooldown and 10 hits to repel without weapon', async () => {
   const E = await engine();
   const s = game(), p = s.players.p;
   p.items = [];
@@ -111,12 +111,12 @@ test('bare-handed attack works with 2s cooldown and 10 hits to repel without wea
   E.combat(s, p, {}, 1000);
   assert.equal(p.lastAttack?.emoji, '👊');
   assert.equal(s.enemies.mob.fistHits, 1);
-  E.combat(s, p, {}, 1500);
+  E.combat(s, p, {}, 1500); // 500ms < 1000ms cooldown
   assert.equal(s.enemies.mob.fistHits, 1);
-  E.combat(s, p, {}, 3100);
+  E.combat(s, p, {}, 2050); // 1050ms >= 1000ms cooldown
   assert.equal(s.enemies.mob.fistHits, 2);
   for (let i = 3; i <= 10; i++) {
-    E.combat(s, p, {}, 3100 + (i - 2) * 2100);
+    E.combat(s, p, {}, 2050 + (i - 2) * 1050);
   }
   assert.equal(s.enemies.mob.hp, 0);
   assert.equal(s.enemies.mob.reaction.kind, 'defeat');
