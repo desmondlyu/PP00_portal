@@ -8,6 +8,7 @@ window.GATHER_CONFIG = {
   supabaseAnonKey:
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2ZmVrYWtqanpob2NwcHJjYmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjIzMDEsImV4cCI6MjA5Nzc5ODMwMX0.mdj4AEaK8lunyDTf7aYMFMCUW7BQXimel7TRi4B5o-4',
   defaultRoomCode: 'PP00',
+  huntPeriod: 30 * 60 * 1000, // 鳥人大逃殺時間縮短為每半小時 (30分鐘) 一場
   units: ['PP00', 'PP10', 'PP20', 'PP30', 'PP40', 'PP50', 'PP11', 'PP12', 'PP21', 'PP22', 'PP31', 'PP32', 'PP41', 'PP42', 'PT12', 'PT22'],
   statuses: [
     { id: 'active', label: '上線', dot: '#22c55e', icon: '🟢' },
@@ -216,12 +217,12 @@ window.GATHER_CONFIG = {
 
   // 閱後即焚、防洗版冷卻與遊戲平衡設定
   security: {
-    murmurTtlMs: 8000,
+    murmurTtlMs: 20000,
     chatMessageTtlMs: 30000,
     proximityRadiusPx: 165,
     chatCooldownMs: 900,
     skillCooldownMs: 1200,
-    interactCooldownMs: 1200, // 按鍵 E / 情境動作防連點洗版冷卻 (1.2 秒)
+    interactCooldownMs: 250, // 按鍵 E / 情境動作防連點洗版冷卻 (1.2 秒)
     attackCooldownMs: 250, // 武器擊退快速連發冷卻 (0.25 秒)，大幅提升打擊快感
     directorRepairChance: 0.10, // 機台/電腦損壞時，PP00處長 10% 機率親自出馬修理
     idleTimeoutMs: 30000, // 30 秒無動作自動切換為「🟡 閒置」狀態

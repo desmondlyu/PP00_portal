@@ -42,7 +42,7 @@ export function hurt(s,p,source,now,rng=Math.random){
   p.channel=null;closePending(p,false);
   let injury=null;
   if(source==='hunt'){
-    const round=Math.floor(now/900000);if(p.huntRound!==round){p.huntRound=round;p.huntHits=0;}p.huntHits=(p.huntHits||0)+1;
+    const round=Math.floor(now/1800000);if(p.huntRound!==round){p.huntRound=round;p.huntHits=0;}p.huntHits=(p.huntHits||0)+1;
     if(p.huntHits>=3){award(p,-120);e.injuredUntil=now+R.restMs(R.level(p.exp));recovery(s,p,now);injury='critical';}
   }else {injury=R.injury(rng());if(injury==='critical'){award(p,-80);e.injuredUntil=now+R.restMs(R.level(p.exp));recovery(s,p,now);}else if(injury==='light')e.lightUntil=now+60000;}
   const drop=rng()<.2,stun=rng()<.2;
@@ -77,11 +77,64 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   if(kind==='toilet_exit'){leaveToilet(p);p.lastSeen=now;return;}
   if(kind==='cancel'){leaveToilet(p);p.channel=null;closePending(p,false);return;}
   if(kind==='gacha_cancel'){closePending(p,false);return;}
+  if(kind==='emergency_revive'){
+    if(!(p.effects.injuredUntil>now))fail('目前未處於重傷休養狀態');
+    const foodIds=['coffee','pizza','boba'];
+    const consumed=[];
+    const mode=b.mode||'auto';
+    if(mode!=='exp'){
+      while(p.effects.injuredUntil>now){
+        const idx=p.items.findIndex(i=>foodIds.includes(i.id));
+        if(idx===-1)break;
+        const [used]=p.items.splice(idx,1);
+        if(p.worn===used.uid)p.worn=null;
+        consumed.push(used.name||itemMeta(used.id)?.name||used.id);
+        p.effects.injuredUntil=Math.max(now,p.effects.injuredUntil-120000);
+      }
+      if(p.effects.injuredUntil<=now){
+        p.effects.injuredUntil=0;
+        p.channel=null;
+        return {success:true,method:'items',consumed,remainingMs:0};
+      }
+      if(mode==='item'||(mode==='auto'&&consumed.length>0)){
+        return {success:true,method:'items_partial',consumed,remainingMs:p.effects.injuredUntil-now};
+      }
+    }
+    award(p,-50);
+    p.effects.injuredUntil=0;
+    p.channel=null;
+    return {success:true,method:'exp',consumed,lostExp:50,remainingMs:0};
+  }
   if(locked(p,now))fail('目前狀態無法操作');
   if(kind==='toilet_enter'){
     const t=stalls.find(t=>t.id===b.stall);if(!t||!near(p,t.x,t.y+48,100))fail('請先靠近廁所門');
     const owner=stallOwner(s,t,p.room,now);if(owner&&owner.id!==p.id)fail('隔間內有人，請敲門催促');
     leaveToilet(p);p.stall=t.id;p.x=t.seatX;p.y=t.seatY;p.action='toilet';p.lastSeen=now;return;
+  }
+    if(kind==='npc_exchange'){
+    const i=p.items.find(i=>i.uid===b.uid);if(!i||!isMaterial(i)||p.pending?.materials.includes(i.uid))fail('無法交換道具');
+    p.items=p.items.filter(a=>a.uid!==i.uid);
+    const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench','kuaikuai'];
+    const returnId=pick(pool,rng);
+    const d={...fresh(returnId),room:p.room,source:'world',slot:i.slot!=null?i.slot:null};
+    p.items.push(d);
+    gain(p,15);
+    return {item:d};
+  }
+  if(kind==='npc_love_gift'){
+    const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench','kuaikuai'];
+    const giftId=pick(pool,rng);
+    const d={...fresh(giftId),room:p.room,source:'world',slot:null};
+    if(capacity(p,d)){p.items.push(d);}else{p.overflow||=[];p.overflow.push({...d,count:1});}
+    gain(p,15);
+    return {item:d};
+  }
+  if(kind==='npc_cheer_drop'){
+    const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench','kuaikuai'];
+    const dropId=pick(pool,rng);
+    const d={...fresh(dropId),...floor(b.x||p.x+30,b.y||p.y),uid:uid(),room:p.room,source:'world',slot:null,pickupAfter:now+500};
+    s.drops[d.uid]=d;
+    return {drop:d};
   }
   if(kind==='gift'){
     const q=s.players[b.target],i=p.items.find(i=>i.uid===b.uid);if(!q||q.room!==p.room||!active(q,now)||!near(p,q.x,q.y,180)||!i||!isMaterial(i)||!capacity(q,i)||p.pending?.materials.includes(i.uid))fail('無法贈送道具，請確認距離與背包空間');
@@ -104,6 +157,20 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     const i=p.items.find(i=>i.uid===b.uid);if(!i||p.pending?.materials.includes(i.uid))fail('不能丟棄');p.items=p.items.filter(a=>a.uid!==i.uid);if(p.worn===i.uid)p.worn=null;
     const d={...i,...floor(p.x+45,p.y),uid:uid(),room:p.room,source:'player',slot:null,pickupAfter:now+2000};s.drops[d.uid]=d;return;
   }
+  if(kind==='lounge_game'){
+    if(b.outcome==='win'){
+      const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench'];
+      const itemId=pick(pool,rng);
+      const d={...fresh(itemId),...floor(p.x+30,p.y),room:p.room,source:'world',slot:null};
+      p.items.push(d);
+      gain(p,15);
+      return {item:d};
+    } else if(b.outcome==='lose'){
+      award(p,-10);
+      return {lostExp:10};
+    }
+    return {};
+  }
   if(kind==='lounge_start'||kind==='shrine_start'||kind==='repair_start'){
     const x=kind==='lounge_start'?1238:kind==='shrine_start'?1718:1478;
     if(!near(p,x,350))fail('請靠近設施');
@@ -114,7 +181,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   if(kind==='facility_finish'){
     const c=p.channel;if(!c||!near(p,c.x,c.y,25)||now-c.at<(c.kind==='lounge'?5000:3000))fail('互動已中斷或時間不足');
     if(c.kind==='lounge'){p.effects.lightUntil=0;p.effects.loungeUntil=now+30000;p.effects.stunImmuneUntil=now+30000;p.effects.loungeCooldown=now+60000;}
-    else if(c.kind==='shrine'){p.effects.shieldUntil=now+180000;p.effects.shieldCooldown=now+180000;}
+    else if(c.kind==='shrine'){p.effects.shieldUntil=now+180000;p.effects.shieldCooldown=now+180000;p.effects.shrineSpeedUntil=now+10000;}
     else if(c.kind==='repair'){material(p,c.materials,1);const i=p.items.find(i=>i.uid===c.target);if(!i||i.durability>=i.maxDurability)fail('維修目標已變更');p.items=p.items.filter(a=>!c.materials.includes(a.uid));i.durability=i.maxDurability;}
     p.channel=null;return;
   }
@@ -135,19 +202,57 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     p.channel={kind:'device',at:now,x:p.x,y:p.y,target:b.target};return;
   }
   if(kind==='device_finish'){
-    const c=p.channel,f=s.broken?.[c?.target];if(c?.kind!=='device'||!f?.broken||now-c.at<3000||!near(p,c.x,c.y,25))fail('修復時間不足或設備已修好');
-    const t=s.tasks[p.room];if(t?.targetId===c.target)fail('請使用 RMA 任務修復');
-    f.broken=false;f.handledAt=now;gain(p,30);p.channel=null;return;
+    const c=p.channel,f=s.broken?.[c?.target];
+    if(c?.kind!=='device'||!f?.broken||!near(p,c.x,c.y,25)){if(c?.kind==='device')p.channel=null;fail('修復時間不足或設備已修好');}
+    if(now-c.at<3000)fail('修復時間不足或設備已修好');
+    const t=s.tasks[p.room];if(t?.targetIds?.includes(c.target))fail('請使用 RMA 任務修復');
+    f.broken=false;f.handledAt=now;gain(p,30);
+    const supplyPool=['coffee','boba','pizza','kuaikuai','wrench','duck','ic_pkg'];
+    const rewardItem={...fresh(pick(supplyPool,rng)),uid:uid()};
+    if(capacity(p,rewardItem)){p.items.push(rewardItem);}
+    else{const d={...rewardItem,x:p.x,y:p.y,room:p.room,source:'world',origin:'repair',createdAt:now};s.drops[d.uid]=d;}
+    p.channel=null;return;
   }
   if(kind==='rma_claim'){
     if(!near(p,998,350))fail('請靠近電話');if(s.tasks[p.room]?.claimer||s.tasks[p.room]?.cooldown>now)fail('目前搶修中或電話冷卻中');
-    const available=assets.tasks.filter(t=>!s.broken?.[t.id]?.broken);if(!available.length)fail('目前沒有可用設備');
-    const t=pick(available,rng);s.tasks[p.room]={...t,id:uid(),targetId:t.id,claimer:id,until:now+120000};return;
+    const available=assets.tasks.filter(t=>!s.broken?.[t.id]?.broken);if(available.length<3)fail('目前沒有足夠可用設備');s.broken||={};
+    const pool=available.slice(),targets=[];
+    while(targets.length<3&&pool.length>0){const idx=Math.floor(rng()*pool.length);targets.push(pool.splice(idx,1)[0]);}
+    for(const t of targets){s.broken[t.id]={broken:true,room:p.room,rma:true};}
+    s.tasks[p.room]={id:uid(),claimer:id,stage:'repairing',targets:targets.map(t=>({id:t.id,x:t.x,y:t.y,name:t.name})),targetIds:targets.map(t=>t.id),repairedIds:[],targetId:targets[0].id,x:targets[0].x,y:targets[0].y,name:targets[0].name,until:now+300000};return;
   }
-  if(kind==='rma_start'){const t=s.tasks[p.room];if(!t||t.claimer!==id||!near(p,t.x,t.y,90))fail('無有效任務或距離過遠');p.channel={kind:'rma',at:now,x:p.x,y:p.y,task:t.id};return;}
+  if(kind==='rma_start'){
+    const t=s.tasks[p.room];if(!t||t.claimer!==id||t.stage!=='repairing')fail('無有效任務');
+    const targetId=b.target||t.targetId,tgt=t.targets.find(a=>a.id===targetId);
+    if(!tgt||t.repairedIds.includes(tgt.id)||!near(p,tgt.x,tgt.y,90))fail('無有效目標或距離過遠');
+    p.channel={kind:'rma',at:now,x:p.x,y:p.y,task:t.id,target:tgt.id};return;
+  }
   if(kind==='rma_finish'){
-    const t=s.tasks[p.room],c=p.channel;if(!t||t.claimer!==id||c?.task!==t.id||now-c.at<3000||!near(p,t.x,t.y,90))fail('任務尚未完成');
-    if(s.broken?.[t.targetId]){s.broken[t.targetId].broken=false;s.broken[t.targetId].handledAt=now;}award(p,60);s.tasks[p.room]={cooldown:now+30000};p.channel=null;return;
+    const t=s.tasks[p.room],c=p.channel;if(!t||t.claimer!==id||c?.task!==t.id||now-c.at<3000)fail('任務尚未完成');
+    const targetId=c.target||t.targetId,tgt=t.targets.find(a=>a.id===targetId);
+    if(!tgt||!near(p,tgt.x,tgt.y,90))fail('距離目標過遠');
+    if(s.broken?.[targetId]){s.broken[targetId].broken=false;s.broken[targetId].handledAt=now;}
+    if(!t.repairedIds.includes(targetId))t.repairedIds.push(targetId);
+    gain(p,20);
+    p.channel=null;
+    if(t.repairedIds.length>=3){
+      t.stage='reporting';
+      t.targetId='command_post';t.x=998;t.y=350;t.name='救火指揮所';
+    }else{
+      const remaining=t.targets.filter(a=>!t.repairedIds.includes(a.id));
+      if(remaining.length){t.targetId=remaining[0].id;t.x=remaining[0].x;t.y=remaining[0].y;t.name=remaining[0].name;}
+    }
+    return;
+  }
+  if(kind==='rma_report'){
+    const t=s.tasks[p.room];if(!t||t.claimer!==id||t.stage!=='reporting'||!near(p,998,350))fail('尚未完成3台設備搶修或請靠近指揮所');
+    award(p,150);
+    const rewardMeta=pick(assets.items,rng);
+    const rewardItem={...fresh(rewardMeta.id),uid:uid()};
+    if(capacity(p,rewardItem)){p.items.push(rewardItem);}
+    else{const d={...rewardItem,x:p.x,y:p.y,room:p.room,source:'world',origin:'rma_reward',createdAt:now};s.drops[d.uid]=d;}
+    s.tasks[p.room]={cooldown:now+30000,lastReward:{name:rewardItem.name,emoji:rewardItem.emoji,id:rewardItem.id}};
+    p.channel=null;return;
   }
   if(kind==='heal_start'){
     const q=s.players[b.target];if(!q||q.room!==p.room||!near(p,q.x,q.y,75)||!(q.effects.injuredUntil>now||q.effects.lightUntil>now)||p.effects.lightUntil>now)fail('無法急救');
@@ -160,31 +265,54 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   fail('不支援的操作');
 }
 export {assets,R,award,near,active,locked,fresh,uid,nowDate};
-export function strike(s,p,targetId,now,rng=Math.random){
+export function strike(s,p,targetId,now,rng=Math.random,isFist=false){
   const e=s.enemies[targetId];if(!e||e.hp<=0||!e.mob&&e.lastSeen&&now-e.lastSeen>15000||e.room!==p.room||e.until>now||!near(p,e.x,e.y,140)||!segment(p.x,p.y,e.x,e.y)||locked(p,now))return;
   const a=Math.atan2(e.y-p.y,e.x-p.x),dodge=e.role==='ghost'?.6:e.role==='bird'?.45:e.role==='guard'?.25:0;
   e.reaction={id:uid(),kind:'hit',angle:a,at:now,duration:450};
   if(rng()<dodge){e.reaction.kind='dodge';return;}
-  e.hp--;Object.assign(e,floor(e.x+Math.cos(a)*35,e.y+Math.sin(a)*35));
+  if(isFist){
+    e.fistHits=(e.fistHits||0)+1;
+    if(e.fistHits>=10){e.fistHits=0;e.hp=0;}
+    else{e.hp=Math.max(0.1,e.hp-(e.maxHp||2)/10);}
+  }else{
+    e.hp--;
+  }
+  const pushDist=isFist?20:35;
+  Object.assign(e,floor(e.x+Math.cos(a)*pushDist,e.y+Math.sin(a)*pushDist));
   if(e.hp<=0){
-    e.until=now+(e.role==='bird'&&now%900000<60000?10000:e.mob?180000:60000);e.reaction.kind='defeat';e.defeatedAt=now;if(e.mob){s.mobDefeatedAt||={};s.mobDefeatedAt[p.room]=now;}gain(p,30);
+    e.until=now+(e.role==='bird'&&now%1800000<60000?10000:e.mob?180000:60000);e.reaction.kind='defeat';e.defeatedAt=now;if(e.mob){s.mobDefeatedAt||={};s.mobDefeatedAt[p.room]=now;}gain(p,30);
     const makeDrop=id=>{const d={...fresh(id),...floor(e.x+35,e.y+20),room:p.room,source:'world',origin:'defeat',createdAt:now};s.drops[d.uid]=d;};
     if(rng()<.3){const ids=e.tier===3?['bench','rma_report']:e.tier===2?['keyboard','wrench','wafer_blade']:['pizza','boba','coffee','duck','ic_pkg'];makeDrop(pick(ids,rng));}
     if(rng()<.05)makeDrop(pick(assets.items.filter(i=>i.category==='outfit'),rng).id);
-  }else if(['vp','dir','auntie'].includes(e.role)&&!(e.busyUntil>now)&&rng()<.5){
-    const dest=e.role==='vp'?{x:380,y:310}:e.role==='dir'?{x:755,y:310}:{x:2340,y:820};
+  }else if(['vp','dir','auntie','guard'].includes(e.role)&&!(e.busyUntil>now)&&(e.role==='guard'?rng()<.8:rng()<.5)){
+    const dest=e.role==='vp'?{x:380,y:310}:e.role==='dir'?{x:755,y:310}:e.role==='guard'?{x:2360,y:350}:{x:2340,y:820};
     Object.assign(p,dest);p.effects.lockedUntil=now+8000;p.beating={npcId:e.id,role:e.role,until:now+8000,startedAt:now};e.busyUntil=now+8000;award(p,-50);
+    if(e.role==='guard')p.effects.lightUntil=now+60000;
   }
 }
 export function combat(s,p,b,now,rng=Math.random){
-  if(locked(p,now)||now-(p.lastSwing||0)<300)return;
-  const weapon=p.items.find(i=>i.slot===(p.activeSlot||0))||p.items.find(i=>i.slot!=null);if(!weapon)return;p.lastSwing=now;
+  const weapon=p.items.find(i=>i.slot===(p.activeSlot||0))||p.items.find(i=>i.slot!=null);
+  const isFist=!weapon;
+  const cd=isFist?1000:300;
+  if(locked(p,now)||(p.lastSwing&&now-p.lastSwing<cd))return;
+  p.lastSwing=now;
   const targets=Object.values(s.enemies).filter(e=>(!Array.isArray(b.targets)||b.targets.includes(e.id))&&e.room===p.room&&e.hp>0&&(e.mob||!e.lastSeen||now-e.lastSeen<=15000)&&near(p,e.x,e.y,135)&&!(e.until>now)).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));
   const others=Object.values(s.players).filter(q=>q.id!==p.id&&q.room===p.room&&active(q,now)&&near(p,q.x,q.y,135));
-  for(const e of targets){strike(s,p,e.id,now,rng);if(p.effects.lockedUntil>now)break;}
+  for(const e of targets){strike(s,p,e.id,now,rng,isFist);if(p.effects.lockedUntil>now)break;}
   if(!(p.effects.lockedUntil>now))for(const q of others)hurt(s,q,'pvp',now,rng);
-  if((targets.length||others.length)&&rng()>=(R.level(p.exp)-1)*.01){weapon.durability--;if(weapon.durability<=0)p.items=p.items.filter(i=>i.uid!==weapon.uid);}
-  p.lastAttack={at:now,emoji:weapon.emoji};
+  if(weapon&&(targets.length||others.length)&&rng()>=(R.level(p.exp)-1)*.01){
+    weapon.durability--;
+    if(weapon.durability<=0){
+      const brokenSlot=weapon.slot;
+      p.items=p.items.filter(i=>i.uid!==weapon.uid);
+      const emptySlot=[0,1,2].find(s=>!p.items.some(i=>i.slot===s));
+      if(emptySlot!==undefined){
+        const nextW=p.items.find(i=>i.slot==null&&i.category!=="outfit");
+        if(nextW){nextW.slot=emptySlot;if(p.activeSlot===brokenSlot)p.activeSlot=emptySlot;}
+      }
+    }
+  }
+  p.lastAttack={at:now,emoji:weapon?weapon.emoji:'👊'};
 }
 export function world(s,p,b,now,rng=Math.random,positionsOnly=false){
   const online=Object.values(s.players).filter(q=>q.room===p.room&&active(q,now)).sort((a,b)=>a.connection.localeCompare(b.connection));
@@ -202,11 +330,11 @@ export function world(s,p,b,now,rng=Math.random,positionsOnly=false){
     if(!e)e=s.enemies[row.id]={id:row.id,role,tier,hp,maxHp:hp,room:p.room,mob:role==='mob'};
     if(e.room!==p.room||e.mob&&e.hp<=0||e.until>now||e.busyUntil>now)continue;
     e.x=Math.max(55,Math.min(2700,row.x));e.y=Math.max(55,Math.min(1900,row.y));e.name=String(row.name||row.id).slice(0,40);e.templateId=String(row.templateId||row.id);e.lastSeen=now;e.attacking=!!row.attacking;
-    if(!positionsOnly&&(row.attacking||role==='bird'&&now%900000<60000)){
+    if(!positionsOnly&&(row.attacking||role==='bird'&&now%1800000<60000)){
       for(const q of online){if(!near(q,e.x,e.y,75)||locked(q,now))continue;
-        if(role==='bird'&&now%900000<60000){if(q.x>=2220&&q.x<=2500&&q.y>=160&&q.y<=460)continue;hurt(s,q,'hunt',now,rng);}
+        if(role==='bird'&&now%1800000<60000){if(q.x>=2220&&q.x<=2500&&q.y>=160&&q.y<=460)continue;hurt(s,q,'hunt',now,rng);}
         else if(role==='ghost'){if(now-(q.lastScare||0)>7000&&rng()<.5){q.lastScare=now;q.effects.ghostUntil=now+5000;}}
-        else if(['guard','mob','bird'].includes(role))hurt(s,q,'npc',now,rng);
+        else if(['guard','mob','bird','vp','dir','auntie'].includes(role))hurt(s,q,'npc',now,rng);
       }
     }
   }
@@ -239,7 +367,7 @@ export function world(s,p,b,now,rng=Math.random,positionsOnly=false){
   const ambient=Object.entries(s.drops).filter(([,d])=>d.room===room&&d.source==='world'&&d.origin==='ambient').sort((a,b)=>b[1].createdAt-a[1].createdAt);
   for(const [id]of ambient.slice(assets.dropPolicy.maxGround))delete s.drops[id];
   s.lastSpawn||={};
-  if(!Number.isFinite(s.lastSpawn[room]))s.lastSpawn[room]=now-assets.dropPolicy.intervalMs;
+  if(!Number.isFinite(s.lastSpawn[room]))s.lastSpawn[room]=now;
   const policy=assets.dropPolicy;
   if(now-s.lastSpawn[room]>=policy.intervalMs){
     s.lastSpawn[room]=now;

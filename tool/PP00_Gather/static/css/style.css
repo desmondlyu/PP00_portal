@@ -1,6 +1,6 @@
 
 /* 取消手機版畫面與搖桿長按複製、貼上與選取反白等模擬右鍵行為 */
-html, body, #officeCanvas, .touch-controls, .touch-move-pad, .touch-move-knob, .touch-interact-btn, .skill-btn, .game-icon-btn, .bottom-hud-dock {
+html, body, #officeCanvas, .touch-controls, .touch-move-pad, .touch-move-knob, .touch-interact-btn, .touch-attack-btn, .skill-btn, .game-icon-btn, .bottom-hud-dock {
   -webkit-touch-callout: none !important;
   -webkit-user-select: none !important;
   -khtml-user-select: none !important;
@@ -10,7 +10,7 @@ html, body, #officeCanvas, .touch-controls, .touch-move-pad, .touch-move-knob, .
   -webkit-tap-highlight-color: transparent !important;
 }
 
-.touch-move-pad, .touch-move-knob, .touch-interact-btn, #officeCanvas {
+.touch-move-pad, .touch-move-knob, .touch-interact-btn, .touch-attack-btn, #officeCanvas {
   touch-action: none !important;
 }
 
@@ -1016,9 +1016,9 @@ html {
 .action-pose-dropdown {
   position: absolute;
   bottom: calc(100% + 12px);
-  left: 0;
-  width: 390px;
-  max-width: 90vw;
+  right: 0;
+  left: auto;
+  width: min(400px, 90vw);
   background: rgba(15, 23, 42, 0.96);
   backdrop-filter: blur(16px);
   border: 1.5px solid rgba(56, 189, 248, 0.55);
@@ -1080,160 +1080,191 @@ html {
 .bottom-hud-dock {
   position: fixed;
   left: 645px;
-  right: 14px;
-  bottom: 10px;
+  right: 20px;
+  bottom: 14px;
   z-index: 50;
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  gap: 14px;
   pointer-events: none;
-  transition: left 0.2s ease;
+  transition: all 0.25s ease;
 }
 .prox-chat-panel.collapsed ~ .bottom-hud-dock {
   left: 48px;
+  justify-content: center;
 }
 
-/* 置中整合工具條：將情境互動選單、快捷鍵互動功能與 Murmur 工具條放在下方中間 */
+/* 置中整合工具條：手遊風格精緻懸浮 Action Bar Dock */
 .bottom-center-command-dock {
   pointer-events: auto;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
-  gap: 10px;
-  background: rgba(15, 23, 42, 0.92);
-  backdrop-filter: blur(16px);
-  border: 1.5px solid rgba(56, 189, 248, 0.42);
-  border-radius: 18px;
-  padding: 8px 14px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  gap: 8px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(9, 14, 26, 0.98) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(56, 189, 248, 0.45);
+  border-radius: 22px;
+  padding: 7px 16px 9px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.68), 0 0 24px rgba(56, 189, 248, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.15);
   max-width: 100%;
-}
-
-.self-avatar-badge {
-  font-size: 20px;
-}
-
-.murmur-bar-card {
-  display: flex;
-  align-items: center;
-  min-width: 310px;
-  border-left: 1px solid rgba(148, 163, 184, 0.25);
-  padding-left: 10px;
-}
-
-.murmur-form {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-}
-
-.murmur-mood-select {
-  padding: 6px 8px;
-  border-radius: 9px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(30, 41, 59, 0.9);
-  color: #fff;
-  font-size: 11.5px;
-}
-
-.murmur-input {
-  flex: 1;
-  min-width: 150px;
-  padding: 6px 10px;
-  border-radius: 9px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(30, 41, 59, 0.9);
-  color: #fff;
-  font-size: 12px;
-  outline: none;
-}
-
-.murmur-send-btn {
-  padding: 6px 12px;
-  border-radius: 9px;
-  border: none;
-  background: var(--grad-emerald);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
 }
 
 .proximity-skill-dock {
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 2px 4px;
-  border-radius: 10px;
+  width: 100%;
+  border-radius: 12px;
   transition: all 0.2s;
 }
 
 .proximity-skill-dock.nearby-active {
   background: rgba(34, 197, 94, 0.12);
-  box-shadow: 0 0 18px rgba(34, 197, 94, 0.28);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.32);
 }
 
 .prox-target-label {
-  font-size: 10.5px;
-  color: #cbd5e1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+  padding: 3px 14px;
+  border-radius: 20px;
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.22);
   text-align: center;
 }
 
 .prox-target-label kbd {
-  background: rgba(56, 189, 248, 0.2);
-  border: 1px solid rgba(56, 189, 248, 0.5);
+  background: rgba(56, 189, 248, 0.22);
+  border: 1px solid rgba(56, 189, 248, 0.6);
   border-radius: 4px;
-  padding: 0 4px;
+  padding: 0 5px;
   color: #7dd3fc;
-  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
 }
 
 .skill-btn-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
+.touch-skills-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 手機遊戲風格精緻圓角膠囊按鈕 */
 .skill-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 9px;
-  border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.32);
-  background: rgba(30, 41, 59, 0.92);
-  color: #f8fafc;
-  font-size: 11.5px;
-  font-weight: 600;
+  justify-content: center;
+  gap: 5px;
+  height: 38px;
+  padding: 0 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.96) 100%);
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   cursor: pointer;
-  transition: transform 0.12s, background 0.15s, border-color 0.15s;
+  user-select: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: transform 0.14s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.14s ease, border-color 0.14s ease, background 0.14s ease;
 }
 
-.skill-btn:hover,
+.skill-btn:hover {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.85) 0%, rgba(29, 78, 216, 0.95) 100%);
+  border-color: rgba(96, 165, 250, 0.8);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.45), 0 0 14px rgba(56, 189, 248, 0.4);
+  transform: translateY(-2px) scale(1.03);
+  color: #ffffff;
+}
+
+.skill-btn:active {
+  transform: translateY(1px) scale(0.97);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
 .skill-btn.hotkey-flash {
-  background: #2563eb;
-  border-color: #60a5fa;
-  transform: translateY(-2px);
+  animation: skillFlash 0.35s ease;
 }
 
+@keyframes skillFlash {
+  0% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.08); filter: brightness(1.6); box-shadow: 0 0 20px #38bdf8; }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+/* 快捷鍵發光小標籤 */
 .hk-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 4px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(250, 204, 21, 0.65);
+  min-width: 17px;
+  height: 17px;
+  padding: 0 3px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
+  border: 1px solid rgba(250, 204, 21, 0.75);
   color: #fde047;
-  font-family: monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 10px;
   font-weight: 800;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* 🎬 情境專屬漸層 */
+.action-pose-toggle-btn {
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.88) 0%, rgba(67, 56, 202, 0.96) 100%);
+  border-color: rgba(165, 180, 252, 0.55);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.action-pose-toggle-btn:hover {
+  background: linear-gradient(180deg, rgba(129, 140, 248, 0.95) 0%, rgba(79, 70, 229, 1) 100%);
+  border-color: #a5b4fc;
+}
+
+/* ⚔️ 擊退專屬熱血漸層 */
+.weapon-atk-btn {
+  background: linear-gradient(180deg, rgba(225, 29, 72, 0.88) 0%, rgba(159, 18, 57, 0.96) 100%);
+  border-color: rgba(251, 113, 133, 0.55);
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.weapon-atk-btn:hover {
+  background: linear-gradient(180deg, rgba(244, 63, 94, 0.95) 0%, rgba(190, 18, 60, 1) 100%);
+  border-color: #fda4af;
+  box-shadow: 0 6px 18px rgba(225, 29, 72, 0.55), 0 0 14px rgba(251, 113, 133, 0.5);
+}
+
+/* 🎒 裝備/物品專屬翡翠金屬漸層 */
+.mc-inv-btn {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.88) 0%, rgba(5, 150, 105, 0.96) 100%);
+  border-color: rgba(52, 211, 153, 0.55);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.mc-inv-btn:hover {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.95) 0%, rgba(16, 185, 129, 1) 100%);
+  border-color: #6ee7b7;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.5), 0 0 14px rgba(52, 211, 153, 0.45);
 }
 
 /* =========================================================================
@@ -2676,7 +2707,10 @@ button { touch-action: manipulation; }
   .touch-move-pad { position: absolute; left: calc(18px + env(safe-area-inset-left)); bottom: calc(86px + env(safe-area-inset-bottom)); width: 112px; height: 112px; border-radius: 50%; border: 2px solid #94a3b8aa; background: #0f172a99; pointer-events: auto; touch-action: none; display: grid; place-items: center; }
   .touch-pad-arrows { font-size: 65px; color: #94a3b899; }
   .touch-move-knob { position: absolute; width: 44px; height: 44px; border-radius: 50%; background: #7dd3fcbb; border: 2px solid #e0f2fe; pointer-events: none; }
-  .touch-interact-btn { position: absolute; right: calc(18px + env(safe-area-inset-right)); bottom: calc(100px + env(safe-area-inset-bottom)); width: 72px; height: 72px; border-radius: 50%; border: 2px solid #67e8f9; background: #155e75dd; color: white; font-size: 16px; font-weight: 700; pointer-events: auto; }
+  .touch-attack-btn { position: absolute; right: calc(18px + env(safe-area-inset-right)); bottom: calc(96px + env(safe-area-inset-bottom)); width: 66px; height: 66px; border-radius: 50%; border: 2px solid #f87171; background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%); color: white; font-size: 15px; font-weight: 800; pointer-events: auto; touch-action: manipulation; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); display: grid; place-items: center; }
+  .touch-attack-btn:active { transform: scale(0.92); background: #991b1b; }
+  .touch-interact-btn { position: absolute; right: calc(26px + env(safe-area-inset-right)); bottom: calc(174px + env(safe-area-inset-bottom)); width: 56px; height: 56px; border-radius: 50%; border: 2px solid #67e8f9; background: #155e75ee; color: white; font-size: 13.5px; font-weight: 700; pointer-events: auto; touch-action: manipulation; box-shadow: 0 4px 12px rgba(6, 182, 212, 0.35); display: grid; place-items: center; }
+  .touch-interact-btn:active { transform: scale(0.92); background: #0e7490; }
   .mc-inventory-modal { padding: 8px; }
   .mc-window-frame { max-height: 90dvh; overflow-y: auto; width: min(600px, 100%); padding: 10px; }
   .mc-slot-grid { grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 2px; }
@@ -2810,13 +2844,13 @@ button { touch-action: manipulation; }
 /* 鳥人追殺模式：右上角小型倒數 HUD (不佔據中間上方) */
 #huntHud {
   position: fixed;
-  top: calc(56px + env(safe-area-inset-top));
-  right: calc(14px + env(safe-area-inset-right));
+  bottom: calc(92px + env(safe-area-inset-bottom));
+  right: calc(20px + env(safe-area-inset-right));
   left: auto;
   transform: none;
   z-index: 170;
-  max-width: min(340px, calc(100vw - 28px));
-  padding: 6px 12px;
+  max-width: min(360px, calc(100vw - 28px));
+  padding: 8px 14px;
   border: 1.5px solid #ef4444;
   border-radius: 12px;
   background: rgba(37, 18, 28, 0.94);
@@ -2962,7 +2996,7 @@ body.hunt-active::after {
 
   #mobileCombatFeed {
     display: flex; flex-direction: column; gap: 5px;
-    position: fixed; top: calc(68px + env(safe-area-inset-top));
+    position: fixed; top: calc(200px + env(safe-area-inset-top));
     right: calc(10px + env(safe-area-inset-right));
     width: min(235px, 58vw); z-index: 160; pointer-events: none;
     color: #ffffff; font-size: 15px; font-weight: 800; line-height: 1.6;
@@ -2974,6 +3008,9 @@ body.hunt-active::after {
   #mobileCombatFeed > div:last-child { color: #fef08a; }
 
 @media (max-width: 900px), (pointer: coarse) {
+  #mobileCombatFeed {
+    top: calc(68px + env(safe-area-inset-top));
+  }
   #injuryHudBanner {
     top: calc(14px + env(safe-area-inset-top)) !important;
     right: calc(14px + env(safe-area-inset-right)) !important;
@@ -2987,12 +3024,755 @@ body.hunt-active::after {
     pointer-events: none;
   }
 }
-/* Season 2 material selection fits both phone orientations. */
-.s2-picker { background:#101d30;color:#e3effa;border:1px solid #4bb6c7;border-radius:16px;padding:20px;max-width:min(440px,90vw);max-height:70dvh;overflow:auto;box-shadow:0 16px 70px #0009; }
-.s2-picker::backdrop { background:#020b18a0; }
-.s2-picker h3 { margin:0 0 16px;font-size:16px; }
+/* Season 2 material selection dialog centered in viewport */
+.s2-picker { position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);margin:0;background:#101d30;color:#e3effa;border:2px solid #4bb6c7;border-radius:16px;padding:24px;width:min(440px,90vw);max-height:75dvh;overflow:auto;box-shadow:0 20px 80px rgba(0,0,0,0.8),0 0 24px rgba(75,182,199,0.3);z-index:100000; }
+.s2-picker::backdrop { background:rgba(2,11,24,0.75);backdrop-filter:blur(3px); }
+.s2-picker h3 { margin:0 0 16px;font-size:16px;font-weight:700;text-align:center; }
 .s2-picker form { display:grid;gap:10px; }
-.s2-picker label { display:flex;align-items:center;gap:10px;padding:10px;background:#243349;border-radius:8px; }
-.s2-picker button { padding:12px;border:1px solid #5c91a5;border-radius:8px;background:#17546a;color:#fff;font-weight:700; }
-.s2-picker button:disabled { opacity:.4; }
+.s2-picker label { display:flex;align-items:center;gap:10px;padding:10px 14px;background:#243349;border-radius:8px;cursor:pointer;transition:background 0.15s; }
+.s2-picker label:hover { background:#334460; }
+.s2-picker button { padding:12px;border:1px solid #5c91a5;border-radius:8px;background:#17546a;color:#fff;font-weight:700;cursor:pointer; }
+.s2-picker button:disabled { opacity:.4;cursor:not-allowed; }
+
+/* RMA 救火特定任務中央通報橫幅 */
+.rma-mission-modal { position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);z-index:10000;pointer-events:none;width:min(520px, 92vw);animation:rmaPopIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes rmaPopIn { from { opacity:0;transform:translate(-50%, -42%) scale(0.9); } to { opacity:1;transform:translate(-50%, -50%) scale(1); } }
+.rma-mission-box { background:linear-gradient(135deg, rgba(30,20,20,0.95), rgba(15,23,42,0.97));border:2px solid #ef4444;border-radius:16px;padding:24px 28px;text-align:center;box-shadow:0 16px 60px rgba(239,68,68,0.4),0 0 30px rgba(0,0,0,0.8);backdrop-filter:blur(8px); }
+.rma-mission-title { color:#fca5a5;font-size:22px;font-weight:900;letter-spacing:0.5px;text-shadow:0 0 12px rgba(239,68,68,0.6);margin-bottom:8px; }
+.rma-mission-subtitle { color:#e2e8f0;font-size:14px;line-height:1.5;margin:0 0 12px; }
+.rma-mission-progress { display:inline-block;padding:6px 16px;border-radius:20px;background:rgba(239,68,68,0.2);border:1px solid #ef4444;color:#fef08a;font-weight:800;font-size:15px; }
 .s2-login-note { font-size:12px;color:#93c5d7; }
+
+
+/* =========================================================================
+   手遊 RPG 雙核心架構工具列 (Scheme A)
+   ========================================================================= */
+.bottom-center-command-dock {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(9, 14, 26, 0.98) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(56, 189, 248, 0.42);
+  border-radius: 22px;
+  padding: 6px 14px 8px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.68), 0 0 24px rgba(56, 189, 248, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  max-width: 100%;
+}
+
+.proximity-skill-dock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.proximity-skill-dock.nearby-active {
+  background: rgba(34, 197, 94, 0.12);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.32);
+}
+
+.prox-target-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+  padding: 2px 12px;
+  border-radius: 20px;
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  text-align: center;
+}
+
+.hud-pill-tag {
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.prox-target-label kbd {
+  background: rgba(56, 189, 248, 0.22);
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  border-radius: 4px;
+  padding: 0 5px;
+  color: #7dd3fc;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.skill-btn-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.touch-skills-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 技能磁貼按鈕 (Skill Tile Button) */
+.skill-tile-btn {
+  position: relative;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 46px !important;
+  height: 50px !important;
+  padding: 0 !important;
+  border-radius: 13px !important;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.92) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
+  border: 1.5px solid rgba(148, 163, 184, 0.3) !important;
+  color: #f1f5f9;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: transform 0.14s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.14s ease, border-color 0.14s ease !important;
+}
+
+.skill-tile-btn .tile-icon {
+  font-size: 20px;
+  line-height: 1;
+  margin-top: 2px;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+}
+
+.skill-tile-btn .tile-label {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #cbd5e1;
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+}
+
+.hk-chip {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border: 1px solid rgba(250, 204, 21, 0.85);
+  color: #fde047;
+  font-family: ui-monospace, monospace;
+  font-size: 9.5px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.skill-tile-btn:hover {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.88) 0%, rgba(29, 78, 216, 0.96) 100%) !important;
+  border-color: rgba(96, 165, 250, 0.8) !important;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.45), 0 0 14px rgba(56, 189, 248, 0.4) !important;
+  transform: translateY(-3px) scale(1.06) !important;
+  color: #ffffff;
+}
+
+.skill-tile-btn:active {
+  transform: translateY(1px) scale(0.96) !important;
+}
+
+/* 右側戰術核心圓盤 (Combat Action Cluster) */
+.combat-action-cluster {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.94) 0%, rgba(9, 14, 26, 0.98) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(244, 63, 94, 0.45);
+  border-radius: 26px;
+  padding: 6px 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.72), 0 0 24px rgba(244, 63, 94, 0.22);
+}
+
+.cluster-sub-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cluster-pill-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 31px;
+  padding: 0 11px;
+  border-radius: 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #fff;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.cluster-pill-btn .pill-icon {
+  font-size: 14px;
+}
+
+.cluster-pill-btn .pill-badge {
+  font-size: 10px;
+  color: #fef08a;
+  font-weight: 800;
+}
+
+.cluster-pill-btn .hk-chip {
+  position: static;
+  margin-left: 2px;
+  width: 15px;
+  height: 15px;
+  font-size: 9px;
+}
+
+.action-pose-toggle-btn {
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.88) 0%, rgba(67, 56, 202, 0.96) 100%);
+  border: 1px solid rgba(165, 180, 252, 0.5);
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.35);
+}
+.action-pose-toggle-btn:hover {
+  background: linear-gradient(180deg, rgba(129, 140, 248, 0.95) 0%, rgba(79, 70, 229, 1) 100%);
+  border-color: #a5b4fc;
+  transform: translateY(-2px);
+}
+
+.mc-inv-btn {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.88) 0%, rgba(5, 150, 105, 0.96) 100%);
+  border: 1px solid rgba(52, 211, 153, 0.5);
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.35);
+}
+.mc-inv-btn:hover {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.95) 0%, rgba(16, 185, 129, 1) 100%);
+  border-color: #6ee7b7;
+  transform: translateY(-2px);
+}
+
+/* ⚔️ 手遊經典大圓形攻擊鍵 (Big Round Primary Attack Trigger) */
+.combat-main-attack-btn {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 2.5px solid #fb7185;
+  background: radial-gradient(circle at 35% 30%, #f43f5e 0%, #be123c 60%, #881337 100%);
+  box-shadow: 0 0 22px rgba(244, 63, 94, 0.6), 0 8px 24px rgba(0, 0, 0, 0.65), inset 0 2px 4px rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  user-select: none;
+  transition: all 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.attack-btn-glow {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(251, 113, 133, 0.7);
+  animation: spinGlow 8s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes spinGlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.combat-main-attack-btn .atk-icon {
+  font-size: 24px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+.combat-main-attack-btn .atk-label {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  margin-top: 1px;
+}
+
+.combat-main-attack-btn .atk-durability {
+  font-size: 9px;
+  font-weight: 700;
+  color: #fef08a;
+  line-height: 1;
+}
+
+.atk-hk-chip {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fbbf24, #d97706);
+  border: 1.5px solid #ffffff;
+  color: #78350f;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5);
+}
+
+.combat-main-attack-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 32px rgba(244, 63, 94, 0.85), 0 10px 30px rgba(0, 0, 0, 0.75);
+}
+
+.combat-main-attack-btn:active {
+  transform: scale(0.92);
+  box-shadow: 0 0 14px rgba(244, 63, 94, 0.6);
+}
+
+/* =========================================================================
+   電競街機 剪刀石頭布對決 (Arcade Rock-Paper-Scissors Minigame)
+   ========================================================================= */
+.arcade-rps-dialog {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  z-index: 100000 !important;
+  outline: none !important;
+}
+
+.arcade-rps-dialog::backdrop {
+  background: rgba(4, 8, 16, 0.85);
+  backdrop-filter: blur(10px);
+}
+
+.arcade-cabinet {
+  width: 440px;
+  background: linear-gradient(180deg, #090d16 0%, #0f172a 100%);
+  border: 2px solid #38bdf8;
+  border-radius: 24px;
+  padding: 22px 24px;
+  color: #f8fafc;
+  font-family: Outfit, "PingFang TC", "Microsoft JhengHei", sans-serif;
+  box-shadow: 0 0 36px rgba(56, 189, 248, 0.35), 0 24px 60px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.arcade-cabinet.shake {
+  animation: cabinetShake 0.4s ease;
+}
+
+@keyframes cabinetShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+
+.arcade-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1.5px solid rgba(56, 189, 248, 0.3);
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.arcade-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+}
+
+.arcade-close-btn {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.arcade-close-btn:hover {
+  background: #ef4444;
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.arcade-sub {
+  font-size: 12px;
+  color: #94a3b8;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+/* 街機電腦出拳拉霸機視窗 */
+.arcade-slot-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.85);
+  border: 2px solid rgba(56, 189, 248, 0.5);
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 18px;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8), 0 0 16px rgba(56, 189, 248, 0.2);
+}
+
+.slot-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7dd3fc;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.slot-reel-box {
+  width: 90px;
+  height: 90px;
+  background: radial-gradient(circle, #020617 0%, #0f172a 100%);
+  border: 2px solid #facc15;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.4), inset 0 2px 6px rgba(0, 0, 0, 0.9);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.slot-reel-symbol {
+  font-size: 48px;
+  line-height: 1;
+  transition: transform 0.1s ease;
+}
+
+.slot-reel-symbol.rolling {
+  animation: reelSpin 0.08s infinite linear;
+  filter: blur(1.5px);
+}
+
+@keyframes reelSpin {
+  0% { transform: translateY(-8px) scale(0.9); }
+  50% { transform: translateY(8px) scale(1.1); }
+  100% { transform: translateY(-8px) scale(0.9); }
+}
+
+.slot-reel-symbol.landed {
+  animation: reelSnap 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes reelSnap {
+  0% { transform: scale(0.6); }
+  70% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+.slot-status {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fef08a;
+}
+
+/* 玩家出拳按鈕 */
+.arcade-player-choices {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.rps-choice-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 80px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid rgba(148, 163, 184, 0.35);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+}
+
+.rps-choice-btn .choice-icon {
+  font-size: 32px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.rps-choice-btn .choice-name {
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.rps-choice-btn:hover {
+  transform: translateY(-4px) scale(1.06);
+  border-color: #38bdf8;
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.5);
+}
+
+.rps-choice-btn:active,
+.rps-choice-btn.selected {
+  transform: scale(0.95);
+  border-color: #facc15;
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.6);
+}
+
+/* 遊戲結果面板 */
+.arcade-result-pane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 10px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1.5px solid rgba(148, 163, 184, 0.3);
+  text-align: center;
+}
+
+.result-headline {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.result-headline.win {
+  color: #4ade80;
+  text-shadow: 0 0 14px rgba(74, 222, 128, 0.6);
+}
+
+.result-headline.lose {
+  color: #f87171;
+  text-shadow: 0 0 14px rgba(248, 113, 113, 0.6);
+}
+
+.result-headline.tie {
+  color: #38bdf8;
+  text-shadow: 0 0 14px rgba(56, 189, 248, 0.6);
+}
+
+.result-detail {
+  font-size: 13px;
+  color: #cbd5e1;
+  margin-bottom: 14px;
+}
+
+.result-actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.arcade-action-btn {
+  flex: 1;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(30, 41, 59, 0.9);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.arcade-action-btn.primary {
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  border-color: #38bdf8;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4);
+}
+
+.arcade-action-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.15);
+}
+
+/* 扭蛋抽中驚喜彈窗 (Gacha Surprise Reveal Modal) */
+.gacha-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.gacha-surprise-modal {
+  position: relative;
+  width: min(92vw, 420px);
+  background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid #facc15;
+  border-radius: 20px;
+  padding: 24px 20px;
+  box-shadow: 0 0 35px rgba(250, 204, 21, 0.4), 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: gachaPopIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+@keyframes gachaPopIn {
+  0% { transform: scale(0.6) rotate(-3deg); opacity: 0; }
+  70% { transform: scale(1.04) rotate(1deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.gacha-surprise-banner {
+  font-size: 15px;
+  font-weight: 900;
+  color: #facc15;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  text-shadow: 0 0 12px rgba(250, 204, 21, 0.6);
+}
+
+.gacha-icon-glow {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(250, 204, 21, 0.28) 0%, rgba(250, 204, 21, 0.05) 70%, transparent 100%);
+  border: 2px dashed rgba(250, 204, 21, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 58px;
+  margin-bottom: 14px;
+  box-shadow: 0 0 25px rgba(250, 204, 21, 0.4);
+  animation: gachaPulse 2s infinite ease-in-out;
+}
+
+@keyframes gachaPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(250, 204, 21, 0.35); }
+  50% { transform: scale(1.08); box-shadow: 0 0 35px rgba(250, 204, 21, 0.7); }
+}
+
+.gacha-outfit-name {
+  font-size: 22px;
+  font-weight: 900;
+  color: #ffffff;
+  margin-bottom: 6px;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+.gacha-outfit-tag {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 20px;
+  padding: 3px 12px;
+  margin-bottom: 12px;
+  letter-spacing: 0.02em;
+}
+
+.gacha-outfit-desc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #cbd5e1;
+  margin-bottom: 14px;
+  padding: 0 8px;
+}
+
+.gacha-perk-box {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(250, 204, 21, 0.3);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 18px;
+  font-size: 12px;
+  color: #fde68a;
+  text-align: left;
+  line-height: 1.6;
+}
+
+.gacha-perk-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gacha-confirm-btn {
+  width: 100%;
+  height: 44px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(234, 179, 8, 0.45);
+  transition: all 0.15s ease;
+  letter-spacing: 0.05em;
+}
+
+.gacha-confirm-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.12);
+  box-shadow: 0 6px 20px rgba(234, 179, 8, 0.65);
+}
+
+.gacha-confirm-btn:active {
+  transform: scale(0.97);
+}

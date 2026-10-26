@@ -3,7 +3,7 @@ async function engine(){try{return await import('../server/engine.mjs');}catch(e
 const player=(id='p')=>({id,name:id,unit:'PP32',exp:0,season:2,items:[],effects:{},x:1000,y:350,lastSeen:1000,connection:id,room:'PP00'});
 const game=()=>({players:{p:player(),q:player('q')},enemies:{},drops:{},tasks:{},rate:{},lastSpawn:{PP00:1000000000000}});
 test('server rejects client XP writes and signs in at Taiwan midnight only once',async()=>{const E=await engine();assert.equal(typeof E.act,'function','server missing');let s=game();assert.throws(()=>E.act(s,'p','set_exp',{exp:9999},1000),/不支援/);s.players.p.lastLoginDate='1970-01-01';E.act(s,'p','signin',{},86400000);assert.equal(s.players.p.exp,50);E.act(s,'p','signin',{},86400000);assert.equal(s.players.p.exp,50);});
-test('server RMA claims are exclusive and completion awards once',async()=>{const E=await engine();assert.ok(E.act);const s=game();s.players.q.x=1000;E.act(s,'p','rma_claim',{},1000,()=>0);assert.throws(()=>E.act(s,'q','rma_claim',{},1000),/搶修/);const t=s.tasks.PP00;s.players.p.x=t.x;s.players.p.y=t.y;E.act(s,'p','rma_start',{},1100);E.act(s,'p','rma_finish',{},4200);assert.equal(s.players.p.exp,60);assert.throws(()=>E.act(s,'p','rma_finish',{},4300),/任務/);});
+test('server RMA claims are exclusive and completion awards once',async()=>{const E=await engine();assert.ok(E.act);const s=game();s.players.q.x=1000;E.act(s,'p','rma_claim',{},1000,()=>0);assert.throws(()=>E.act(s,'q','rma_claim',{},1000),/搶修/);const t=s.tasks.PP00;assert.equal(t.targets.length,3);for(let i=0;i<3;i++){const cur=t.targets[i];s.players.p.x=cur.x;s.players.p.y=cur.y;E.act(s,'p','rma_start',{},1000+i*4000);E.act(s,'p','rma_finish',{},1000+i*4000+3100);}assert.equal(t.stage,'reporting');assert.equal(s.players.p.exp,60);s.players.p.x=998;s.players.p.y=350;E.act(s,'p','rma_report',{},20000,()=>0);assert.equal(s.players.p.exp,210);assert.equal(s.players.p.items.length,1);assert.throws(()=>E.act(s,'p','rma_report',{},21000),/尚未|任務/);});
 test('gacha cancellation retains materials and repeat result repairs without exceeding capacity',async()=>{const E=await engine();assert.ok(E.act);const s=game(),p=s.players.p;p.x=1960;p.y=350;p.items=[{uid:'a',id:'pizza',category:'weapon',durability:3},{uid:'b',id:'coffee',category:'weapon',durability:3}];E.act(s,'p','gacha',{materials:['a','b']},1000,()=>0);assert.equal(p.items.length,1);assert.equal(p.items[0].category,'outfit');assert.equal(p.items[0].durability,5);assert.equal(p.exp,0);});
 test('shield absorbs one complete hit and third hunt hit has only one penalty',async()=>{const E=await engine();assert.ok(E.act);const s=game(),p=s.players.p;p.exp=300;p.effects.shieldUntil=100000;E.hurt(s,p,'npc',1000,()=>0);assert.equal(p.exp,300);assert.equal(p.effects.shieldUntil,0);E.hurt(s,p,'hunt',4000,()=>.9);E.hurt(s,p,'hunt',7000,()=>.9);E.hurt(s,p,'hunt',10000,()=>.9);assert.equal(p.exp,180);assert.ok(p.effects.injuredUntil>10000);});
 test('server combat resolves defeat once and busy bosses cannot repeatedly kidnap',async()=>{const E=await engine();assert.equal(typeof E.strike,'function','combat missing');const s=game(),p=s.players.p;p.x=380;p.y=310;s.enemies.b={id:'b',role:'vp',x:400,y:310,hp:2,maxHp:2,room:'PP00'};E.strike(s,p,'b',1000,()=>.1);assert.equal(p.exp,0);assert.ok(p.effects.lockedUntil);assert.equal(p.effects.injuredUntil,undefined);assert.equal(s.enemies.b.hp,1);});
@@ -117,4 +117,41 @@ test('toilet claims are exclusive, seat remains fixed through heartbeat, release
 test('toilet entry rejects distant players and arbitrary toilet poses cannot acquire a lock',async()=>{
  const E=await engine(),s=game();assert.throws(()=>E.act(s,'p','toilet_enter',{stall:'wc_4'},1000),/靠近/);
  E.act(s,'p','heartbeat',{x:1000,y:350,action:'toilet'},1001);assert.equal(s.players.p.action,null);
+});
+
+test('weapon durability zero automatically refills from backpack inventory', async () => {
+  const E = await engine();
+  const s = game(), p = s.players.p;
+  p.x = 1000; p.y = 350;
+  p.items = [
+    { uid: 'w1', id: 'keyboard', category: 'weapon', durability: 1, slot: 0 },
+    { uid: 'w2', id: 'wrench', category: 'weapon', durability: 3, slot: null },
+    { uid: 'o1', id: 'outfit_frog_eng', category: 'outfit', durability: 5, slot: null }
+  ];
+  p.activeSlot = 0;
+  s.enemies.mob = { id: 'mob', role: 'mob', tier: 1, hp: 5, maxHp: 5, x: 1050, y: 350, room: 'PP00' };
+  E.combat(s, p, {}, 1000, () => 0.5);
+  assert.equal(p.items.some(i => i.uid === 'w1'), false);
+  const equipped = p.items.find(i => i.slot === 0);
+  assert.ok(equipped);
+  assert.equal(equipped.uid, 'w2');
+});
+
+test('bare-handed attack works with 1s cooldown and 10 hits to repel without weapon', async () => {
+  const E = await engine();
+  const s = game(), p = s.players.p;
+  p.items = [];
+  s.enemies.mob = { id: 'mob', role: 'mob', x: p.x + 30, y: p.y, hp: 2, maxHp: 2, room: 'PP00', mob: true };
+  E.combat(s, p, {}, 1000);
+  assert.equal(p.lastAttack?.emoji, '👊');
+  assert.equal(s.enemies.mob.fistHits, 1);
+  E.combat(s, p, {}, 1500); // 500ms < 1000ms cooldown
+  assert.equal(s.enemies.mob.fistHits, 1);
+  E.combat(s, p, {}, 2050); // 1050ms >= 1000ms cooldown
+  assert.equal(s.enemies.mob.fistHits, 2);
+  for (let i = 3; i <= 10; i++) {
+    E.combat(s, p, {}, 2050 + (i - 2) * 1050);
+  }
+  assert.equal(s.enemies.mob.hp, 0);
+  assert.equal(s.enemies.mob.reaction.kind, 'defeat');
 });

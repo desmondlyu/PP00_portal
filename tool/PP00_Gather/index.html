@@ -223,12 +223,10 @@
         </div>
       </div>
       <form id="proxChatForm" class="prox-chat-form">
-        <select id="chatSendModeSelect" class="chat-send-mode-select" title="切換發送模式：💬 對談聊天 / 💭 頭頂碎碎念 Murmur / 🔒 私人對談 (熱鍵 M)">
+        <select id="chatSendModeSelect" class="chat-send-mode-select" title="發送模式：💬 對談 / 🔒 私人訊息 / 💭 MURMUR (熱鍵 M)">
           <option value="chat">💬 對談</option>
-          <option value="private" disabled>私訊暫停使用</option>
-          <option value="murmur_normal">💭 Murmur</option>
-          <option value="murmur_idea">💡 靈感</option>
-          <option value="murmur_fire">🔥 抓狂</option>
+          <option value="private" disabled>🔒 私人訊息（點選同仁開啟）</option>
+          <option value="murmur">💭 MURMUR</option>
         </select>
         <input
           type="text"
@@ -267,61 +265,100 @@
        ===================================================================== -->
   </div>
   <footer class="bottom-hud-dock">
-    <!-- 置中整合：情境互動展開選單 + 快捷鍵互動功能欄 (1~6 / F擊退 / I裝備與物品) -->
+    <!-- 左側/中央：手遊社交快捷島 (Skill Dock) -->
     <div id="bottomCenterCommandDock" class="bottom-center-command-dock">
       <div id="proximitySkillDock" class="proximity-skill-dock">
         <div id="proxTargetName" class="prox-target-label">
-          📡 <kbd>1</kbd>～<kbd>6</kbd> 互動｜<kbd>Z</kbd> 情境選單 (<kbd>Alt+1</kbd>~<kbd>=</kbd>)｜<kbd>F</kbd> 擊退｜<kbd>I</kbd> 裝備欄｜<kbd>E</kbd> 設備互動/踹門｜<kbd>M</kbd> 切換Murmur
+          <span class="hud-pill-tag">🎮 快捷操作</span> <kbd>1</kbd>~<kbd>6</kbd> 社交｜<kbd>Z</kbd> 情境｜<kbd>F</kbd> 擊退｜<kbd>I</kbd> 裝備
         </div>
         <div class="skill-btn-row">
           <button type="button" id="touchMoreBtn" class="skill-btn touch-more-btn" aria-expanded="false">更多</button>
-          <!-- 點選展開/收合的 12 種情境動作選單 (含睡覺與快捷鍵) -->
-          <div class="action-pose-menu-wrap">
-            <button
-              type="button"
-              id="btnToggleActionPoseMenu"
-              class="skill-btn action-pose-toggle-btn"
-              title="按 [Z] 或點選展開 12 種情境動作（含睡覺，支援 Alt+1~Alt+= 快捷鍵）"
-            >
-              <kbd class="hk-badge">Z</kbd> 🎬 情境：<span id="currentPoseLabel">🚶 一般行走</span> ▾
-            </button>
-            <div id="actionPoseDropdown" class="action-pose-dropdown hidden">
-              <div class="action-pose-dropdown-header">
-                <span>🎬 角色情境動作（支援 Alt+數字鍵 或靠近設備按 [E]）</span>
-                <button type="button" id="closeActionPoseDropdownBtn" class="pose-dropdown-close-btn">✕</button>
-              </div>
-              <div id="actionAnimGrid" class="action-pose-grid"></div>
-            </div>
-          </div>
-
           <div id="touchSkillsGroup" class="touch-skills-group">
-            <button type="button" class="skill-btn" data-skill="chat" data-hotkey="1">
-              <kbd class="hk-badge">1</kbd> 💬 聊天
+            <button type="button" class="skill-btn skill-tile-btn" data-skill="chat" data-hotkey="1" title="[1] 聊天">
+              <span class="tile-icon">💬</span>
+              <span class="tile-label">聊天</span>
+              <kbd class="hk-chip">1</kbd>
             </button>
-            <button type="button" class="skill-btn" data-skill="exchange" data-hotkey="2">
-              <kbd class="hk-badge">2</kbd> 🎁 交換禮物
+            <button type="button" class="skill-btn skill-tile-btn" data-skill="exchange" data-hotkey="2" title="[2] 送禮">
+              <span class="tile-icon">🎁</span>
+              <span class="tile-label">送禮</span>
+              <kbd class="hk-chip">2</kbd>
             </button>
-            <button type="button" class="skill-btn" data-skill="wave" data-hotkey="3">
-              <kbd class="hk-badge">3</kbd> 👋 揮手
+            <button type="button" class="skill-btn skill-tile-btn" data-skill="wave" data-hotkey="3" title="[3] 揮手">
+              <span class="tile-icon">👋</span>
+              <span class="tile-label">揮手</span>
+              <kbd class="hk-chip">3</kbd>
             </button>
-            <button type="button" class="skill-btn" data-skill="zap" data-hotkey="4">
-              <kbd class="hk-badge">4</kbd> ⚡ 靜電戳
+            <button type="button" class="skill-btn skill-tile-btn" data-skill="zap" data-hotkey="4" title="[4] 靜電戳">
+              <span class="tile-icon">⚡</span>
+              <span class="tile-label">靜電</span>
+              <kbd class="hk-chip">4</kbd>
             </button>
-            <button type="button" class="skill-btn" data-skill="cheer" data-hotkey="5">
-              <kbd class="hk-badge">5</kbd> 🍻 乾杯
+            <button type="button" class="skill-btn skill-tile-btn" data-skill="cheer" data-hotkey="5" title="[5] 乾杯">
+              <span class="tile-icon">🍻</span>
+              <span class="tile-label">乾杯</span>
+              <kbd class="hk-chip">5</kbd>
             </button>
-            <button type="button" class="skill-btn" data-skill="follow" data-hotkey="6">
-              <kbd class="hk-badge">6</kbd> 🎯 跟隨
+            <button type="button" class="skill-btn skill-tile-btn" data-skill="follow" data-hotkey="6" title="[6] 跟隨">
+              <span class="tile-icon">🎯</span>
+              <span class="tile-label">跟隨</span>
+              <kbd class="hk-chip">6</kbd>
             </button>
           </div>
-          <button type="button" id="btnWeaponAttack" class="skill-btn weapon-atk-btn" title="揮動目前已裝備的主手武器道具擊退敵人（需先裝備道具，擊退 3 次後損毀消失；攻擊VP或處長會被關緊閉訓話10秒）">
-            <kbd class="hk-badge">F</kbd> ⚔️ 擊退 <span id="hudActiveWeaponDurability">(3/3)</span>
-          </button>
-          <button type="button" id="btnToggleMcInv" class="skill-btn mc-inv-btn" title="按 [I] 或點選開啟裝備與持有物品欄（一次最多裝備 3 個）">
-            <kbd class="hk-badge">I</kbd> 🎒 裝備/物品 <span id="hudEquipCountBadge">(1/3)</span>
-          </button>
         </div>
       </div>
+    </div>
+
+    <!-- 右側：手遊戰鬥圓盤群 (Combat Cluster) -->
+    <div id="combatActionCluster" class="combat-action-cluster">
+      <div class="cluster-sub-buttons">
+        <div class="action-pose-menu-wrap">
+          <button
+            type="button"
+            id="btnToggleActionPoseMenu"
+            class="cluster-pill-btn action-pose-toggle-btn"
+            title="按 [Z] 展開情境動作選單"
+          >
+            <span class="pill-icon">🎬</span>
+            <span id="currentPoseLabel" class="pill-text">一般行走</span>
+            <kbd class="hk-chip">Z</kbd>
+          </button>
+          <div id="actionPoseDropdown" class="action-pose-dropdown hidden">
+            <div class="action-pose-dropdown-header">
+              <span>🎬 角色情境動作（支援 Alt+數字鍵 或靠近設備按 [E]）</span>
+              <button type="button" id="closeActionPoseDropdownBtn" class="pose-dropdown-close-btn">✕</button>
+            </div>
+            <div id="actionAnimGrid" class="action-pose-grid"></div>
+          </div>
+        </div>
+        <button
+          type="button"
+          id="btnToggleMcInv"
+          class="cluster-pill-btn mc-inv-btn"
+          title="按 [I] 開啟裝備與背包"
+        >
+          <span class="pill-icon">🎒</span>
+          <span class="pill-text">裝備/物品</span>
+          <span id="hudEquipCountBadge" class="pill-badge">(1/3)</span>
+          <kbd class="hk-chip">I</kbd>
+        </button>
+      </div>
+
+      <!-- 手遊經典大圓形攻擊鍵 -->
+      <button
+        type="button"
+        id="btnWeaponAttack"
+        class="combat-main-attack-btn"
+        title="按 [F] 或點選揮舞武器/拳頭擊退敵人"
+      >
+        <div class="attack-btn-glow"></div>
+        <div class="attack-btn-inner">
+          <span class="atk-icon">⚔️</span>
+          <span class="atk-label">擊退</span>
+          <span id="hudActiveWeaponDurability" class="atk-durability">(3/3)</span>
+        </div>
+        <kbd class="atk-hk-chip">F</kbd>
+      </button>
     </div>
   </footer>
 
@@ -375,12 +412,22 @@
     </div>
   </div>
 
+  <!-- RMA 救火特定任務中央通報橫幅 -->
+  <div id="rmaMissionModal" class="rma-mission-modal hidden" role="alert">
+    <div class="rma-mission-box">
+      <div id="rmaMissionTitle" class="rma-mission-title">🚨 任務開始：緊急 RMA 救火搶修！</div>
+      <p id="rmaMissionSubtitle" class="rma-mission-subtitle">客戶退貨產線告急！請迅速前往標示機台完成 3 台設備搶修！</p>
+      <div id="rmaMissionProgress" class="rma-mission-progress">搶修進度：0 / 3 台</div>
+    </div>
+  </div>
+
   <div class="touch-controls" aria-label="觸控操作">
     <div id="touchMovePad" class="touch-move-pad" role="group" aria-label="拖曳方向盤移動；移動會取消情境動作">
       <span class="touch-pad-arrows" aria-hidden="true">＋</span>
       <span id="touchMoveKnob" class="touch-move-knob"></span>
     </div>
-    <button id="touchInteractBtn" type="button" class="touch-interact-btn">互動 E</button>
+    <button id="touchInteractBtn" type="button" class="touch-interact-btn" aria-label="互動快捷鍵 E">互動 E</button>
+    <button id="touchAttackBtn" type="button" class="touch-attack-btn" aria-label="擊退快捷鍵 F">⚔️ 擊退</button>
   </div>
   <canvas id="officeCanvas"></canvas>
 

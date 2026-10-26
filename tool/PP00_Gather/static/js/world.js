@@ -269,8 +269,40 @@ function drawFacilityRoom(ctx,b,tick){
     ctx.fillStyle=tick%60<30?'#f87171':'#7f1d1d';ctx.fillRect(cx-8,y+16,16,9);
   }else if(b.unit==='PP20'){
     draw3DPixelBox(ctx,x+48,y+58,128,65,8,'#1e293b','#0f172a','#020617');
-    ctx.fillStyle='#312e81';ctx.fillRect(x+54,y+52,116,48);ctx.fillStyle='#22d3ee';ctx.fillRect(cx-30+Math.sin(tick/15)*20,y+75,18,14);
-    ctx.fillStyle='#f472b6';ctx.fillRect(cx+25,y+64,14,26);
+    // CASE1.PNG: 電競娛樂室大螢幕輪流播放「剪刀石頭布」
+    ctx.fillStyle='#0b0f19';ctx.fillRect(x+54,y+52,116,48);
+    const rpsStage = Math.floor(tick / 40) % 3;
+    const rpsData = [
+      { emoji: '✌️', name: '剪刀', color: '#facc15', bg: 'rgba(250, 204, 21, 0.16)' },
+      { emoji: '✊', name: '石頭', color: '#f43f5e', bg: 'rgba(244, 63, 94, 0.16)' },
+      { emoji: '🖐️', name: '布',   color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.16)' }
+    ][rpsStage];
+
+    ctx.fillStyle = rpsData.bg;
+    ctx.fillRect(x+56, y+54, 112, 44);
+    ctx.strokeStyle = rpsData.color;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x+56, y+54, 112, 44);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 8.5px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('🕹️ RPS ARCADE', cx, y+63);
+
+    const rpsScale = 1 + Math.sin(tick / 8) * 0.08;
+    ctx.save();
+    ctx.translate(cx - 20, y + 84);
+    ctx.scale(rpsScale, rpsScale);
+    ctx.font = '22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(rpsData.emoji, 0, 0);
+    ctx.restore();
+
+    ctx.fillStyle = rpsData.color;
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`[ ${rpsData.name} ]`, cx + 2, y + 83);
+
     for(let i=0;i<2;i++){draw3DPixelBox(ctx,x+62+i*66,y+208,42,36,18,'#7c3aed','#4c1d95','#2e1065');ctx.fillStyle='#67e8f9';ctx.fillRect(x+70+i*66,y+205,24,4);}
     ctx.fillStyle=light;ctx.fillRect(x+20,y+275,b.w-40,3);
   }else if(b.unit==='PP30'){
@@ -722,6 +754,17 @@ class OfficeEcosystem {
         }
       }
 
+      // 若隔間無佔用者，自動偵測是否已有玩家（本地或遠端）在隔間內部使用馬桶
+      if (!window.GATHER_CONFIG.season2 && !stall.occupiedBy && players) {
+        const insidePlayer = players.find((p) => {
+          const inside = p.x >= stall.x && p.x <= stall.x + stall.w && p.y >= stall.y && p.y <= stall.y + stall.h;
+          return (p.actionState === 'toilet' || Math.hypot(p.x - stall.seatX, p.y - stall.seatY) < 45) && inside;
+        });
+        if (insidePlayer) {
+          stall.occupiedBy = insidePlayer.id;
+        }
+      }
+
       let someoneNear = false;
       if (!stall.occupiedBy && players) {
         for (const p of players) {
@@ -734,6 +777,9 @@ class OfficeEcosystem {
       }
       const targetOpen = stall.occupiedBy ? 0 : someoneNear ? 1 : 0;
       stall.doorOpen += (targetOpen - stall.doorOpen) * 0.18;
+      if (stall.occupiedBy) {
+        stall.doorOpen = 0;
+      }
     });
 
     if (window.WORLD_MAP.restroomSinks) {
@@ -866,6 +912,20 @@ class OfficeEcosystem {
           }
         }
         continue;
+      }
+
+      // 怪物隨機碰觸/衝撞玩家：造成擊退與輕微挫傷判定
+      if (!mob.combatDown && allPlayers) {
+        for (const pl of allPlayers) {
+          if (pl.id === 'local' && Math.hypot(mob.x - pl.x, mob.y - pl.y) < 38) {
+            if (now - (mob.lastPlayerHitAt || 0) > 4000) {
+              mob.lastPlayerHitAt = now;
+              if (this.callbacks && this.callbacks.onMobHitPlayer) {
+                this.callbacks.onMobHitPlayer(mob, pl);
+              }
+            }
+          }
+        }
       }
 
       // 每秒檢查一次：1% 機率觸發怪物暴走並鎖定一台未損壞的電腦或實驗室機台進行破壞 (僅房長判定)
@@ -1099,7 +1159,10 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
     ctx.save();
     ctx.translate(stall.x + 6 + kickOffset, stall.y + 12);
     ctx.rotate(-stall.doorOpen * 1.35);
-    draw3DPixelBox(ctx, 0, 0, 14, stall.h - 24, 20, '#fde68a', '#d97706', '#92400e');
+    const doorPrimary = stall.occupiedBy ? '#dc2626' : '#fde68a';
+    const doorSide = stall.occupiedBy ? '#991b1b' : '#d97706';
+    const doorTop = stall.occupiedBy ? '#7f1d1d' : '#92400e';
+    draw3DPixelBox(ctx, 0, 0, 14, stall.h - 24, 20, doorPrimary, doorSide, doorTop);
     // 門鎖綠燈/紅燈
     ctx.fillStyle = stall.occupiedBy ? '#ef4444' : '#22c55e';
     ctx.fillRect(3, 24, 8, 12);

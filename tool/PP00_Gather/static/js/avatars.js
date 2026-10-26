@@ -539,24 +539,40 @@ window.drawWackyAvatar = function (ctx, opts) {
     beingHealed = false,   // 🩹 正在接受醫療狀態
     healProgress = 0,      // 醫療進度 0~1
     isFleeing = false,     // 😱 慌張逃跑狀態
+    isGhostFainted = false,// 👻 遭幽靈驚嚇暈倒狀態
   } = opts;
 
   const appearance=window.getAvatarAppearance(avatarId,opts.outfitAvatarId);
-  if (avatarId === 'ghost') {
-    const bob = Math.sin(tick * .06) * 5;
+  if (avatarId === 'ghost' || avatarId === 'ghost_red' || opts.isGhost) {
+    const isRed = opts.isRedGhost || avatarId === 'ghost_red';
+    const isMinion = opts.isMinionGhost;
+    const ghostScale = isRed ? scale * 1.3 : isMinion ? scale * 0.75 : scale;
+    const bob = Math.sin(tick * (isRed ? .12 : .06)) * (isRed ? 7 : 5);
     const scare = Date.now() < (opts.scareUntil || 0);
     ctx.save(); ctx.translate(x, y - 20 + bob - jumpOffset);
-    if(opts.combatDown) ctx.rotate(Math.PI/2);
-    ctx.scale(scale * (scare ? 1.45 : 1), scale * (scare ? 1.45 : 1));
-    ctx.globalAlpha = .78; ctx.shadowColor = '#67e8f9'; ctx.shadowBlur = 18;
-    ctx.fillStyle = '#cffafe';
+    if(opts.combatDown && !isRed) ctx.rotate(Math.PI/2);
+    ctx.scale(ghostScale * (scare ? 1.45 : 1), ghostScale * (scare ? 1.45 : 1));
+    ctx.globalAlpha = isRed ? .92 : .78;
+    ctx.shadowColor = isRed ? '#ef4444' : isMinion ? '#c084fc' : '#67e8f9';
+    ctx.shadowBlur = isRed ? 26 : 18;
+    ctx.fillStyle = isRed ? '#fee2e2' : isMinion ? '#f3e8ff' : '#cffafe';
     ctx.beginPath(); ctx.arc(0, -12, 16, Math.PI, 0);
     ctx.lineTo(16, 15);
     for (let i = 16; i >= -16; i -= 8) ctx.lineTo(i, 15 + ((i / 8) % 2 === 0 ? 6 : 0));
     ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
-    ctx.fillStyle = '#164e63'; ctx.fillRect(-8,-14,5,8); ctx.fillRect(4,-14,5,8);
-    ctx.beginPath(); ctx.ellipse(0, 3, scare ? 6 : 3, scare ? 9 : 4, 0, 0, Math.PI*2); ctx.fill();
-    if (scare) { ctx.strokeStyle = '#a5f3fc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0,0,32 + Math.sin(tick*.3)*8,0,Math.PI*2); ctx.stroke(); }
+    if (isRed) {
+      // 狂暴紅色幽靈血眼與血色巨口
+      ctx.fillStyle = '#dc2626'; ctx.fillRect(-8,-14,5,8); ctx.fillRect(4,-14,5,8);
+      ctx.fillStyle = '#fef08a'; ctx.fillRect(-7,-12,3,4); ctx.fillRect(5,-12,3,4);
+      ctx.fillStyle = '#991b1b';
+      ctx.beginPath(); ctx.ellipse(0, 4, scare ? 7 : 4, scare ? 10 : 5, 0, 0, Math.PI*2); ctx.fill();
+      // 狂暴血焰光環
+      ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0,0,36 + Math.sin(tick*.4)*10,0,Math.PI*2); ctx.stroke();
+    } else {
+      ctx.fillStyle = isMinion ? '#581c87' : '#164e63'; ctx.fillRect(-8,-14,5,8); ctx.fillRect(4,-14,5,8);
+      ctx.beginPath(); ctx.ellipse(0, 3, scare ? 6 : 3, scare ? 9 : 4, 0, 0, Math.PI*2); ctx.fill();
+      if (scare) { ctx.strokeStyle = isMinion ? '#d8b4fe' : '#a5f3fc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0,0,32 + Math.sin(tick*.3)*8,0,Math.PI*2); ctx.stroke(); }
+    }
     ctx.restore(); return;
   }
 
@@ -573,6 +589,11 @@ window.drawWackyAvatar = function (ctx, opts) {
     poseOffsetX = Math.sin(tick * 0.9) * 3.5; // 慌張左右劇烈抖動
     poseOffsetY = -Math.abs(Math.sin(tick * 0.6)) * 4; // 慌張小碎步亂跳
     poseRotate = Math.sin(tick * 0.7) * 0.15; // 慌亂歪頭
+  } else if (isGhostFainted || actionState === 'scared_faint') {
+    // 👻 幽靈嚇暈：劇烈發抖後腿軟倒地暈厥
+    poseOffsetY = 12;
+    poseRotate = -Math.PI / 2 + Math.sin(tick * 0.1) * 0.04; // 側身倒地暈厥
+    poseOffsetX = Math.sin(tick * 0.8) * 2; // 全身嚇到發抖抽搐
   } else if ((actionState === 'sit_code' || actionState === 'play_arcade')) {
     poseOffsetY = 5;
     poseOffsetX = Math.sin(tick * 0.7) * 0.8; // 高速打字微震動
@@ -1452,24 +1473,94 @@ window.drawWackyAvatar = function (ctx, opts) {
     ctx.font='22px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(opts.heldItem,0,-7);
     ctx.restore();
   }
-  // 4.5 若正在揮舞武器攻擊 (板凳、鍵盤、WAFER晶圓、板手、IC Package、客退報告)，繪製炫酷斬擊刀光與旋轉武器
+  // 4.5 攻擊動畫：區分「👊 徒手出拳（向前直拳/飛射拳頭）」與「武器揮擊（半月斬光與旋轉）」
   if (weaponSwing && weaponSwing.progress < 1) {
     ctx.save();
     const p = weaponSwing.progress;
-    const swingAngle = (dir==='left'?Math.PI:dir==='up'?-Math.PI/2:dir==='down'?Math.PI/2:0) -1.3+p*2.7;
-    // 半月形金色/青色揮擊刀光
-    ctx.strokeStyle = `rgba(250, 204, 21, ${1 - p * 0.6})`;
-    ctx.lineWidth = 7;
-    ctx.beginPath();
-    ctx.arc(4, -6, 32, -1.2, swingAngle, false);
-    ctx.stroke();
+    const isFist = weaponSwing.emoji === '👊' || weaponSwing.isFist;
 
-    ctx.translate(4, -6);
-    ctx.rotate(swingAngle);
-    ctx.font = '24px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(weaponSwing.emoji || '🪑', 24, 0);
+    if (isFist) {
+      // 👊 出拳動畫：朝著面向方向 (dir) 像火箭拳頭一樣向前直衝飛出，絕不轉圈！
+      const baseAngle = dir === 'left' ? Math.PI : dir === 'up' ? -Math.PI / 2 : dir === 'down' ? Math.PI / 2 : 0;
+      const vx = Math.cos(baseAngle);
+      const vy = Math.sin(baseAngle);
+
+      // 出拳軌跡：快速向前飛出 52px 打擊
+      const thrustDist = Math.sin(Math.min(1, p * 1.5) * (Math.PI / 2)) * 52;
+      const fistX = 4 + vx * thrustDist;
+      const fistY = -6 + vy * thrustDist;
+
+      // 1. 拳頭後方的空氣衝擊波與速度軌跡線 (Speed streaks)
+      ctx.save();
+      ctx.strokeStyle = `rgba(254, 240, 138, ${Math.max(0, 1 - p * 1.3)})`;
+      ctx.lineWidth = 3.5;
+      ctx.setLineDash([8, 4]);
+      ctx.beginPath();
+      ctx.moveTo(4 + vx * 8, -6 + vy * 8);
+      ctx.lineTo(fistX - vx * 12, fistY - vy * 12);
+      ctx.stroke();
+
+      // 兩側破空衝擊風線
+      const perpX = -vy, perpY = vx;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${Math.max(0, 0.85 - p)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(4 + vx * 10 + perpX * 9, -6 + vy * 10 + perpY * 9);
+      ctx.lineTo(fistX - vx * 10 + perpX * 9, fistY - vy * 10 + perpY * 9);
+      ctx.moveTo(4 + vx * 10 - perpX * 9, -6 + vy * 10 - perpY * 9);
+      ctx.lineTo(fistX - vx * 10 - perpX * 9, fistY - vy * 10 - perpY * 9);
+      ctx.stroke();
+      ctx.restore();
+
+      // 2. 飛拳前端的打擊衝擊波星芒圈
+      if (p > 0.2) {
+        ctx.save();
+        const shockP = (p - 0.2) / 0.8;
+        ctx.strokeStyle = `rgba(239, 68, 68, ${Math.max(0, 1 - shockP)})`;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(fistX + vx * 14, fistY + vy * 14, 8 + shockP * 18, 5 + shockP * 14, baseAngle, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 3. 繪製飛出直擊的拳頭（依方向微調並適當鏡像）
+      ctx.save();
+      ctx.translate(fistX, fistY);
+      if (dir === 'left') {
+        ctx.scale(-1, 1);
+      } else if (dir === 'up') {
+        ctx.rotate(-Math.PI / 2);
+      } else if (dir === 'down') {
+        ctx.rotate(Math.PI / 2);
+      }
+      // 拳頭出拳瞬間放大 35% 強化卡通打擊衝擊力道感
+      const punchScale = 1 + Math.sin(p * Math.PI) * 0.35;
+      ctx.scale(punchScale, punchScale);
+      ctx.font = '28px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(239, 68, 68, 0.8)';
+      ctx.shadowBlur = 12;
+      ctx.fillText('👊', 0, 0);
+      ctx.restore();
+
+    } else {
+      // 半月形金色/青色揮擊刀光（一般裝備武器）
+      const swingAngle = (dir==='left'?Math.PI:dir==='up'?-Math.PI/2:dir==='down'?Math.PI/2:0) -1.3+p*2.7;
+      ctx.strokeStyle = `rgba(250, 204, 21, ${1 - p * 0.6})`;
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.arc(4, -6, 32, -1.2, swingAngle, false);
+      ctx.stroke();
+
+      ctx.translate(4, -6);
+      ctx.rotate(swingAngle);
+      ctx.font = '24px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(weaponSwing.emoji || '🪑', 24, 0);
+    }
     ctx.restore();
   }
 
@@ -1604,6 +1695,52 @@ window.drawWackyAvatar = function (ctx, opts) {
     const sweatR = -20 + Math.cos(tick * 0.45) * 3;
     ctx.fillText('💦', -16, sweatL);
     ctx.fillText('💦', 16, sweatR);
+    ctx.restore();
+  }
+
+  // 9. 👻 遭幽靈驚嚇暈倒特效 (眩暈星星 💫 + 幽靈小魂魄 👻 + 寒氣抽搐)
+  if (isGhostFainted || actionState === 'scared_faint') {
+    ctx.save();
+    ctx.translate(x + poseOffsetX, y - jumpOffset + poseOffsetY);
+    ctx.scale(scale, scale);
+
+    // 頭頂旋轉眩暈小星星 💫
+    ctx.save();
+    ctx.translate(0, -22);
+    for (let i = 0; i < 3; i++) {
+      const starAng = (tick * 0.14) + (i * Math.PI * 2 / 3);
+      const sx = Math.cos(starAng) * 16;
+      const sy = Math.sin(starAng) * 6;
+      ctx.fillStyle = '#fde047';
+      ctx.shadowColor = '#eab308';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 靈魂出竅緩緩升起特效 👻
+    const soulCycle = ((tick * 0.03) % 1);
+    const soulY = -22 - soulCycle * 32;
+    const soulAlpha = Math.sin(soulCycle * Math.PI) * 0.85;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, soulAlpha);
+    ctx.font = '15px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('👻', Math.sin(tick * 0.08) * 6, soulY);
+    ctx.restore();
+
+    // 幽藍驚嚇寒氣氣泡 💫
+    const chillX = Math.cos(tick * 0.2) * 14;
+    const chillY = -12 + Math.sin(tick * 0.2) * 5;
+    ctx.save();
+    ctx.globalAlpha = 0.6 + Math.sin(tick * 0.3) * 0.3;
+    ctx.font = '12px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('💫', chillX, chillY);
+    ctx.restore();
+
     ctx.restore();
   }
 };

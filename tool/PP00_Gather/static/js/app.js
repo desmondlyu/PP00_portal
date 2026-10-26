@@ -114,34 +114,250 @@
         hud = document.createElement('div');
         hud.id = 'injuryHudBanner';
         hud.style.position = 'fixed';
-        hud.style.top = '14px';
-        hud.style.right = '16px';
-        hud.style.left = 'auto';
-        hud.style.transform = 'none';
+        hud.style.top = '22%';
+        hud.style.left = '50%';
+        hud.style.right = 'auto';
+        hud.style.transform = 'translate(-50%, -50%)';
         hud.style.zIndex = '99999';
-        hud.style.background = 'rgba(220, 38, 38, 0.92)';
+        hud.style.background = 'linear-gradient(135deg, rgba(220, 38, 38, 0.95), rgba(153, 27, 27, 0.98))';
         hud.style.color = '#ffffff';
-        hud.style.padding = '8px 22px';
-        hud.style.borderRadius = '30px';
+        hud.style.padding = '12px 24px';
+        hud.style.borderRadius = '32px';
         hud.style.fontWeight = '700';
-        hud.style.fontSize = '14px';
-        hud.style.boxShadow = '0 8px 24px rgba(220, 38, 38, 0.55)';
+        hud.style.fontSize = '15px';
+        hud.style.boxShadow = '0 12px 36px rgba(220, 38, 38, 0.65), 0 0 20px rgba(248, 113, 113, 0.4)';
         hud.style.border = '2px solid #fecaca';
         hud.style.letterSpacing = '0.04em';
-        hud.style.backdropFilter = 'blur(8px)';
+        hud.style.backdropFilter = 'blur(12px)';
         hud.style.userSelect = 'none';
-        hud.style.pointerEvents = 'none';
+        hud.style.pointerEvents = 'auto';
+        hud.style.display = 'flex';
+        hud.style.alignItems = 'center';
+        hud.style.gap = '14px';
+
+        hud.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span>🚑 <strong>身受重傷休養中</strong>｜無法動彈剩餘：<span id="injuryTimerSpan" style="font-variant-numeric:tabular-nums; color:#fef08a; font-weight:800;">00:00</span></span>
+          </div>
+          <div id="injuryButtonsWrapper" style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;"></div>
+        `;
         document.body.appendChild(hud);
       }
+
       const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - gameNow()) / 1000));
       const m = String(Math.floor(remSec / 60)).padStart(2, '0');
       const s = String(remSec % 60).padStart(2, '0');
-      hud.innerHTML = `🚑 <strong>身受重傷休養中（會議室）</strong>｜無法動彈剩餘：<span style="font-variant-numeric:tabular-nums; color:#fef08a; font-weight:800;">${m}:${s}</span>`;
-      hud.style.display = 'block';
+
+      const timerSpan = hud.querySelector('#injuryTimerSpan');
+      if (timerSpan && timerSpan.textContent !== `${m}:${s}`) {
+        timerSpan.textContent = `${m}:${s}`;
+      }
+
+      const foodItems = (localPlayer.equippedSlots || []).concat(localPlayer.inventory || [])
+        .filter(i => i && ['coffee', 'pizza', 'boba'].includes(i.id));
+
+      const btnsWrapper = hud.querySelector('#injuryButtonsWrapper');
+      const currentFoodCount = String(foodItems.length);
+
+      // 僅在按鈕結構改變或初次建立時更新按鈕，絕不在每幀破壞重建 DOM 按鈕！
+      if (btnsWrapper && btnsWrapper.dataset.foodCount !== currentFoodCount) {
+        btnsWrapper.dataset.foodCount = currentFoodCount;
+        let buttonsHtml = '';
+        if (foodItems.length > 0) {
+          buttonsHtml = `
+            <button id="btnEmergencyUseItems" type="button" style="
+              background: linear-gradient(135deg, #f59e0b, #d97706);
+              color: #ffffff;
+              border: 1px solid #fcd34d;
+              border-radius: 20px;
+              padding: 6px 14px;
+              font-weight: 800;
+              font-size: 13px;
+              cursor: pointer;
+              box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+              transition: transform 0.12s ease, filter 0.12s ease;
+              outline: none;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+            ">🍱 消除物資縮短時間 (${foodItems.length}個，每樣-2分)</button>
+            <button id="btnEmergencyRevive" type="button" style="
+              background: linear-gradient(135deg, #10b981, #059669);
+              color: #ffffff;
+              border: 1px solid #6ee7b7;
+              border-radius: 20px;
+              padding: 6px 14px;
+              font-weight: 800;
+              font-size: 13px;
+              cursor: pointer;
+              box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+              transition: transform 0.12s ease, filter 0.12s ease;
+              outline: none;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+            ">✨ 立即急救甦醒 (緊急脫困) [-50 EXP]</button>
+          `;
+        } else {
+          buttonsHtml = `
+            <button id="btnEmergencyRevive" type="button" style="
+              background: linear-gradient(135deg, #10b981, #059669);
+              color: #ffffff;
+              border: 1px solid #6ee7b7;
+              border-radius: 20px;
+              padding: 6px 14px;
+              font-weight: 800;
+              font-size: 13px;
+              cursor: pointer;
+              box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+              transition: transform 0.12s ease, filter 0.12s ease;
+              outline: none;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+            ">✨ 立即急救甦醒 (緊急脫困) [-50 EXP]</button>
+          `;
+        }
+        btnsWrapper.innerHTML = buttonsHtml;
+
+        const btnItems = btnsWrapper.querySelector('#btnEmergencyUseItems');
+        if (btnItems) {
+          const handleUseItems = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            emergencyReviveLocalPlayer('item');
+          };
+          btnItems.onclick = handleUseItems;
+          btnItems.onpointerdown = handleUseItems;
+        }
+
+        const btnRevive = btnsWrapper.querySelector('#btnEmergencyRevive');
+        if (btnRevive) {
+          const handleRevive = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            emergencyReviveLocalPlayer('exp');
+          };
+          btnRevive.onclick = handleRevive;
+          btnRevive.onpointerdown = handleRevive;
+        }
+      }
+
+      hud.style.display = 'flex';
     } else if (hud) {
       hud.style.display = 'none';
     }
   }
+
+  function emergencyReviveLocalPlayer() {
+    const mode = arguments[0] || 'auto';
+    if (!localPlayer.isInjured) return;
+    const now = gameNow();
+    let rem = Math.max(0, (localPlayer.injuredUntil || 0) - now);
+
+    if (season.enabled) {
+      (async () => {
+        const res = await seasonSend('emergency_revive', { mode });
+        if (!res) return;
+        const snap = season.client?.snapshot;
+        const p = snap?.player;
+        const e = p?.effects || season.effects || {};
+        if (e.injuredUntil > now) {
+          const remSec = Math.max(0, Math.ceil((e.injuredUntil - now) / 1000));
+          const m = String(Math.floor(remSec / 60)).padStart(2, '0');
+          const s = String(remSec % 60).padStart(2, '0');
+          showCombatToast(`🍱 消除物資縮短時間成功！剩餘休養：${m}:${s}`, 'info');
+          pushStatusLog('系統', `🍱 消除急救物資（咖啡/披薩/珍奶），休養時間縮短！剩餘 ${m}:${s}`);
+          updateInjuryCountdownHUD();
+          return;
+        }
+        localPlayer.isInjured = false;
+        localPlayer.injuredUntil = 0;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
+        localPlayer.autoWalkTarget = null;
+        localPlayer.knockback = null;
+        savePersistentState();
+        updatePoseLabelUI();
+        updateInjuryCountdownHUD();
+        ensurePlayerNotStuck();
+        if (res.method === 'exp') {
+          showToast('💖 扣除 50 EXP 緊急急救甦醒，恢復自由走動能力！', 'join');
+          pushStatusLog('系統', '💖 扣除 50 EXP 啟動緊急甦醒，成功脫困！');
+        } else {
+          showToast('💖 消除急救物資縮短時間完畢，成功甦醒並恢復自由行動！', 'join');
+          pushStatusLog('系統', '💖 消除急救物資（咖啡/披薩/珍奶），重傷時間扣除完畢，成功甦醒！');
+        }
+        if (network) {
+          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          window.OfficeCombat?.send(network, 'recovery_release');
+        }
+      })();
+      return;
+    }
+
+    // 非 Season 模式 本地同步處理
+    const foodIds = ['coffee', 'pizza', 'boba'];
+    const consumed = [];
+    if (mode !== 'exp') {
+      while (rem > 0) {
+        let foundIdx = -1, inEquip = false;
+        const eqIdx = (localPlayer.equippedSlots || []).findIndex(i => i && foodIds.includes(i.id));
+        if (eqIdx !== -1) { foundIdx = eqIdx; inEquip = true; }
+        else {
+          const invIdx = (localPlayer.inventory || []).findIndex(i => i && foodIds.includes(i.id));
+          if (invIdx !== -1) foundIdx = invIdx;
+        }
+        if (foundIdx === -1) break;
+        let used = null;
+        if (inEquip) {
+          used = localPlayer.equippedSlots[foundIdx];
+          localPlayer.equippedSlots[foundIdx] = null;
+        } else {
+          used = localPlayer.inventory.splice(foundIdx, 1)[0];
+        }
+        consumed.push(used.name || used.id);
+        rem = Math.max(0, rem - 120000);
+      }
+      localPlayer.injuredUntil = now + rem;
+      if (rem <= 0) {
+        localPlayer.isInjured = false;
+        localPlayer.injuredUntil = 0;
+        showToast(`🍱 消耗【${consumed.join('、')}】縮短休養時間，成功完全甦醒！`, 'join');
+        pushStatusLog('系統', `💖 消耗急救物資【${consumed.join('、')}】，成功甦醒！`);
+      } else if (consumed.length > 0 && (mode === 'item' || mode === 'auto')) {
+        const remSec = Math.ceil(rem / 1000);
+        const m = Math.floor(remSec / 60), s = remSec % 60;
+        showToast(`🍱 消除物資縮短了 ${consumed.length * 2} 分鐘！剩餘休養：${m}分${s}秒`, 'info');
+        pushStatusLog('系統', `🍱 消除物資【${consumed.join('、')}】，剩餘休養時間縮短至 ${m}分${s}秒！`);
+        savePersistentState();
+        updateInjuryCountdownHUD();
+        return;
+      }
+    }
+
+    if (localPlayer.isInjured && (mode === 'exp' || (mode === 'auto' && consumed.length === 0))) {
+      try { if (typeof addExp === 'function') addExp(-50); } catch (_) {}
+      localPlayer.isInjured = false;
+      localPlayer.injuredUntil = 0;
+      showToast('💖 扣除 50 EXP 緊急急救甦醒，恢復自由走動能力！', 'join');
+      pushStatusLog('系統', '💖 扣除 50 EXP 啟動緊急甦醒，成功脫困！');
+    }
+
+    localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
+    localPlayer.autoWalkTarget = null;
+    localPlayer.knockback = null;
+    savePersistentState();
+    try { syncPlayerActiveWeaponState(); } catch (_) {}
+    updatePoseLabelUI();
+    try { updateSelfHudCard(); } catch (_) {}
+    updateInjuryCountdownHUD();
+    ensurePlayerNotStuck();
+    if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+      window.OfficeCombat?.send(network, 'recovery_release');
+    }
+  }
+  window.emergencyReviveLocalPlayer = emergencyReviveLocalPlayer;
 
   // 依照 24 小時時段與武器強度階梯 (5%~20%) 計算加權隨機道具與武器
   function getRandomHeldItemMeta() {
@@ -206,6 +422,40 @@
   let marketPollTimer = null;
   let berserkBannerTimer = null;
 
+  const FIST_WEAPON = Object.freeze({
+    id: 'fist',
+    name: '徒手拳頭',
+    emoji: '👊',
+    category: 'weapon',
+    power: 3,
+    hitsToRepel: 10,
+    durability: Infinity,
+    maxDurability: '∞',
+    expBonusPct: 0,
+    knockbackExp: 5,
+    isFist: true,
+  });
+
+  let rmaBannerTimer = null;
+  let lastRmaStage = null;
+  let lastRmaProgress = -1;
+
+  function showRmaMissionBanner(title, subtitle, progressText) {
+    const modal = document.getElementById('rmaMissionModal');
+    if (!modal) return;
+    const titleEl = document.getElementById('rmaMissionTitle');
+    const subEl = document.getElementById('rmaMissionSubtitle');
+    const progEl = document.getElementById('rmaMissionProgress');
+    if (titleEl) titleEl.textContent = title;
+    if (subEl) subEl.textContent = subtitle;
+    if (progEl) progEl.textContent = progressText;
+    modal.classList.remove('hidden');
+    if (rmaBannerTimer) clearTimeout(rmaBannerTimer);
+    rmaBannerTimer = setTimeout(() => {
+      modal.classList.add('hidden');
+    }, 4500);
+  }
+
   const camera = {
     x: 300,
     y: 120,
@@ -243,23 +493,105 @@
     localPlayer.inventory=p.items.filter(i=>i.slot==null).map(i=>({...i,count:1}));
     localPlayer.equippedSlots=[0,1,2].map(slot=>p.items.find(i=>i.slot===slot)||null);
     localPlayer.activeEquipIndex=p.activeSlot||0;localPlayer.overflow=p.overflow||[];localPlayer.wornOutfitUid=p.worn||null;
+    // 自動將物品儲存欄補上空裝備槽 (支援快捷槽 1~3 全部空位，排除玩家主動手動卸除之槽位)
+    if (isLoggedIn && !season.autoEquipping) {
+      const emptySlotIdx = [0, 1, 2].findIndex(idx => !localPlayer.equippedSlots[idx] && !season.manualEmptySlots?.has(idx));
+      if (emptySlotIdx !== -1) {
+        const nextW = localPlayer.inventory.find(i => i.category !== 'outfit');
+        if (nextW) {
+          season.autoEquipping = true;
+          seasonSend('equip', { uid: nextW.uid, slot: emptySlotIdx }).finally(() => { season.autoEquipping = false; });
+          showCombatToast(`🎒 裝備空缺，已自動將儲存欄【${nextW.emoji} ${nextW.name}】補上裝備欄 ${emptySlotIdx + 1}！`, 'info');
+        }
+      }
+    }
     season.effects=p.effects||{};
     const now=snap.now,e=season.effects,wasInjured=localPlayer.isInjured;
     localPlayer.isInjured=e.injuredUntil>now;localPlayer.injuredUntil=e.injuredUntil||0;
     localPlayer.stunnedUntil=e.stunnedUntil||0;localPlayer.ghostSleepUntil=e.ghostUntil||0;
     localPlayer.isRestrained=e.lockedUntil>now;localPlayer.restrainedUntil=e.lockedUntil||0;
-    if(localPlayer.isInjured||localPlayer.isRestrained){localPlayer.x=p.x;localPlayer.y=p.y;localPlayer.knockback=null;localPlayer.autoWalkTarget=null;}
+    if(localPlayer.isInjured||localPlayer.isRestrained){
+      if (Number.isFinite(p.x) && Number.isFinite(p.y)) {
+        localPlayer.x=p.x;
+        localPlayer.y=p.y;
+        localPlayer.injuredX=p.x;
+        localPlayer.injuredY=p.y;
+      }
+      localPlayer.knockback=null;
+      localPlayer.autoWalkTarget=null;
+    }
     if(localPlayer.isInjured)localPlayer.actionState='sleep_bed';
-    else if(wasInjured)localPlayer.actionState=null;
+    else if(wasInjured){localPlayer.actionState=null;localPlayer.injuredX=null;localPlayer.injuredY=null;}
     if(p.beating?.until>now && localPlayer.beatingSession?.until!==p.beating.until){
       const npc=network?.npcPlayers.get(p.beating.npcId);
       if(npc){triggerBossOrAuntieBeating(npc,p.beating.role);localPlayer.beatingSession.until=p.beating.until;localPlayer.restrainedUntil=p.beating.until;window.MEETING_LOCK_STATE.lockedUntil=p.beating.until;}
     }
-    localPlayer.huntHits=p.huntRound===Math.floor(now/900000)?p.huntHits||0:0;
-    if(p.lastDamage?.id!==season.lastDamage&&p.lastDamage){season.lastDamage=p.lastDamage.id;if(now-p.lastDamage.at<5000){localPlayer.emote={emoji:p.lastDamage.stun?'💫':'💥',expiresAt:gameNow()+1500};showCombatToast(p.lastDamage.absorbed?'乖乖護盾吸收攻擊！':p.lastDamage.injury==='critical'?'重傷退場，前往會議室 B':p.lastDamage.injury==='light'?'輕微挫傷：移速降低 30%':'受到攻擊');}}
+    localPlayer.huntHits=p.huntRound===Math.floor(now/(window.GATHER_CONFIG?.huntPeriod||1800000))?p.huntHits||0:0;
+    if(p.lastDamage?.id!==season.lastDamage&&p.lastDamage){
+      season.lastDamage=p.lastDamage.id;
+      if(now-p.lastDamage.at<5000){
+        localPlayer.emote={emoji:p.lastDamage.stun?'💫':'💥',expiresAt:gameNow()+1500};
+        showCombatToast(p.lastDamage.absorbed?'乖乖護盾吸收攻擊！':p.lastDamage.injury==='critical'?'重傷退場，前往會議室 B':p.lastDamage.injury==='light'?'輕微挫傷：移速降低 30%':'受到攻擊');
+        // 💥 遭受攻擊時，若正在進行互動（坐下寫 code、上廁所、修機台、祈福等），立即中斷互動並被打飛！
+        if (!localPlayer.isInjured && !localPlayer.isRestrained) {
+          cancelContextualAction();
+          localPlayer.actionState = null;
+          localPlayer.occupiedSpotId = null;
+          localPlayer.autoWalkTarget = null;
+          updatePoseLabelUI();
+
+          let kx = (Math.random() - 0.5) * 2;
+          let ky = (Math.random() - 0.5) * 2;
+          if (p.lastDamage.fromX !== undefined && p.lastDamage.fromY !== undefined) {
+            kx = localPlayer.x - p.lastDamage.fromX;
+            ky = localPlayer.y - p.lastDamage.fromY;
+          }
+          const klen = Math.hypot(kx, ky) || 1;
+          const kPower = 24;
+          localPlayer.knockback = {
+            vx: (kx / klen) * kPower,
+            vy: (ky / klen) * kPower,
+            ticksLeft: 24,
+            totalTicks: 24
+          };
+          localPlayer.jumpOffset = 40;
+          spawnConfetti(localPlayer.x, localPlayer.y - 15);
+          if (network) {
+            network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          }
+        }
+      }
+    }
     if(previous!==p.exp&&isLoggedIn)showCombatToast(`${p.exp>previous?'+':''}${p.exp-previous} EXP`);
     recalcLevelAndBuff();if(oldLevel>progression.level&&isLoggedIn)showCombatToast(`等級下跌！Lv.${oldLevel} → Lv.${progression.level}`);
     syncPlayerActiveWeaponState();updateInjuryCountdownHUD();
+    if (snap.task?.claimer === p.id) {
+      const task = snap.task;
+      const progress = task.repairedIds?.length || 0;
+      if (lastRmaStage !== task.stage || lastRmaProgress !== progress) {
+        lastRmaStage = task.stage;
+        lastRmaProgress = progress;
+        if (task.stage === 'repairing') {
+          showRmaMissionBanner(
+            '🚨 任務開始：緊急 RMA 救火搶修！',
+            `客戶退貨產線告急！請迅速前往標示機台完成 3 台設備搶修！（目前目標：${task.name || '損壞機台'}）`,
+            `搶修進度：${progress} / 3 台`
+          );
+        } else if (task.stage === 'reporting') {
+          spawnConfetti(localPlayer.x, localPlayer.y - 30);
+          showRmaMissionBanner(
+            '🎉 3 台設備已全數修復完畢！',
+            '太神啦！3 台設備已全數修復完畢，請立刻回到【救火指揮所】報到領取獎勵！',
+            '任務完成：回報領獎中 (3/3 台)'
+          );
+        }
+      }
+    } else {
+      if (lastRmaStage !== null) {
+        lastRmaStage = null;
+        lastRmaProgress = -1;
+      }
+    }
     ecosystem.groundItems=snap.drops.filter(d=>!d.claimed&&!season.hiddenDrops.has(d.uid)).map(d=>({...d,dropY:0,combatDrop:true,seasonDrop:true}));
     for(const [id,f]of Object.entries(snap.broken||{})){const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];if(target){target.isBroken=f.broken;if(!f.broken){target.brokenBy=null;target.screenState='pass';}}}
     for(const [id,e]of Object.entries(snap.enemies||{}))if(e.mob&&e.hp>0&&!ecosystem.mobs.some(m=>(m.uid||m.id)===id)){const meta=window.GATHER_CONFIG.minecraftMobs?.find(m=>m.id===e.templateId)||window.GATHER_CONFIG.minecraftMobs?.[0]||{};ecosystem.mobs.push({...meta,id:e.templateId,uid:id,name:e.name,x:e.x,y:e.y,hp:e.hp,maxHp:e.maxHp,isBerserk:false,waypoints:[]});}
@@ -276,7 +608,28 @@
     }
     ecosystem.mobs=ecosystem.mobs.filter(m=>snap.enemies?.[m.uid||m.id]&&window.OfficeCombat.defeatVisible(m));
     for(const q of snap.players){if(q.id===p.id)continue;if(!network.remotePlayers.has(q.clientId))network.upsertRemotePlayer({id:q.clientId,name:q.name,unit:q.unit,x:q.x,y:q.y,avatarId:q.avatarId,status:'active'},true);const remote=network.remotePlayers.get(q.clientId);if(remote){if(q.action==='toilet'){remote.x=q.x;remote.y=q.y;remote.targetX=q.x;remote.targetY=q.y;remote.actionState='toilet';}else if(remote.actionState==='toilet')remote.actionState=null;remote.seasonPlayerId=q.id;remote.isInjured=q.effects.injuredUntil>now;remote.lightInjuredUntil=q.effects.lightUntil||0;remote.outfitAvatarId=q.worn;}}
-    if(p.pending&&!season.pendingChoice){season.pendingChoice=true;setTimeout(async()=>{const chosen=await window.OfficeFacilities.choose('抽到 '+p.pending.outfit.name+'，選一套服裝替換；取消保留材料',p.items.filter(i=>i.category==='outfit'));await seasonSend(chosen?'gacha_confirm':'gacha_cancel',chosen?{replace:chosen[0]}:{});season.pendingChoice=false;},0);}
+    // 檢測是否扭蛋獲得新服裝 (包包未滿時直接進入 p.items)
+    if (p.items) {
+      const currentOutfits = p.items.filter(i => i.category === 'outfit');
+      if (season.lastOutfitUids) {
+        for (const out of currentOutfits) {
+          if (!season.lastOutfitUids.has(out.uid)) {
+            showGachaSurpriseModal(out, false);
+            break;
+          }
+        }
+      }
+      season.lastOutfitUids = new Set(currentOutfits.map(i => i.uid));
+    }
+
+    if(p.pending&&!season.pendingChoice){
+      season.pendingChoice=true;
+      showGachaSurpriseModal(p.pending.outfit, true, async () => {
+        const chosen = await window.OfficeFacilities.choose('抽到 ' + p.pending.outfit.name + '，選一套服裝替換；取消保留材料', p.items.filter(i => i.category === 'outfit'));
+        await seasonSend(chosen ? 'gacha_confirm' : 'gacha_cancel', chosen ? { replace: chosen[0] } : {});
+        season.pendingChoice = false;
+      });
+    }
   }
   async function seasonLogin(params) {
     if(!season.client)season.client=new window.GatherProfileClient(window.GATHER_CONFIG.supabaseUrl+'/functions/v1/gather-season2',{storage:localStorage,onSnapshot:applySeasonSnapshot});
@@ -298,8 +651,18 @@
       await season.client.send('heartbeat',{x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState,...(network.isRoomMaster()?{world:seasonWorldPayload()}:{})});
       season.failures=0;
       const channel=season.client.snapshot?.player?.channel;
-      if(channel&&gameNow()-channel.at>=(channel.kind==='lounge'?5000:channel.kind==='heal'?channel.duration:3000)){
-        await season.client.send(channel.kind==='rma'?'rma_finish':channel.kind==='heal'?'heal_finish':channel.kind==='device'?'device_finish':'facility_finish');localPlayer.actionState=null;
+      if(channel){
+        const chDist = Math.hypot(localPlayer.x - channel.x, localPlayer.y - channel.y);
+        if(chDist > 30 || (localPlayer.isMoving && !['sit_code', 'pray_kuaikuai', 'play_arcade'].includes(localPlayer.actionState))){
+          season.client.snapshot.player.channel = null;
+          seasonSend("cancel").catch(() => {});
+          if(['sit_code', 'pray_kuaikuai', 'play_arcade'].includes(localPlayer.actionState)){
+            localPlayer.actionState = null;
+          }
+        } else if(gameNow() - channel.at >= (channel.kind==='lounge'?5000:channel.kind==='heal'?channel.duration:3000)){
+          await season.client.send(channel.kind==='rma'?'rma_finish':channel.kind==='heal'?'heal_finish':channel.kind==='device'?'device_finish':'facility_finish');
+          localPlayer.actionState = null;
+        }
       }
     } catch(e){season.failures=(season.failures||0)+1;if(String(e.message).includes('登入已失效'))seasonError(e);else if(!document.hidden&&season.failures>=3){const badge=document.getElementById('netModeBadge');if(badge){badge.textContent='雲端連線中斷・正在重試';badge.classList.add('disconnected');}}}
     finally{season.polling=false;}
@@ -308,9 +671,10 @@
     return ecosystem.groundItems.filter(d=>d.seasonDrop&&!d.claimed&&!(d.pickupAfter>gameNow()))
       .map(d=>({d,dist:Math.hypot(d.x-localPlayer.x,d.y-localPlayer.y)}))
       .filter(({d,dist})=>{
-        if(dist>window.OfficeProgression.pickupRadius(progression.level))return false;
-        const steps=Math.max(1,Math.ceil(dist/8));
-        for(let i=0;i<=steps;i++)if(window.isPositionBlocked(localPlayer.x+(d.x-localPlayer.x)*i/steps,localPlayer.y+(d.y-localPlayer.y)*i/steps,18))return false;
+        const pickupRad = window.OfficeProgression?.pickupRadius ? window.OfficeProgression.pickupRadius(progression.level) : 80;
+        if(dist > pickupRad + 20) return false;
+        const steps=Math.max(1,Math.ceil(dist/12));
+        for(let i=0;i<=steps;i++)if(window.isPositionBlocked(localPlayer.x+(d.x-localPlayer.x)*i/steps,localPlayer.y+(d.y-localPlayer.y)*i/steps,4))return false;
         return true;
       }).sort((a,b)=>a.dist-b.dist)[0]?.d||null;
   }
@@ -328,10 +692,27 @@
         else if(!ecosystem.groundItems.some(i=>i.uid===d.uid)&&season.client.snapshot.drops.some(i=>i.uid===d.uid&&!i.claimed))ecosystem.groundItems.push(d);
       }finally{season.hiddenDrops.delete(d.uid);}return true;
     }
-    if(snap.task?.claimer===p.id&&Math.hypot(localPlayer.x-snap.task.x,localPlayer.y-snap.task.y)<95){await seasonSend('rma_start');localPlayer.actionState='sit_code';return true;}
-    const fault=Object.entries(snap.broken||{}).find(([id,f])=>{const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];return f.broken&&target&&Math.hypot(localPlayer.x-target.x-target.w/2,localPlayer.y-target.y-target.h-18)<95;});
+    if(snap.task?.claimer===p.id&&Math.hypot(localPlayer.x-snap.task.x,localPlayer.y-snap.task.y)<95){
+      if(snap.task.stage==='reporting'){
+        await seasonSend('rma_report');
+        spawnConfetti(localPlayer.x, localPlayer.y - 20);
+        showCombatToast('🎖️ 救火任務完成！領取大量經驗 +150 EXP 與隨機道具獎勵！', 'join');
+        pushStatusLog('系統', '🎖️ 完成緊急 RMA 救火任務，獲得 150 EXP 及隨機裝備物資！');
+        return true;
+      }
+      await seasonSend('rma_start');
+      localPlayer.actionState='sit_code';
+      return true;
+    }
+    const fault=Object.entries(snap.broken||{}).find(([id,f])=>{
+      const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];
+      if(!f.broken||!target)return false;
+      const cx=Math.max(target.x,Math.min(localPlayer.x,target.x+target.w));
+      const cy=Math.max(target.y,Math.min(localPlayer.y,target.y+target.h));
+      return Math.hypot(localPlayer.x-cx,localPlayer.y-cy)<=95||Math.hypot(localPlayer.x-target.x-target.w/2,localPlayer.y-target.y-target.h-18)<125;
+    });
     if(fault){await seasonSend('device_start',{target:fault[0]});localPlayer.actionState='sit_code';return true;}
-    const f=window.OfficeFacilities.nearby(localPlayer,snap);
+    const f=window.OfficeFacilities?.nearby?.(localPlayer,snap);
     if(f){await window.OfficeFacilities.use(f,season.client,()=>({x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState})).catch(seasonError);if(season.client.snapshot.player.channel)localPlayer.actionState=f.id==='shrine'?'pray_kuaikuai':f.id==='lounge'?'play_arcade':'sit_code';return true;}
     return false;
   }
@@ -400,7 +781,7 @@
       // 首次登入無存檔：預設不持有任何道具，保持完全徒手狀態
       localPlayer.equippedSlots = [null, null, null];
       localPlayer.inventory = [];
-      localPlayer.heldItem = '🟢';
+      localPlayer.heldItem = '';
       localPlayer.activeEquipIndex = 0;
       syncPlayerActiveWeaponState();
       savePersistentState();
@@ -412,6 +793,10 @@
       },
       onEquipmentBroken: (mob, target) => {
         pushStatusLog('系統', `💥 【${target.name}】遭怪物【${mob.name}】破壞！靠近按 [E] 修復獲得經驗！`);
+      },
+      onMobHitPlayer: (mob, pl) => {
+        if (season.enabled) return;
+        triggerBerserkKnockback(mob, `遭遇怪物【${mob.name}】衝撞！`);
       },
     });
 
@@ -430,11 +815,11 @@
         renderSidebarRoster();
       },
       onRemoteMurmur: (pkt) => {
-        pushStatusLog(pkt.senderName, `💭 碎碎念：「${pkt.text}」`);
+        // MURMUR 依需求僅在頭頂氣泡卡片呈現，不寫入左下角聊天記錄
         renderUnifiedChatAndStatus();
       },
       onRecoveryLocation: (spot) => {
-        if(!localPlayer.isInjured)return;
+        if(!localPlayer.isInjured || !spot || !Number.isFinite(spot.x) || !Number.isFinite(spot.y)) return;
         const changed=localPlayer.injuredX!==spot.x||localPlayer.injuredY!==spot.y;
         localPlayer.x=localPlayer.injuredX=spot.x;localPlayer.y=localPlayer.injuredY=spot.y;
         localPlayer.actionState='sleep_bed';localPlayer.autoWalkTarget=null;localPlayer.knockback=null;
@@ -463,6 +848,10 @@
         }
       },
       onHuntEscape: () => {
+        if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
+          showToast('🚑 身受重傷休養中，無法前往安全區！', 'error');
+          return;
+        }
         cancelContextualAction(); localPlayer.x=2350; localPlayer.y=350;
         localPlayer.autoWalkTarget=null; localPlayer.knockback=null;
         network.broadcastPacket('state_sync',{player:network.getPublicState()});
@@ -472,16 +861,32 @@
         localPlayer.emote={emoji:'💥',expiresAt:gameNow()+2000};
         if(count>=3) handleIncomingWeaponAttack({targetId:network.clientId,isCriticalInjury:true,hunt:true});
       },
-      onGhostScare: (until) => {if(season.enabled)return;
+      onGhostScare: (until, isAttack) => {
         window.OfficeCombat?.send(network,'combat_hurt',{targetId:network.clientId});
+        if (isAttack) {
+          const nowInj = gameNow();
+          if (nowInj >= (localPlayer.lightInjuredUntil || 0) && !localPlayer.isInjured) {
+            localPlayer.lightInjuredUntil = nowInj + 60000;
+            showCombatToast('🩹 遭幽靈突襲撕裂造成輕微挫傷：移速降低 30% (持續 60 秒)', 'error');
+            pushCombatLog('夜遊幽靈', '👻 怨念利爪突襲！造成輕微挫傷');
+          }
+          const ghost = network?.npcPlayers?.get('npc_night_ghost');
+          let dx = localPlayer.x - (ghost ? ghost.x : localPlayer.x - 20);
+          let dy = localPlayer.y - (ghost ? ghost.y : localPlayer.y);
+          if (Math.hypot(dx, dy) < 1) { dx = 1; dy = 0; }
+          const ang = Math.atan2(dy, dx);
+          localPlayer.knockback = { vx: Math.cos(ang) * 16, vy: Math.sin(ang) * 16, ticksLeft: 20 };
+        }
         if (!isLoggedIn || gameNow() < (localPlayer.ghostSleepUntil || 0)) return;
         cancelContextualAction();
         localPlayer.autoWalkTarget = null;
-        localPlayer.knockback = null;
+        if (!isAttack) localPlayer.knockback = null;
         localPlayer.ghostSleepUntil = until;
-        localPlayer.actionState = 'slack_nap';
+        localPlayer.actionState = 'scared_faint';
         localPlayer.isMoving = false;
-        pushStatusLog('夜遊幽靈', '嚇到斷線！原地打瞌睡 5 秒……');
+        localPlayer.emote = { emoji: isAttack ? '💥' : '💫', expiresAt: gameNow() + 3000 };
+        showCombatToast(isAttack ? '👻 遭幽靈怨念突襲撕裂！受到攻擊並嚇暈……' : '👻 遭夜遊幽靈驚嚇！嚇暈斷線 5 秒……', 'error');
+        pushStatusLog('夜遊幽靈', isAttack ? '怨念利爪突襲！嚇暈斷線 5 秒……' : '嚇到斷線！原地打瞌睡 5 秒……');
       },
       onProximityChat: (msg) => {
         const suffix = msg.isNearby ? ' (身邊)' : '';
@@ -537,7 +942,7 @@
           localPlayer.injuredUntil = 0;
           localPlayer.beingHealed = false;
           localPlayer.healProgress = 0;
-          localPlayer.actionState = null;
+          localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
           savePersistentState();
           updatePoseLabelUI();
           updateInjuryCountdownHUD();
@@ -713,6 +1118,20 @@
           }
         }
         pushStatusLog(pkt.senderName || '同事', `🦵 在廁所門外敲門大喊：「${pkt.text || '不要再屎遁'}」！`);
+      },
+      onRemoteToiletState: (pkt) => {
+        if(season.enabled)return;
+        if (pkt && pkt.stallId && window.WORLD_MAP?.toiletStalls) {
+          const stall = window.WORLD_MAP.toiletStalls.find((st) => st.id === pkt.stallId);
+          if (stall) {
+            stall.occupiedBy = pkt.occupiedBy || null;
+            if (pkt.doorOpen !== undefined) {
+              stall.doorOpen = pkt.doorOpen;
+            } else if (pkt.occupiedBy) {
+              stall.doorOpen = 0;
+            }
+          }
+        }
       },
       onRemoteStatusLog: (pkt) => {
         if (pkt && pkt.senderName && pkt.text) {
@@ -929,7 +1348,11 @@
 
   function equipFromBag(bagIdx) {
     const item = localPlayer.inventory[bagIdx]; if (!item) return;
-    if(season.enabled){seasonSend("equip",{uid:item.uid});return;}
+    if(season.enabled){
+      if(season.manualEmptySlots) season.manualEmptySlots.clear();
+      seasonSend("equip",{uid:item.uid});
+      return;
+    }
     if (window.OfficeWardrobe.isOutfit(item)) {
       window.OfficeWardrobe.wear(localPlayer, bagIdx);
       showCombatToast(`${localPlayer.wornOutfitUid === item.uid ? '穿上' : '脫下'}【${escapeHtml(item.name)}】`);
@@ -941,7 +1364,13 @@
   }
 
   function unequipSlotToBag(equipIdx) {
-    if(season.enabled){const i=localPlayer.equippedSlots[equipIdx];if(i)seasonSend("equip",{uid:i.uid});return;}
+    if(season.enabled){
+      season.manualEmptySlots = season.manualEmptySlots || new Set();
+      season.manualEmptySlots.add(equipIdx);
+      const i=localPlayer.equippedSlots[equipIdx];
+      if(i)seasonSend("equip",{uid:i.uid});
+      return;
+    }
     if (!window.OfficeWardrobe.unequip(localPlayer, equipIdx)) {
       showCombatToast('背包已滿，無法卸下裝備'); return;
     }
@@ -996,9 +1425,9 @@
         eqName.textContent = `${active.emoji} ${active.name} 【主手裝備｜耐久 ${active.durability}/${active.maxDurability}】`;
         eqDesc.textContent = `擊飛威力 Power ${active.power}｜經驗加成 +${active.expBonusPct}%｜擊退能力：${active.hitsToRepel || 3} 次擊退怪物｜耐久度：${active.durability}/${active.maxDurability}（命中滿 3 次損毀消失）`;
       } else {
-        eqIcon.textContent = '🚫';
-        eqName.textContent = '目前未裝備任何道具（無法使用 [F] 擊退功能）';
-        eqDesc.textContent = '請點擊下方「持有物品儲物欄」中的武器或道具進行裝備（一次最多裝備 3 個）！';
+        eqIcon.textContent = '👊';
+        eqName.textContent = '👊 徒手拳頭【未裝備道具・肉身無限耐久】';
+        eqDesc.textContent = '威力 Power 3｜經驗加成 +0%｜擊退需：10 次｜冷卻 1.0 秒｜按 [F] 徒手揮拳擊退！';
       }
     }
 
@@ -1006,7 +1435,7 @@
       bonusBadge.textContent = `✨ 已裝備 ${eqCount}/3 個｜裝備總經驗加成：+${totalBonusPct}%｜${
         active
           ? `主手擊退能力：${active.hitsToRepel || 3}次擊退怪物｜剩餘耐久：${active.durability}/${active.maxDurability}`
-          : '尚未裝備主手武器'
+          : '👊 徒手拳頭：10次擊退｜耐久無限'
       }`;
     }
 
@@ -1157,6 +1586,18 @@
 
   function addExp(amount, reasonText, applyEquipBonus = true) {
     if(season.enabled)return 0;
+    if (amount < 0) {
+      const loss = Math.abs(amount);
+      progression.exp = Math.max(0, progression.exp - loss);
+      if (reasonText) appendCombatText(`-${loss} EXP · ${reasonText}`);
+      const key = 'pp00_gather_exp_' + (localPlayer.name || 'default').toLowerCase();
+      try {
+        localStorage.setItem(key, JSON.stringify({ loginCount: progression.loginCount, exp: progression.exp }));
+      } catch (_) {}
+      recalcLevelAndBuff();
+      updateSelfHudCard();
+      return -loss;
+    }
     const equipBonusPct = applyEquipBonus ? getTotalEquippedExpBonusPct() : 0;
     const finalAmount = Math.max(1, Math.round(amount * (1 + equipBonusPct / 100)));
     progression.exp += finalAmount;
@@ -1182,6 +1623,47 @@
     return finalAmount;
   }
 
+  globalThis.handleNonSeasonArcadeResult = function(outcome) {
+    if (outcome === 'win') {
+      const pool = [
+        { id: 'coffee', name: '熱咖啡', emoji: '☕', category: 'item', maxDurability: 1 },
+        { id: 'boba', name: '波霸珍奶', emoji: '🧋', category: 'item', maxDurability: 1 },
+        { id: 'pizza', name: '美味披薩', emoji: '🍕', category: 'item', maxDurability: 1 },
+        { id: 'kuaikuai', name: '綠乖乖', emoji: '🟢', category: 'item', maxDurability: 1 },
+        { id: 'wrench', name: '工程板手', emoji: '🔧', category: 'weapon', maxDurability: 3 },
+        { id: 'duck', name: '黃色小鴨', emoji: '🦆', category: 'weapon', maxDurability: 3 },
+        { id: 'ic_pkg', name: '封裝晶片', emoji: '💾', category: 'weapon', maxDurability: 3 },
+        { id: 'keyboard', name: '機械鍵盤', emoji: '⌨️', category: 'weapon', maxDurability: 3 },
+        { id: 'bench', name: '折疊鐵椅', emoji: '🪑', category: 'weapon', maxDurability: 3 },
+      ];
+      const item = pool[Math.floor(Math.random() * pool.length)];
+      addItemToInventory(item, true);
+      addExp(15, '電競猜拳勝利！');
+      updateSelfHudCard();
+      showCombatToast(`🎉 電競猜拳大獲全勝！獲得獎勵【${item.emoji} ${item.name}】與 +15 EXP！`);
+    } else if (outcome === 'lose') {
+      addExp(-10, '電競猜拳落敗');
+      updateSelfHudCard();
+      showCombatToast('💀 電競猜拳遺憾落敗，經驗值 -10 EXP！', 'error');
+    }
+  };
+
+  globalThis.startNonSeasonHealing = function() {
+    localPlayer.actionState = 'play_arcade';
+    updatePoseLabelUI();
+    showCombatToast('🎮 正在電競娛樂室打電動療傷中 (5 秒)……');
+    setTimeout(() => {
+      if (localPlayer.actionState === 'play_arcade') {
+        localPlayer.lightInjuredUntil = 0;
+        localPlayer.isInjured = false;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
+        updatePoseLabelUI();
+        showCombatToast('✨ 療傷完成！身心愉悅，挫傷已痊癒！', 'join');
+        savePersistentState();
+      }
+    }, 5000);
+  };
+
   function forceLevelUp(facilityName) {
     if(season.enabled){showCombatToast("設備已修復；獎勵由後端結算");return;}
     // 補足至下一等級所需 EXP（每 100 EXP 升 1 級，保證立即升 1 級！）
@@ -1206,7 +1688,7 @@
   }
 
   function recalcLevelAndBuff() {
-    if(season.enabled){const R=window.OfficeProgression;progression.level=R.level(progression.exp);progression.title=R.title(progression.level);progression.speedBonusPct=(progression.level-1)*2;localPlayer.speed=R.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow());updateSelfHudCard();return;}
+    if(season.enabled){const R=window.OfficeProgression;if(R){progression.level=R.level(progression.exp);progression.title=R.title(progression.level);progression.speedBonusPct=(progression.level-1)*2;localPlayer.speed=R.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow());}updateSelfHudCard();return;}
     const lv = Math.min(20, Math.floor(progression.exp / 100) + 1);
     progression.level = lv;
     const titles = [
@@ -1384,6 +1866,12 @@
   function triggerBerserkKnockback(npc, reason) {
     if(season.enabled)return;
     window.OfficeCombat?.send(network,'combat_hurt',{targetId:network.clientId});
+    const nowInj = gameNow();
+    if (Math.random() < 0.20 && nowInj >= (localPlayer.lightInjuredUntil || 0) && !localPlayer.isInjured) {
+      localPlayer.lightInjuredUntil = nowInj + 60000;
+      showCombatToast('🩹 輕微挫傷：移速降低 30% (持續 60 秒)', 'error');
+      pushCombatLog('系統', `🩹 遭【${npc.name || '敵人'}】重擊造成輕微挫傷！移速降低 30%（持續 60 秒）`);
+    }
     // 計算從攻擊者指向玩家的擊飛向量
     let dx = localPlayer.x - npc.x;
     let dy = localPlayer.y - npc.y;
@@ -1399,7 +1887,7 @@
     window.WORLD_MAP.toiletStalls.forEach((s) => {
       if (s.occupiedBy === localPlayer.id) s.occupiedBy = null;
     });
-    localPlayer.actionState = null;
+    localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
     localPlayer.autoWalkTarget = null;
     localPlayer.knockback = {
       vx: Math.cos(angle) * power,
@@ -1810,7 +2298,7 @@ async function executeOfficeLogin(params) {
     bar.querySelectorAll('[data-pose]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const now = gameNow();
-        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 1200)) return;
+        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 250)) return;
         lastInteractAt = now;
         lastUserActionAt = now;
         startContextualAction(btn.dataset.pose);
@@ -1827,6 +2315,70 @@ async function executeOfficeLogin(params) {
     updatePoseLabelUI();
   }
 
+
+  // 🎉 扭蛋大獎驚喜提示視窗 (Gacha Surprise Reveal Modal)
+  function showGachaSurpriseModal(item, isPendingReplace, onConfirm) {
+    if (!item) return;
+    try {
+      const old = document.querySelector('.gacha-modal-backdrop');
+      if (old) old.remove();
+
+      const catalogItem = (window.COSTUME_CATALOG || []).find((c) => c.id === item.id) || {};
+      const outfitName = item.name || catalogItem.name || '傳奇限定造型';
+      const badge = catalogItem.badge || item.badge || item.emoji || '🎁';
+      const tag = catalogItem.tag || (item.wearType === 'headgear' ? '【頭部裝飾】傳奇防具' : '【全身偶裝】傳奇防具');
+      const desc = catalogItem.desc || item.description || '全辦公室最吸睛的專屬造型，穿戴自帶氣場與光環！';
+      const durability = item.durability || item.maxDurability || 5;
+
+      const backdrop = document.createElement('div');
+      backdrop.className = 'gacha-modal-backdrop';
+
+      const modal = document.createElement('div');
+      modal.className = 'gacha-surprise-modal';
+
+      modal.innerHTML = `
+        <div class="gacha-surprise-banner">✨ 扭蛋大獎出爐！CONGRATULATIONS ✨</div>
+        <div class="gacha-icon-glow">
+          <span>${badge}</span>
+        </div>
+        <div class="gacha-outfit-name">${escapeHtml(outfitName)}</div>
+        <div class="gacha-outfit-tag">${escapeHtml(tag)}</div>
+        <div class="gacha-outfit-desc">${escapeHtml(desc)}</div>
+        <div class="gacha-perk-box">
+          <div class="gacha-perk-item">🛡️ <strong>傳奇防禦耐久度：</strong> ${durability} / 5</div>
+          <div class="gacha-perk-item">🔰 <strong>致命傷害抵擋：</strong> 可全額吸收致命攻擊，保護本體不受傷！</div>
+          <div class="gacha-perk-item">🎨 <strong>全場即時同步：</strong> 3D 像素立體偶裝，全體同事即時可見！</div>
+        </div>
+        <button class="gacha-confirm-btn" id="gachaSurpriseConfirmBtn">
+          ${isPendingReplace ? '🎉 選擇替換背包服飾' : '🎉 收入背包！'}
+        </button>
+      `;
+
+      backdrop.appendChild(modal);
+      document.body.appendChild(backdrop);
+
+      if (typeof spawnConfetti === 'function') {
+        spawnConfetti(window.innerWidth / 2, window.innerHeight / 2);
+        setTimeout(() => spawnConfetti(window.innerWidth * 0.35, window.innerHeight * 0.4), 150);
+        setTimeout(() => spawnConfetti(window.innerWidth * 0.65, window.innerHeight * 0.4), 300);
+      }
+
+      const confirmBtn = modal.querySelector('#gachaSurpriseConfirmBtn');
+      confirmBtn.addEventListener('click', () => {
+        backdrop.remove();
+        if (typeof onConfirm === 'function') {
+          onConfirm();
+        }
+      });
+
+      showToast(`🎉 恭喜扭中【${outfitName}】！`, 'success');
+    } catch (e) {
+      console.warn('showGachaSurpriseModal error:', e);
+      if (typeof onConfirm === 'function') onConfirm();
+    }
+  }
+  window.showGachaSurpriseModal = showGachaSurpriseModal;
+
   function cancelContextualAction() {
     if(season.enabled&&(localPlayer.occupiedSpotId?.startsWith('wc_')||season.client?.snapshot?.player?.stall)&&!season.toiletLeaving){season.toiletLeaving=true;seasonSend('toilet_exit').finally(()=>{season.toiletLeaving=false;});}
 
@@ -1839,9 +2391,10 @@ async function executeOfficeLogin(params) {
       localPlayer.x = stall.x - 28;
       localPlayer.y = stall.y + 48;
       setTimeout(() => { stall.doorOpen = 0; }, 420);
+      network?.broadcastPacket('toilet_state', { stallId: stall.id, occupiedBy: null, doorOpen: 0 });
     });
     localPlayer.occupiedSpotId = null;
-    localPlayer.actionState = null;
+    localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
     updatePoseLabelUI();
     network.broadcastPacket('state_sync', { player: network.getPublicState() });
   }
@@ -1865,7 +2418,7 @@ async function executeOfficeLogin(params) {
     const sameAction = localPlayer.actionState === actionId;
     cancelContextualAction();
     if (sameAction || !actionId) {
-      localPlayer.actionState = null;
+      localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
       pushStatusLog('你', '已恢復一般行走狀態');
     } else {
       localPlayer.actionState = actionId;
@@ -2235,10 +2788,19 @@ async function executeOfficeLogin(params) {
     document.getElementById('touchInteractBtn').addEventListener('click', () => {
       if (!isLoggedIn) return;
       const now = gameNow();
-      if (now - lastInteractAt < (window.GATHER_CONFIG.security.interactCooldownMs || 1200)) return;
+      if (now - lastInteractAt < (window.GATHER_CONFIG.security.interactCooldownMs || 250)) return;
       lastInteractAt = now; lastUserActionAt = now;
       tryInteractWithEnvironment();
     });
+    const touchAtkBtn = document.getElementById('touchAttackBtn');
+    if (touchAtkBtn) {
+      touchAtkBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!isLoggedIn) return;
+        lastUserActionAt = gameNow();
+        triggerWeaponAttack();
+      });
+    }
     if (window.matchMedia('(max-width: 900px), (pointer: coarse)').matches) {
       document.getElementById('proxChatPanel').classList.add('chat-minimized');
       document.getElementById('toggleChatCollapseBtn').textContent = '➕ 展開';
@@ -2272,6 +2834,26 @@ async function executeOfficeLogin(params) {
         return;
       }
       if (e.key === 'Escape') {
+        const mcModal = document.getElementById('mcInventoryModal');
+        if (mcModal && !mcModal.classList.contains('hidden')) {
+          mcModal.classList.add('hidden');
+          return;
+        }
+        const pickers = document.querySelectorAll('dialog.s2-picker');
+        if (pickers.length > 0) {
+          pickers.forEach(d => { try { d.close('cancel'); } catch(_) { d.remove(); } });
+          return;
+        }
+        const wardrobe = document.getElementById('wardrobeModal');
+        if (wardrobe && !wardrobe.classList.contains('hidden')) {
+          wardrobe.classList.add('hidden');
+          return;
+        }
+        const poseDropdown = document.getElementById('actionPoseDropdown');
+        if (poseDropdown && !poseDropdown.classList.contains('hidden')) {
+          poseDropdown.classList.add('hidden');
+          return;
+        }
         if (camera.overviewMode) {
           setOverviewMode(false);
           return;
@@ -2333,7 +2915,7 @@ async function executeOfficeLogin(params) {
       if (e.altKey && altPoseMap[e.key]) {
         e.preventDefault();
         const now = gameNow();
-        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 1200)) return;
+        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 250)) return;
         lastInteractAt = now;
         startContextualAction(altPoseMap[e.key]);
         return;
@@ -2351,7 +2933,7 @@ async function executeOfficeLogin(params) {
       if (numberSkillMap[e.key] && !e.altKey && !e.ctrlKey) {
         e.preventDefault();
         const now = gameNow();
-        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 1200)) return;
+        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 250)) return;
         lastInteractAt = now;
         flashSkillHotkeyButton(e.key);
         triggerProximitySkill(numberSkillMap[e.key]);
@@ -2362,7 +2944,7 @@ async function executeOfficeLogin(params) {
         e.preventDefault();
         const modeSel = document.getElementById('chatSendModeSelect');
         if (modeSel) {
-          modeSel.value = 'murmur_normal';
+          modeSel.value = 'murmur';
           dispatchChangeEvent(modeSel);
         }
         const chatInp = document.getElementById('proxChatInput');
@@ -2386,7 +2968,7 @@ async function executeOfficeLogin(params) {
       if (k === 'e' || e.code === 'KeyE') {
         e.preventDefault();
         const now = gameNow();
-        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 1200)) return;
+        if (now - lastInteractAt < (window.GATHER_CONFIG?.security?.interactCooldownMs || 250)) return;
         lastInteractAt = now;
         tryInteractWithEnvironment();
       }
@@ -2402,6 +2984,35 @@ async function executeOfficeLogin(params) {
     canvas.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       if (!isLoggedIn) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+
+      const mm = getMinimapRect();
+      if (mm.w > 0 && !camera.minimapHidden && sx >= mm.x && sx <= mm.x + mm.w && sy >= mm.y && sy <= mm.y + mm.h) {
+        // 點擊雷達右上角 ✕ 關閉雷達（身受重傷休養中亦可關閉小地圖）
+        if (sx >= mm.x + mm.w - 22 && sy <= mm.y + 22) {
+          camera.minimapHidden = true;
+          showCombatToast('園區雷達小地圖已關閉（點擊全景視角按鈕可重新開啟）');
+          return;
+        }
+        // 若在小地圖非 ✕ 區域點擊導航，受傷時不可移動
+        if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
+          const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - gameNow()) / 1000));
+          const m = String(Math.floor(remSec / 60)).padStart(2, '0');
+          const s = String(remSec % 60).padStart(2, '0');
+          showToast(`🚑 身受重傷休養中（會議室 B 休養中，剩餘 ${m}:${s}）`, 'error');
+          return;
+        }
+        const worldX = ((sx - mm.x) / mm.w) * window.WORLD_MAP.width;
+        const worldY = ((sy - mm.y) / mm.h) * window.WORLD_MAP.height;
+        cancelContextualAction();
+        localPlayer.autoWalkTarget = { x: worldX, y: worldY, followId: null };
+        pushStatusLog('系統', '已透過雷達設定導航目標點');
+        if (camera.overviewMode) setOverviewMode(false);
+        return;
+      }
 
       // 🚑 檢查重傷休養狀態：無法點擊地面移動
       if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
@@ -2421,27 +3032,6 @@ async function executeOfficeLogin(params) {
         network.broadcastPacket('state_sync', { player: network.getPublicState() });
         pushStatusLog('系統', '恢復操作，切換為「🟢 上線」狀態');
         renderSidebarRoster();
-      }
-
-      const rect = canvas.getBoundingClientRect();
-      const sx = e.clientX - rect.left;
-      const sy = e.clientY - rect.top;
-
-      const mm = getMinimapRect();
-      if (mm.w > 0 && !camera.minimapHidden && sx >= mm.x && sx <= mm.x + mm.w && sy >= mm.y && sy <= mm.y + mm.h) {
-        // 點擊雷達右上角 ✕ 關閉雷達
-        if (sx >= mm.x + mm.w - 22 && sy <= mm.y + 22) {
-          camera.minimapHidden = true;
-          showCombatToast('園區雷達小地圖已關閉（點擊全景視角按鈕可重新開啟）');
-          return;
-        }
-        const worldX = ((sx - mm.x) / mm.w) * window.WORLD_MAP.width;
-        const worldY = ((sy - mm.y) / mm.h) * window.WORLD_MAP.height;
-        cancelContextualAction();
-        localPlayer.autoWalkTarget = { x: worldX, y: worldY, followId: null };
-        pushStatusLog('系統', '已透過雷達設定導航目標點');
-        if (camera.overviewMode) setOverviewMode(false);
-        return;
       }
 
       const clickX = sx / camera.zoom + camera.x;
@@ -2566,7 +3156,7 @@ async function executeOfficeLogin(params) {
     const tpl = list[Math.floor(Math.random() * list.length)] || '';
     return tpl
       .replace(/\{target\}/g, escapeHtml(vars.target || '對方'))
-      .replace(/\{myItem\}/g, escapeHtml(vars.myItem || '🟢'))
+      .replace(/\{myItem\}/g, escapeHtml(vars.myItem || ''))
       .replace(/\{theirItem\}/g, escapeHtml(vars.theirItem || '🍕'));
   }
 
@@ -2589,7 +3179,18 @@ async function executeOfficeLogin(params) {
     return null;
   }
 
-  function triggerProximitySkill(skillType, allowRemoteWave = false) {
+  function isNpcEntity(target) {
+    if (!target) return false;
+    return Boolean(
+      target.isNpc ||
+      (typeof target.id === 'string' && (target.id.startsWith('npc_') || target.id.includes('auntie') || target.id.includes('boss') || target.id.includes('guard') || target.id.includes('commander'))) ||
+      (typeof target.name === 'string' && target.name.startsWith('NPC:')) ||
+      (typeof target.unit === 'string' && target.unit.includes('NPC')) ||
+      (network?.npcPlayers && network.npcPlayers.has(target.id))
+    );
+  }
+
+  async function triggerProximitySkill(skillType, allowRemoteWave = false) {
     const now = gameNow();
     if (now - network.lastSkillAt < window.GATHER_CONFIG.security.skillCooldownMs) return;
 
@@ -2607,8 +3208,21 @@ async function executeOfficeLogin(params) {
       return;
     }
 
-    const target = getActiveTargetPlayer();
+    let target = getActiveTargetPlayer();
     const maxRadius = window.GATHER_CONFIG.security.proximityRadiusPx || 180;
+
+    // 揮手特權：若身邊半徑內無目標，自動尋找視野內（520px）最近的 NPC 進行召喚
+    if (!target && skillType === 'wave') {
+      const all = network.getAllOtherPlayers();
+      const npcs = all
+        .filter(p => isNpcEntity(p) && !p.combatDown && !p.id.includes('ghost') && !p.isMob)
+        .map(p => ({ p, dist: Math.hypot(p.x - localPlayer.x, p.y - localPlayer.y) }))
+        .filter(item => item.dist <= 520)
+        .sort((a, b) => a.dist - b.dist);
+      if (npcs.length > 0) {
+        target = npcs[0].p;
+      }
+    }
 
     if (!target) {
       showToast(`📡 身邊半徑 ${maxRadius}px 內沒有同仁或目標，請靠近後再互動！`, 'info');
@@ -2619,13 +3233,16 @@ async function executeOfficeLogin(params) {
 
     // 規定：交換禮物、揮手、靜電戳、乾杯要在指定的半徑範圍內才可以生效，避免遠距觸發
     if (dist > maxRadius) {
-      if (skillType === 'follow') {
+      if (skillType === 'wave' && isNpcEntity(target) && dist <= 550) {
+        // 允許在視野範圍內（550px）遠距揮手召喚 NPC 靠近！
+      } else if (skillType === 'follow') {
         showToast(`🏃 距離 <b>${escapeHtml(target.name)}</b> 較遠，正在自動跟隨走向他身邊...`, 'info');
         walkToPlayer(target.id);
         return;
+      } else {
+        showToast(`⚠️ 距離【${escapeHtml(target.name)}】過遠（${Math.round(dist)}px > 半徑 ${maxRadius}px），需走近身邊才能生效！`, 'error');
+        return;
       }
-      showToast(`⚠️ 距離【${escapeHtml(target.name)}】過遠（${Math.round(dist)}px > 半徑 ${maxRadius}px），需走近身邊才能生效！`, 'error');
-      return;
     }
 
     network.lastSkillAt = now;
@@ -2633,6 +3250,144 @@ async function executeOfficeLogin(params) {
 
     switch (skillType) {
       case 'exchange': {
+        if (isNpcEntity(target)) {
+          // 檢查是否為幽靈或怪物
+          const isGhost = target.id.includes('ghost') || target.role === 'ghost';
+          const isMob = target.isMob || target.id.startsWith('mob_') || target.templateId;
+          if (isGhost) {
+            showToast('👻 幽靈無法進行禮物交換！', 'error');
+            return;
+          }
+          if (isMob) {
+            showToast('👾 怪物兇猛，無法進行禮物交換！', 'error');
+            return;
+          }
+
+          // 取得玩家背包/裝備中的非外觀道具（不含頭飾服裝）
+          let chosenItem = null;
+          let chosenSlot = null;
+          let chosenFromBag = false;
+
+          if (season.enabled && season.client?.snapshot?.player) {
+            const items = season.client.snapshot.player.items.filter(i => i && i.category !== 'outfit');
+            if (!items.length) {
+              showToast('🎒 你身上沒有可交換的道具或武器（不含頭飾服裝），無法使用！', 'error');
+              return;
+            }
+            const activeItem = localPlayer.equippedSlots[localPlayer.activeEquipIndex];
+            if (activeItem && activeItem.category !== 'outfit') {
+              chosenItem = activeItem;
+            } else {
+              chosenItem = items[0];
+            }
+          } else {
+            const activeIdx = localPlayer.activeEquipIndex;
+            if (localPlayer.equippedSlots[activeIdx] && localPlayer.equippedSlots[activeIdx].category !== 'outfit') {
+              chosenItem = localPlayer.equippedSlots[activeIdx];
+              chosenSlot = activeIdx;
+            } else {
+              const eqIdx = localPlayer.equippedSlots.findIndex(i => i && i.category !== 'outfit');
+              if (eqIdx !== -1) {
+                chosenItem = localPlayer.equippedSlots[eqIdx];
+                chosenSlot = eqIdx;
+              } else {
+                const invIdx = (localPlayer.inventory || []).findIndex(i => i && i.category !== 'outfit');
+                if (invIdx !== -1) {
+                  chosenItem = localPlayer.inventory[invIdx];
+                  chosenFromBag = true;
+                }
+              }
+            }
+          }
+
+          if (!chosenItem) {
+            showToast('🎒 你身上沒有可交換的道具或武器（不含頭飾服裝），無法使用！', 'error');
+            return;
+          }
+
+          // 依使用者指示降低 NPC 交換禮物機率 (50% 願意交換，50% 婉拒)
+          const acceptTrade = Math.random() < 0.50;
+          if (!acceptTrade) {
+            target.jumpOffset = 10;
+            target.emote = { emoji: '😅', expiresAt: now + 3500 };
+            const declineQuotes = [
+              '哎呀，我身上現在沒有適合給你的東西呢，下次再來換吧！',
+              '這個你留著用吧！我手邊沒有多的回禮能給你呢～',
+              '謝謝你的好意！但公發物資吃緊，改天再來交換喔！'
+            ];
+            const declineText = declineQuotes[Math.floor(Math.random() * declineQuotes.length)];
+            target.murmur = {
+              text: declineText,
+              mood: 'idea',
+              createdAt: now,
+              expiresAt: now + 5000,
+            };
+            showToast(`😅 【${escapeHtml(target.name)}】目前手邊沒有合適的回禮，委婉婉拒了這次交換！`, 'info');
+            pushStatusLog(target.name, `😅 苦笑說：「${declineText}」`);
+            return;
+          }
+
+          // NPC 隨機回贈道具池 (不含頭飾服裝)
+          const npcGiftPool = [
+            { id: 'coffee', name: '熱咖啡', emoji: '☕', category: 'item', maxDurability: 1 },
+            { id: 'boba', name: '波霸珍奶', emoji: '🧋', category: 'item', maxDurability: 1 },
+            { id: 'pizza', name: '美味披薩', emoji: '🍕', category: 'item', maxDurability: 1 },
+            { id: 'kuaikuai', name: '綠乖乖', emoji: '🟢', category: 'item', maxDurability: 1 },
+            { id: 'wrench', name: '工程板手', emoji: '🔧', category: 'weapon', maxDurability: 3 },
+            { id: 'duck', name: '黃色小鴨', emoji: '🦆', category: 'weapon', maxDurability: 3 },
+            { id: 'ic_pkg', name: '封裝晶片', emoji: '💾', category: 'weapon', maxDurability: 3 },
+            { id: 'keyboard', name: '機械鍵盤', emoji: '⌨️', category: 'weapon', maxDurability: 3 },
+            { id: 'bench', name: '折疊鐵椅', emoji: '🪑', category: 'weapon', maxDurability: 3 },
+          ];
+          const returnItemMeta = npcGiftPool[Math.floor(Math.random() * npcGiftPool.length)];
+
+          let receivedItem = returnItemMeta;
+          if (season.enabled) {
+            try {
+              const res = await seasonSend('npc_exchange', { uid: chosenItem.uid, npcId: target.id });
+              if (res && res.item) receivedItem = res.item;
+            } catch (_) {
+              if (season.client?.snapshot?.player) {
+                const p = season.client.snapshot.player;
+                p.items = p.items.filter(i => i.uid !== chosenItem.uid);
+                p.items.push({ ...returnItemMeta, uid: 'ex_' + Date.now(), slot: chosenItem.slot });
+                applySeasonSnapshot(season.client.snapshot);
+              }
+            }
+          } else {
+            if (chosenSlot !== null) {
+              localPlayer.equippedSlots[chosenSlot] = null;
+            } else if (chosenFromBag) {
+              const idx = localPlayer.inventory.indexOf(chosenItem);
+              if (idx !== -1) localPlayer.inventory.splice(idx, 1);
+            }
+            receivedItem = addItemToInventory(returnItemMeta, true);
+          }
+
+          // 雙向物品投擲動畫
+          ecosystem.addThrownItem(localPlayer.x, localPlayer.y - 20, target.x, target.y - 20, chosenItem.emoji || '🎁');
+          ecosystem.addThrownItem(target.x, target.y - 20, localPlayer.x, localPlayer.y - 20, receivedItem.emoji);
+
+          target.heldItem = chosenItem.emoji || '🎁';
+          target.jumpOffset = 14;
+          target.emote = { emoji: '🎁', expiresAt: now + 3500 };
+          target.murmur = {
+            text: `謝謝你的禮物！這件【${receivedItem.name}】送你當回禮，收下吧！`,
+            mood: 'idea',
+            createdAt: now,
+            expiresAt: now + 5000,
+          };
+
+          syncPlayerActiveWeaponState();
+          updateSelfHudCard();
+          savePersistentState();
+
+          showToast(`🎁 與【${escapeHtml(target.name)}】交換了禮物！獲得【${receivedItem.emoji} ${receivedItem.name}】！`, 'join');
+          pushStatusLog('系統', `🎁 與【${target.name}】交換禮物：給予【${chosenItem.name || '道具'}】，獲得【${receivedItem.emoji} ${receivedItem.name}】！`);
+          break;
+        }
+
+        // 對玩家：維持原本設計
         if(season.enabled){const q=season.client.snapshot.players.find(p=>p.clientId===target.id),i=getActiveEquippedItem();if(!q||!i){showCombatToast('請選擇線上同事並先裝備要贈送的道具');return;}seasonSend('gift',{target:q.id,uid:i.uid});return;}
         const myOldItem = localPlayer.heldItem;
         const theirOldItem = target.heldItem || getRandomWeaponMeta().emoji;
@@ -2659,19 +3414,11 @@ async function executeOfficeLogin(params) {
           theirItem: theirOldItem,
         });
         showToast(narrative, 'join');
-        if (target.isNpc && target.murmurs) {
-          target.jumpOffset = 12;
-          target.murmur = {
-            text: target.murmurs[Math.floor(Math.random() * target.murmurs.length)],
-            mood: 'idea',
-            createdAt: now,
-            expiresAt: now + window.GATHER_CONFIG.security.murmurTtlMs,
-          };
-        }
         break;
       }
       case 'wave': {
         localPlayer.emote = { emoji: '👋', expiresAt: now + 3500 };
+        localPlayer.jumpOffset = 10;
         vfxList.push({
           type: 'click_ring',
           x: localPlayer.x,
@@ -2688,11 +3435,83 @@ async function executeOfficeLogin(params) {
           fromX: localPlayer.x,
           fromY: localPlayer.y,
         });
-        const narrative = pickSkillNarrative('wave', { target: target.name });
-        showToast(narrative, 'info');
-        if (target.isNpc) {
-          target.emote = { emoji: '👋', expiresAt: now + 3500 };
-          target.jumpOffset = 10;
+
+        if (isNpcEntity(target)) {
+          // 對 NPC 揮手：召喚對方走過來跟你講話一次，完成後結束
+          target.emote = { emoji: '👋', expiresAt: now + 4000 };
+          target.jumpOffset = 12;
+
+          const savedWaypoints = target.waypoints ? [...target.waypoints] : [];
+          const savedIndex = target.currentWaypointIndex || 0;
+
+          const npcQuotes = {
+            npc_vp_boss: [
+              '找我有什麼事？專案進度有按照時程推進嗎？',
+              '有話快說，待會我還要去巡視各產線機台！',
+              '嗯？來得正好，這份產能報告你看過了嗎？'
+            ],
+            npc_dir_pp00: [
+              '機台良率正常嗎？有任何異常立刻回報！',
+              '找我？是不是測試機台又有報警了？',
+              '辛苦了！記得保持測試機台綠燈常亮！'
+            ],
+            npc_guard: [
+              '園區巡邏中，有發現可疑人員或怪物嗎？',
+              '站住！請出示識別證……喔是你啊，注意安全！',
+              '提高警覺，夜間會有幽靈出沒！'
+            ],
+            npc_bird_commander: [
+              '啾～長官召喚！請問有何作戰指示？',
+              '隨時保持警惕，別被逮到！啾！',
+              '報告！鳥人中隊隨時待命支援！'
+            ],
+            default: [
+              '哎呀！找我有什麼事嗎？今天工作加油喔！',
+              '你好你好，找我聊兩句嗎？',
+              '辛苦啦，記得適當休息喝杯水！'
+            ]
+          };
+          const isAuntie = target.id.includes('auntie') || (target.name && target.name.includes('阿姨'));
+          const auntieQuotes = [
+            '哎呀找阿姨嗎？這裡地板剛拖好，小心別滑倒喔！',
+            '小夥子真有禮貌！工作辛苦了，喝杯水吧！',
+            '找阿姨聊聊？廁所衛生紙我都補齊了喔！'
+          ];
+          const list = isAuntie ? auntieQuotes : (npcQuotes[target.id] || npcQuotes.default);
+          const quote = list[Math.floor(Math.random() * list.length)];
+
+          showToast(`👋 向【${escapeHtml(target.name)}】揮手示意，對方正快步朝你走來...`, 'info');
+          pushStatusLog(localPlayer.name, `👋 向【${target.name}】揮手召喚！`);
+
+          // 設定召喚目標與回呼
+          target.actionState = null;
+          target.actionUntil = 0;
+          target.isMoving = true;
+          target.summonTarget = { x: localPlayer.x, y: localPlayer.y, getX: () => localPlayer.x, getY: () => localPlayer.y };
+          target.summonedUntil = now + 9500;
+          target.onSummonArrival = (npc) => {
+            npc.jumpOffset = 14;
+            npc.emote = { emoji: '💬', expiresAt: gameNow() + 4500 };
+            npc.murmur = {
+              text: quote,
+              mood: 'idea',
+              createdAt: gameNow(),
+              expiresAt: gameNow() + 6000,
+            };
+            pushStatusLog(npc.name, `💬 走上前對你說：「${quote}」`);
+            showToast(`💬 <b>${escapeHtml(npc.name)}</b> 走來對你說：「${quote}」`, 'info');
+
+            setTimeout(() => {
+              if (savedWaypoints.length > 0) {
+                npc.waypoints = savedWaypoints;
+                npc.currentWaypointIndex = savedIndex;
+              }
+            }, 4500);
+          };
+        } else {
+          // 對玩家：維持原本設計
+          const narrative = pickSkillNarrative('wave', { target: target.name });
+          showToast(narrative, 'info');
         }
         break;
       }
@@ -2706,6 +3525,105 @@ async function executeOfficeLogin(params) {
           ticksLeft: 22,
         });
         target.jumpOffset = 18;
+
+        if (isNpcEntity(target) && !target.id.includes('ghost') && !target.isMob) {
+          // 對 NPC 靜電戳：有一定機率冒愛心說三句喜歡你並送禮物；一定機率覺得很噁心並追著攻擊你一次
+          // 依使用者指示提高靜電戳憤怒衝刺追擊機率 (80% 憤怒追擊，20% 告白)
+          const rollLove = Math.random() < 0.20;
+          if (rollLove) {
+            // 冒愛心 ❤️ 喜歡你並送你禮物
+            target.emote = { emoji: '💖', expiresAt: now + 4000 };
+            localPlayer.emote = { emoji: '❤️', expiresAt: now + 3000 };
+            spawnConfetti(target.x, target.y - 25);
+
+            const loveQuotes = [
+              '哎呀～被你電得小鹿亂撞，我的心跳頻率都超過 1000MHz 了啦！💖',
+              '這難道就是傳說中的觸電感覺嗎？這份心意你一定要收下！🎁',
+              '討厭啦～幹嘛突然電人家！這個小禮物送你，不許跟別人說喔！🥰'
+            ];
+            const quote = loveQuotes[Math.floor(Math.random() * loveQuotes.length)];
+            target.murmur = {
+              text: quote,
+              mood: 'idea',
+              createdAt: now,
+              expiresAt: now + 6000,
+            };
+
+            const giftPool = [
+              { id: 'coffee', name: '熱咖啡', emoji: '☕', category: 'item', maxDurability: 1 },
+              { id: 'boba', name: '波霸珍奶', emoji: '🧋', category: 'item', maxDurability: 1 },
+              { id: 'pizza', name: '美味披薩', emoji: '🍕', category: 'item', maxDurability: 1 },
+              { id: 'kuaikuai', name: '綠乖乖', emoji: '🟢', category: 'item', maxDurability: 1 },
+              { id: 'wrench', name: '工程板手', emoji: '🔧', category: 'weapon', maxDurability: 3 },
+              { id: 'duck', name: '黃色小鴨', emoji: '🦆', category: 'weapon', maxDurability: 3 },
+              { id: 'ic_pkg', name: '封裝晶片', emoji: '💾', category: 'weapon', maxDurability: 3 },
+              { id: 'keyboard', name: '機械鍵盤', emoji: '⌨️', category: 'weapon', maxDurability: 3 },
+              { id: 'bench', name: '折疊鐵椅', emoji: '🪑', category: 'weapon', maxDurability: 3 },
+            ];
+            const giftMeta = giftPool[Math.floor(Math.random() * giftPool.length)];
+            ecosystem.addThrownItem(target.x, target.y - 20, localPlayer.x, localPlayer.y - 20, giftMeta.emoji);
+
+            let added = giftMeta;
+            if (season.enabled) {
+              try {
+                const res = await seasonSend('npc_love_gift', { npcId: target.id });
+                if (res && res.item) added = res.item;
+              } catch (_) {
+                if (season.client?.snapshot?.player) {
+                  season.client.snapshot.player.items.push({ ...giftMeta, uid: 'love_' + Date.now(), slot: null });
+                  applySeasonSnapshot(season.client.snapshot);
+                }
+              }
+            } else {
+              added = addItemToInventory(giftMeta, true);
+            }
+
+            updateSelfHudCard();
+            savePersistentState();
+
+            showToast(`💖 【${escapeHtml(target.name)}】被你電得冒愛心！「${quote}」並送你【${added.emoji} ${added.name}】！`, 'join');
+            pushStatusLog(target.name, `💖 臉紅心跳地對你說：「${quote}」，贈送【${added.emoji} ${added.name}】！`);
+          } else {
+            // 覺得你很噁心 🤢 追著你攻擊一次，完成後結束
+            target.emote = { emoji: '🤢', expiresAt: now + 4000 };
+            const disgustQuotes = {
+              npc_vp_boss: '成何體統！竟敢在辦公室動手動腳，看我不教訓你！😡',
+              npc_dir_pp00: '太噁心了！嚴禁職場騷擾，吃我一記維修板手！💥',
+              npc_guard: '好噁心！竟敢襲警動手動腳，吃我一棒！⚡',
+              npc_bird_commander: '嘎！非禮啊！軍紀嚴明，看我啄你！💢',
+              default: '哎唷好噁心喔！離我遠一點，看我的厲害！💢'
+            };
+            const isAuntie = target.id.includes('auntie') || (target.name && target.name.includes('阿姨'));
+            const disgustQuote = isAuntie ? '哎唷好噁心喔！離阿姨遠一點，吃我一記掃把！💢' : (disgustQuotes[target.id] || disgustQuotes.default);
+
+            target.murmur = {
+              text: disgustQuote,
+              mood: 'fire',
+              createdAt: now,
+              expiresAt: now + 5000,
+            };
+            showToast(`🤢 【${escapeHtml(target.name)}】覺得你很噁心！「${disgustQuote}」憤怒衝上前揮擊！`, 'error');
+            pushStatusLog(target.name, `🤢 怒斥：「${disgustQuote}」，衝上前追擊反擊你一次！`);
+
+            // 設定衝刺追擊目標與追到後攻擊回呼
+            target.actionState = null;
+            target.actionUntil = 0;
+            target.isMoving = true;
+            target.chaseTarget = { x: localPlayer.x, y: localPlayer.y, getX: () => localPlayer.x, getY: () => localPlayer.y };
+            target.chaseUntil = now + 4500;
+            target.onChaseArrival = (npc) => {
+              npc.weaponSwing = { ticksLeft: 16, totalTicks: 16, startedAt: gameNow() };
+              npc.emote = { emoji: '😤', expiresAt: gameNow() + 3000 };
+              vfxList.push({ type: 'sparks', x: localPlayer.x, y: localPlayer.y });
+              const kx = localPlayer.x > npc.x ? 38 : -38;
+              localPlayer.knockback = { vx: kx, vy: 0, ticks: 12 };
+              showCombatToast(`💥 遭【${npc.name}】憤怒反擊擊退！`, 'error');
+            };
+          }
+          break;
+        }
+
+        // 對玩家：維持原本設計
         target.emote = { emoji: '⚡', expiresAt: now + 3000 };
         network.broadcastPacket('skill_action', {
           skill: 'zap',
@@ -2742,8 +3660,123 @@ async function executeOfficeLogin(params) {
           fromX: localPlayer.x,
           fromY: localPlayer.y,
         });
-        const narrative = pickSkillNarrative('cheer', { target: target.name });
-        showToast(narrative, 'join');
+
+        if (isNpcEntity(target)) {
+          // 對 NPC 乾杯：20% 機率讓玩家或對方喝醉暈倒 2 秒，並且掉出道具
+          // 依使用者指示降低酒醉掉道具機率 (10% 機率喝醉，且醉倒時僅 40% 機率掉落道具)
+          if (Math.random() < 0.10) {
+            const isPlayerDrunk = Math.random() < 0.50;
+            const willDrop = Math.random() < 0.40;
+            if (isPlayerDrunk) {
+              // 玩家喝醉暈倒 2 秒並掉落道具
+              localPlayer.actionState = 'sleep_bed';
+              localPlayer.stunnedUntil = now + 2000;
+              localPlayer.emote = { emoji: '😵‍💫', expiresAt: now + 2500 };
+              updatePoseLabelUI();
+
+              let droppedItem = null;
+              if (willDrop && season.enabled && season.client?.snapshot?.player) {
+                const nonOutfits = season.client.snapshot.player.items.filter(i => i && i.category !== 'outfit');
+                if (nonOutfits.length > 0) {
+                  droppedItem = nonOutfits[0];
+                  seasonSend('drop', { uid: droppedItem.uid }).catch(() => {});
+                }
+              } else if (willDrop) {
+                const myItems = (localPlayer.equippedSlots || []).filter(i => i && i.category !== 'outfit').concat((localPlayer.inventory || []).filter(i => i && i.category !== 'outfit'));
+                if (myItems.length > 0) {
+                  const idx = localPlayer.activeEquipIndex;
+                  if (localPlayer.equippedSlots[idx] && localPlayer.equippedSlots[idx].category !== 'outfit') {
+                    droppedItem = localPlayer.equippedSlots[idx];
+                    localPlayer.equippedSlots[idx] = null;
+                  } else {
+                    const invIdx = localPlayer.inventory.findIndex(i => i && i.category !== 'outfit');
+                    if (invIdx !== -1) {
+                      droppedItem = localPlayer.inventory[invIdx];
+                      localPlayer.inventory.splice(invIdx, 1);
+                    }
+                  }
+                }
+                if (droppedItem) {
+                  ecosystem.groundItems.push({
+                    ...droppedItem,
+                    uid: 'drunk_drop_' + now + '_' + Math.random().toString(36).slice(2, 6),
+                    x: localPlayer.x + 30,
+                    y: localPlayer.y,
+                    dropY: 0,
+                    pickupAfter: now + 1500,
+                    combatDrop: true
+                  });
+                  syncPlayerActiveWeaponState();
+                  updateSelfHudCard();
+                  savePersistentState();
+                }
+              }
+
+              showCombatToast(`😵‍💫 乾杯酒勁太強！你喝醉倒地暈眩 2 秒${droppedItem ? `，掉落【${droppedItem.emoji || '🎁'} ${droppedItem.name}】` : ''}！`, 'error');
+              pushStatusLog('系統', `😵‍💫 乾杯過猛！你喝醉倒地暈眩 2 秒${droppedItem ? `，手中的【${droppedItem.name || '道具'}】不小心滾落到地上` : ''}！`);
+
+              setTimeout(() => {
+                if (localPlayer.actionState === 'sleep_bed') {
+                  localPlayer.actionState = null;
+                  localPlayer.injuredX = null;
+                  localPlayer.injuredY = null;
+                  updatePoseLabelUI();
+                }
+              }, 2000);
+            } else {
+              // NPC 喝醉暈倒 2 秒並掉落道具
+              target.actionState = 'sleep_bed';
+              target.stunnedUntil = now + 2500;
+              target.actionUntil = now + 2500;
+              target.isMoving = false;
+              target.emote = { emoji: '😵‍💫', expiresAt: now + 2500 };
+              target.murmur = { text: '這酒……好烈……我不行了……嗝！', mood: 'fire', createdAt: now, expiresAt: now + 3500 };
+
+              const npcDropPool = [
+                { id: 'coffee', name: '熱咖啡', emoji: '☕', category: 'item', maxDurability: 1 },
+                { id: 'boba', name: '波霸珍奶', emoji: '🧋', category: 'item', maxDurability: 1 },
+                { id: 'pizza', name: '美味披薩', emoji: '🍕', category: 'item', maxDurability: 1 },
+                { id: 'kuaikuai', name: '綠乖乖', emoji: '🟢', category: 'item', maxDurability: 1 },
+                { id: 'wrench', name: '工程板手', emoji: '🔧', category: 'weapon', maxDurability: 3 },
+                { id: 'duck', name: '黃色小鴨', emoji: '🦆', category: 'weapon', maxDurability: 3 },
+                { id: 'keyboard', name: '機械鍵盤', emoji: '⌨️', category: 'weapon', maxDurability: 3 },
+                { id: 'bench', name: '折疊鐵椅', emoji: '🪑', category: 'weapon', maxDurability: 3 },
+              ];
+              let dropped = null;
+              if (willDrop) {
+                dropped = npcDropPool[Math.floor(Math.random() * npcDropPool.length)];
+                if (season.enabled) {
+                  seasonSend('npc_cheer_drop', { x: target.x + 25, y: target.y }).catch(() => {});
+                }
+                ecosystem.groundItems.push({
+                  ...dropped,
+                  uid: 'npc_drop_' + now + '_' + Math.random().toString(36).slice(2, 6),
+                  x: target.x + 25,
+                  y: target.y,
+                  dropY: 0,
+                  pickupAfter: now + 500,
+                  combatDrop: true
+                });
+              }
+
+              showCombatToast(`🍻 【${escapeHtml(target.name)}】不勝酒力喝醉倒地 2 秒！${dropped ? `身上掉落了【${dropped.emoji} ${dropped.name}】！` : ''}`, 'join');
+              pushStatusLog(target.name, `😵‍💫 喝得滿臉通紅倒地 2 秒${dropped ? `，口袋滾落出【${dropped.emoji} ${dropped.name}】！快去撿！` : '！'}`);
+
+              setTimeout(() => {
+                if (target.actionState === 'sleep_bed') {
+                  target.actionState = null;
+                  target.stunnedUntil = 0;
+                }
+              }, 2500);
+            }
+          } else {
+            showToast(`🍻 與【${escapeHtml(target.name)}】痛快乾杯！大家酒量都很好！`, 'join');
+          }
+        } else {
+          // 對玩家：維持原本設計
+          const narrative = pickSkillNarrative('cheer', { target: target.name });
+          showToast(narrative, 'join');
+        }
         break;
       }
       case 'follow': {
@@ -2767,6 +3800,7 @@ async function executeOfficeLogin(params) {
    * 🥊 攻擊 VP 大老闆、PP00 處長或打掃阿姨時觸發的 50% 專屬抓去辦公室/打掃廁所連續毆打機制
    * ⚠️ 連續毆打純屬搞笑動畫，絕對不會造成使用者重傷（isInjured 保持 false）
    */
+  let lastBeatingAnnouncedAt = 0;
   function triggerBossOrAuntieBeating(npc, role) {
     const now = gameNow();
     const durationMs = 8000;
@@ -2791,6 +3825,19 @@ async function executeOfficeLogin(params) {
       weaponEmoji = '🧹';
       scoldLines = window.GATHER_CONFIG?.bossScoldDialogues?.cleaner_auntie || ['吃阿姨的黃金拖把連續百烈擊！'];
       introMsg = `🚨 連打掃阿姨【${npc.name}】都敢惹？被拖進廁所黃金拖把連續毆打！`;
+    } else if (role === 'guard') {
+      targetRoom = 'pantry';
+      roomX = 2360;
+      roomY = 350;
+      weaponEmoji = window.GATHER_CONFIG?.guardWeaponEmoji || '🏏';
+      scoldLines = window.GATHER_CONFIG?.bossScoldDialogues?.guard || [
+        '敢在辦公區鬧事？進茶水間好好清醒清醒！',
+        '園區保全紀律不容挑戰！吃我警棍百裂擊！',
+        '敢打警衛？在茶水間反省冷靜一下！'
+      ];
+      introMsg = `🚨 敢攻擊園區警衛【${npc.name}】？被拉到茶水間痛毆！`;
+      localPlayer.lightInjuredUntil = now + 60000;
+      showCombatToast('🩹 遭警衛痛毆造成輕微挫傷：移速降低 30% (持續 60 秒)', 'error');
     }
 
     localPlayer.x = roomX;
@@ -2832,14 +3879,19 @@ async function executeOfficeLogin(params) {
       startedAt: now,
     };
 
-    showToast(introMsg, 'error');
-    pushCombatLog(npc.name, `💢 ${scoldLine}`);
-    pushStatusLog(npc.name, `💢 ${scoldLine}`);
+    if (now - lastBeatingAnnouncedAt > 9000) {
+      lastBeatingAnnouncedAt = now;
+      showToast(introMsg, 'error');
+      pushCombatLog(npc.name, `💢 ${scoldLine}`);
+      pushStatusLog(npc.name, `💢 ${scoldLine}`);
+      if (network) {
+        network.broadcastPacket('status_log', {
+          senderName: npc.name,
+          text: `💢 ${scoldLine}`,
+        });
+      }
+    }
     if (network) {
-      network.broadcastPacket('status_log', {
-        senderName: npc.name,
-        text: `💢 ${scoldLine}`,
-      });
       network.broadcastPacket('state_sync', { player: network.getPublicState() });
     }
   }
@@ -2849,36 +3901,80 @@ async function executeOfficeLogin(params) {
       if(gameNow()-lastWeaponAttackAt<300||!isLoggedIn||season.attacking)return;
       const effects=season.effects,now=gameNow();
       if(['injuredUntil','lockedUntil','stunnedUntil','ghostUntil'].some(k=>effects[k]>now)){showCombatToast('目前狀態無法攻擊');return;}
-      const w=getActiveEquippedItem();if(!w){showCombatToast('請先裝備武器');return;}
+      const w=getActiveEquippedItem()||FIST_WEAPON;
+      const isFist=!!w.isFist;
+      const cd=isFist?1000:300;
+      if(now-lastWeaponAttackAt<cd||!isLoggedIn||season.attacking){
+        if(isFist&&now-lastWeaponAttackAt<cd){
+          showCombatToast(`👊 徒手揮拳冷卻中（剩餘 ${((cd-(now-lastWeaponAttackAt))/1000).toFixed(1)} 秒）`);
+        }
+        return;
+      }
       lastWeaponAttackAt=now;season.attacking=true;
-      localPlayer.weaponSwing={emoji:w.emoji,ticksLeft:18,totalTicks:18,startedAt:now,duration:300};network.broadcastPacket('weapon_swing',{emoji:w.emoji});
+      localPlayer.weaponSwing={emoji:w.emoji,isFist,ticksLeft:18,totalTicks:18,startedAt:now,duration:300};network.broadcastPacket('weapon_swing',{emoji:w.emoji,isFist});
+      const attackWorld=network.isRoomMaster()?seasonWorldPayload():null;
       const previews=[];
       for(const e of [...network.npcPlayers.values(),...(ecosystem.mobs||[])]){
         if(e.combatDown||Math.hypot(e.x-localPlayer.x,e.y-localPlayer.y)>135)continue;
         const dx=e.x-localPlayer.x,dy=e.y-localPlayer.y,steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/8));let blocked=false;
         for(let i=0;i<=steps;i++)if(window.isPositionBlocked(localPlayer.x+dx*i/steps,localPlayer.y+dy*i/steps,18)){blocked=true;break;}
         if(blocked)continue;
-        const id=window.OfficeCombat.predictImpact(e,Math.atan2(dy,dx));previews.push([e,id]);
+        const angle=Math.atan2(dy,dx);
+        // 客戶端即時打擊感：立即賦予位移、旋轉打擊與受擊特效
+        const pushDist=isFist?16:26;
+        const nx=Math.max(55,Math.min(2700,e.x+Math.cos(angle)*pushDist));
+        const ny=Math.max(55,Math.min(1900,e.y+Math.sin(angle)*pushDist));
+        if(!window.isPositionBlocked(nx,ny,16)){e.x=nx;e.y=ny;}
+        e.knockback={vx:Math.cos(angle)*(isFist?9:14),vy:Math.sin(angle)*(isFist?9:14),ticksLeft:16};
+        e.emote={emoji:isFist?'👊':'💥',expiresAt:now+650};
+        const id=window.OfficeCombat.predictImpact(e,angle);
+        previews.push([e,id]);
+        if(typeof e.hp==='number'){
+          if(isFist){
+            e.fistHits=(e.fistHits||0)+1;
+            if(e.fistHits>=10){e.fistHits=0;e.hp=0;}
+            else{e.hp=Math.max(0.1,e.hp-(e.maxHp||2)/10);}
+          }else{
+            e.hp=Math.max(0,e.hp-1);
+          }
+          if(e.hp<=0&&!e.combatDown){
+            if (e.isGhost || e.id === 'npc_night_ghost') {
+              network.transformRedGhost?.(e);
+              showCombatToast('👻 幽靈遭到擊倒，狂暴化為【恐怖紅色幽靈】並召喚兩隻小幽靈！', 'error');
+            } else {
+              e.combatDown=true;
+              e.combatDownAt=Date.now();
+              e.actionState='sleep_bed';
+              e.isMoving=false;
+              showCombatToast(`${escapeHtml(e.name||'目標')} 被擊倒！`);
+              setTimeout(()=>{
+                if(typeof ecosystem !== 'undefined' && ecosystem.mobs){
+                  ecosystem.mobs=ecosystem.mobs.filter(m=>m!==e&&(m.uid||m.id)!==(e.uid||e.id));
+                }
+              }, 650);
+            }
+          }
+        }
       }
-      seasonSend('attack',{targets:previews.map(([e])=>e.uid||e.id),...(network.isRoomMaster()?{world:seasonWorldPayload()}:{})}).finally(()=>{season.attacking=false;for(const [e,id]of previews)if(e.combatReaction?.id===id)e.combatReaction=null;});
+      seasonSend('attack',{targets:previews.map(([e])=>e.uid||e.id),...(attackWorld?{world:attackWorld}:{})}).finally(()=>{season.attacking=false;});
       return;
     }
     if(gameNow()<(localPlayer.stunnedUntil||0)) return;
-    if(window.OfficeHunt?.clock().active && window.OfficeHunt.safe(localPlayer)) return;
+    if(window.OfficeHunt?.clock?.()?.active && window.OfficeHunt?.safe?.(localPlayer)) return;
     if (gameNow() < (localPlayer.ghostSleepUntil || 0)) return;
     if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
       showCombatToast('🚑 身受重傷休養中，無法揮動裝備攻擊！', 'error');
       return;
     }
     const now = gameNow();
-    const atkCd = window.GATHER_CONFIG?.security?.attackCooldownMs || 250;
-    if (now - lastWeaponAttackAt < atkCd) return;
-    lastWeaponAttackAt = now;
-    const curWeapon = getActiveEquippedItem();
-    if (!curWeapon) {
-      pushCombatLog('系統', '⚠️ 未裝備武器道具無法擊退！按 [I] 裝備道具或去地上撿拾');
+    const curWeapon = getActiveEquippedItem() || FIST_WEAPON;
+    const isFist = !!curWeapon.isFist;
+    const atkCd = isFist ? 1000 : (window.GATHER_CONFIG?.security?.attackCooldownMs || 250);
+    if (now - lastWeaponAttackAt < atkCd) {
+      if (isFist) showCombatToast(`👊 徒手揮拳冷卻中（剩餘 ${((atkCd - (now - lastWeaponAttackAt)) / 1000).toFixed(1)} 秒）`);
       return;
     }
+    lastWeaponAttackAt = now;
 
     const activeSlotIdx = localPlayer.activeEquipIndex;
     const wpnEmoji = curWeapon.emoji || '🪑';
@@ -2889,6 +3985,7 @@ async function executeOfficeLogin(params) {
     // 播放揮砍半月斬動畫
     localPlayer.weaponSwing = {
       emoji: wpnEmoji,
+      isFist,
       ticksLeft: 18,
       totalTicks: 18,
       startedAt: gameNow(), duration: 300,
@@ -2913,11 +4010,16 @@ async function executeOfficeLogin(params) {
       if (enemy.combatDown || Math.hypot(enemy.x-localPlayer.x,enemy.y-localPlayer.y)>attackRadius) continue;
       hitCount++;
 
-      // 🥊 還原：攻擊 VP 大老闆、PP00 處長、打掃阿姨時，有 50% 機率被抓去專屬辦公室或廁所連續毆打（純搞笑懲處動畫，不會造成使用者重傷）
+      // 🥊 還原：攻擊 VP 大老闆、PP00 處長、打掃阿姨時，有 50% 機率被抓去專屬辦公室或廁所連續毆打；攻擊警衛時 80% 機率被拉到茶水間痛毆造成輕微挫傷
       const isVp = enemy.id === 'npc_vp_boss' || enemy.avatarId === 'npc_vp_uncle';
       const isDir = enemy.id === 'npc_dir_pp00' || enemy.avatarId === 'npc_dir_pp00_slim';
       const isAuntie = enemy.id === 'npc_auntie_meifeng' || enemy.id === 'npc_auntie_shufen' || enemy.isSweeper;
+      const isGuard = enemy.id === 'npc_security_guard' || enemy.avatarId === 'npc_security_guard' || enemy.role === 'guard' || (enemy.name && enemy.name.includes('警衛'));
 
+      if (isGuard && Math.random() < 0.80) {
+        triggerBossOrAuntieBeating(enemy, 'guard');
+        return;
+      }
       if ((isVp || isDir || isAuntie) && Math.random() < 0.50) {
         triggerBossOrAuntieBeating(enemy, isVp ? 'vp' : isDir ? 'dir' : 'auntie');
         return;
@@ -2974,9 +4076,10 @@ async function executeOfficeLogin(params) {
     });
 
     // 4. 耐久度扣減：命中累積滿 3 次固定損毀消失
-    if (hitCount > 0) {
+    if (hitCount > 0 && !isFist) {
       curWeapon.durability = (curWeapon.durability || 3) - 1;
       if (curWeapon.durability <= 0) {
+        if (season.manualEmptySlots) season.manualEmptySlots.delete(activeSlotIdx);
         localPlayer.equippedSlots[activeSlotIdx] = null;
         pushCombatLog('系統', `💔 裝備【${wpnEmoji} ${wpnName}】揮擊命中滿 3 次，耐久度歸零損毀消失！`);
         // 🎒 裝備損壞後，自動為玩家裝備儲物欄 (背包) 內現有的物品
@@ -3002,17 +4105,30 @@ async function executeOfficeLogin(params) {
   }
 
   function handleIncomingWeaponAttack(pkt) {
-    if(season.enabled)return;
     if (!pkt || pkt.targetId !== network.clientId) return;
-    if(!pkt.hunt) window.OfficeCombat?.send(network,'combat_hurt',{targetId:network.clientId,npc:false});
+    if (localPlayer.isInjured || localPlayer.isRestrained) return;
 
-    if (pkt.isCriticalInjury) {
+    // 💥 遭受武器攻擊時，立即強制中斷任何進行中的互動狀態（坐下寫 code、上廁所、修機台、祈福等）
+    cancelContextualAction();
+    localPlayer.actionState = null;
+    localPlayer.occupiedSpotId = null;
+    localPlayer.autoWalkTarget = null;
+    updatePoseLabelUI();
+
+    if (!season.enabled && !pkt.hunt) window.OfficeCombat?.send(network, 'combat_hurt', { targetId: network.clientId, npc: false });
+    if (!season.enabled && !pkt.isCriticalInjury && Math.random() < 0.20 && gameNow() >= (localPlayer.lightInjuredUntil || 0) && !localPlayer.isInjured) {
+      localPlayer.lightInjuredUntil = gameNow() + 60000;
+      showCombatToast('🩹 輕微挫傷：移速降低 30% (持續 60 秒)', 'error');
+      pushCombatLog('系統', `🩹 遭同事【${pkt.senderName || '同事'}】揮舞武器擊中造成輕微挫傷！移速降低 30%（持續 60 秒）`);
+    }
+
+    if (!season.enabled && pkt.isCriticalInjury) {
       // 🚑 遭受 5% 致命重傷：原地倒地休養無法動彈 5 分鐘，鏡頭停留在事發現場等待急救
       const lockMs = window.GATHER_CONFIG?.security?.userInjuryLockMs || 300000;
       localPlayer.isInjured = true;
       localPlayer.injuredUntil = gameNow() + lockMs;
       cancelContextualAction();
-      window.OfficeCombat.send(network,'recovery_request',{until:localPlayer.injuredUntil});
+      window.OfficeCombat?.send?.(network,'recovery_request',{until:localPlayer.injuredUntil});
       localPlayer.actionState = 'sleep_bed';
       localPlayer.autoWalkTarget = null;
       localPlayer.knockback = null;
@@ -3040,7 +4156,7 @@ async function executeOfficeLogin(params) {
     const power = pkt.power || 26;
     const totalTicks = 26;
 
-    localPlayer.actionState = null;
+    localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
     updatePoseLabelUI();
     localPlayer.autoWalkTarget = null;
     localPlayer.knockback = {
@@ -3109,7 +4225,7 @@ async function executeOfficeLogin(params) {
     const target = network.getAllOtherPlayers().find((p) => p.id === targetId);
     if (!target) return;
     selectedTargetId = target.id;
-    localPlayer.actionState = null;
+    localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
     updatePoseLabelUI();
     camera.overviewMode = false;
     document.getElementById('toggleOverviewBtn').classList.remove('active');
@@ -3427,7 +4543,11 @@ async function executeOfficeLogin(params) {
    */
   function detectNearbyFacility() {
     if(season.enabled){const d=nearbySeasonDrop();if(d)return {label:'拾取 '+d.name,shortHint:'[E / 互動] 拾取 '+d.name,seasonDrop:true};}
-    if(season.enabled){const f=window.OfficeFacilities.nearby(localPlayer,season.client?.snapshot);if(f)return {label:f.label,shortHint:"[E] "+f.label,seasonFacility:true,...f};}
+    if(season.enabled){const f=window.OfficeFacilities?.nearby?.(localPlayer,season.client?.snapshot);if(f)return {label:f.label,shortHint:"[E] "+f.label,seasonFacility:true,...f};}
+    else {
+      const f=window.OfficeFacilities?.nearby(localPlayer);
+      if(f)return {label:f.label,shortHint:"[E] "+f.label,nonSeasonFacility:true,...f};
+    }
     const px = localPlayer.x;
     const py = localPlayer.y;
 
@@ -3446,7 +4566,9 @@ async function executeOfficeLogin(params) {
     for (const ws of window.WORLD_MAP.workstations) {
       const seatX = ws.x + ws.w / 2;
       const seatY = ws.y + ws.h + 18;
-      if (ws.isBroken && Math.hypot(px - seatX, py - seatY) < 95) {
+      const ncx = Math.max(ws.x, Math.min(px, ws.x + ws.w));
+      const ncy = Math.max(ws.y, Math.min(py, ws.y + ws.h));
+      if (ws.isBroken && (Math.hypot(px - ncx, py - ncy) <= 95 || Math.hypot(px - seatX, py - seatY) < 125)) {
         return {
           label: `🔧 修復遭【${ws.brokenBy || '怪物'}】破壞的【${ws.owner}】電腦 (完成獲得經驗) [按E]`,
           shortHint: `[按 E] 🔧 修復電腦`,
@@ -3463,7 +4585,9 @@ async function executeOfficeLogin(params) {
     for (const eq of window.WORLD_MAP.labEquipments) {
       const cx = eq.x + eq.w / 2;
       const cy = eq.y + eq.h + 18;
-      if (eq.isBroken && Math.hypot(px - cx, py - cy) < 110) {
+      const necx = Math.max(eq.x, Math.min(px, eq.x + eq.w));
+      const necy = Math.max(eq.y, Math.min(py, eq.y + eq.h));
+      if (eq.isBroken && (Math.hypot(px - necx, py - necy) <= 100 || Math.hypot(px - cx, py - cy) < 135)) {
         return {
           label: `🔧 修復遭【${eq.brokenBy || '怪物'}】破壞的【${eq.name}】機台 (完成獲得經驗) [按E]`,
           shortHint: `[按 E] 🔧 修復機台`,
@@ -3654,6 +4778,10 @@ async function executeOfficeLogin(params) {
     // 2. 觸發設備或座椅互動
     const fac = detectNearbyFacility();
     if (fac) {
+      if (fac.nonSeasonFacility) {
+        window.OfficeFacilities.use(fac, null, () => ({ x: localPlayer.x, y: localPlayer.y }));
+        return;
+      }
       // 佔用阻擋提示
       if (fac.isOccupied) {
         pushStatusLog('系統', `⚠️【${fac.name}】目前已有其他同仁使用中，一個位置僅供一人入座佔領！`);
@@ -3729,20 +4857,37 @@ async function executeOfficeLogin(params) {
         if (fac.isExitToilet) {
           fac.stall.doorOpen = 1;
           fac.stall.occupiedBy = null;
-          localPlayer.actionState = null;
+          localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
           localPlayer.occupiedSpotId = null;
+          localPlayer.x = fac.stall.x - 28;
+          localPlayer.y = fac.stall.y + 48;
+          localPlayer.dir = 'left';
           updatePoseLabelUI();
           spawnConfetti(fac.stall.seatX, fac.stall.seatY - 10);
           pushStatusLog('你', `🌊 【${fac.stall.name}】沖水完畢離開隔間`);
+          network.broadcastPacket('toilet_state', { stallId: fac.stall.id, occupiedBy: null, doorOpen: 1 });
           network.broadcastPacket('state_sync', { player: network.getPublicState() });
-          return;
-        } else {
-          fac.stall.doorOpen = 1;
-          fac.stall.occupiedBy = localPlayer.id;
-          localPlayer.occupiedSpotId = fac.stall.id;
           setTimeout(() => {
             fac.stall.doorOpen = 0;
+            network.broadcastPacket('toilet_state', { stallId: fac.stall.id, occupiedBy: null, doorOpen: 0 });
           }, 420);
+          return;
+        } else {
+          // 精確定位於馬桶座位內部，關門鎖上並就位上廁所（絕不呼叫會將人彈出門外的 cancelContextualAction）
+          localPlayer.x = fac.stall.seatX;
+          localPlayer.y = fac.stall.seatY;
+          localPlayer.dir = 'down';
+          localPlayer.autoWalkTarget = null;
+          localPlayer.actionState = 'toilet';
+          localPlayer.occupiedSpotId = fac.stall.id;
+          fac.stall.doorOpen = 0;
+          fac.stall.occupiedBy = localPlayer.id;
+          updatePoseLabelUI();
+          network.broadcastPacket('toilet_state', { stallId: fac.stall.id, occupiedBy: localPlayer.id, doorOpen: 0 });
+          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          pushStatusLog('你', `🚪 進入【${fac.stall.name}】關上隔間門鎖上，開始順暢排解壓力...`);
+          network.broadcastPacket('murmur', { text: '💩 呼... 終於輪到我了', mood: 'sweat' });
+          return;
         }
       }
 
@@ -3777,7 +4922,7 @@ async function executeOfficeLogin(params) {
 
       // 🚶 起身離開目前佔用位置
       if (fac.isLeaving) {
-        localPlayer.actionState = null;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
         localPlayer.occupiedSpotId = null;
         updatePoseLabelUI();
         network.broadcastPacket('state_sync', { player: network.getPublicState() });
@@ -3878,7 +5023,26 @@ async function executeOfficeLogin(params) {
     }
   }
 
+  const systemLogCooldowns = new Map();
+  function normalizeSystemFeedbackKey(text) {
+    return String(text || '')
+      .replace(/（[^）]*\d+[^）]*）/g, '')
+      .replace(/\([^)]*\d+[^)]*\)/g, '')
+      .replace(/\d+:\d+/g, '')
+      .replace(/\d+\s*(?:秒|分鐘|min|sec)/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function pushStatusLog(senderName, text) {
+    if (senderName === '系統') {
+      const normKey = normalizeSystemFeedbackKey(text);
+      const now = gameNow();
+      const lastTime = systemLogCooldowns.get(normKey) || 0;
+      if (now - lastTime < 3000) return; // 3 秒冷卻防洗版
+      systemLogCooldowns.set(normKey, now);
+    }
+
     statusLogHistory.push({
       id: 'stat_' + gameNow() + '_' + Math.random().toString(36).slice(2, 6),
       senderName,
@@ -4398,7 +5562,7 @@ async function executeOfficeLogin(params) {
               : '🔒 請先在名單或地圖中點選真實線上同事開啟私人對談...';
           }
         } else {
-          chatInput.placeholder = '輸入頭頂碎碎念 Murmur (浮現8秒自動銷毀)...';
+          chatInput.placeholder = '輸入 MURMUR (僅顯示在頭頂卡片，維持20秒)...';
         }
       });
     }
@@ -4437,17 +5601,18 @@ async function executeOfficeLogin(params) {
           const sent = sendPrivateChatMessage(target, text);
           if (sent && chatInput) chatInput.value = '';
         } else {
-          // 💭 規則 8：發送 Murmur 訊息整合在聊天室窗內切換
-          const mood = mode.replace('murmur_', '') || 'normal';
+          // 💭 MURMUR 模式：只會顯示在頭上，維持20秒，有卡片效果，重複MURMUR會蓋掉原本的
+          const mood = 'normal';
           const now = gameNow();
+          const ttl = window.GATHER_CONFIG?.security?.murmurTtlMs || 20000;
           localPlayer.murmur = {
             text,
             mood,
             createdAt: now,
-            expiresAt: now + (window.GATHER_CONFIG?.security?.murmurTtlMs || 8000),
+            expiresAt: now + ttl,
           };
           network.broadcastPacket('player_murmur', { text, mood });
-          pushStatusLog('你', `💭 頭頂碎碎念：「${text}」`);
+          // 注意：MURMUR 只會顯示在頭上，重複發送會蓋掉原本的，不寫入聊天記錄
           lastUserActionAt = now;
           if (chatInput) chatInput.value = '';
         }
@@ -4522,6 +5687,8 @@ async function executeOfficeLogin(params) {
     }, 3000);
   }
 
+  const combatToastCooldowns = new Map();
+
   function appendCombatText(htmlText) {
     if (typeof document === 'undefined') return false;
     let feed = document.getElementById('mobileCombatFeed');
@@ -4535,12 +5702,22 @@ async function executeOfficeLogin(params) {
     const parsed = document.createElement('template');
     parsed.innerHTML = String(htmlText);
     const text = parsed.content.textContent || '';
-    if (feed.lastElementChild?.textContent === text) return true;
+    if (!text) return false;
+
+    // 所有提醒訊息 3 秒冷卻防刷屏 (正規化去除動態倒數數字)
+    const normKey = typeof normalizeSystemFeedbackKey === 'function' ? normalizeSystemFeedbackKey(text) : text;
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const lastTime = combatToastCooldowns.get(normKey) || 0;
+    if (now - lastTime < 3000) return false;
+    combatToastCooldowns.set(normKey, now);
+
     const line = document.createElement('div');
     line.textContent = text;
     feed.appendChild(line);
-    setTimeout(() => line.remove(), 3000);
-    while (feed.children.length > 5) feed.firstElementChild.remove();
+    setTimeout(() => {
+      line.remove();
+    }, 3000);
+    while (feed.children.length > 10) feed.firstElementChild.remove();
     return true;
   }
 
@@ -4550,13 +5727,15 @@ async function executeOfficeLogin(params) {
   }
 
   function showCombatToast(htmlText, type = 'info') {
-    if (appendCombatText(htmlText)) pushStatusLog('系統', String(htmlText).replace(/<[^>]*>/g, ''));
-    else showToast(htmlText, type);
+    if (appendCombatText(htmlText)) {
+      pushStatusLog('系統', String(htmlText).replace(/<[^>]*>/g, ''));
+    }
   }
 
   function showToast(htmlText, type = 'info', onAction = null) {
-    pushStatusLog('系統', String(htmlText).replace(/<[^>]*>/g, ''));
-    appendCombatText(htmlText);
+    if (appendCombatText(htmlText)) {
+      pushStatusLog('系統', String(htmlText).replace(/<[^>]*>/g, ''));
+    }
   }
 
   window.isChatPanelCollapsed = isChatPanelCollapsed;
@@ -4586,7 +5765,7 @@ async function executeOfficeLogin(params) {
       if (s.occupiedBy === localPlayer.id) s.occupiedBy = null;
     });
     localPlayer.occupiedSpotId = null;
-    localPlayer.actionState = null;
+    localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
 
     if (!season.enabled && window.gatherSupabase) {
       await window.gatherSupabase.logoutUser();
@@ -4612,7 +5791,7 @@ async function executeOfficeLogin(params) {
   function updateSelfHudCard() {
     const av = window.getAvatarMetaById
       ? window.getAvatarMetaById(localPlayer.avatarId)
-      : window.AVATAR_CATALOG.find((a) => a.id === localPlayer.avatarId) || window.AVATAR_CATALOG[0];
+      : (window.AVATAR_CATALOG || []).find((a) => a.id === localPlayer.avatarId) || window.AVATAR_CATALOG[0];
 
     // 在左下聊天視窗頂部畫布繪製玩家 32x32 像素頭像
     const hudCanvas = document.getElementById('hudSelfAvatarCanvas');
@@ -4773,7 +5952,7 @@ async function executeOfficeLogin(params) {
     if (nameEl) nameEl.textContent = `${colleague.name} (${colleague.unit})`;
     const statusEl = document.getElementById('profileCardStatus');
     if (statusEl) {
-      statusEl.innerHTML = `<span class="status-dot-mini" style="background:${st.dot}"></span> ${st.label} · 手持 ${colleague.heldItem || '🟢'}`;
+      statusEl.innerHTML = `<span class="status-dot-mini" style="background:${st.dot}"></span> ${st.label} · 手持 ${colleague.heldItem || '無裝備'}`;
     }
     const roleEl = document.getElementById('profileCardRole');
     if (roleEl) roleEl.textContent = `${av.name} — ${av.tag}`;
@@ -4906,15 +6085,67 @@ async function executeOfficeLogin(params) {
   }
 
   function updateLocalPlayerMovement() {
-    if(season.enabled&&isLoggedIn){localPlayer.speed=window.OfficeProgression.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow());if(localPlayer.speed===0&&!localPlayer.beatingSession){localPlayer.isMoving=false;return;}if((keys.w||keys.a||keys.s||keys.d||keys.ArrowUp||keys.ArrowDown||keys.ArrowLeft||keys.ArrowRight||touchMove.x||touchMove.y)&&season.client?.snapshot?.player?.channel){if(!season.cancelling){season.cancelling=true;seasonSend("cancel").finally(()=>season.cancelling=false);}localPlayer.actionState=null;}}
-    if(gameNow()<(localPlayer.stunnedUntil||0)){localPlayer.isMoving=false;localPlayer.knockback=null;return;}
     if (!isLoggedIn) return;
+
+    // 🚑 檢查重傷休養狀態：重傷躺平無法動彈，即時動態更新倒數並提供緊急甦醒按鈕
+    if (localPlayer.isInjured) {
+      if (gameNow() < (localPlayer.injuredUntil || 0)) {
+        if (Number.isFinite(localPlayer.injuredX) && Number.isFinite(localPlayer.injuredY)) {
+          localPlayer.x = localPlayer.injuredX;
+          localPlayer.y = localPlayer.injuredY;
+        } else {
+          localPlayer.injuredX = localPlayer.x;
+          localPlayer.injuredY = localPlayer.y;
+        }
+        localPlayer.actionState = 'sleep_bed';
+        localPlayer.isMoving = false;
+        localPlayer.autoWalkTarget = null;
+        localPlayer.knockback = null;
+        updateInjuryCountdownHUD();
+        if (tick % 6 === 0 && network) {
+          network.broadcastPacket('move', { player: network.getPublicState() });
+        }
+        return;
+      } else {
+        // 休養期滿，傷勢痊癒！
+        localPlayer.isInjured = false;
+        localPlayer.injuredUntil = 0;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
+        savePersistentState();
+        updatePoseLabelUI();
+        updateInjuryCountdownHUD();
+        pushStatusLog('系統', '✨ 傷勢完全痊癒！你已完成休養，恢復自由行動！');
+        showToast('✨ 傷勢完全痊癒！恢復自由走動能力！', 'join');
+        if (network) {
+          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          window.OfficeCombat?.send(network, 'recovery_release');
+        }
+      }
+    } else {
+      updateInjuryCountdownHUD();
+    }
+
+    if(season.enabled&&isLoggedIn){localPlayer.speed=(window.OfficeProgression?.speed ? window.OfficeProgression.speed(localPlayer.baseSpeed,progression.level,season.effects,gameNow()) : localPlayer.baseSpeed);if(localPlayer.speed===0&&!localPlayer.beatingSession){localPlayer.isMoving=false;return;}if((keys.w||keys.a||keys.s||keys.d||keys.ArrowUp||keys.ArrowDown||keys.ArrowLeft||keys.ArrowRight||touchMove.x||touchMove.y||localPlayer.autoWalkTarget||localPlayer.isMoving)&&season.client?.snapshot?.player?.channel){
+      const ch = season.client.snapshot.player.channel;
+      if(Math.hypot(localPlayer.x - ch.x, localPlayer.y - ch.y) > 20){
+        season.client.snapshot.player.channel = null;
+        if(!season.cancelling){season.cancelling=true;seasonSend("cancel").finally(()=>season.cancelling=false);}
+        if(['sit_code', 'pray_kuaikuai', 'play_arcade'].includes(localPlayer.actionState)){
+          localPlayer.actionState=null;
+        }
+      }
+    }}
+    else if(!season.enabled&&isLoggedIn){
+      const shrineSpeedBoost = (gameNow() < (localPlayer.shrineSpeedUntil || 0) ? 0.35 : 0);
+      localPlayer.speed = (localPlayer.baseSpeed * (1 + (progression.speedBonusPct || 0) / 100 + shrineSpeedBoost)) * (gameNow() < (localPlayer.lightInjuredUntil || 0) ? 0.7 : 1);
+    }
+    if(gameNow()<(localPlayer.stunnedUntil||0)){localPlayer.isMoving=false;localPlayer.knockback=null;return;}
     if (gameNow() < (localPlayer.ghostSleepUntil || 0)) {
-      localPlayer.actionState = 'slack_nap'; localPlayer.isMoving = false; return;
+      localPlayer.actionState = 'scared_faint'; localPlayer.isMoving = false; return;
     }
     if (localPlayer.ghostSleepUntil) {
       localPlayer.ghostSleepUntil = 0;
-      if (localPlayer.actionState === 'slack_nap') localPlayer.actionState = null;
+      if (localPlayer.actionState === 'scared_faint' || localPlayer.actionState === 'slack_nap') localPlayer.actionState = null;
       updatePoseLabelUI();
     }
 
@@ -4926,7 +6157,7 @@ async function executeOfficeLogin(params) {
     ) {
       window.MEETING_LOCK_STATE.lockedUntil = 0;
       window.MEETING_LOCK_STATE.roomId = null;
-      localPlayer.actionState = null;
+      localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
       updatePoseLabelUI();
       ensurePlayerNotStuck();
       showToast('🔓 10 秒閉門會議結束！會議室大門已自動開啟，你已自由脫困！', 'join');
@@ -5021,7 +6252,7 @@ async function executeOfficeLogin(params) {
         localPlayer.beatingSession = null;
         localPlayer.isRestrained = false;
         localPlayer.restrainedUntil = 0;
-        localPlayer.actionState = null;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
         cancelContextualAction();
         ensurePlayerNotStuck();
         pushStatusLog('系統', `✨ 【${npcName}】連續毆打懲戒結束，消氣放你一馬！`);
@@ -5089,7 +6320,7 @@ async function executeOfficeLogin(params) {
           });
         }
         activeHealingSession = null;
-        localPlayer.actionState = null;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
       } else if (elapsed >= activeHealingSession.duration) {
         // 滿 5 秒：急救圓滿大成功！傷者立即恢復！
         if (network) {
@@ -5110,7 +6341,7 @@ async function executeOfficeLogin(params) {
         showToast(`🎉 成功治癒【${activeHealingSession.targetName}】！獲得 ${gained} EXP 急救獎勵！`, 'join');
         pushStatusLog('系統', `💖 同仁【${localPlayer.name}】完成 5 秒精湛急救，成功治癒【${activeHealingSession.targetName}】！`);
         activeHealingSession = null;
-        localPlayer.actionState = null;
+        localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
       } else {
         // 每 10 tick 廣播一次醫療進度
         if (tick % 10 === 0 && network) {
@@ -5123,43 +6354,7 @@ async function executeOfficeLogin(params) {
       }
     }
 
-    // 🚑 檢查重傷休養狀態：躺在會議室因重傷無法動彈 5 分鐘
-    if (localPlayer.isInjured) {
-      if (gameNow() < (localPlayer.injuredUntil || 0)) {
-        // 重傷期間無法動彈！固定在受傷倒地現場並保持 sleep_bed 躺平動作
-        if (typeof localPlayer.injuredX === 'number' && typeof localPlayer.injuredY === 'number') {
-          localPlayer.x = localPlayer.injuredX;
-          localPlayer.y = localPlayer.injuredY;
-        } else {
-          localPlayer.injuredX = localPlayer.x;
-          localPlayer.injuredY = localPlayer.y;
-        }
-        localPlayer.actionState = 'sleep_bed';
-        localPlayer.isMoving = false;
-        localPlayer.autoWalkTarget = null;
-        localPlayer.knockback = null;
-        updateInjuryCountdownHUD();
-        if (tick % 6 === 0 && network) {
-          network.broadcastPacket('move', { player: network.getPublicState() });
-        }
-        return;
-      } else {
-        // 5 分鐘休養期滿，傷勢痊癒！
-        localPlayer.isInjured = false;
-        localPlayer.injuredUntil = 0;
-        localPlayer.actionState = null;
-        savePersistentState();
-        updatePoseLabelUI();
-        updateInjuryCountdownHUD();
-        pushStatusLog('系統', '✨ 傷勢完全痊癒！你已在會議室完成 5 分鐘休養，恢復自由行動！');
-        showToast('✨ 傷勢完全痊癒！恢復自由走動能力！', 'join');
-        if (network) {
-          network.broadcastPacket('state_sync', { player: network.getPublicState() });
-        }
-      }
-    } else {
-      updateInjuryCountdownHUD();
-    }
+    // 🚑 重傷休養狀態已於 updateLocalPlayerMovement 開頭優先檢測並即時更新
 
     let dx = 0;
     let dy = 0;
@@ -5316,7 +6511,7 @@ async function executeOfficeLogin(params) {
     ctx.save();
     ctx.fillStyle = 'rgba(15, 23, 42, 0.86)';
     ctx.beginPath();
-    ctx.roundRect(mm.x, mm.y, mm.w, mm.h, 12);
+    if (typeof ctx.roundRect === 'function') { ctx.roundRect(mm.x, mm.y, mm.w, mm.h, 12); } else { ctx.rect(mm.x, mm.y, mm.w, mm.h); }
     ctx.fill();
     ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
     ctx.lineWidth = 2;
@@ -5341,6 +6536,7 @@ async function executeOfficeLogin(params) {
     );
 
     allPlayers.forEach((p) => {
+      if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return;
       const px = mm.x + p.x * scaleX;
       const py = mm.y + p.y * scaleY;
       ctx.fillStyle =
@@ -5398,164 +6594,295 @@ async function executeOfficeLogin(params) {
       return;
     }
 
-    seasonPoll();
-    updateLocalPlayerMovement();
-    network.update(tick);
-    const allPlayers = [localPlayer, ...network.getAllOtherPlayers()];
-    ecosystem.update(tick, allPlayers);
-    updateProximityState();
+    // 1. 遊戲邏輯與網路模擬階段（獨立捕捉異常，避免中斷 Canvas 畫面渲染）
+    try {
+      seasonPoll();
+      updateLocalPlayerMovement();
+      updateInjuryCountdownHUD();
+      if (network && typeof network.update === 'function') {
+        network.update(tick);
+      }
+      const allPlayers = [localPlayer, ...(network ? network.getAllOtherPlayers() : [])];
+      if (ecosystem && typeof ecosystem.update === 'function') {
+        ecosystem.update(tick, allPlayers);
+      }
+      updateProximityState();
 
-    // 檢查無動作 30 秒自動切換為「🟡 閒置」狀態
-    if (
-      localPlayer.status === 'active' &&
-      gameNow() - lastUserActionAt > (window.GATHER_CONFIG?.security?.idleTimeoutMs || 30000)
-    ) {
-      localPlayer.status = 'idle';
-      isAutoIdled = true;
-      const sel = document.getElementById('selfStatusSelect');
-      if (sel) sel.value = 'idle';
-      network.broadcastPacket('state_sync', { player: network.getPublicState() });
-      pushStatusLog('系統', '30 秒無操作，自動切換為「🟡 閒置」狀態');
-      renderSidebarRoster();
+      // 檢查無動作 30 秒自動切換為「🟡 閒置」狀態
+      if (
+        localPlayer.status === 'active' &&
+        gameNow() - lastUserActionAt > (window.GATHER_CONFIG?.security?.idleTimeoutMs || 30000)
+      ) {
+        localPlayer.status = 'idle';
+        isAutoIdled = true;
+        const sel = document.getElementById('selfStatusSelect');
+        if (sel) sel.value = 'idle';
+        if (network && typeof network.broadcastPacket === 'function') {
+          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        }
+        pushStatusLog('系統', '30 秒無操作，自動切換為「🟡 閒置」狀態');
+        renderSidebarRoster();
+      }
+    } catch (simErr) {
+      console.warn('Simulation tick error (isolated):', simErr);
     }
 
-    if (camera.overviewMode) {
-      fitOverviewCamera();
-    } else {
-      const viewW = canvas.width / camera.zoom;
-      const viewH = canvas.height / camera.zoom;
-      const targetCamX = Math.max(
-        0,
-        Math.min(window.WORLD_MAP.width - viewW, localPlayer.x - viewW / 2)
-      );
-      const targetCamY = Math.max(
-        0,
-        Math.min(window.WORLD_MAP.height - viewH, localPlayer.y - viewH / 2)
-      );
-      camera.x += (targetCamX - camera.x) * 0.14;
-      camera.y += (targetCamY - camera.y) * 0.14;
-    }
+    // 2. Canvas 畫面渲染階段（保證每幀繪製世界地圖、人物、光影與雷達）
+    try {
+      if (!canvas || !ctx) {
+        requestAnimationFrame(gameLoop);
+        return;
+      }
 
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
-    ctx.scale(camera.zoom, camera.zoom);
-    ctx.translate(-camera.x, -camera.y);
+      if (camera.overviewMode) {
+        fitOverviewCamera();
+      } else {
+        const zoom = (Number.isFinite(camera.zoom) && camera.zoom > 0) ? camera.zoom : 1;
+        camera.zoom = zoom;
+        const viewW = canvas.width / zoom;
+        const viewH = canvas.height / zoom;
+        const px = Number.isFinite(localPlayer.x) ? localPlayer.x : 880;
+        const py = Number.isFinite(localPlayer.y) ? localPlayer.y : 525;
+        localPlayer.x = px;
+        localPlayer.y = py;
 
-    window.renderOfficeWorld(ctx, ecosystem, tick);
-    if(season.enabled){
-      const snap=season.client?.snapshot,task=snap?.task;
-      if(task?.claimer){ctx.save();ctx.strokeStyle='#f87171';ctx.setLineDash([8,8]);ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(localPlayer.x,localPlayer.y);ctx.lineTo(task.x,task.y);ctx.stroke();ctx.fillStyle='#ef4444';ctx.fillRect(task.x-30,task.y-38,60,8);ctx.restore();}
-      const c=snap?.player?.channel;if(c){ctx.save();const textScale=camera.overviewMode?1:Math.max(1,1/camera.zoom);ctx.translate(localPlayer.x,localPlayer.y);ctx.scale(textScale,textScale);ctx.translate(-localPlayer.x,-localPlayer.y);ctx.textAlign='center';ctx.font='800 16px "PingFang TC", "Microsoft JhengHei", sans-serif';ctx.fillStyle='#fef08a';ctx.strokeStyle='#020617';ctx.lineWidth=4;ctx.lineJoin='round';const duration=c.kind==='lounge'?5000:c.kind==='heal'?c.duration:3000;const text=`互動中 ${Math.min(100,Math.floor((gameNow()-c.at)/duration*100))}%`;ctx.strokeText(text,localPlayer.x,localPlayer.y-120);ctx.fillText(text,localPlayer.x,localPlayer.y-120);ctx.restore();}
-    }
+        const mapW = window.WORLD_MAP?.width || 2800;
+        const mapH = window.WORLD_MAP?.height || 1800;
+        const maxCamX = Math.max(0, mapW - viewW);
+        const maxCamY = Math.max(0, mapH - viewH);
+        const targetCamX = Math.max(0, Math.min(maxCamX, px - viewW / 2));
+        const targetCamY = Math.max(0, Math.min(maxCamY, py - viewH / 2));
 
-    if (nearbyPlayers.length > 0) {
-      const radius = window.GATHER_CONFIG.security.proximityRadiusPx;
+        if (!Number.isFinite(camera.x)) camera.x = targetCamX;
+        if (!Number.isFinite(camera.y)) camera.y = targetCamY;
+
+        camera.x += (targetCamX - camera.x) * 0.14;
+        camera.y += (targetCamY - camera.y) * 0.14;
+      }
+
+      if (!Number.isFinite(camera.x)) camera.x = 300;
+      if (!Number.isFinite(camera.y)) camera.y = 120;
+      if (!Number.isFinite(camera.zoom) || camera.zoom <= 0) camera.zoom = 1;
+
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
-      ctx.strokeStyle = 'rgba(34, 197, 94, 0.5)';
-      ctx.fillStyle = 'rgba(34, 197, 94, 0.08)';
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([6, 6]);
-      ctx.beginPath();
-      ctx.arc(localPlayer.x, localPlayer.y, radius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      try {
+        ctx.scale(camera.zoom, camera.zoom);
+        ctx.translate(-camera.x, -camera.y);
 
-      nearbyPlayers.forEach((np) => {
-        ctx.strokeStyle = np.isBerserk ? '#ef4444' : 'rgba(56, 189, 248, 0.78)';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(localPlayer.x, localPlayer.y + 6);
-        ctx.lineTo(np.x, np.y + 6);
-        ctx.stroke();
-      });
-      ctx.restore();
+        if (typeof window.renderOfficeWorld === 'function') {
+          window.renderOfficeWorld(ctx, ecosystem, tick);
+        }
+
+        if (season.enabled) {
+          const snap = season.client?.snapshot, task = snap?.task;
+          if (task?.claimer && Number.isFinite(task.x) && Number.isFinite(task.y)) {
+            ctx.save();
+            const isReporting = task.stage === 'reporting';
+            ctx.strokeStyle = isReporting ? '#22c55e' : '#f87171';
+            ctx.setLineDash([8, 8]);
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(localPlayer.x, localPlayer.y);
+            ctx.lineTo(task.x, task.y);
+            ctx.stroke();
+            ctx.fillStyle = isReporting ? '#22c55e' : '#ef4444';
+            ctx.fillRect(task.x - 30, task.y - 38, 60, 8);
+            ctx.restore();
+          }
+          const c = snap?.player?.channel;
+          if (c) {
+            ctx.save();
+            const textScale = camera.overviewMode ? 1 : Math.max(1, 1 / camera.zoom);
+            ctx.translate(localPlayer.x, localPlayer.y);
+            ctx.scale(textScale, textScale);
+            ctx.translate(-localPlayer.x, -localPlayer.y);
+            ctx.textAlign = 'center';
+            ctx.font = '800 16px "PingFang TC", "Microsoft JhengHei", sans-serif';
+            ctx.fillStyle = '#fef08a';
+            ctx.strokeStyle = '#020617';
+            ctx.lineWidth = 4;
+            ctx.lineJoin = 'round';
+            const duration = c.kind === 'lounge' ? 5000 : c.kind === 'heal' ? c.duration : 3000;
+            const text = `互動中 ${Math.min(100, Math.floor((gameNow() - c.at) / duration * 100))}%`;
+            ctx.strokeText(text, localPlayer.x, localPlayer.y - 120);
+            ctx.fillText(text, localPlayer.x, localPlayer.y - 120);
+            ctx.restore();
+          }
+        }
+
+        if (nearbyPlayers && nearbyPlayers.length > 0) {
+          const radius = window.GATHER_CONFIG?.security?.proximityRadiusPx || 120;
+          ctx.save();
+          ctx.strokeStyle = 'rgba(34, 197, 94, 0.5)';
+          ctx.fillStyle = 'rgba(34, 197, 94, 0.08)';
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([6, 6]);
+          ctx.beginPath();
+          ctx.arc(localPlayer.x, localPlayer.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          nearbyPlayers.forEach((np) => {
+            if (!np) return;
+            ctx.strokeStyle = np.isBerserk ? '#ef4444' : 'rgba(56, 189, 248, 0.78)';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(localPlayer.x, localPlayer.y + 6);
+            ctx.lineTo(np.x, np.y + 6);
+            ctx.stroke();
+          });
+          ctx.restore();
+        }
+
+        const allPlayers = [localPlayer, ...(network ? network.getAllOtherPlayers() : [])];
+        const sortedPlayers = allPlayers
+          .filter(p => p && (p.isMob ? (window.OfficeCombat?.defeatVisible ? window.OfficeCombat.defeatVisible(p) : true) : true))
+          .sort((a, b) => (a.y || 0) - (b.y || 0));
+
+        sortedPlayers.forEach((p) => {
+          if (!p) return;
+          ctx.save();
+          const reaction = window.OfficeCombat?.reactionPose ? window.OfficeCombat.reactionPose(p) : { x: 0, y: 0, jump: 0, active: false };
+          ctx.translate(reaction.x || 0, (reaction.y || 0) - (reaction.jump || 0));
+          if ((network?.hunt?.protectedUntil?.[p.id] || 0) > gameNow()) ctx.globalAlpha = tick % 12 < 6 ? 0.35 : 1;
+          if (typeof window.drawWackyAvatar === 'function') {
+            window.drawWackyAvatar(ctx, {
+              avatarId: p.avatarId,
+              outfitAvatarId: p.outfitAvatarId,
+              combatDown: !!p.combatDown,
+              scareUntil: p.scareUntil || 0,
+              x: p.x,
+              y: p.y,
+              dir: p.dir,
+              isMoving: p.isMoving,
+              tick,
+              scale: p.id === 'npc_vp_boss' ? 1.16 : 1.05,
+              jumpOffset: p.jumpOffset || 0,
+              actionState: p.actionState || null,
+              isBerserk: !!p.isBerserk,
+              isSweeper: !!p.isSweeper,
+              isKnockedBack: (reaction.active && reaction.kind !== 'dodge') || !!(p.knockback && p.knockback.ticksLeft > 0),
+              heldItem: p.isNpc ? '' : p.heldItem,
+              weaponSwing: p.weaponSwing ? {
+                ...p.weaponSwing,
+                progress: p.id === localPlayer.id ? 1 - p.weaponSwing.ticksLeft / p.weaponSwing.totalTicks : (gameNow() - p.weaponSwing.startedAt) / 300
+              } : null,
+              isInjured: p.id === localPlayer.id ? !!localPlayer.isInjured : !!p.isInjured,
+              beingHealed: p.id === localPlayer.id ? !!localPlayer.beingHealed : !!p.beingHealed,
+              healProgress: p.id === localPlayer.id ? (localPlayer.healProgress || 0) : (p.healProgress || 0),
+              isFleeing: !!p.isFleeing,
+              isGhostFainted: p.actionState === 'scared_faint' || (p.id === localPlayer.id ? (localPlayer.ghostSleepUntil || 0) : (p.ghostSleepUntil || 0)) > gameNow(),
+            });
+          }
+          const isLightInjured = season.enabled && !p.isNpc
+            ? ((p.id === localPlayer.id ? season.effects?.lightUntil : season.client?.snapshot?.players?.find(q => q.clientId === p.id)?.effects?.lightUntil) > gameNow())
+            : ((p.id === localPlayer.id ? localPlayer.lightInjuredUntil : p.lightInjuredUntil) > gameNow());
+          if (season.enabled && !p.isNpc) {
+            const e = p.id === localPlayer.id ? season.effects : season.client?.snapshot?.players?.find(q => q.clientId === p.id)?.effects;
+            const now = gameNow();
+            if (e?.shieldUntil > now) {
+              ctx.strokeStyle = '#86efac';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.ellipse(p.x, p.y - 28, 34, 45, 0, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+          }
+          if (isLightInjured) {
+            ctx.font = '18px sans-serif';
+            ctx.fillText('🩹', p.x - 10, p.y - 80);
+          }
+          ctx.restore();
+        });
+
+        if (window.OfficeHunt?.clock?.()?.active) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(52,211,153,.15)';
+          ctx.strokeStyle = '#34d399';
+          ctx.lineWidth = 3;
+          ctx.fillRect(2220, 160, 280, 300);
+          ctx.strokeRect(2220, 160, 280, 300);
+          ctx.fillStyle = '#d1fae5';
+          ctx.font = 'bold 18px sans-serif';
+          ctx.fillText('安全區 SAFE', 2280, 205);
+          ctx.restore();
+        }
+
+        const hourFloat = getCurrentHourFloat();
+        if (typeof window.renderRealTimeLighting === 'function') {
+          window.renderRealTimeLighting(ctx, hourFloat, allPlayers, tick);
+        }
+
+        sortedPlayers.forEach((p) => {
+          if (!p) return;
+          const hp = network?.combat?.enemies?.[p.uid || p.id];
+          if (hp) {
+            ctx.save();
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(p.x - 22, p.y - 72, 44, 5);
+            ctx.fillStyle = hp.hp > 0 ? '#34d399' : '#ef4444';
+            ctx.fillRect(p.x - 22, p.y - 72, 44 * Math.max(0, hp.hp / hp.maxHp), 5);
+            ctx.restore();
+          }
+          if (typeof drawPlayerNameplateAndBubbles === 'function') {
+            drawPlayerNameplateAndBubbles(ctx, p, p.id === localPlayer.id);
+          }
+        });
+
+        if (nearbyFacilityAction && !localPlayer.knockback) {
+          ctx.save();
+          const textScale = camera.overviewMode ? 1 : Math.max(1, 1 / camera.zoom);
+          ctx.translate(localPlayer.x, localPlayer.y);
+          ctx.scale(textScale, textScale);
+          ctx.translate(-localPlayer.x, -localPlayer.y);
+          const hintText = nearbyFacilityAction.shortHint || '[按 E] 啟動設備互動';
+          ctx.font = '900 16px "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif';
+          const hw = ctx.measureText(hintText).width + 28;
+          const hx = localPlayer.x - hw / 2;
+          const hy = localPlayer.y - 106 - (localPlayer.jumpOffset || 0) + Math.sin(tick * 0.2) * 2.5;
+          ctx.fillStyle = 'rgba(8, 16, 32, 0.97)';
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(hx, hy, hw, 30, 10);
+          } else {
+            ctx.rect(hx, hy, hw, 30);
+          }
+          ctx.fill();
+          ctx.strokeStyle = '#facc15';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.fillStyle = '#fef08a';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.strokeStyle = '#020617';
+          ctx.lineWidth = 3;
+          ctx.lineJoin = 'round';
+          ctx.strokeText(hintText, localPlayer.x, hy + 15.5);
+          ctx.fillText(hintText, localPlayer.x, hy + 15.5);
+          ctx.restore();
+        }
+
+        if (typeof renderMedicalHealingAnimations === 'function') {
+          renderMedicalHealingAnimations(ctx, tick);
+        }
+        if (typeof renderVfxList === 'function') {
+          renderVfxList(ctx);
+        }
+      } finally {
+        ctx.restore();
+      }
+
+      const allPlayersForRadar = [localPlayer, ...(network ? network.getAllOtherPlayers() : [])];
+      if (typeof renderMinimapRadar === 'function') {
+        renderMinimapRadar(ctx, allPlayersForRadar);
+      }
+    } catch (loopErr) {
+      console.error('gameLoop caught error:', loopErr);
+    } finally {
+      requestAnimationFrame(gameLoop);
     }
-
-    const sortedPlayers = allPlayers.filter(p=>window.OfficeCombat.defeatVisible(p)).sort((a, b) => a.y - b.y);
-    sortedPlayers.forEach((p) => {
-      ctx.save();
-      const reaction=window.OfficeCombat.reactionPose(p);
-      ctx.translate(reaction.x,reaction.y-reaction.jump);
-      if((network.hunt?.protectedUntil?.[p.id]||0)>gameNow()) ctx.globalAlpha=tick%12<6?.35:1;
-      window.drawWackyAvatar(ctx, {
-        avatarId: p.avatarId,
-        outfitAvatarId: p.outfitAvatarId,
-        combatDown: !!p.combatDown,
-        scareUntil: p.scareUntil || 0,
-        x: p.x,
-        y: p.y,
-        dir: p.dir,
-        isMoving: p.isMoving,
-        tick,
-        scale: p.id === 'npc_vp_boss' ? 1.16 : 1.05,
-        jumpOffset: p.jumpOffset || 0,
-        actionState: p.actionState || null,
-        isBerserk: !!p.isBerserk,
-        isSweeper: !!p.isSweeper,
-        isKnockedBack: (reaction.active && reaction.kind!=='dodge') || !!(p.knockback && p.knockback.ticksLeft > 0),
-        heldItem: p.isNpc ? '' : p.heldItem,
-        weaponSwing: p.weaponSwing ? {...p.weaponSwing,progress:p.id===localPlayer.id ? 1-p.weaponSwing.ticksLeft/p.weaponSwing.totalTicks : (gameNow()-p.weaponSwing.startedAt)/300} : null,
-        isInjured: p.id === localPlayer.id ? !!localPlayer.isInjured : !!p.isInjured,
-        beingHealed: p.id === localPlayer.id ? !!localPlayer.beingHealed : !!p.beingHealed,
-        healProgress: p.id === localPlayer.id ? (localPlayer.healProgress || 0) : (p.healProgress || 0),
-        isFleeing: !!p.isFleeing,
-      });
-      if(season.enabled&&!p.isNpc){const e=p.id===localPlayer.id?season.effects:season.client?.snapshot?.players.find(q=>q.clientId===p.id)?.effects;const now=gameNow();if(e?.shieldUntil>now){ctx.strokeStyle='#86efac';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x,p.y-28,34,45,0,0,Math.PI*2);ctx.stroke();}if(e?.lightUntil>now){ctx.font='18px sans-serif';ctx.fillText('🩹',p.x-10,p.y-80);}}
-      ctx.restore();
-    });
-
-    if(window.OfficeHunt?.clock().active){
-      ctx.save();ctx.fillStyle='rgba(52,211,153,.15)';ctx.strokeStyle='#34d399';ctx.lineWidth=3;
-      ctx.fillRect(2220,160,280,300);ctx.strokeRect(2220,160,280,300);ctx.fillStyle='#d1fae5';ctx.font='bold 18px sans-serif';ctx.fillText('安全區 SAFE',2280,205);ctx.restore();
-    }
-    // 背景固定自動執行的真實系統時間光影變化
-    const hourFloat = getCurrentHourFloat();
-    window.renderRealTimeLighting(ctx, hourFloat, allPlayers, tick);
-
-    sortedPlayers.forEach((p) => {
-      const hp=network.combat?.enemies[p.uid||p.id];
-      if(hp){ctx.save();ctx.fillStyle='#0f172a';ctx.fillRect(p.x-22,p.y-72,44,5);ctx.fillStyle=hp.hp>0?'#34d399':'#ef4444';ctx.fillRect(p.x-22,p.y-72,44*Math.max(0,hp.hp/hp.maxHp),5);ctx.restore();}
-      drawPlayerNameplateAndBubbles(ctx, p, p.id === localPlayer.id);
-    });
-
-    // 若靠近設備（電腦、馬桶、洗手台、茶水間等），在角色上方額外繪製醒目的 [按 E] 互動提示膠囊
-    if (nearbyFacilityAction && !localPlayer.knockback) {
-      ctx.save();
-      const textScale = camera.overviewMode ? 1 : Math.max(1, 1 / camera.zoom);
-      ctx.translate(localPlayer.x, localPlayer.y);
-      ctx.scale(textScale, textScale);
-      ctx.translate(-localPlayer.x, -localPlayer.y);
-      const hintText = nearbyFacilityAction.shortHint || '[按 E] 啟動設備互動';
-      ctx.font = '900 16px "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif';
-      const hw = ctx.measureText(hintText).width + 28;
-      const hx = localPlayer.x - hw / 2;
-      const hy = localPlayer.y - 106 - (localPlayer.jumpOffset || 0) + Math.sin(tick * 0.2) * 2.5;
-      ctx.fillStyle = 'rgba(8, 16, 32, 0.97)';
-      ctx.beginPath();
-      ctx.roundRect(hx, hy, hw, 30, 10);
-      ctx.fill();
-      ctx.strokeStyle = '#facc15';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.fillStyle = '#fef08a';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.strokeStyle = '#020617';
-      ctx.lineWidth = 3;
-      ctx.lineJoin = 'round';
-      ctx.strokeText(hintText, localPlayer.x, hy + 15.5);
-      ctx.fillText(hintText, localPlayer.x, hy + 15.5);
-      ctx.restore();
-    }
-
-    renderMedicalHealingAnimations(ctx, tick);
-    renderVfxList(ctx);
-    ctx.restore();
-
-    renderMinimapRadar(ctx, allPlayers);
-
-    requestAnimationFrame(gameLoop);
   }
 
   /**
@@ -5713,18 +7040,50 @@ async function executeOfficeLogin(params) {
     // 💬 名牌與文字對話框絕對錨定於角色地面高度 (p.y - 68)，絕不隨受擊跳躍 (jumpOffset) 震動抖動！
     const pillY = p.y - 68;
 
-    ctx.fillStyle = p.isBerserk ? '#ef4444' : st.dot;
-    ctx.beginPath();
-    ctx.arc(pillX + 12, pillY + pillH / 2, 4.2, 0, Math.PI * 2);
-    ctx.fill();
+    const isInteracting = !isSelf && !!p.id && (
+      (typeof selectedTargetId !== 'undefined' && selectedTargetId && (p.id === selectedTargetId || p.uid === selectedTargetId)) ||
+      (typeof nearbyPlayers !== 'undefined' && nearbyPlayers && nearbyPlayers[0] && (nearbyPlayers[0].id === p.id || nearbyPlayers[0].uid === p.id))
+    );
 
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.strokeStyle='#020617';ctx.lineWidth=4;ctx.lineJoin='round';
-    ctx.strokeText(displayLabel, pillX + 21, pillY + pillH / 2 + 0.5);
-    ctx.fillText(displayLabel, pillX + 21, pillY + pillH / 2 + 0.5);
-    ctx.fillText(itemEmoji, pillX + pillW - 21, pillY + pillH / 2 + 0.5);
+    if (isInteracting) {
+      ctx.fillStyle = p.isBerserk ? 'rgba(185, 28, 28, 0.96)' : 'rgba(15, 23, 42, 0.96)';
+      ctx.beginPath();
+      ctx.roundRect(pillX, pillY, pillW, pillH, 12);
+      ctx.fill();
+      ctx.strokeStyle = p.isBerserk ? '#facc15' : '#38bdf8';
+      ctx.lineWidth = 2.0;
+      ctx.stroke();
+
+      ctx.fillStyle = p.isBerserk ? '#ef4444' : st.dot;
+      ctx.beginPath();
+      ctx.arc(pillX + 12, pillY + pillH / 2, 4.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(displayLabel, pillX + 21, pillY + pillH / 2 + 0.5);
+      if (itemEmoji) ctx.fillText(itemEmoji, pillX + pillW - 21, pillY + pillH / 2 + 0.5);
+    } else {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.92)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetX = 1;
+      ctx.shadowOffsetY = 1;
+
+      ctx.fillStyle = p.isBerserk ? '#ef4444' : st.dot;
+      ctx.beginPath();
+      ctx.arc(p.x - textWidth / 2 - 8, pillY + pillH / 2, 4.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = p.isBerserk ? '#fca5a5' : '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.strokeStyle='#020617';ctx.lineWidth=4;ctx.lineJoin='round';ctx.strokeText(displayLabel, p.x - textWidth / 2, pillY + pillH / 2 + 0.5);
+      ctx.fillText(displayLabel, p.x - textWidth / 2, pillY + pillH / 2 + 0.5);
+      if (itemEmoji) ctx.fillText(itemEmoji, p.x + textWidth / 2 + 6, pillY + pillH / 2 + 0.5);
+      ctx.restore();
+    }
 
     // 💬 文字氣泡自動換行演算法 (支援 CJK、Emoji 與多行折返，絕不超出卡片)
     function wrapMurmurLines(renderCtx, text, maxTextWidth) {

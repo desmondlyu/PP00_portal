@@ -10,8 +10,7 @@ export async function request(s,kind,b,token,now,source='local'){
     if(!key||key.length>16||!assets.units.includes(unit)||!/^[A-Za-z0-9]{6}$/.test(b.pin||''))throw new Error('請輸入名稱、部門與六碼英數字個人密碼');
     const limit=s.rate[source]||{at:now,count:0};if(now-limit.at>60000){limit.at=now;limit.count=0;}s.rate[source]=limit;if(++limit.count>20)return {error:'嘗試過於頻繁，請稍後重試'};
     let p=Object.values(s.players).find(p=>p.nameKey===key&&p.unit===unit);
-    if(p?.credentials.lockedUntil>now)return {error:'登入資料不正確或暫時鎖定，請稍後重試'};
-    if(kind==='register'&&p||kind==='login'&&!p)return {error:'登入資料不正確或帳號已存在'};
+    if(p?.credentials.lockedUntil>now)return {error:'密碼錯誤次數過多暫時鎖定，請稍後重試'};
     if(!p){
       const salt=uid(),id=uid();p=s.players[id]={id,nameKey:key,name:String(b.name).trim(),unit,exp:0,season:2,items:[],overflow:[],effects:{},x:880,y:525,room:'PP00',lastLoginDate:nowDate(now),avatarId:assets.avatars.includes(b.avatarId)?b.avatarId:'office_1',credentials:{salt,hash:await pinHash(b.pin,salt),failures:0}};
     }else if(await pinHash(b.pin,p.credentials.salt)!==p.credentials.hash){p.credentials.failures++;if(p.credentials.failures>=5){p.credentials.lockedUntil=now+900000;p.credentials.failures=0;}return {error:'登入資料不正確或暫時鎖定，請稍後重試'};}
