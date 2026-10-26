@@ -73,3 +73,4 @@ test('an older poll cannot replay confirmed impact over a newer attack preview',
  assert.equal(g.h.receiveReaction(e,r,100550),false);assert.equal(e.combatReaction.id,preview);
  assert.equal(g.h.receiveReaction(e,{...r,id:'confirmed-2',kind:'dodge'},100600),true);assert.equal(e.combatReaction.id,'confirmed-2');
 });
+test('defeat presentation ends after 650ms without making a living NPC disappear',()=>{const g=game();assert.equal(typeof g.h.defeatVisible,'function');assert(g.h.defeatVisible({combatDown:true,combatDownAt:1000},1400));assert(!g.h.defeatVisible({combatDown:true,combatDownAt:1000},1650));assert(g.h.defeatVisible({combatDown:false},9999));});

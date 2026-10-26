@@ -53,3 +53,34 @@ test('heartbeat can include master world update but ignores it after losing lead
  s.players.q.lastSeen=100001;s.players.q.connection='a';p.connection='z';
  await S.request(s,'heartbeat',{x:1000,y:520,world:{enemies:[{id:'npc_ghost',x:1050,y:520}]}},token,100001);assert(!s.enemies.npc_ghost);
 });
+test('ambient cap is four and expired or timestamp-less generated loot cannot accumulate forever',async()=>{
+ const E=await engine(),s=game(),p=s.players.p;p.lastSeen=1200000;s.players.q.lastSeen=0;s.lastSpawn={PP00:0};
+ for(let i=0;i<3;i++)s.drops['a'+i]={...E.fresh('coffee'),room:'PP00',source:'world',origin:'ambient',createdAt:1199999};
+ E.world(s,p,{},1200000,()=>.9);assert.equal(Object.keys(s.drops).length,4);
+ s.drops.loot={...E.fresh('pizza'),room:'PP00',source:'world'};
+ E.world(s,p,{},1200001,()=>.9);assert.equal(s.drops.loot.createdAt,1200001);
+ p.lastSeen=3000002;E.world(s,p,{},3000002,()=>.9);assert(!s.drops.loot);
+});
+test('defeated mobs never auto-resurrect from a stale master packet',async()=>{
+ const E=await engine(),s=game(),p=s.players.p;s.players.q.lastSeen=0;p.lastSeen=500000;
+ s.enemies.mob_dead={id:'mob_dead',role:'mob',mob:true,room:'PP00',hp:0,maxHp:2,until:100000,defeatedAt:1000,lastSeen:1000,x:1000,y:520};
+ E.world(s,p,{enemies:[{id:'mob_dead',x:1000,y:520}]},500000,()=>.9);assert(!s.enemies.mob_dead||s.enemies.mob_dead.hp===0);
+ E.world(s,p,{enemies:[{id:'mob_dead',x:1000,y:520}]},500001,()=>.9);assert(!s.enemies.mob_dead||s.enemies.mob_dead.hp===0);
+});
+test('server alone rolls mob birth at 0.1 percent, max one, five-minute defeat cooldown',async()=>{
+ const E=await engine(),s=game(),p=s.players.p;s.players.q.lastSeen=0;p.lastSeen=10000;
+ E.world(s,p,{enemies:[{id:'mob_forged',x:1000,y:520}]},10000,()=>.9);assert(!s.enemies.mob_forged);
+ E.world(s,p,{},11000,()=>.001);assert.equal(Object.values(s.enemies).filter(e=>e.mob).length,0);
+ E.world(s,p,{},12000,()=>.0009);let mobs=Object.values(s.enemies).filter(e=>e.mob);assert.equal(mobs.length,1);
+ E.world(s,p,{},13000,()=>0);assert.equal(Object.values(s.enemies).filter(e=>e.mob&&e.hp>0).length,1);
+ const e=mobs[0];e.x=1050;e.y=350;e.hp=1;E.strike(s,p,e.id,14000,()=>.9);
+ p.lastSeen=20000;E.world(s,p,{},20000,()=>0);assert.equal(Object.values(s.enemies).filter(e=>e.mob&&e.hp>0).length,0);
+ p.lastSeen=315000;E.world(s,p,{},315000,()=>0);assert.equal(Object.values(s.enemies).filter(e=>e.mob&&e.hp>0).length,1);
+});
+test('guard defeats nearby server mob once without player loot or XP; dead mobs cannot be farmed',async()=>{
+ const E=await engine(),s=game(),p=s.players.p;s.players.q.lastSeen=0;p.lastSeen=100000;s.enemies.mob_guard={id:'mob_guard',role:'mob',mob:true,room:'PP00',hp:2,maxHp:2,x:1040,y:350,lastSeen:100000};
+ E.world(s,p,{enemies:[{id:'npc_security_guard',x:1000,y:350},{id:'mob_guard',x:1040,y:350}]},100000,()=>.9);
+ assert.equal(s.enemies.mob_guard.hp,0);assert.equal(p.exp,0);assert.equal(Object.keys(s.drops).length,0);
+ E.strike(s,p,'mob_guard',500000,()=>0);assert.equal(p.exp,0);assert.equal(Object.keys(s.drops).length,0);
+});
+test('off-shift stale NPC records cannot be attacked for invisible loot',async()=>{const E=await engine(),s=game(),p=s.players.p;s.enemies.old={id:'old',role:'vp',tier:3,hp:1,maxHp:6,room:'PP00',x:1050,y:350,lastSeen:1000};E.strike(s,p,'old',100000,()=>0);assert.equal(s.enemies.old.hp,1);assert.equal(p.exp,0);assert.equal(Object.keys(s.drops).length,0);});

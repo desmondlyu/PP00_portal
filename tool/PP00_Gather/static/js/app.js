@@ -254,11 +254,11 @@
     syncPlayerActiveWeaponState();updateInjuryCountdownHUD();
     ecosystem.groundItems=snap.drops.filter(d=>!d.claimed&&!season.hiddenDrops.has(d.uid)).map(d=>({...d,dropY:0,combatDrop:true,seasonDrop:true}));
     for(const [id,f]of Object.entries(snap.broken||{})){const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];if(target){target.isBroken=f.broken;if(!f.broken){target.brokenBy=null;target.screenState='pass';}}}
-    for(const [id,e]of Object.entries(snap.enemies||{}))if(e.mob&&!ecosystem.mobs.some(m=>(m.uid||m.id)===id)){const meta=window.GATHER_CONFIG.minecraftMobs?.find(m=>m.id===e.templateId)||window.GATHER_CONFIG.minecraftMobs?.[0]||{};ecosystem.mobs.push({...meta,id:e.templateId,uid:id,name:e.name,x:e.x,y:e.y,hp:e.hp,maxHp:e.maxHp,isBerserk:false,waypoints:[]});}
+    for(const [id,e]of Object.entries(snap.enemies||{}))if(e.mob&&e.hp>0&&!ecosystem.mobs.some(m=>(m.uid||m.id)===id)){const meta=window.GATHER_CONFIG.minecraftMobs?.find(m=>m.id===e.templateId)||window.GATHER_CONFIG.minecraftMobs?.[0]||{};ecosystem.mobs.push({...meta,id:e.templateId,uid:id,name:e.name,x:e.x,y:e.y,hp:e.hp,maxHp:e.maxHp,isBerserk:false,waypoints:[]});}
     network.combat={enemies:snap.enemies||{}};
     for(const [id,e]of Object.entries(snap.enemies||{})){
       const npc=network.npcPlayers.get(id)||(ecosystem.mobs||[]).find(m=>(m.uid||m.id)===id);if(!npc)continue;
-      npc.hp=e.hp;npc.maxHp=e.maxHp;npc.combatDown=e.until>now;
+      npc.hp=e.hp;npc.maxHp=e.maxHp;const down=e.hp<=0||e.until>now;if(down&&!npc.combatDown)npc.combatDownAt=Date.now();npc.combatDown=down;
       if(npc.combatDown){npc.actionState='sleep_bed';npc.isMoving=false;}else if(npc.actionState==='sleep_bed')npc.actionState=null;
       if(e.reaction&&now-e.reaction.at<5000&&window.OfficeCombat.receiveReaction(npc,e.reaction)){
         // Apply authoritative displacement immediately; the render offset supplies the impact motion.
@@ -266,6 +266,7 @@
         showCombatToast(`${escapeHtml(e.name||id)} ${e.reaction.kind==='dodge'?'閃避':e.reaction.kind==='defeat'?'被擊倒':'受到擊退'}`);
       }
     }
+    ecosystem.mobs=ecosystem.mobs.filter(m=>snap.enemies?.[m.uid||m.id]&&window.OfficeCombat.defeatVisible(m));
     for(const q of snap.players){if(q.id===p.id)continue;if(!network.remotePlayers.has(q.clientId))network.upsertRemotePlayer({id:q.clientId,name:q.name,unit:q.unit,x:q.x,y:q.y,avatarId:q.avatarId,status:'active'},true);const remote=network.remotePlayers.get(q.clientId);if(remote){remote.seasonPlayerId=q.id;remote.isInjured=q.effects.injuredUntil>now;remote.lightInjuredUntil=q.effects.lightUntil||0;remote.outfitAvatarId=q.worn;}}
     if(p.pending&&!season.pendingChoice){season.pendingChoice=true;setTimeout(async()=>{const chosen=await window.OfficeFacilities.choose('抽到 '+p.pending.outfit.name+'，選一套服裝替換；取消保留材料',p.items.filter(i=>i.category==='outfit'));await seasonSend(chosen?'gacha_confirm':'gacha_cancel',chosen?{replace:chosen[0]}:{});season.pendingChoice=false;},0);}
   }
@@ -626,7 +627,7 @@
         if (Array.isArray(pkt.mobs) && typeof ecosystem !== 'undefined' && ecosystem) {
           const localMobMap = new Map((ecosystem.mobs || []).map((m) => [m.uid||m.id, m]));
           ecosystem.mobs = pkt.mobs
-            .filter((rm) => rm.hp > 0)
+            .filter((rm) => rm.hp > 0 && (!season.enabled || season.client?.snapshot?.enemies?.[rm.uid||rm.id]?.hp>0))
             .map((rm) => {
               const localMob = localMobMap.get(rm.uid||rm.id);
               if (!localMob) return { ...rm };
@@ -3559,6 +3560,7 @@ async function executeOfficeLogin(params) {
       let nearestNpc = null;
       let minNpcD = Infinity;
       for (const npc of network.npcPlayers.values()) {
+        if(npc.combatDown)continue;
         const d = Math.hypot(px - npc.x, py - npc.y);
         if (d < 62 && d < minNpcD) {
           minNpcD = d;
@@ -5243,7 +5245,7 @@ async function executeOfficeLogin(params) {
         player: p,
         dist: Math.hypot(p.x - localPlayer.x, p.y - localPlayer.y),
       }))
-      .filter((item) => item.dist <= radius)
+      .filter((item) => !item.player.combatDown && item.dist <= radius)
       .sort((a, b) => a.dist - b.dist)
       .map((item) => item.player);
 
@@ -5449,7 +5451,7 @@ async function executeOfficeLogin(params) {
       ctx.restore();
     }
 
-    const sortedPlayers = [...allPlayers].sort((a, b) => a.y - b.y);
+    const sortedPlayers = allPlayers.filter(p=>window.OfficeCombat.defeatVisible(p)).sort((a, b) => a.y - b.y);
     sortedPlayers.forEach((p) => {
       ctx.save();
       const reaction=window.OfficeCombat.reactionPose(p);
