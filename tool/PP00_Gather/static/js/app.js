@@ -4833,10 +4833,13 @@ async function executeOfficeLogin(params) {
           fac.stall.occupiedBy = null;
           localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
           localPlayer.occupiedSpotId = null;
+          localPlayer.x = fac.stall.x - 28;
+          localPlayer.y = fac.stall.y + 48;
+          localPlayer.dir = 'left';
           updatePoseLabelUI();
           spawnConfetti(fac.stall.seatX, fac.stall.seatY - 10);
           pushStatusLog('你', `🌊 【${fac.stall.name}】沖水完畢離開隔間`);
-          network.broadcastPacket('toilet_state', { stallId: fac.stall.id, occupiedBy: null, doorOpen: 0 });
+          network.broadcastPacket('toilet_state', { stallId: fac.stall.id, occupiedBy: null, doorOpen: 1 });
           network.broadcastPacket('state_sync', { player: network.getPublicState() });
           setTimeout(() => {
             fac.stall.doorOpen = 0;
@@ -4844,11 +4847,18 @@ async function executeOfficeLogin(params) {
           }, 420);
           return;
         } else {
+          // 精確定位於馬桶座位內部，關門鎖上並就位上廁所（絕不呼叫會將人彈出門外的 cancelContextualAction）
+          localPlayer.x = fac.stall.seatX;
+          localPlayer.y = fac.stall.seatY;
+          localPlayer.dir = 'down';
+          localPlayer.autoWalkTarget = null;
+          localPlayer.actionState = 'toilet';
+          localPlayer.occupiedSpotId = fac.stall.id;
           fac.stall.doorOpen = 0;
           fac.stall.occupiedBy = localPlayer.id;
-          localPlayer.occupiedSpotId = fac.stall.id;
+          updatePoseLabelUI();
           network.broadcastPacket('toilet_state', { stallId: fac.stall.id, occupiedBy: localPlayer.id, doorOpen: 0 });
-          startContextualAction('toilet');
+          network.broadcastPacket('state_sync', { player: network.getPublicState() });
           pushStatusLog('你', `🚪 進入【${fac.stall.name}】關上隔間門鎖上，開始順暢排解壓力...`);
           network.broadcastPacket('murmur', { text: '💩 呼... 終於輪到我了', mood: 'sweat' });
           return;
