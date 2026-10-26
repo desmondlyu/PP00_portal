@@ -1452,24 +1452,94 @@ window.drawWackyAvatar = function (ctx, opts) {
     ctx.font='22px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(opts.heldItem,0,-7);
     ctx.restore();
   }
-  // 4.5 若正在揮舞武器攻擊 (板凳、鍵盤、WAFER晶圓、板手、IC Package、客退報告)，繪製炫酷斬擊刀光與旋轉武器
+  // 4.5 攻擊動畫：區分「👊 徒手出拳（向前直拳/飛射拳頭）」與「武器揮擊（半月斬光與旋轉）」
   if (weaponSwing && weaponSwing.progress < 1) {
     ctx.save();
     const p = weaponSwing.progress;
-    const swingAngle = (dir==='left'?Math.PI:dir==='up'?-Math.PI/2:dir==='down'?Math.PI/2:0) -1.3+p*2.7;
-    // 半月形金色/青色揮擊刀光
-    ctx.strokeStyle = `rgba(250, 204, 21, ${1 - p * 0.6})`;
-    ctx.lineWidth = 7;
-    ctx.beginPath();
-    ctx.arc(4, -6, 32, -1.2, swingAngle, false);
-    ctx.stroke();
+    const isFist = weaponSwing.emoji === '👊' || weaponSwing.isFist;
 
-    ctx.translate(4, -6);
-    ctx.rotate(swingAngle);
-    ctx.font = '24px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(weaponSwing.emoji || '🪑', 24, 0);
+    if (isFist) {
+      // 👊 出拳動畫：朝著面向方向 (dir) 像火箭拳頭一樣向前直衝飛出，絕不轉圈！
+      const baseAngle = dir === 'left' ? Math.PI : dir === 'up' ? -Math.PI / 2 : dir === 'down' ? Math.PI / 2 : 0;
+      const vx = Math.cos(baseAngle);
+      const vy = Math.sin(baseAngle);
+
+      // 出拳軌跡：快速向前飛出 52px 打擊
+      const thrustDist = Math.sin(Math.min(1, p * 1.5) * (Math.PI / 2)) * 52;
+      const fistX = 4 + vx * thrustDist;
+      const fistY = -6 + vy * thrustDist;
+
+      // 1. 拳頭後方的空氣衝擊波與速度軌跡線 (Speed streaks)
+      ctx.save();
+      ctx.strokeStyle = `rgba(254, 240, 138, ${Math.max(0, 1 - p * 1.3)})`;
+      ctx.lineWidth = 3.5;
+      ctx.setLineDash([8, 4]);
+      ctx.beginPath();
+      ctx.moveTo(4 + vx * 8, -6 + vy * 8);
+      ctx.lineTo(fistX - vx * 12, fistY - vy * 12);
+      ctx.stroke();
+
+      // 兩側破空衝擊風線
+      const perpX = -vy, perpY = vx;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${Math.max(0, 0.85 - p)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(4 + vx * 10 + perpX * 9, -6 + vy * 10 + perpY * 9);
+      ctx.lineTo(fistX - vx * 10 + perpX * 9, fistY - vy * 10 + perpY * 9);
+      ctx.moveTo(4 + vx * 10 - perpX * 9, -6 + vy * 10 - perpY * 9);
+      ctx.lineTo(fistX - vx * 10 - perpX * 9, fistY - vy * 10 - perpY * 9);
+      ctx.stroke();
+      ctx.restore();
+
+      // 2. 飛拳前端的打擊衝擊波星芒圈
+      if (p > 0.2) {
+        ctx.save();
+        const shockP = (p - 0.2) / 0.8;
+        ctx.strokeStyle = `rgba(239, 68, 68, ${Math.max(0, 1 - shockP)})`;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(fistX + vx * 14, fistY + vy * 14, 8 + shockP * 18, 5 + shockP * 14, baseAngle, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 3. 繪製飛出直擊的拳頭（依方向微調並適當鏡像）
+      ctx.save();
+      ctx.translate(fistX, fistY);
+      if (dir === 'left') {
+        ctx.scale(-1, 1);
+      } else if (dir === 'up') {
+        ctx.rotate(-Math.PI / 2);
+      } else if (dir === 'down') {
+        ctx.rotate(Math.PI / 2);
+      }
+      // 拳頭出拳瞬間放大 35% 強化卡通打擊衝擊力道感
+      const punchScale = 1 + Math.sin(p * Math.PI) * 0.35;
+      ctx.scale(punchScale, punchScale);
+      ctx.font = '28px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(239, 68, 68, 0.8)';
+      ctx.shadowBlur = 12;
+      ctx.fillText('👊', 0, 0);
+      ctx.restore();
+
+    } else {
+      // 半月形金色/青色揮擊刀光（一般裝備武器）
+      const swingAngle = (dir==='left'?Math.PI:dir==='up'?-Math.PI/2:dir==='down'?Math.PI/2:0) -1.3+p*2.7;
+      ctx.strokeStyle = `rgba(250, 204, 21, ${1 - p * 0.6})`;
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.arc(4, -6, 32, -1.2, swingAngle, false);
+      ctx.stroke();
+
+      ctx.translate(4, -6);
+      ctx.rotate(swingAngle);
+      ctx.font = '24px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(weaponSwing.emoji || '🪑', 24, 0);
+    }
     ctx.restore();
   }
 

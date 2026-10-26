@@ -2953,7 +2953,7 @@ async function executeOfficeLogin(params) {
         return;
       }
       lastWeaponAttackAt=now;season.attacking=true;
-      localPlayer.weaponSwing={emoji:w.emoji,ticksLeft:18,totalTicks:18,startedAt:now,duration:300};network.broadcastPacket('weapon_swing',{emoji:w.emoji});
+      localPlayer.weaponSwing={emoji:w.emoji,isFist,ticksLeft:18,totalTicks:18,startedAt:now,duration:300};network.broadcastPacket('weapon_swing',{emoji:w.emoji,isFist});
       const previews=[];
       for(const e of [...network.npcPlayers.values(),...(ecosystem.mobs||[])]){
         if(e.combatDown||Math.hypot(e.x-localPlayer.x,e.y-localPlayer.y)>135)continue;
@@ -3021,6 +3021,7 @@ async function executeOfficeLogin(params) {
     // 播放揮砍半月斬動畫
     localPlayer.weaponSwing = {
       emoji: wpnEmoji,
+      isFist,
       ticksLeft: 18,
       totalTicks: 18,
       startedAt: gameNow(), duration: 300,
