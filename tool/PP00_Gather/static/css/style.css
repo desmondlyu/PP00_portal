@@ -2844,13 +2844,13 @@ button { touch-action: manipulation; }
 /* 鳥人追殺模式：右上角小型倒數 HUD (不佔據中間上方) */
 #huntHud {
   position: fixed;
-  top: calc(56px + env(safe-area-inset-top));
-  right: calc(14px + env(safe-area-inset-right));
+  bottom: calc(92px + env(safe-area-inset-bottom));
+  right: calc(20px + env(safe-area-inset-right));
   left: auto;
   transform: none;
   z-index: 170;
-  max-width: min(340px, calc(100vw - 28px));
-  padding: 6px 12px;
+  max-width: min(360px, calc(100vw - 28px));
+  padding: 8px 14px;
   border: 1.5px solid #ef4444;
   border-radius: 12px;
   background: rgba(37, 18, 28, 0.94);
