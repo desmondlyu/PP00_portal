@@ -2846,9 +2846,33 @@ async function executeOfficeLogin(params) {
         const dx=e.x-localPlayer.x,dy=e.y-localPlayer.y,steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/8));let blocked=false;
         for(let i=0;i<=steps;i++)if(window.isPositionBlocked(localPlayer.x+dx*i/steps,localPlayer.y+dy*i/steps,18)){blocked=true;break;}
         if(blocked)continue;
-        const id=window.OfficeCombat.predictImpact(e,Math.atan2(dy,dx));previews.push([e,id]);
+        const angle=Math.atan2(dy,dx);
+        // 客戶端即時打擊感：立即賦予位移、旋轉打擊與受擊特效
+        const pushDist=26;
+        const nx=Math.max(55,Math.min(2700,e.x+Math.cos(angle)*pushDist));
+        const ny=Math.max(55,Math.min(1900,e.y+Math.sin(angle)*pushDist));
+        if(!window.isPositionBlocked(nx,ny,16)){e.x=nx;e.y=ny;}
+        e.knockback={vx:Math.cos(angle)*14,vy:Math.sin(angle)*14,ticksLeft:16};
+        e.emote={emoji:'💥',expiresAt:now+650};
+        const id=window.OfficeCombat.predictImpact(e,angle);
+        previews.push([e,id]);
+        if(typeof e.hp==='number'){
+          e.hp=Math.max(0,e.hp-1);
+          if(e.hp<=0&&!e.combatDown){
+            e.combatDown=true;
+            e.combatDownAt=Date.now();
+            e.actionState='sleep_bed';
+            e.isMoving=false;
+            showCombatToast(`${escapeHtml(e.name||'目標')} 被擊倒！`);
+            setTimeout(()=>{
+              if(typeof ecosystem !== 'undefined' && ecosystem.mobs){
+                ecosystem.mobs=ecosystem.mobs.filter(m=>m!==e&&(m.uid||m.id)!==(e.uid||e.id));
+              }
+            }, 650);
+          }
+        }
       }
-      seasonSend('attack').finally(()=>{season.attacking=false;for(const [e,id]of previews)if(e.combatReaction?.id===id)e.combatReaction=null;});
+      seasonSend('attack').finally(()=>{season.attacking=false;});
       return;
     }
     if(gameNow()<(localPlayer.stunnedUntil||0)) return;
