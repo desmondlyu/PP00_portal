@@ -129,19 +129,37 @@
         hud.style.display = 'flex';
         hud.style.alignItems = 'center';
         hud.style.gap = '14px';
+
+        hud.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span>🚑 <strong>身受重傷休養中</strong>｜無法動彈剩餘：<span id="injuryTimerSpan" style="font-variant-numeric:tabular-nums; color:#fef08a; font-weight:800;">00:00</span></span>
+          </div>
+          <div id="injuryButtonsWrapper" style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;"></div>
+        `;
         document.body.appendChild(hud);
       }
+
       const remSec = Math.max(0, Math.ceil((localPlayer.injuredUntil - gameNow()) / 1000));
       const m = String(Math.floor(remSec / 60)).padStart(2, '0');
       const s = String(remSec % 60).padStart(2, '0');
 
+      const timerSpan = hud.querySelector('#injuryTimerSpan');
+      if (timerSpan && timerSpan.textContent !== `${m}:${s}`) {
+        timerSpan.textContent = `${m}:${s}`;
+      }
+
       const foodItems = (localPlayer.equippedSlots || []).concat(localPlayer.inventory || [])
         .filter(i => i && ['coffee', 'pizza', 'boba'].includes(i.id));
 
-      let buttonsHtml = '';
-      if (foodItems.length > 0) {
-        buttonsHtml = `
-          <div style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      const btnsWrapper = hud.querySelector('#injuryButtonsWrapper');
+      const currentFoodCount = String(foodItems.length);
+
+      // 僅在按鈕結構改變或初次建立時更新按鈕，絕不在每幀破壞重建 DOM 按鈕！
+      if (btnsWrapper && btnsWrapper.dataset.foodCount !== currentFoodCount) {
+        btnsWrapper.dataset.foodCount = currentFoodCount;
+        let buttonsHtml = '';
+        if (foodItems.length > 0) {
+          buttonsHtml = `
             <button id="btnEmergencyUseItems" type="button" style="
               background: linear-gradient(135deg, #f59e0b, #d97706);
               color: #ffffff;
@@ -174,53 +192,52 @@
               align-items: center;
               gap: 4px;
             ">✨ 立即急救甦醒 (緊急脫困) [-50 EXP]</button>
-          </div>
-        `;
-      } else {
-        buttonsHtml = `
-          <button id="btnEmergencyRevive" type="button" style="
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: #ffffff;
-            border: 1px solid #6ee7b7;
-            border-radius: 20px;
-            padding: 6px 14px;
-            font-weight: 800;
-            font-size: 13px;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-            transition: transform 0.12s ease, filter 0.12s ease;
-            outline: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-          ">✨ 立即急救甦醒 (緊急脫困) [-50 EXP]</button>
-        `;
+          `;
+        } else {
+          buttonsHtml = `
+            <button id="btnEmergencyRevive" type="button" style="
+              background: linear-gradient(135deg, #10b981, #059669);
+              color: #ffffff;
+              border: 1px solid #6ee7b7;
+              border-radius: 20px;
+              padding: 6px 14px;
+              font-weight: 800;
+              font-size: 13px;
+              cursor: pointer;
+              box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+              transition: transform 0.12s ease, filter 0.12s ease;
+              outline: none;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+            ">✨ 立即急救甦醒 (緊急脫困) [-50 EXP]</button>
+          `;
+        }
+        btnsWrapper.innerHTML = buttonsHtml;
+
+        const btnItems = btnsWrapper.querySelector('#btnEmergencyUseItems');
+        if (btnItems) {
+          const handleUseItems = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            emergencyReviveLocalPlayer('item');
+          };
+          btnItems.onclick = handleUseItems;
+          btnItems.onpointerdown = handleUseItems;
+        }
+
+        const btnRevive = btnsWrapper.querySelector('#btnEmergencyRevive');
+        if (btnRevive) {
+          const handleRevive = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            emergencyReviveLocalPlayer('exp');
+          };
+          btnRevive.onclick = handleRevive;
+          btnRevive.onpointerdown = handleRevive;
+        }
       }
 
-      hud.innerHTML = `
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span>🚑 <strong>身受重傷休養中</strong>｜無法動彈剩餘：<span style="font-variant-numeric:tabular-nums; color:#fef08a; font-weight:800;">${m}:${s}</span></span>
-        </div>
-        ${buttonsHtml}
-      `;
-      const btnItems = hud.querySelector('#btnEmergencyUseItems');
-      if (btnItems) {
-        btnItems.onmousedown = (e) => e.stopPropagation();
-        btnItems.ontouchstart = (e) => e.stopPropagation();
-        btnItems.onclick = (e) => {
-          e.stopPropagation();
-          emergencyReviveLocalPlayer('item');
-        };
-      }
-      const btn = hud.querySelector('#btnEmergencyRevive');
-      if (btn) {
-        btn.onmousedown = (e) => e.stopPropagation();
-        btn.ontouchstart = (e) => e.stopPropagation();
-        btn.onclick = (e) => {
-          e.stopPropagation();
-          emergencyReviveLocalPlayer('exp');
-        };
-      }
       hud.style.display = 'flex';
     } else if (hud) {
       hud.style.display = 'none';
@@ -757,7 +774,7 @@
       // 首次登入無存檔：預設不持有任何道具，保持完全徒手狀態
       localPlayer.equippedSlots = [null, null, null];
       localPlayer.inventory = [];
-      localPlayer.heldItem = '🟢';
+      localPlayer.heldItem = '';
       localPlayer.activeEquipIndex = 0;
       syncPlayerActiveWeaponState();
       savePersistentState();
@@ -3123,7 +3140,7 @@ async function executeOfficeLogin(params) {
     const tpl = list[Math.floor(Math.random() * list.length)] || '';
     return tpl
       .replace(/\{target\}/g, escapeHtml(vars.target || '對方'))
-      .replace(/\{myItem\}/g, escapeHtml(vars.myItem || '🟢'))
+      .replace(/\{myItem\}/g, escapeHtml(vars.myItem || ''))
       .replace(/\{theirItem\}/g, escapeHtml(vars.theirItem || '🍕'));
   }
 
@@ -4970,7 +4987,26 @@ async function executeOfficeLogin(params) {
     }
   }
 
+  const systemLogCooldowns = new Map();
+  function normalizeSystemFeedbackKey(text) {
+    return String(text || '')
+      .replace(/（[^）]*\d+[^）]*）/g, '')
+      .replace(/\([^)]*\d+[^)]*\)/g, '')
+      .replace(/\d+:\d+/g, '')
+      .replace(/\d+\s*(?:秒|分鐘|min|sec)/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function pushStatusLog(senderName, text) {
+    if (senderName === '系統') {
+      const normKey = normalizeSystemFeedbackKey(text);
+      const now = gameNow();
+      const lastTime = systemLogCooldowns.get(normKey) || 0;
+      if (now - lastTime < 3000) return; // 3 秒冷卻防洗版
+      systemLogCooldowns.set(normKey, now);
+    }
+
     statusLogHistory.push({
       id: 'stat_' + gameNow() + '_' + Math.random().toString(36).slice(2, 6),
       senderName,
@@ -5632,11 +5668,12 @@ async function executeOfficeLogin(params) {
     const text = parsed.content.textContent || '';
     if (!text) return false;
 
-    // 所有提醒訊息 3 秒冷卻防刷屏
+    // 所有提醒訊息 3 秒冷卻防刷屏 (正規化去除動態倒數數字)
+    const normKey = typeof normalizeSystemFeedbackKey === 'function' ? normalizeSystemFeedbackKey(text) : text;
     const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    const lastTime = combatToastCooldowns.get(text) || 0;
+    const lastTime = combatToastCooldowns.get(normKey) || 0;
     if (now - lastTime < 3000) return false;
-    combatToastCooldowns.set(text, now);
+    combatToastCooldowns.set(normKey, now);
 
     const line = document.createElement('div');
     line.textContent = text;
@@ -5879,7 +5916,7 @@ async function executeOfficeLogin(params) {
     if (nameEl) nameEl.textContent = `${colleague.name} (${colleague.unit})`;
     const statusEl = document.getElementById('profileCardStatus');
     if (statusEl) {
-      statusEl.innerHTML = `<span class="status-dot-mini" style="background:${st.dot}"></span> ${st.label} · 手持 ${colleague.heldItem || '🟢'}`;
+      statusEl.innerHTML = `<span class="status-dot-mini" style="background:${st.dot}"></span> ${st.label} · 手持 ${colleague.heldItem || '無裝備'}`;
     }
     const roleEl = document.getElementById('profileCardRole');
     if (roleEl) roleEl.textContent = `${av.name} — ${av.tag}`;
