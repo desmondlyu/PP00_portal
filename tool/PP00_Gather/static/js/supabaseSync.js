@@ -99,7 +99,8 @@
 
     // 讀取 gather_game_config 並覆蓋全域設定
     async fetchGameConfig() {
-      if (!this.client) return;
+      // Season 2 uses the server catalog/policy; legacy rows contain outdated rates.
+      if (window.GATHER_CONFIG?.season2 || !this.client) return;
       try {
         const { data, error } = await this.checked(this.client
           .from('gather_game_config')

@@ -155,8 +155,9 @@ test('Network receives proximity chat across whole office regardless of extreme 
   assert.equal(receivedChat.isNearby, false, 'Far message is marked as not nearby');
 });
 
-test('Security Guard AI targets monsters and defeats them', () => {
+test('legacy Security Guard AI targets monsters and defeats them', () => {
   const env = createTestEnv();
+  env.window.GATHER_CONFIG.season2 = false;
   const EphemeralOfficeNetwork = env.window.EphemeralOfficeNetwork;
 
   const net = new EphemeralOfficeNetwork();
@@ -191,8 +192,9 @@ test('Security Guard AI targets monsters and defeats them', () => {
   assert.equal(mob.hp, 0, 'Mob HP should be reduced to 0 by guard baton');
 });
 
-test('SupabaseSync overrides game balance configuration from backend', async () => {
+test('legacy SupabaseSync overrides game balance configuration from backend', async () => {
   const env = createTestEnv();
+  env.window.GATHER_CONFIG.season2 = false;
   const GatherSupabaseSync = env.window.GatherSupabaseSync;
   const sync = new GatherSupabaseSync();
 
@@ -936,3 +938,5 @@ test('Selecting a real online user automatically defaults chatSendModeSelect to 
   assert.equal(sendModeSel.value, 'chat', 'Chat send mode should revert to chat when selecting NPC');
   assert.equal(privateBtn.disabled, true, 'Private chat button should be disabled for NPC');
 });
+
+test('Season 2 ignores obsolete balance rows instead of overriding its server rules',async()=>{const env=createTestEnv(),sync=new env.window.GatherSupabaseSync();sync.client={from(){throw Error('legacy balance must not be fetched')}};await sync.fetchGameConfig();assert.equal(env.window.GATHER_CONFIG.security.mobSpawnChance,.001);assert.equal(env.window.GATHER_CONFIG.security.maxMobCount,1);assert.equal(env.window.GATHER_CONFIG.security.maxGroundItems,4);});

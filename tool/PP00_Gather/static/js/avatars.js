@@ -1622,7 +1622,10 @@ window.drawMinecraftMob = function (ctx, mob, tick) {
   const hop = isKnocked ? 0 : Math.abs(Math.sin(tick * 0.24 + (mob.seed || 0))) * 5;
 
   ctx.translate(mob.x, mob.y - jumpY - hop);
-  if (isKnocked) {
+  if (mob.combatDown) {
+    ctx.globalAlpha = Math.max(0, 1 - (Date.now() - (mob.combatDownAt || Date.now())) / 650);
+    ctx.rotate(Math.PI / 2);
+  } else if (isKnocked) {
     ctx.rotate(tick * 0.55);
   }
 

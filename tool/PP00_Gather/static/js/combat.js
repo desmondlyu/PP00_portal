@@ -135,7 +135,8 @@
       const entityId=e.uid||e.id;
       e.combatReaction=n.combatVisuals?.[entityId];
       const h=s.enemies[entityId];if(!h)continue;
-      e.combatDown=h.until>now;e.hp=h.hp;e.maxHp=h.maxHp;
+      const down=h.until>now;if(down&&!e.combatDown)e.combatDownAt=now;
+      e.combatDown=down;e.hp=h.hp;e.maxHp=h.maxHp;
       if(e.combatDown){e.actionState='sleep_bed';e.isMoving=false;if(e.isMob&&now-(h.defeatedAt||now)>1800)n.callbacks.onCombatMobDefeat?.(e.uid);}
       else if(h.hp<=0 && !e.isMob && n.isRoomMaster()){h.hp=h.maxHp;h.until=0;e.actionState=null;}
     }
@@ -166,5 +167,6 @@
     const wave=Math.sin(t*Math.PI),angle=r.angle+(r.kind==='dodge'?Math.PI/2:0);
     return {x:Math.cos(angle)*wave*34,y:Math.sin(angle)*wave*24,jump:wave*(r.kind==='dodge'?26:18),active:true,kind:r.kind};
   }
-  window.OfficeCombat={tier,health,strike,damage,send,packet,update,state,reactionPose,receiveReaction,predictImpact};
+  const defeatVisible=(e,now=Date.now())=>!e.combatDown||now-(e.combatDownAt??0)<650;
+  window.OfficeCombat={tier,health,strike,damage,send,packet,update,state,reactionPose,receiveReaction,predictImpact,defeatVisible};
 })();

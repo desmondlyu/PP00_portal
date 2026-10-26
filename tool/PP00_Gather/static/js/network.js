@@ -1397,8 +1397,8 @@ class EphemeralOfficeNetwork {
           if (nearestDist < 54) {
             // 警衛揮棒打怪！消滅怪物
             npc.jumpOffset = 14;
-            nearestMob.hp = 0;
-            if (this.callbacks.onGuardHitMob) {
+            if (!window.GATHER_CONFIG.season2) nearestMob.hp = 0;
+            if (!window.GATHER_CONFIG.season2 && this.callbacks.onGuardHitMob) {
               this.callbacks.onGuardHitMob(npc, nearestMob);
             }
             if (!npc.murmur || now >= npc.murmur.expiresAt) {

@@ -148,14 +148,14 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
 }
 export {assets,R,award,near,active,locked,fresh,uid,nowDate};
 export function strike(s,p,targetId,now,rng=Math.random){
-  const e=s.enemies[targetId];if(!e||e.room!==p.room||e.until>now||!near(p,e.x,e.y,140)||!segment(p.x,p.y,e.x,e.y)||locked(p,now))return;
+  const e=s.enemies[targetId];if(!e||e.hp<=0||!e.mob&&e.lastSeen&&now-e.lastSeen>15000||e.room!==p.room||e.until>now||!near(p,e.x,e.y,140)||!segment(p.x,p.y,e.x,e.y)||locked(p,now))return;
   const a=Math.atan2(e.y-p.y,e.x-p.x),dodge=e.role==='ghost'?.6:e.role==='bird'?.45:e.role==='guard'?.25:0;
   e.reaction={id:uid(),kind:'hit',angle:a,at:now,duration:450};
   if(rng()<dodge){e.reaction.kind='dodge';return;}
   e.hp--;Object.assign(e,floor(e.x+Math.cos(a)*35,e.y+Math.sin(a)*35));
   if(e.hp<=0){
-    e.until=now+(e.role==='bird'&&now%900000<60000?10000:e.mob?180000:60000);e.reaction.kind='defeat';gain(p,30);
-    const makeDrop=id=>{const d={...fresh(id),...floor(e.x+35,e.y+20),room:p.room,source:'world'};s.drops[d.uid]=d;};
+    e.until=now+(e.role==='bird'&&now%900000<60000?10000:e.mob?180000:60000);e.reaction.kind='defeat';e.defeatedAt=now;if(e.mob){s.mobDefeatedAt||={};s.mobDefeatedAt[p.room]=now;}gain(p,30);
+    const makeDrop=id=>{const d={...fresh(id),...floor(e.x+35,e.y+20),room:p.room,source:'world',origin:'defeat',createdAt:now};s.drops[d.uid]=d;};
     if(rng()<.3){const ids=e.tier===3?['bench','rma_report']:e.tier===2?['keyboard','wrench','wafer_blade']:['pizza','boba','coffee','duck','ic_pkg'];makeDrop(pick(ids,rng));}
     if(rng()<.05)makeDrop(pick(assets.items.filter(i=>i.category==='outfit'),rng).id);
   }else if(['vp','dir','auntie'].includes(e.role)&&!(e.busyUntil>now)&&rng()<.5){
@@ -166,7 +166,7 @@ export function strike(s,p,targetId,now,rng=Math.random){
 export function combat(s,p,b,now,rng=Math.random){
   if(locked(p,now)||now-(p.lastSwing||0)<300)return;
   const weapon=p.items.find(i=>i.slot===(p.activeSlot||0))||p.items.find(i=>i.slot!=null);if(!weapon)return;p.lastSwing=now;
-  const targets=Object.values(s.enemies).filter(e=>e.room===p.room&&near(p,e.x,e.y,135)&&!(e.until>now));
+  const targets=Object.values(s.enemies).filter(e=>e.room===p.room&&e.hp>0&&(e.mob||!e.lastSeen||now-e.lastSeen<=15000)&&near(p,e.x,e.y,135)&&!(e.until>now));
   const others=Object.values(s.players).filter(q=>q.id!==p.id&&q.room===p.room&&active(q,now)&&near(p,q.x,q.y,135));
   for(const e of targets){strike(s,p,e.id,now,rng);if(p.effects.lockedUntil>now)break;}
   if(!(p.effects.lockedUntil>now))for(const q of others)hurt(s,q,'pvp',now,rng);
@@ -176,15 +176,19 @@ export function combat(s,p,b,now,rng=Math.random){
 export function world(s,p,b,now,rng=Math.random){
   const online=Object.values(s.players).filter(q=>q.room===p.room&&active(q,now)).sort((a,b)=>a.connection.localeCompare(b.connection));
   if(online[0]?.id!==p.id)throw new Error('只有目前房長可更新場景');
-  for(const e of Object.values(s.enemies))if(e.until&&e.until<=now){e.hp=e.maxHp;e.until=0;}
+  for(const e of Object.values(s.enemies)){
+    if(e.mob&&e.hp<=0){e.defeatedAt||=e.reaction?.at||now;s.mobDefeatedAt||={};s.mobDefeatedAt[e.room]=Math.max(s.mobDefeatedAt[e.room]||0,e.defeatedAt);}
+    else if(e.until&&e.until<=now){e.hp=e.maxHp;e.until=0;}
+  }
   for(const row of (b.enemies||[]).slice(0,50)){
     if(typeof row.id!=='string'||!Number.isFinite(row.x)||!Number.isFinite(row.y)||!/^npc_|^mob_/.test(row.id))continue;
     const role=/vp_boss/.test(row.id)?'vp':/dir_pp00/.test(row.id)?'dir':/auntie/.test(row.id)?'auntie':/bird_commander/.test(row.id)?'bird':/ghost/.test(row.id)?'ghost':/security|guard/.test(row.id)?'guard':'mob';
     const tier=['vp','dir','bird'].includes(role)?3:['ghost','guard'].includes(role)?2:1;
     const hp=role==='mob'?2:[0,3,5,6][tier];let e=s.enemies[row.id];
+    if(!e&&role==='mob')continue;
     if(!e)e=s.enemies[row.id]={id:row.id,role,tier,hp,maxHp:hp,room:p.room,mob:role==='mob'};
-    if(e.room!==p.room||e.until>now||e.busyUntil>now)continue;
-    e.x=Math.max(55,Math.min(2700,row.x));e.y=Math.max(55,Math.min(1900,row.y));e.name=String(row.name||row.id).slice(0,40);e.templateId=String(row.templateId||row.id);e.lastSeen=now;
+    if(e.room!==p.room||e.mob&&e.hp<=0||e.until>now||e.busyUntil>now)continue;
+    e.x=Math.max(55,Math.min(2700,row.x));e.y=Math.max(55,Math.min(1900,row.y));e.name=String(row.name||row.id).slice(0,40);e.templateId=String(row.templateId||row.id);e.lastSeen=now;e.attacking=!!row.attacking;
     if(row.attacking||role==='bird'&&now%900000<60000){
       for(const q of online){if(!near(q,e.x,e.y,75)||locked(q,now))continue;
         if(role==='bird'&&now%900000<60000){if(q.x>=2220&&q.x<=2500&&q.y>=160&&q.y<=460)continue;hurt(s,q,'hunt',now,rng);}
@@ -193,10 +197,33 @@ export function world(s,p,b,now,rng=Math.random){
       }
     }
   }
+  const guards=Object.values(s.enemies).filter(e=>e.room===p.room&&e.role==='guard'&&e.hp>0&&!(e.until>now)&&!e.attacking&&e.lastSeen===now);
+  for(const e of Object.values(s.enemies))if(e.room===p.room&&e.mob&&e.hp>0){
+    const guard=guards.find(g=>near(g,e.x,e.y,54)&&segment(g.x,g.y,e.x,e.y));
+    if(guard){e.hp=0;e.defeatedAt=now;e.until=now+300000;e.reaction={id:uid(),kind:'defeat',angle:Math.atan2(e.y-guard.y,e.x-guard.x),at:now,duration:650};s.mobDefeatedAt||={};s.mobDefeatedAt[p.room]=now;}
+  }
   s.broken||={};
   for(const id of (b.broken||[]).slice(0,100)){if(!assets.tasks.some(t=>t.id===id))continue;const old=s.broken[id];if(!old||!old.broken&&now-(old.handledAt||0)>30000)s.broken[id]={broken:true,room:p.room};}
-  for(const [id,e]of Object.entries(s.enemies))if(e.mob&&now-(e.lastSeen||now)>120000)delete s.enemies[id];
+  for(const [id,e]of Object.entries(s.enemies))if(e.mob&&e.hp<=0&&now-e.defeatedAt>300000)delete s.enemies[id];
   const room=p.room;
+  // Only the server creates new mob instances; stale client packets cannot revive them.
+  s.lastMobRoll||={};const previous=s.lastMobRoll[room]??now;s.lastMobRoll[room]=now-((now-previous)%1000);
+  const live=Object.values(s.enemies).filter(e=>e.mob&&e.room===room&&e.hp>0);
+  for(const e of live.slice(assets.mobPolicy.maxActive))delete s.enemies[e.id];
+  if(live.length<assets.mobPolicy.maxActive&&(!s.mobDefeatedAt?.[room]||now-s.mobDefeatedAt[room]>=assets.mobPolicy.cooldownMs)){
+    const trials=Math.min(5,Math.max(0,Math.floor((now-previous)/1000)));
+    for(let i=0;i<trials;i++)if(rng()<assets.mobPolicy.chance){
+      const meta=pick(assets.mobs,rng),id='mob_'+uid(),position=floor(400+rng()*1600,600+rng()*900);
+      s.enemies[id]={id,templateId:meta.id,name:meta.name,role:'mob',tier:/rma|qit/.test(meta.id)?2:1,mob:true,room,hp:meta.maxHp||2,maxHp:meta.maxHp||2,lastSeen:now,...position};break;
+    }
+  }
+  // Stamp legacy generated loot once and expire it, without touching player-owned bags.
+  for(const [id,d]of Object.entries(s.drops)){
+    if(d.source==='world'){d.origin||=d.createdAt?'ambient':'defeat';d.createdAt??=now;}
+    if(d.claimed||d.source==='world'&&now-d.createdAt>=assets.dropPolicy.lifetimeMs)delete s.drops[id];
+  }
+  const ambient=Object.entries(s.drops).filter(([,d])=>d.room===room&&d.source==='world'&&d.origin==='ambient').sort((a,b)=>b[1].createdAt-a[1].createdAt);
+  for(const [id]of ambient.slice(assets.dropPolicy.maxGround))delete s.drops[id];
   s.lastSpawn||={};
   if(!Number.isFinite(s.lastSpawn[room]))s.lastSpawn[room]=now;
   const policy=assets.dropPolicy;
@@ -206,10 +233,9 @@ export function world(s,p,b,now,rng=Math.random){
     const hour=new Date(now+8*3600000).getUTCHours();
     const pool=assets.items.filter(i=>isMaterial(i)&&i.spawnRate>0).map(i=>({item:i,weight:i.spawnRate*((hour>=11&&hour<=13||hour>=15&&hour<=16)&&['pizza','boba','coffee'].includes(i.id)?1.2:(hour>=21||hour<7)&&['coffee','kuaikuai'].includes(i.id)?1.25:1)}));
     const total=pool.reduce((n,i)=>n+i.weight,0);
-    for(let n=0;n<Math.min(policy.batchCount,16-existing);n++){
+    for(let n=0;n<Math.min(policy.batchCount,policy.maxGround-existing);n++){
       let roll=rng()*total;const m=(pool.find(i=>(roll-=i.weight)<0)||pool.at(-1))?.item;
-      if(m){const d={...fresh(m.id),...floor(300+rng()*1600,550+rng()*1100),room,source:'world',createdAt:now};s.drops[d.uid]=d;}
+      if(m){const d={...fresh(m.id),...floor(300+rng()*1600,550+rng()*1100),room,source:'world',origin:'ambient',createdAt:now};s.drops[d.uid]=d;}
     }
   }
-  for(const [id,d]of Object.entries(s.drops))if(d.claimed||d.createdAt&&now-d.createdAt>1800000)delete s.drops[id];
 }
