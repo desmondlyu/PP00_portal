@@ -143,10 +143,20 @@
     n.callbacks.onCombatGround?.(s.items);
     if(n.isRoomMaster()&&tick%30===0)emit(n);
   }
+  let previewId=0;
+  function predictImpact(entity,angle,now=Date.now()){
+    const id='preview_'+(++previewId);
+    // Presentation only: HP, position, loot and evade outcomes stay server-authoritative.
+    entity.combatReaction={id,kind:'anticipate',angle,startedAt:now,duration:650,predicted:true};
+    return id;
+  }
   // Use the viewer's animation clock, never the server timestamp or network latency.
   function receiveReaction(entity,reaction,now=Date.now()){
-    if(!reaction||entity.combatReaction?.id===reaction.id)return false;
-    entity.combatReaction={...reaction,startedAt:now,duration:Math.max(650,reaction.duration||0)};
+    if(!reaction||entity.lastConfirmedReactionId===reaction.id||entity.combatReaction?.id===reaction.id)return false;
+    entity.lastConfirmedReactionId=reaction.id;
+    const preview=entity.combatReaction;
+    const startedAt=preview?.predicted&&reaction.kind==='hit'&&now-preview.startedAt<500?preview.startedAt:now;
+    entity.combatReaction={...reaction,startedAt,duration:Math.max(650,reaction.duration||0)};
     entity.emote={emoji:reaction.kind==='dodge'?'💨':'💥',expiresAt:now+650};
     return true;
   }
@@ -156,5 +166,5 @@
     const wave=Math.sin(t*Math.PI),angle=r.angle+(r.kind==='dodge'?Math.PI/2:0);
     return {x:Math.cos(angle)*wave*34,y:Math.sin(angle)*wave*24,jump:wave*(r.kind==='dodge'?26:18),active:true,kind:r.kind};
   }
-  window.OfficeCombat={tier,health,strike,damage,send,packet,update,state,reactionPose,receiveReaction};
+  window.OfficeCombat={tier,health,strike,damage,send,packet,update,state,reactionPose,receiveReaction,predictImpact};
 })();
