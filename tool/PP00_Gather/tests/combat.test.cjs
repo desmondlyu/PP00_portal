@@ -62,3 +62,14 @@ test('delayed cloud reactions play fully on receipt, duplicate polls never resta
  g.h.receiveReaction(e,reaction,103300);assert.equal(e.combatReaction.startedAt,103000);
  assert(!g.h.reactionPose(e,104000).active);
 });
+test('predicted impact never changes health or position and yields to confirmed dodge',()=>{
+ const g=game(),e=g.n.npcPlayers.get('npc_aunt');e.hp=3;const x=e.x,y=e.y;
+ g.h.predictImpact(e,0,100000);assert(g.h.reactionPose(e,100100).active);assert.equal(e.hp,3);assert.equal(e.x,x);assert.equal(e.y,y);
+ g.h.receiveReaction(e,{id:'actual',kind:'dodge',angle:0,duration:450},100200);assert.equal(e.combatReaction.predicted,undefined);assert.equal(e.combatReaction.kind,'dodge');assert.equal(e.combatReaction.startedAt,100200);
+});
+test('an older poll cannot replay confirmed impact over a newer attack preview',()=>{
+ const g=game(),e=g.n.npcPlayers.get('npc_aunt'),r={id:'confirmed-1',kind:'hit',angle:0,duration:450};
+ assert.equal(g.h.receiveReaction(e,r,100000),true);const preview=g.h.predictImpact(e,1,100500);
+ assert.equal(g.h.receiveReaction(e,r,100550),false);assert.equal(e.combatReaction.id,preview);
+ assert.equal(g.h.receiveReaction(e,{...r,id:'confirmed-2',kind:'dodge'},100600),true);assert.equal(e.combatReaction.id,'confirmed-2');
+});

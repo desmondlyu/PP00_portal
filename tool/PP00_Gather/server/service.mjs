@@ -25,7 +25,14 @@ export async function request(s,kind,b,token,now,source='local'){
   const p=await identify(s,token,now);
   if(kind==='resume'){const oldHash=p.tokenHash,raw=uid()+uid();p.generation=uid();p.resumeRecovery={oldHash,requestId:b.requestId,until:now+30000,generation:p.generation};p.tokenHash=await digest(raw);p.sessionUntil=now+30*86400000;p.connection=String(b.connection||uid()).slice(0,80);p.lastSeen=now;act(s,p.id,'signin',{},now);return {...snapshot(s,p.id,now),token:raw};}
   if(kind==='snapshot')return snapshot(s,p.id,now);
-  if(kind==='attack')combat(s,p,b,now);
+  // Position and interaction commit together: no preliminary HTTP heartbeat is needed.
+  if(b.pose&&typeof b.pose==='object')act(s,p.id,'heartbeat',b.pose,now);
+  if(kind==='heartbeat'&&b.world){
+    act(s,p.id,'heartbeat',b,now);
+    const leader=Object.values(s.players).filter(q=>q.room===p.room&&q.lastSeen>now-35000).sort((a,b)=>a.connection.localeCompare(b.connection))[0];
+    if(leader?.id===p.id)world(s,p,b.world,now);
+  }
+  else if(kind==='attack')combat(s,p,b,now);
   else if(kind==='world')world(s,p,b,now);
   else act(s,p.id,kind,b,now);
   return kind==='logout'?{loggedOut:true,now}:snapshot(s,p.id,now);
