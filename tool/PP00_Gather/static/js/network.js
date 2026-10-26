@@ -173,21 +173,25 @@ class EphemeralOfficeNetwork {
         x: 1060,
         y: 520,
         waypoints: [
-          { x: 1060, y: 520 },
-          { x: 2120, y: 520 },
-          { x: 2360, y: 520 },
-          { x: 2360, y: 430 },
-          { x: 2360, y: 350 },
-          { x: 2360, y: 430 },
-          { x: 2360, y: 520 },
-          { x: 2120, y: 820 },
-          { x: 2255, y: 682 }, // 進入廁所洗手台搓泡洗手
-          { x: 2120, y: 820 }, // 走回走廊
-          { x: 1060, y: 820 },
-          { x: 640, y: 820 },
-          { x: 200, y: 820 },
-          { x: 200, y: 520 },
-          { x: 1060, y: 520 },
+          { x: 1060, y: 520 },  // 主走廊打掃
+          { x: 1500, y: 520 },  // 工程師辦公走廊
+          { x: 1960, y: 520 },  // 扭蛋與販賣機前打掃
+          { x: 2300, y: 350 },  // 茶水間咖啡吧前打掃
+          { x: 2160, y: 682 },  // 進入洗手間通道
+          { x: 2255, y: 682 },  // 洗手台清洗拖把/洗手
+          { x: 2420, y: 652 },  // 1號尊榮馬桶間前打掃
+          { x: 2520, y: 652 },  // 進1號馬桶內部清理
+          { x: 2420, y: 765 },  // 2號極速解放間前打掃
+          { x: 2520, y: 765 },  // 進2號馬桶內部清理
+          { x: 2420, y: 878 },  // 3號靈感思考間前打掃
+          { x: 2420, y: 991 },  // 4號VIP黃金馬桶前打掃
+          { x: 2160, y: 820 },  // 走出洗手間
+          { x: 1600, y: 820 },  // 中庭走廊打掃
+          { x: 1060, y: 820 },  // 西側辦公室打掃
+          { x: 640, y: 820 },   // 主管辦公室外走廊打掃
+          { x: 200, y: 820 },   // 會議室外玄關
+          { x: 200, y: 520 },   // 大門入口接待處
+          { x: 640, y: 520 },   // 歸位巡視
         ],
         isSweeper: true,
         shift: 'day',
@@ -207,20 +211,24 @@ class EphemeralOfficeNetwork {
         x: 2120,
         y: 820,
         waypoints: [
-          { x: 2120, y: 820 },
-          { x: 2255, y: 682 }, // 進入廁所搓泡洗手
-          { x: 2120, y: 820 },
-          { x: 2120, y: 520 },
-          { x: 1060, y: 520 },
-          { x: 1060, y: 1180 },
-          { x: 1800, y: 1205 },
-          { x: 1695, y: 1360 },
-          { x: 1800, y: 1205 },
-          { x: 925, y: 1180 },
-          { x: 395, y: 1180 },
-          { x: 1060, y: 1180 },
-          { x: 2120, y: 1180 },
-          { x: 2120, y: 820 },
+          { x: 2120, y: 820 },  // 洗手間門口走廊
+          { x: 2255, y: 682 },  // 洗手台清洗水槽與泡沫
+          { x: 2420, y: 878 },  // 3號馬桶隔間前打掃
+          { x: 2520, y: 878 },  // 進3號馬桶內部清理
+          { x: 2420, y: 991 },  // 4號VIP黃金馬桶前打掃
+          { x: 2520, y: 991 },  // 進4號馬桶內部清理
+          { x: 2420, y: 765 },  // 2號馬桶前走道
+          { x: 2120, y: 820 },  // 走出洗手間
+          { x: 2120, y: 1180 }, // 南側檔案室走廊
+          { x: 1800, y: 1205 }, // Lab 測試實驗室打掃
+          { x: 1400, y: 1205 }, // 儀器機台區打掃
+          { x: 925, y: 1180 },  // 會議室 B 外走廊打掃
+          { x: 395, y: 1180 },  // 會議室 A 前打掃
+          { x: 1060, y: 1180 }, // 南部走廊巡邏
+          { x: 1060, y: 820 },  // 穿越中島辦公桌
+          { x: 1060, y: 520 },  // 北部辦公走廊
+          { x: 1800, y: 520 },  // 東側走廊
+          { x: 2120, y: 520 },  // 回到洗手間北側
         ],
         isSweeper: true,
         shift: 'day',
@@ -1272,7 +1280,16 @@ class EphemeralOfficeNetwork {
     let npcSeq = 0;
     this.npcPlayers.forEach((npc) => {
       const idx = npcSeq++;
-      if (npc.combatDown) return;
+      if (npc.combatDown) {
+        if (now - (npc.combatDownAt || 0) >= 60000) {
+          npc.combatDown = false;
+          npc.actionState = npc.isSweeper ? 'sweep_floor' : null;
+          npc.hp = npc.maxHp || 2;
+          npc.fistHits = 0;
+        } else {
+          return;
+        }
+      }
       if (npc.isBirdCommander && window.OfficeHunt?.clock().active) return;
 
       if (now < (npc.ghostScaredUntil || 0)) {
@@ -1859,21 +1876,33 @@ class EphemeralOfficeNetwork {
                 }
               }
             } else if (npc.isSweeper) {
-              // 判定打掃阿姨是否位於廁所/洗手台區域 (x: 2180~2650, y: 560~1080)
-              const inRestroomArea = npc.x >= 2180 && npc.x <= 2650 && npc.y >= 560 && npc.y <= 1080;
-              if (inRestroomArea) {
-                // 只在廁所進行洗手搓泡動作
+              // 洗手台搓泡判定：位於洗手台半徑內 (x: 2200~2360, y: 600~720) 觸發 wash_hands
+              const inRestroomSinkArea = npc.x >= 2200 && npc.x <= 2360 && npc.y >= 600 && npc.y <= 720;
+              if (inRestroomSinkArea && npc.actionState !== 'wash_hands' && !npc.justWashed) {
                 npc.actionState = 'wash_hands';
-                npc.actionUntil = now + 7000 + Math.random() * 4000;
+                npc.actionUntil = now + 5000 + Math.random() * 3000;
                 npc.targetX = 2255; // 走向 1 號感應泡沫洗手台
                 npc.targetY = 682;
+                npc.justWashed = true;
               } else {
-                // 其餘所有地方一律進行掃地動作，不再摸魚或喝咖啡
+                npc.justWashed = false;
                 npc.actionState = 'sweep_floor';
                 npc.waypointIdx = (npc.waypointIdx + 1) % npc.waypoints.length;
                 const wp = npc.waypoints[npc.waypointIdx];
                 npc.targetX = wp.x;
                 npc.targetY = wp.y;
+                // 若走到馬桶隔間內部或門前，停留打掃 4~6 秒並開啟隔間門
+                const isStallArea = wp.x >= 2400 && wp.y >= 600 && wp.y <= 1040;
+                if (isStallArea) {
+                  npc.actionUntil = now + 4000 + Math.random() * 2500;
+                  if (window.WORLD_MAP?.toiletStalls) {
+                    const st = window.WORLD_MAP.toiletStalls.find(s => Math.hypot(wp.x - s.seatX, wp.y - s.seatY) < 110);
+                    if (st && !st.occupiedBy) {
+                      st.doorOpen = 1;
+                      setTimeout(() => { if (!st.occupiedBy) st.doorOpen = 0; }, 3500);
+                    }
+                  }
+                }
               }
             } else if (npc.isSecurityGuard) {
               // 警衛巡邏換點
