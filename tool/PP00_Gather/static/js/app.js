@@ -2878,6 +2878,7 @@ async function executeOfficeLogin(params) {
    * 🥊 攻擊 VP 大老闆、PP00 處長或打掃阿姨時觸發的 50% 專屬抓去辦公室/打掃廁所連續毆打機制
    * ⚠️ 連續毆打純屬搞笑動畫，絕對不會造成使用者重傷（isInjured 保持 false）
    */
+  let lastBeatingAnnouncedAt = 0;
   function triggerBossOrAuntieBeating(npc, role) {
     const now = gameNow();
     const durationMs = 8000;
@@ -2943,14 +2944,19 @@ async function executeOfficeLogin(params) {
       startedAt: now,
     };
 
-    showToast(introMsg, 'error');
-    pushCombatLog(npc.name, `💢 ${scoldLine}`);
-    pushStatusLog(npc.name, `💢 ${scoldLine}`);
+    if (now - lastBeatingAnnouncedAt > 9000) {
+      lastBeatingAnnouncedAt = now;
+      showToast(introMsg, 'error');
+      pushCombatLog(npc.name, `💢 ${scoldLine}`);
+      pushStatusLog(npc.name, `💢 ${scoldLine}`);
+      if (network) {
+        network.broadcastPacket('status_log', {
+          senderName: npc.name,
+          text: `💢 ${scoldLine}`,
+        });
+      }
+    }
     if (network) {
-      network.broadcastPacket('status_log', {
-        senderName: npc.name,
-        text: `💢 ${scoldLine}`,
-      });
       network.broadcastPacket('state_sync', { player: network.getPublicState() });
     }
   }
@@ -5618,7 +5624,7 @@ async function executeOfficeLogin(params) {
       ctx.restore();
     }
 
-    const sortedPlayers = allPlayers.filter(p=>window.OfficeCombat.defeatVisible(p)).sort((a, b) => a.y - b.y);
+    const sortedPlayers = allPlayers.filter(p=>p.isMob?window.OfficeCombat.defeatVisible(p):true).sort((a, b) => a.y - b.y);
     sortedPlayers.forEach((p) => {
       ctx.save();
       const reaction=window.OfficeCombat.reactionPose(p);
