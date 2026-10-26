@@ -25,6 +25,11 @@
   let chatOnlyFilter = false;
   let activePipWindow = null;
 
+  // Clear only this game's obsolete state once; passwords and assets never migrate.
+  try{if(season.enabled&&localStorage.getItem('gather_cloud_reset')!=='20261026-cloud6'){
+    const keys=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&(k.startsWith('PP00_GATHER_')||k.startsWith('gather_')||k.startsWith('pp00_gather_')))keys.push(k);}
+    for(const k of keys)localStorage.removeItem(k);localStorage.setItem('gather_cloud_reset','20261026-cloud6');
+  }}catch(e){console.warn('無法清除舊登入暫存',e);}
   const PERSISTENCE_KEY = 'PP00_GATHER_PERSISTENCE_v1';
   const LOGIN_SESSION_KEY = 'PP00_GATHER_LOGIN_SESSION_v1';
 
@@ -35,7 +40,6 @@
         unit: localPlayer.unit,
         status: localPlayer.status || 'active',
         avatarId: localPlayer.avatarId,
-        roomCode: (network && network.roomCode) || 'PP00',
         autoLogin: !!autoLogin,
         savedAt: gameNow(),
       };
@@ -72,6 +76,7 @@
 
   // 儲存持久化狀態（包含裝備、持有道具、耐久度、重傷休養計時、鳥人指揮官暫時休養狀態）
   function savePersistentState() {
+    if(season.enabled)return;
     try {
       const state = {
         equippedSlots: localPlayer.equippedSlots,
@@ -91,6 +96,7 @@
   }
 
   function loadPersistentState() {
+    if(season.enabled)return null;
     try {
       const raw = localStorage.getItem(PERSISTENCE_KEY);
       if (!raw) return null;
@@ -228,7 +234,9 @@
   }
   function applySeasonSnapshot(snap) {
     gameClock?.sync(snap.now);window.GATHER_SEASON_PLAYERS=snap.players;
+    for(const stall of window.WORLD_MAP.toiletStalls){stall.occupiedBy=snap.stalls?.[stall.id]||null;if(stall.occupiedBy)stall.doorOpen=0;}
     const p=snap.player;if(!p)return;
+    if(p.stall&&!season.toiletLeaving){localPlayer.x=p.x;localPlayer.y=p.y;localPlayer.actionState='toilet';localPlayer.occupiedSpotId=p.stall;}
     const previous=progression.exp, oldLevel=progression.level;
     progression.exp=p.exp;progression.loginCount=p.totalLogins||1;
     localPlayer.avatarId=p.avatarId;
@@ -267,7 +275,7 @@
       }
     }
     ecosystem.mobs=ecosystem.mobs.filter(m=>snap.enemies?.[m.uid||m.id]&&window.OfficeCombat.defeatVisible(m));
-    for(const q of snap.players){if(q.id===p.id)continue;if(!network.remotePlayers.has(q.clientId))network.upsertRemotePlayer({id:q.clientId,name:q.name,unit:q.unit,x:q.x,y:q.y,avatarId:q.avatarId,status:'active'},true);const remote=network.remotePlayers.get(q.clientId);if(remote){remote.seasonPlayerId=q.id;remote.isInjured=q.effects.injuredUntil>now;remote.lightInjuredUntil=q.effects.lightUntil||0;remote.outfitAvatarId=q.worn;}}
+    for(const q of snap.players){if(q.id===p.id)continue;if(!network.remotePlayers.has(q.clientId))network.upsertRemotePlayer({id:q.clientId,name:q.name,unit:q.unit,x:q.x,y:q.y,avatarId:q.avatarId,status:'active'},true);const remote=network.remotePlayers.get(q.clientId);if(remote){if(q.action==='toilet'){remote.x=q.x;remote.y=q.y;remote.targetX=q.x;remote.targetY=q.y;remote.actionState='toilet';}else if(remote.actionState==='toilet')remote.actionState=null;remote.seasonPlayerId=q.id;remote.isInjured=q.effects.injuredUntil>now;remote.lightInjuredUntil=q.effects.lightUntil||0;remote.outfitAvatarId=q.worn;}}
     if(p.pending&&!season.pendingChoice){season.pendingChoice=true;setTimeout(async()=>{const chosen=await window.OfficeFacilities.choose('抽到 '+p.pending.outfit.name+'，選一套服裝替換；取消保留材料',p.items.filter(i=>i.category==='outfit'));await seasonSend(chosen?'gacha_confirm':'gacha_cancel',chosen?{replace:chosen[0]}:{});season.pendingChoice=false;},0);}
   }
   async function seasonLogin(params) {
@@ -276,22 +284,18 @@
     let result;
     if(params.isAutoReload&&season.client.token){result=await season.client.send('resume',{connection:network.clientId});}
     else {
-      const pin=document.getElementById('loginPin').value;
-      const register=document.getElementById('loginRegister').checked;
-      const legacy=[];const old=loadLoginSession();
-      if(register&&old?.name?.toLowerCase()===params.name.toLowerCase()&&old.unit===params.unit){
-        const saved=loadPersistentState();if(saved){localStorage.setItem('gather_legacy_readonly_backup',JSON.stringify(saved));for(const i of [...(saved.equippedSlots||[]),...(saved.backpack||[]),...(saved.overflow||[])].filter(Boolean))for(let n=0;n<Math.min(i.count||1,100);n++)legacy.push(i);}
-      }
-      result=await season.client.send(register?'register':'login',{name:params.name,unit:params.unit,pin,avatarId:params.avatarId,connection:network.clientId,legacy});
+      const pin=params.password||document.getElementById('loginPasscode').value;
+      result=await season.client.send('enter',{name:params.name,unit:params.unit,pin,avatarId:params.avatarId,connection:network.clientId});
     }
     return result;
   }
+  function seasonWorldPayload(){return {enemies:[...network.npcPlayers.values(),...(ecosystem.mobs||[])].map(e=>({id:e.uid||e.id,templateId:e.id,name:e.name,x:e.x,y:e.y,attacking:!!(e.isBerserk||e.isAggressive||e.isGhost)})),broken:[...window.WORLD_MAP.workstations.map((e,i)=>e.isBroken?'ws_'+i:null),...window.WORLD_MAP.labEquipments.map((e,i)=>e.isBroken?'lab_'+i:null)].filter(Boolean)};}
   async function seasonPoll() {
     if(!season.enabled||!isLoggedIn||season.polling||season.client?.busy||gameNow()-season.lastPoll<2000)return;
     season.polling=true;season.lastPoll=gameNow();
     try {
       if(season.client.pending)await season.client.retry();
-      await season.client.send('heartbeat',{x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState,...(network.isRoomMaster()?{world:{enemies:[...network.npcPlayers.values(),...(ecosystem.mobs||[])].map(e=>({id:e.uid||e.id,templateId:e.id,name:e.name,x:e.x,y:e.y,attacking:!!(e.isBerserk||e.isAggressive||e.isGhost)})),broken:[...window.WORLD_MAP.workstations.map((e,i)=>e.isBroken?'ws_'+i:null),...window.WORLD_MAP.labEquipments.map((e,i)=>e.isBroken?'lab_'+i:null)].filter(Boolean)}}:{})});
+      await season.client.send('heartbeat',{x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState,...(network.isRoomMaster()?{world:seasonWorldPayload()}:{})});
       season.failures=0;
       const channel=season.client.snapshot?.player?.channel;
       if(channel&&gameNow()-channel.at>=(channel.kind==='lounge'?5000:channel.kind==='heal'?channel.duration:3000)){
@@ -703,12 +707,12 @@
       onRemoteToiletKick: (pkt) => {
         // 遠端同事踹門廣播
         for (const s of window.WORLD_MAP.toiletStalls) {
-          if (s.occupiedBy) {
+          if (s.occupiedBy && (!pkt.stallId || s.id === pkt.stallId)) {
             s.kickShakeTicks = 28;
             break;
           }
         }
-        pushStatusLog(pkt.senderName || '同事', `🦵 在廁所門外猛踹門大喊：「${pkt.text || '不要再屎遁'}」！`);
+        pushStatusLog(pkt.senderName || '同事', `🦵 在廁所門外敲門大喊：「${pkt.text || '不要再屎遁'}」！`);
       },
       onRemoteStatusLog: (pkt) => {
         if (pkt && pkt.senderName && pkt.text) {
@@ -1179,7 +1183,7 @@
   }
 
   function forceLevelUp(facilityName) {
-    if(season.enabled){showCombatToast("設備已修復；Season 2 獎勵由後端結算");return;}
+    if(season.enabled){showCombatToast("設備已修復；獎勵由後端結算");return;}
     // 補足至下一等級所需 EXP（每 100 EXP 升 1 級，保證立即升 1 級！）
     const nextLevelExp = progression.level * 100;
     const needed = Math.max(100, nextLevelExp - progression.exp);
@@ -1470,6 +1474,7 @@ async function executeOfficeLogin(params) {
 
       const overlay = document.getElementById('loginOverlay');
       if (overlay) overlay.classList.add('hidden');
+      const passwordInput=document.getElementById('loginPasscode');if(passwordInput)passwordInput.value='';
       isLoggedIn = true;
       loginTimestamp = gameNow();
       network.connect(localPlayer, season.enabled?cleanRoom+'-S2':cleanRoom);
@@ -1533,7 +1538,7 @@ async function executeOfficeLogin(params) {
             },
           },
         });
-        window.gatherSupabase.registerUser(localPlayer);
+        if(!season.enabled)window.gatherSupabase.registerUser(localPlayer);
       }
 
       // 確保鳥人指揮官出勤狀態正常
@@ -1571,7 +1576,7 @@ async function executeOfficeLogin(params) {
       renderMinecraftInventoryUI();
       renderSidebarRoster();
 
-      if (season.enabled) {showCombatToast(`Season 2 · ${progression.title} · ${progression.exp} EXP`);}
+      if (season.enabled) {showCombatToast(`${progression.title} · ${progression.exp} EXP`);}
       else if (isAutoReload) {
         pushStatusLog(
           '系統',
@@ -1675,7 +1680,6 @@ async function executeOfficeLogin(params) {
 
       if (nameInput && savedSession.name) nameInput.value = savedSession.name;
       if (unitInput && savedSession.unit) unitInput.value = savedSession.unit;
-      if (passInput && savedSession.roomCode) passInput.value = savedSession.roomCode;
       if (statusInput && savedSession.status) statusInput.value = savedSession.status;
       if (savedSession.avatarId) {
         const avIdx = window.AVATAR_CATALOG.findIndex((a) => a.id === savedSession.avatarId);
@@ -1692,7 +1696,7 @@ async function executeOfficeLogin(params) {
             executeOfficeLogin({
               name: savedSession.name,
               unit: savedSession.unit,
-              roomCode: savedSession.roomCode || 'PP00',
+              roomCode: 'PP00',
               status: savedSession.status || 'active',
               avatarId: savedSession.avatarId,
               isAutoReload: true,
@@ -1706,7 +1710,7 @@ async function executeOfficeLogin(params) {
       e.preventDefault();
       const rawName = document.getElementById('loginName').value;
       const cleanName = network.sanitizeText(rawName, 16);
-      const roomCode = network.sanitizeText(document.getElementById('loginPasscode').value, 16);
+      const password = document.getElementById('loginPasscode').value;
       const errEl = document.getElementById('loginErrorMsg');
 
       if (!cleanName) {
@@ -1720,8 +1724,8 @@ async function executeOfficeLogin(params) {
         errEl.style.display = 'block';
         return;
       }
-      if (!roomCode || roomCode.length < 2) {
-        errEl.textContent = '⚠️ 請輸入有效的辦公室安全通行碼（預設 PP00）';
+      if (!/^[A-Za-z0-9]{6}$/.test(password)) {
+        errEl.textContent = '⚠️ 請設定或輸入六碼英數字個人密碼（區分大小寫）';
         errEl.style.display = 'block';
         return;
       }
@@ -1731,7 +1735,8 @@ async function executeOfficeLogin(params) {
       executeOfficeLogin({
         name: cleanName,
         unit: rawUnit,
-        roomCode,
+        roomCode: 'PP00',
+        password,
         status: document.getElementById('loginStatus').value || 'active',
         avatarId: chosenAvatar.id,
         isAutoReload: false,
@@ -1823,6 +1828,8 @@ async function executeOfficeLogin(params) {
   }
 
   function cancelContextualAction() {
+    if(season.enabled&&(localPlayer.occupiedSpotId?.startsWith('wc_')||season.client?.snapshot?.player?.stall)&&!season.toiletLeaving){season.toiletLeaving=true;seasonSend('toilet_exit').finally(()=>{season.toiletLeaving=false;});}
+
     if(season.enabled&&season.client?.snapshot?.player?.channel)seasonSend("cancel");
     if (!localPlayer.actionState && !localPlayer.occupiedSpotId) return;
     window.WORLD_MAP.toiletStalls.forEach((stall) => {
@@ -1843,6 +1850,11 @@ async function executeOfficeLogin(params) {
     if(gameNow()<(localPlayer.stunnedUntil||0)) return;
     if (localPlayer.isInjured && gameNow() < (localPlayer.injuredUntil || 0)) {
       showToast('🚑 身受重傷休養中，無法動彈或切換動作！', 'error');
+      return;
+    }
+    if(actionId==='toilet'){
+      const fac=detectNearbyFacility();
+      if(fac?.stall)tryInteractWithEnvironment();else showCombatToast('請先靠近廁所門，再按互動鍵上廁所');
       return;
     }
     const actMeta = window.GATHER_CONFIG.contextualActions.find((a) => a.id === actionId);
@@ -2848,7 +2860,7 @@ async function executeOfficeLogin(params) {
         if(blocked)continue;
         const id=window.OfficeCombat.predictImpact(e,Math.atan2(dy,dx));previews.push([e,id]);
       }
-      seasonSend('attack').finally(()=>{season.attacking=false;for(const [e,id]of previews)if(e.combatReaction?.id===id)e.combatReaction=null;});
+      seasonSend('attack',{targets:previews.map(([e])=>e.uid||e.id),...(network.isRoomMaster()?{world:seasonWorldPayload()}:{})}).finally(()=>{season.attacking=false;for(const [e,id]of previews)if(e.combatReaction?.id===id)e.combatReaction=null;});
       return;
     }
     if(gameNow()<(localPlayer.stunnedUntil||0)) return;
@@ -3477,8 +3489,8 @@ async function executeOfficeLogin(params) {
         // 若隔間已被其他人佔用，不可進入，但可在門外按 [E] 踹門！
         if (stall.occupiedBy && stall.occupiedBy !== localPlayer.id) {
           return {
-            label: `🦵 隔間內有人！在門外猛踹【${stall.name}】隔間門催促 [按E]`,
-            shortHint: `[按 E] 🦵 猛踹廁所門催促`,
+            label: `🦵 隔間內有人！在門外敲【${stall.name}】隔間門催促 [按E]`,
+            shortHint: `[按 E] 🦵 敲門催促`,
             actionId: 'kick_toilet_door',
             targetX: stall.x - 24,
             targetY: stall.y + 48,
@@ -3648,6 +3660,14 @@ async function executeOfficeLogin(params) {
         return;
       }
 
+      if(season.enabled&&fac.stall&&!fac.isKickDoor){
+        if(season.toiletBusy)return;season.toiletBusy=true;
+        try{
+          const result=await seasonSend(fac.isExitToilet?'toilet_exit':'toilet_enter',{stall:fac.stall.id});
+          if(result){localPlayer.x=result.player.x;localPlayer.y=result.player.y;localPlayer.dir=fac.isExitToilet?'left':'down';localPlayer.actionState=result.player.action||null;localPlayer.occupiedSpotId=result.player.stall||null;localPlayer.autoWalkTarget=null;updatePoseLabelUI();network.broadcastPacket('state_sync',{player:network.getPublicState()});}
+        }finally{season.toiletBusy=false;}
+        return;
+      }
       localPlayer.x = fac.targetX;
       localPlayer.y = fac.targetY;
       if (fac.targetDir) localPlayer.dir = fac.targetDir;
@@ -3672,10 +3692,11 @@ async function executeOfficeLogin(params) {
         };
         network.broadcastPacket('toilet_kick', {
           senderName: localPlayer.name,
+          stallId: fac.stall.id,
           text: kickText,
         });
         network.broadcastPacket('murmur', { text: kickText, mood: 'fire' });
-        pushStatusLog('你', `🦵 在【${fac.stall.name}】門外猛踹門大喊：「${kickText}」！`);
+        pushStatusLog('你', `🦵 在【${fac.stall.name}】門外敲門大喊：「${kickText}」！`);
         return;
       }
 
@@ -3810,7 +3831,7 @@ async function executeOfficeLogin(params) {
       }
 
       localPlayer.actionState = fac.actionId;
-      localPlayer.occupiedSpotId = fac.id;
+      localPlayer.occupiedSpotId = fac.stall?.id || fac.id;
       updatePoseLabelUI();
       network.broadcastPacket('state_sync', { player: network.getPublicState() });
       pushStatusLog('你', fac.label.replace(' [按E]', ''));
@@ -4567,7 +4588,7 @@ async function executeOfficeLogin(params) {
     localPlayer.occupiedSpotId = null;
     localPlayer.actionState = null;
 
-    if (window.gatherSupabase) {
+    if (!season.enabled && window.gatherSupabase) {
       await window.gatherSupabase.logoutUser();
     }
     if (network && typeof network.disconnect === 'function') {
@@ -5692,22 +5713,6 @@ async function executeOfficeLogin(params) {
     // 💬 名牌與文字對話框絕對錨定於角色地面高度 (p.y - 68)，絕不隨受擊跳躍 (jumpOffset) 震動抖動！
     const pillY = p.y - 68;
 
-    ctx.fillStyle = p.isBerserk
-      ? 'rgba(185, 28, 28, 0.96)'
-      : isSelf
-      ? 'rgba(15, 23, 42, 0.94)'
-      : 'rgba(15, 23, 42, 0.97)';
-    ctx.beginPath();
-    ctx.roundRect(pillX, pillY, pillW, pillH, 12);
-    ctx.fill();
-    ctx.strokeStyle = p.isBerserk
-      ? '#facc15'
-      : isSelf
-      ? '#38bdf8'
-      : '#94a3b8';
-    ctx.lineWidth = 1.6;
-    ctx.stroke();
-
     ctx.fillStyle = p.isBerserk ? '#ef4444' : st.dot;
     ctx.beginPath();
     ctx.arc(pillX + 12, pillY + pillH / 2, 4.2, 0, Math.PI * 2);
@@ -5716,6 +5721,8 @@ async function executeOfficeLogin(params) {
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
+    ctx.strokeStyle='#020617';ctx.lineWidth=4;ctx.lineJoin='round';
+    ctx.strokeText(displayLabel, pillX + 21, pillY + pillH / 2 + 0.5);
     ctx.fillText(displayLabel, pillX + 21, pillY + pillH / 2 + 0.5);
     ctx.fillText(itemEmoji, pillX + pillW - 21, pillY + pillH / 2 + 0.5);
 
@@ -5778,33 +5785,6 @@ async function executeOfficeLogin(params) {
       const by = pillY - msgH - 9;
       cardTopY = by;
 
-      let borderCol = '#38bdf8';
-      let bgCol = 'rgba(8, 16, 32, 0.97)';
-      if (p.murmur.mood === 'fire') {
-        borderCol = '#ef4444';
-        bgCol = 'rgba(69, 10, 10, 0.98)';
-      } else if (p.murmur.mood === 'idea') {
-        borderCol = '#f59e0b';
-        bgCol = 'rgba(49, 33, 8, 0.98)';
-      }
-
-      ctx.fillStyle = bgCol;
-      ctx.beginPath();
-      ctx.roundRect(bx, by, msgW, msgH, 9);
-      ctx.fill();
-      ctx.strokeStyle = borderCol;
-      ctx.lineWidth = 1.8;
-      ctx.stroke();
-
-      // 小箭頭指向名牌
-      ctx.fillStyle = bgCol;
-      ctx.beginPath();
-      ctx.moveTo(p.x - 4, by + msgH);
-      ctx.lineTo(p.x + 4, by + msgH);
-      ctx.lineTo(p.x, by + msgH + 5);
-      ctx.closePath();
-      ctx.fill();
-
       // 打字機漸進顯示 (考慮多行折返)
       const charCount = Math.min(p.murmur.text.length, Math.ceil(elapsed / 22));
       const shownText = p.murmur.text.slice(0, charCount);
@@ -5816,14 +5796,12 @@ async function executeOfficeLogin(params) {
       for (let i = 0; i < shownLines.length; i++) {
         const lineText = shownLines[i];
         const ly = by + padY + i * lineH + lineH / 2;
+        ctx.strokeStyle='#020617';ctx.lineWidth=4;ctx.lineJoin='round';
+        ctx.strokeText(lineText, bx + 12, ly);
         ctx.fillText(lineText, bx + 12, ly);
       }
 
-      // 倒數計時進度條
-      ctx.fillStyle = borderCol;
-      ctx.beginPath();
-      ctx.roundRect(bx + 6, by + msgH - 4, (msgW - 12) * remainRatio, 2.5, 1.2);
-      ctx.fill();
+
     }
 
     if (p.emote && now < p.emote.expiresAt) {
