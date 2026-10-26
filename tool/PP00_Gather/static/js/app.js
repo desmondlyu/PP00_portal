@@ -803,7 +803,7 @@
         localPlayer.autoWalkTarget = null;
         if (!isAttack) localPlayer.knockback = null;
         localPlayer.ghostSleepUntil = until;
-        localPlayer.actionState = 'slack_nap';
+        localPlayer.actionState = 'scared_faint';
         localPlayer.isMoving = false;
         localPlayer.emote = { emoji: isAttack ? '💥' : '💫', expiresAt: gameNow() + 3000 };
         showCombatToast(isAttack ? '👻 遭幽靈怨念突襲撕裂！受到攻擊並嚇暈……' : '👻 遭夜遊幽靈驚嚇！嚇暈斷線 5 秒……', 'error');
@@ -5920,11 +5920,11 @@ async function executeOfficeLogin(params) {
     }
     if(gameNow()<(localPlayer.stunnedUntil||0)){localPlayer.isMoving=false;localPlayer.knockback=null;return;}
     if (gameNow() < (localPlayer.ghostSleepUntil || 0)) {
-      localPlayer.actionState = 'slack_nap'; localPlayer.isMoving = false; return;
+      localPlayer.actionState = 'scared_faint'; localPlayer.isMoving = false; return;
     }
     if (localPlayer.ghostSleepUntil) {
       localPlayer.ghostSleepUntil = 0;
-      if (localPlayer.actionState === 'slack_nap') localPlayer.actionState = null;
+      if (localPlayer.actionState === 'scared_faint' || localPlayer.actionState === 'slack_nap') localPlayer.actionState = null;
       updatePoseLabelUI();
     }
 
@@ -6552,6 +6552,7 @@ async function executeOfficeLogin(params) {
               beingHealed: p.id === localPlayer.id ? !!localPlayer.beingHealed : !!p.beingHealed,
               healProgress: p.id === localPlayer.id ? (localPlayer.healProgress || 0) : (p.healProgress || 0),
               isFleeing: !!p.isFleeing,
+              isGhostFainted: p.actionState === 'scared_faint' || (p.id === localPlayer.id ? (localPlayer.ghostSleepUntil || 0) : (p.ghostSleepUntil || 0)) > gameNow(),
             });
           }
           const isLightInjured = season.enabled && !p.isNpc
