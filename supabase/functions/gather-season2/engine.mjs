@@ -170,7 +170,7 @@ export function combat(s,p,b,now,rng=Math.random){
   const others=Object.values(s.players).filter(q=>q.id!==p.id&&q.room===p.room&&active(q,now)&&near(p,q.x,q.y,135));
   for(const e of targets){strike(s,p,e.id,now,rng);if(p.effects.lockedUntil>now)break;}
   if(!(p.effects.lockedUntil>now))for(const q of others)hurt(s,q,'pvp',now,rng);
-  if((targets.length||others.length)&&rng()>=(R.level(p.exp)-1)*.01){weapon.durability--;if(weapon.durability<=0)p.items=p.items.filter(i=>i.uid!==weapon.uid);}
+  if((targets.length||others.length)&&rng()>=(R.level(p.exp)-1)*.01){weapon.durability--;if(weapon.durability<=0){p.items=p.items.filter(i=>i.uid!==weapon.uid);if(!p.items.some(i=>i.slot!=null)){const nextW=p.items.find(i=>i.slot==null&&i.category!=="outfit");if(nextW){nextW.slot=0;p.activeSlot=0;}}}}
   p.lastAttack={at:now,emoji:weapon.emoji};
 }
 export function world(s,p,b,now,rng=Math.random){
