@@ -2227,6 +2227,15 @@ async function executeOfficeLogin(params) {
       lastInteractAt = now; lastUserActionAt = now;
       tryInteractWithEnvironment();
     });
+    const touchAtkBtn = document.getElementById('touchAttackBtn');
+    if (touchAtkBtn) {
+      touchAtkBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!isLoggedIn) return;
+        lastUserActionAt = gameNow();
+        triggerWeaponAttack();
+      });
+    }
     if (window.matchMedia('(max-width: 900px), (pointer: coarse)').matches) {
       document.getElementById('proxChatPanel').classList.add('chat-minimized');
       document.getElementById('toggleChatCollapseBtn').textContent = '➕ 展開';

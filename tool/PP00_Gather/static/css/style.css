@@ -1,6 +1,6 @@
 
 /* 取消手機版畫面與搖桿長按複製、貼上與選取反白等模擬右鍵行為 */
-html, body, #officeCanvas, .touch-controls, .touch-move-pad, .touch-move-knob, .touch-interact-btn, .skill-btn, .game-icon-btn, .bottom-hud-dock {
+html, body, #officeCanvas, .touch-controls, .touch-move-pad, .touch-move-knob, .touch-interact-btn, .touch-attack-btn, .skill-btn, .game-icon-btn, .bottom-hud-dock {
   -webkit-touch-callout: none !important;
   -webkit-user-select: none !important;
   -khtml-user-select: none !important;
@@ -10,7 +10,7 @@ html, body, #officeCanvas, .touch-controls, .touch-move-pad, .touch-move-knob, .
   -webkit-tap-highlight-color: transparent !important;
 }
 
-.touch-move-pad, .touch-move-knob, .touch-interact-btn, #officeCanvas {
+.touch-move-pad, .touch-move-knob, .touch-interact-btn, .touch-attack-btn, #officeCanvas {
   touch-action: none !important;
 }
 
@@ -2676,7 +2676,10 @@ button { touch-action: manipulation; }
   .touch-move-pad { position: absolute; left: calc(18px + env(safe-area-inset-left)); bottom: calc(86px + env(safe-area-inset-bottom)); width: 112px; height: 112px; border-radius: 50%; border: 2px solid #94a3b8aa; background: #0f172a99; pointer-events: auto; touch-action: none; display: grid; place-items: center; }
   .touch-pad-arrows { font-size: 65px; color: #94a3b899; }
   .touch-move-knob { position: absolute; width: 44px; height: 44px; border-radius: 50%; background: #7dd3fcbb; border: 2px solid #e0f2fe; pointer-events: none; }
-  .touch-interact-btn { position: absolute; right: calc(18px + env(safe-area-inset-right)); bottom: calc(100px + env(safe-area-inset-bottom)); width: 72px; height: 72px; border-radius: 50%; border: 2px solid #67e8f9; background: #155e75dd; color: white; font-size: 16px; font-weight: 700; pointer-events: auto; }
+  .touch-attack-btn { position: absolute; right: calc(18px + env(safe-area-inset-right)); bottom: calc(96px + env(safe-area-inset-bottom)); width: 66px; height: 66px; border-radius: 50%; border: 2px solid #f87171; background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%); color: white; font-size: 15px; font-weight: 800; pointer-events: auto; touch-action: manipulation; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); display: grid; place-items: center; }
+  .touch-attack-btn:active { transform: scale(0.92); background: #991b1b; }
+  .touch-interact-btn { position: absolute; right: calc(26px + env(safe-area-inset-right)); bottom: calc(174px + env(safe-area-inset-bottom)); width: 56px; height: 56px; border-radius: 50%; border: 2px solid #67e8f9; background: #155e75ee; color: white; font-size: 13.5px; font-weight: 700; pointer-events: auto; touch-action: manipulation; box-shadow: 0 4px 12px rgba(6, 182, 212, 0.35); display: grid; place-items: center; }
+  .touch-interact-btn:active { transform: scale(0.92); background: #0e7490; }
   .mc-inventory-modal { padding: 8px; }
   .mc-window-frame { max-height: 90dvh; overflow-y: auto; width: min(600px, 100%); padding: 10px; }
   .mc-slot-grid { grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 2px; }
