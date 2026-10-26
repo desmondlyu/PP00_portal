@@ -2965,11 +2965,13 @@ body.hunt-active::after {
     position: fixed; top: calc(68px + env(safe-area-inset-top));
     right: calc(10px + env(safe-area-inset-right));
     width: min(235px, 58vw); z-index: 160; pointer-events: none;
-    color: #f1f5f9; font-size: 11px; font-weight: 600; line-height: 1.45;
-    text-align: right; text-shadow: 0 1px 3px #000, 0 0 4px #000;
+    color: #ffffff; font-size: 15px; font-weight: 800; line-height: 1.6;
+    font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
+    text-align: right;
+    text-shadow: -1px -1px 0 #020617, 1px -1px 0 #020617, -1px 1px 0 #020617, 1px 1px 0 #020617, 0 2px 4px #020617, 0 0 7px #020617;
   }
   #mobileCombatFeed > div { overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-  #mobileCombatFeed > div:last-child { color: #fde68a; }
+  #mobileCombatFeed > div:last-child { color: #fef08a; }
 
 @media (max-width: 900px), (pointer: coarse) {
   #injuryHudBanner {
