@@ -5423,7 +5423,7 @@ async function executeOfficeLogin(params) {
     if(season.enabled){
       const snap=season.client?.snapshot,task=snap?.task;
       if(task?.claimer){ctx.save();ctx.strokeStyle='#f87171';ctx.setLineDash([8,8]);ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(localPlayer.x,localPlayer.y);ctx.lineTo(task.x,task.y);ctx.stroke();ctx.fillStyle='#ef4444';ctx.fillRect(task.x-30,task.y-38,60,8);ctx.restore();}
-      const c=snap?.player?.channel;if(c){ctx.save();ctx.textAlign='center';ctx.font='bold 15px sans-serif';ctx.fillStyle='#a5f3fc';const duration=c.kind==='lounge'?5000:c.kind==='heal'?c.duration:3000;ctx.fillText(`互動中 ${Math.min(100,Math.floor((gameNow()-c.at)/duration*100))}%`,localPlayer.x,localPlayer.y-95);ctx.restore();}
+      const c=snap?.player?.channel;if(c){ctx.save();const textScale=camera.overviewMode?1:Math.max(1,1/camera.zoom);ctx.translate(localPlayer.x,localPlayer.y);ctx.scale(textScale,textScale);ctx.translate(-localPlayer.x,-localPlayer.y);ctx.textAlign='center';ctx.font='800 16px "PingFang TC", "Microsoft JhengHei", sans-serif';ctx.fillStyle='#fef08a';ctx.strokeStyle='#020617';ctx.lineWidth=4;ctx.lineJoin='round';const duration=c.kind==='lounge'?5000:c.kind==='heal'?c.duration:3000;const text=`互動中 ${Math.min(100,Math.floor((gameNow()-c.at)/duration*100))}%`;ctx.strokeText(text,localPlayer.x,localPlayer.y-120);ctx.fillText(text,localPlayer.x,localPlayer.y-120);ctx.restore();}
     }
 
     if (nearbyPlayers.length > 0) {
@@ -5499,22 +5499,30 @@ async function executeOfficeLogin(params) {
     // 若靠近設備（電腦、馬桶、洗手台、茶水間等），在角色上方額外繪製醒目的 [按 E] 互動提示膠囊
     if (nearbyFacilityAction && !localPlayer.knockback) {
       ctx.save();
+      const textScale = camera.overviewMode ? 1 : Math.max(1, 1 / camera.zoom);
+      ctx.translate(localPlayer.x, localPlayer.y);
+      ctx.scale(textScale, textScale);
+      ctx.translate(-localPlayer.x, -localPlayer.y);
       const hintText = nearbyFacilityAction.shortHint || '[按 E] 啟動設備互動';
-      ctx.font = '800 11.5px "Outfit", "Microsoft JhengHei", sans-serif';
-      const hw = ctx.measureText(hintText).width + 24;
+      ctx.font = '900 16px "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif';
+      const hw = ctx.measureText(hintText).width + 28;
       const hx = localPlayer.x - hw / 2;
-      const hy = localPlayer.y - 96 - (localPlayer.jumpOffset || 0) + Math.sin(tick * 0.2) * 2.5;
-      ctx.fillStyle = 'rgba(5, 150, 105, 0.95)';
+      const hy = localPlayer.y - 106 - (localPlayer.jumpOffset || 0) + Math.sin(tick * 0.2) * 2.5;
+      ctx.fillStyle = 'rgba(8, 16, 32, 0.97)';
       ctx.beginPath();
-      ctx.roundRect(hx, hy, hw, 22, 11);
+      ctx.roundRect(hx, hy, hw, 30, 10);
       ctx.fill();
-      ctx.strokeStyle = '#fde047';
-      ctx.lineWidth = 1.8;
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 2;
       ctx.stroke();
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = '#fef08a';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(hintText, localPlayer.x, hy + 11.5);
+      ctx.strokeStyle = '#020617';
+      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.strokeText(hintText, localPlayer.x, hy + 15.5);
+      ctx.fillText(hintText, localPlayer.x, hy + 15.5);
       ctx.restore();
     }
 
@@ -5669,10 +5677,15 @@ async function executeOfficeLogin(params) {
     const itemEmoji = p.heldItem || '';
 
     ctx.save();
-    ctx.font = '700 11.5px "Outfit", "Microsoft JhengHei", sans-serif';
+    // Keep labels readable in screen pixels when the phone camera zooms out.
+    const textScale = camera.overviewMode ? 1 : Math.max(1, 1 / camera.zoom);
+    ctx.translate(p.x, p.y);
+    ctx.scale(textScale, textScale);
+    ctx.translate(-p.x, -p.y);
+    ctx.font = '800 14px "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif';
     const textWidth = ctx.measureText(displayLabel).width;
     const pillW = Math.max(84, textWidth + 48);
-    const pillH = 24;
+    const pillH = 28;
     const pillX = p.x - pillW / 2;
     // 💬 名牌與文字對話框絕對錨定於角色地面高度 (p.y - 68)，絕不隨受擊跳躍 (jumpOffset) 震動抖動！
     const pillY = p.y - 68;
@@ -5681,7 +5694,7 @@ async function executeOfficeLogin(params) {
       ? 'rgba(185, 28, 28, 0.96)'
       : isSelf
       ? 'rgba(15, 23, 42, 0.94)'
-      : 'rgba(30, 41, 59, 0.9)';
+      : 'rgba(15, 23, 42, 0.97)';
     ctx.beginPath();
     ctx.roundRect(pillX, pillY, pillW, pillH, 12);
     ctx.fill();
@@ -5689,7 +5702,7 @@ async function executeOfficeLogin(params) {
       ? '#facc15'
       : isSelf
       ? '#38bdf8'
-      : 'rgba(148, 163, 184, 0.45)';
+      : '#94a3b8';
     ctx.lineWidth = 1.6;
     ctx.stroke();
 
@@ -5698,7 +5711,7 @@ async function executeOfficeLogin(params) {
     ctx.arc(pillX + 12, pillY + pillH / 2, 4.2, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#f8fafc';
+    ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(displayLabel, pillX + 21, pillY + pillH / 2 + 0.5);
@@ -5743,7 +5756,7 @@ async function executeOfficeLogin(params) {
       const totalTtl = p.murmur.expiresAt - p.murmur.createdAt;
       const remainRatio = Math.max(0, 1 - elapsed / totalTtl);
 
-      ctx.font = '600 12px "Outfit", "Microsoft JhengHei", sans-serif';
+      ctx.font = '800 15px "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif';
       const maxTextWidth = 224; // 文字卡片最大內文字寬度，超過自動多行換行
       const fullLines = wrapMurmurLines(ctx, p.murmur.text, maxTextWidth);
 
@@ -5754,7 +5767,7 @@ async function executeOfficeLogin(params) {
         if (lw > maxLineWidth) maxLineWidth = lw;
       }
       const msgW = Math.max(90, Math.min(264, Math.ceil(maxLineWidth + 24)));
-      const lineH = 17;
+      const lineH = 22;
       const padY = 8;
       const msgH = Math.max(32, fullLines.length * lineH + padY * 2);
 
@@ -5764,13 +5777,13 @@ async function executeOfficeLogin(params) {
       cardTopY = by;
 
       let borderCol = '#38bdf8';
-      let bgCol = 'rgba(255, 255, 255, 0.97)';
+      let bgCol = 'rgba(8, 16, 32, 0.97)';
       if (p.murmur.mood === 'fire') {
         borderCol = '#ef4444';
-        bgCol = 'rgba(254, 242, 242, 0.98)';
+        bgCol = 'rgba(69, 10, 10, 0.98)';
       } else if (p.murmur.mood === 'idea') {
         borderCol = '#f59e0b';
-        bgCol = 'rgba(254, 252, 232, 0.98)';
+        bgCol = 'rgba(49, 33, 8, 0.98)';
       }
 
       ctx.fillStyle = bgCol;
@@ -5795,7 +5808,7 @@ async function executeOfficeLogin(params) {
       const shownText = p.murmur.text.slice(0, charCount);
       const shownLines = wrapMurmurLines(ctx, shownText, maxTextWidth);
 
-      ctx.fillStyle = '#0f172a';
+      ctx.fillStyle = p.murmur.mood === 'idea' ? '#fef08a' : '#ffffff';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       for (let i = 0; i < shownLines.length; i++) {
