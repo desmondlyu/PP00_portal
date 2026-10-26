@@ -201,6 +201,40 @@
   let marketPollTimer = null;
   let berserkBannerTimer = null;
 
+  const FIST_WEAPON = Object.freeze({
+    id: 'fist',
+    name: '徒手拳頭',
+    emoji: '👊',
+    category: 'weapon',
+    power: 3,
+    hitsToRepel: 10,
+    durability: Infinity,
+    maxDurability: '∞',
+    expBonusPct: 0,
+    knockbackExp: 5,
+    isFist: true,
+  });
+
+  let rmaBannerTimer = null;
+  let lastRmaStage = null;
+  let lastRmaProgress = -1;
+
+  function showRmaMissionBanner(title, subtitle, progressText) {
+    const modal = document.getElementById('rmaMissionModal');
+    if (!modal) return;
+    const titleEl = document.getElementById('rmaMissionTitle');
+    const subEl = document.getElementById('rmaMissionSubtitle');
+    const progEl = document.getElementById('rmaMissionProgress');
+    if (titleEl) titleEl.textContent = title;
+    if (subEl) subEl.textContent = subtitle;
+    if (progEl) progEl.textContent = progressText;
+    modal.classList.remove('hidden');
+    if (rmaBannerTimer) clearTimeout(rmaBannerTimer);
+    rmaBannerTimer = setTimeout(() => {
+      modal.classList.add('hidden');
+    }, 4500);
+  }
+
   const camera = {
     x: 300,
     y: 120,
@@ -261,6 +295,33 @@
     if(previous!==p.exp&&isLoggedIn)showCombatToast(`${p.exp>previous?'+':''}${p.exp-previous} EXP`);
     recalcLevelAndBuff();if(oldLevel>progression.level&&isLoggedIn)showCombatToast(`等級下跌！Lv.${oldLevel} → Lv.${progression.level}`);
     syncPlayerActiveWeaponState();updateInjuryCountdownHUD();
+    if (snap.task?.claimer === p.id) {
+      const task = snap.task;
+      const progress = task.repairedIds?.length || 0;
+      if (lastRmaStage !== task.stage || lastRmaProgress !== progress) {
+        lastRmaStage = task.stage;
+        lastRmaProgress = progress;
+        if (task.stage === 'repairing') {
+          showRmaMissionBanner(
+            '🚨 任務開始：緊急 RMA 救火搶修！',
+            `客戶退貨產線告急！請迅速前往標示機台完成 3 台設備搶修！（目前目標：${task.name || '損壞機台'}）`,
+            `搶修進度：${progress} / 3 台`
+          );
+        } else if (task.stage === 'reporting') {
+          spawnConfetti(localPlayer.x, localPlayer.y - 30);
+          showRmaMissionBanner(
+            '🎉 3 台設備已全數修復完畢！',
+            '太神啦！3 台設備已全數修復完畢，請立刻回到【救火指揮所】報到領取獎勵！',
+            '任務完成：回報領獎中 (3/3 台)'
+          );
+        }
+      }
+    } else {
+      if (lastRmaStage !== null) {
+        lastRmaStage = null;
+        lastRmaProgress = -1;
+      }
+    }
     ecosystem.groundItems=snap.drops.filter(d=>!d.claimed&&!season.hiddenDrops.has(d.uid)).map(d=>({...d,dropY:0,combatDrop:true,seasonDrop:true}));
     for(const [id,f]of Object.entries(snap.broken||{})){const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];if(target){target.isBroken=f.broken;if(!f.broken){target.brokenBy=null;target.screenState='pass';}}}
     for(const [id,e]of Object.entries(snap.enemies||{}))if(e.mob&&e.hp>0&&!ecosystem.mobs.some(m=>(m.uid||m.id)===id)){const meta=window.GATHER_CONFIG.minecraftMobs?.find(m=>m.id===e.templateId)||window.GATHER_CONFIG.minecraftMobs?.[0]||{};ecosystem.mobs.push({...meta,id:e.templateId,uid:id,name:e.name,x:e.x,y:e.y,hp:e.hp,maxHp:e.maxHp,isBerserk:false,waypoints:[]});}
@@ -329,7 +390,18 @@
         else if(!ecosystem.groundItems.some(i=>i.uid===d.uid)&&season.client.snapshot.drops.some(i=>i.uid===d.uid&&!i.claimed))ecosystem.groundItems.push(d);
       }finally{season.hiddenDrops.delete(d.uid);}return true;
     }
-    if(snap.task?.claimer===p.id&&Math.hypot(localPlayer.x-snap.task.x,localPlayer.y-snap.task.y)<95){await seasonSend('rma_start');localPlayer.actionState='sit_code';return true;}
+    if(snap.task?.claimer===p.id&&Math.hypot(localPlayer.x-snap.task.x,localPlayer.y-snap.task.y)<95){
+      if(snap.task.stage==='reporting'){
+        await seasonSend('rma_report');
+        spawnConfetti(localPlayer.x, localPlayer.y - 20);
+        showCombatToast('🎖️ 救火任務完成！領取大量經驗 +150 EXP 與隨機道具獎勵！', 'join');
+        pushStatusLog('系統', '🎖️ 完成緊急 RMA 救火任務，獲得 150 EXP 及隨機裝備物資！');
+        return true;
+      }
+      await seasonSend('rma_start');
+      localPlayer.actionState='sit_code';
+      return true;
+    }
     const fault=Object.entries(snap.broken||{}).find(([id,f])=>{const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];return f.broken&&target&&Math.hypot(localPlayer.x-target.x-target.w/2,localPlayer.y-target.y-target.h-18)<95;});
     if(fault){await seasonSend('device_start',{target:fault[0]});localPlayer.actionState='sit_code';return true;}
     const f=window.OfficeFacilities.nearby(localPlayer,snap);
@@ -997,9 +1069,9 @@
         eqName.textContent = `${active.emoji} ${active.name} 【主手裝備｜耐久 ${active.durability}/${active.maxDurability}】`;
         eqDesc.textContent = `擊飛威力 Power ${active.power}｜經驗加成 +${active.expBonusPct}%｜擊退能力：${active.hitsToRepel || 3} 次擊退怪物｜耐久度：${active.durability}/${active.maxDurability}（命中滿 3 次損毀消失）`;
       } else {
-        eqIcon.textContent = '🚫';
-        eqName.textContent = '目前未裝備任何道具（無法使用 [F] 擊退功能）';
-        eqDesc.textContent = '請點擊下方「持有物品儲物欄」中的武器或道具進行裝備（一次最多裝備 3 個）！';
+        eqIcon.textContent = '👊';
+        eqName.textContent = '👊 徒手拳頭【未裝備道具・肉身無限耐久】';
+        eqDesc.textContent = '威力 Power 3｜經驗加成 +0%｜擊退需：10 次｜冷卻 2.0 秒｜按 [F] 徒手揮拳擊退！';
       }
     }
 
@@ -1007,7 +1079,7 @@
       bonusBadge.textContent = `✨ 已裝備 ${eqCount}/3 個｜裝備總經驗加成：+${totalBonusPct}%｜${
         active
           ? `主手擊退能力：${active.hitsToRepel || 3}次擊退怪物｜剩餘耐久：${active.durability}/${active.maxDurability}`
-          : '尚未裝備主手武器'
+          : '👊 徒手拳頭：10次擊退｜耐久無限'
       }`;
     }
 
@@ -2274,6 +2346,26 @@ async function executeOfficeLogin(params) {
         return;
       }
       if (e.key === 'Escape') {
+        const mcModal = document.getElementById('mcInventoryModal');
+        if (mcModal && !mcModal.classList.contains('hidden')) {
+          mcModal.classList.add('hidden');
+          return;
+        }
+        const pickers = document.querySelectorAll('dialog.s2-picker');
+        if (pickers.length > 0) {
+          pickers.forEach(d => { try { d.close('cancel'); } catch(_) { d.remove(); } });
+          return;
+        }
+        const wardrobe = document.getElementById('wardrobeModal');
+        if (wardrobe && !wardrobe.classList.contains('hidden')) {
+          wardrobe.classList.add('hidden');
+          return;
+        }
+        const poseDropdown = document.getElementById('actionPoseDropdown');
+        if (poseDropdown && !poseDropdown.classList.contains('hidden')) {
+          poseDropdown.classList.add('hidden');
+          return;
+        }
         if (camera.overviewMode) {
           setOverviewMode(false);
           return;
@@ -2851,7 +2943,15 @@ async function executeOfficeLogin(params) {
       if(gameNow()-lastWeaponAttackAt<300||!isLoggedIn||season.attacking)return;
       const effects=season.effects,now=gameNow();
       if(['injuredUntil','lockedUntil','stunnedUntil','ghostUntil'].some(k=>effects[k]>now)){showCombatToast('目前狀態無法攻擊');return;}
-      const w=getActiveEquippedItem();if(!w){showCombatToast('請先裝備武器');return;}
+      const w=getActiveEquippedItem()||FIST_WEAPON;
+      const isFist=!!w.isFist;
+      const cd=isFist?2000:300;
+      if(now-lastWeaponAttackAt<cd||!isLoggedIn||season.attacking){
+        if(isFist&&now-lastWeaponAttackAt<cd){
+          showCombatToast(`👊 徒手揮拳冷卻中（剩餘 ${((cd-(now-lastWeaponAttackAt))/1000).toFixed(1)} 秒）`);
+        }
+        return;
+      }
       lastWeaponAttackAt=now;season.attacking=true;
       localPlayer.weaponSwing={emoji:w.emoji,ticksLeft:18,totalTicks:18,startedAt:now,duration:300};network.broadcastPacket('weapon_swing',{emoji:w.emoji});
       const previews=[];
@@ -2862,16 +2962,22 @@ async function executeOfficeLogin(params) {
         if(blocked)continue;
         const angle=Math.atan2(dy,dx);
         // 客戶端即時打擊感：立即賦予位移、旋轉打擊與受擊特效
-        const pushDist=26;
+        const pushDist=isFist?16:26;
         const nx=Math.max(55,Math.min(2700,e.x+Math.cos(angle)*pushDist));
         const ny=Math.max(55,Math.min(1900,e.y+Math.sin(angle)*pushDist));
         if(!window.isPositionBlocked(nx,ny,16)){e.x=nx;e.y=ny;}
-        e.knockback={vx:Math.cos(angle)*14,vy:Math.sin(angle)*14,ticksLeft:16};
-        e.emote={emoji:'💥',expiresAt:now+650};
+        e.knockback={vx:Math.cos(angle)*(isFist?9:14),vy:Math.sin(angle)*(isFist?9:14),ticksLeft:16};
+        e.emote={emoji:isFist?'👊':'💥',expiresAt:now+650};
         const id=window.OfficeCombat.predictImpact(e,angle);
         previews.push([e,id]);
         if(typeof e.hp==='number'){
-          e.hp=Math.max(0,e.hp-1);
+          if(isFist){
+            e.fistHits=(e.fistHits||0)+1;
+            if(e.fistHits>=10){e.fistHits=0;e.hp=0;}
+            else{e.hp=Math.max(0.1,e.hp-(e.maxHp||2)/10);}
+          }else{
+            e.hp=Math.max(0,e.hp-1);
+          }
           if(e.hp<=0&&!e.combatDown){
             e.combatDown=true;
             e.combatDownAt=Date.now();
@@ -2897,14 +3003,14 @@ async function executeOfficeLogin(params) {
       return;
     }
     const now = gameNow();
-    const atkCd = window.GATHER_CONFIG?.security?.attackCooldownMs || 250;
-    if (now - lastWeaponAttackAt < atkCd) return;
-    lastWeaponAttackAt = now;
-    const curWeapon = getActiveEquippedItem();
-    if (!curWeapon) {
-      pushCombatLog('系統', '⚠️ 未裝備武器道具無法擊退！按 [I] 裝備道具或去地上撿拾');
+    const curWeapon = getActiveEquippedItem() || FIST_WEAPON;
+    const isFist = !!curWeapon.isFist;
+    const atkCd = isFist ? 2000 : (window.GATHER_CONFIG?.security?.attackCooldownMs || 250);
+    if (now - lastWeaponAttackAt < atkCd) {
+      if (isFist) showCombatToast(`👊 徒手揮拳冷卻中（剩餘 ${((atkCd - (now - lastWeaponAttackAt)) / 1000).toFixed(1)} 秒）`);
       return;
     }
+    lastWeaponAttackAt = now;
 
     const activeSlotIdx = localPlayer.activeEquipIndex;
     const wpnEmoji = curWeapon.emoji || '🪑';
@@ -3000,7 +3106,7 @@ async function executeOfficeLogin(params) {
     });
 
     // 4. 耐久度扣減：命中累積滿 3 次固定損毀消失
-    if (hitCount > 0) {
+    if (hitCount > 0 && !isFist) {
       curWeapon.durability = (curWeapon.durability || 3) - 1;
       if (curWeapon.durability <= 0) {
         localPlayer.equippedSlots[activeSlotIdx] = null;
@@ -5462,7 +5568,7 @@ async function executeOfficeLogin(params) {
     window.renderOfficeWorld(ctx, ecosystem, tick);
     if(season.enabled){
       const snap=season.client?.snapshot,task=snap?.task;
-      if(task?.claimer){ctx.save();ctx.strokeStyle='#f87171';ctx.setLineDash([8,8]);ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(localPlayer.x,localPlayer.y);ctx.lineTo(task.x,task.y);ctx.stroke();ctx.fillStyle='#ef4444';ctx.fillRect(task.x-30,task.y-38,60,8);ctx.restore();}
+      if(task?.claimer){ctx.save();const isReporting=task.stage==='reporting';ctx.strokeStyle=isReporting?'#22c55e':'#f87171';ctx.setLineDash([8,8]);ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(localPlayer.x,localPlayer.y);ctx.lineTo(task.x,task.y);ctx.stroke();ctx.fillStyle=isReporting?'#22c55e':'#ef4444';ctx.fillRect(task.x-30,task.y-38,60,8);ctx.restore();}
       const c=snap?.player?.channel;if(c){ctx.save();const textScale=camera.overviewMode?1:Math.max(1,1/camera.zoom);ctx.translate(localPlayer.x,localPlayer.y);ctx.scale(textScale,textScale);ctx.translate(-localPlayer.x,-localPlayer.y);ctx.textAlign='center';ctx.font='800 16px "PingFang TC", "Microsoft JhengHei", sans-serif';ctx.fillStyle='#fef08a';ctx.strokeStyle='#020617';ctx.lineWidth=4;ctx.lineJoin='round';const duration=c.kind==='lounge'?5000:c.kind==='heal'?c.duration:3000;const text=`互動中 ${Math.min(100,Math.floor((gameNow()-c.at)/duration*100))}%`;ctx.strokeText(text,localPlayer.x,localPlayer.y-120);ctx.fillText(text,localPlayer.x,localPlayer.y-120);ctx.restore();}
     }
 

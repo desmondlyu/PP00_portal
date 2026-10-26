@@ -2990,12 +2990,21 @@ body.hunt-active::after {
     pointer-events: none;
   }
 }
-/* Season 2 material selection fits both phone orientations. */
-.s2-picker { background:#101d30;color:#e3effa;border:1px solid #4bb6c7;border-radius:16px;padding:20px;max-width:min(440px,90vw);max-height:70dvh;overflow:auto;box-shadow:0 16px 70px #0009; }
-.s2-picker::backdrop { background:#020b18a0; }
-.s2-picker h3 { margin:0 0 16px;font-size:16px; }
+/* Season 2 material selection dialog centered in viewport */
+.s2-picker { position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);margin:0;background:#101d30;color:#e3effa;border:2px solid #4bb6c7;border-radius:16px;padding:24px;width:min(440px,90vw);max-height:75dvh;overflow:auto;box-shadow:0 20px 80px rgba(0,0,0,0.8),0 0 24px rgba(75,182,199,0.3);z-index:100000; }
+.s2-picker::backdrop { background:rgba(2,11,24,0.75);backdrop-filter:blur(3px); }
+.s2-picker h3 { margin:0 0 16px;font-size:16px;font-weight:700;text-align:center; }
 .s2-picker form { display:grid;gap:10px; }
-.s2-picker label { display:flex;align-items:center;gap:10px;padding:10px;background:#243349;border-radius:8px; }
-.s2-picker button { padding:12px;border:1px solid #5c91a5;border-radius:8px;background:#17546a;color:#fff;font-weight:700; }
-.s2-picker button:disabled { opacity:.4; }
+.s2-picker label { display:flex;align-items:center;gap:10px;padding:10px 14px;background:#243349;border-radius:8px;cursor:pointer;transition:background 0.15s; }
+.s2-picker label:hover { background:#334460; }
+.s2-picker button { padding:12px;border:1px solid #5c91a5;border-radius:8px;background:#17546a;color:#fff;font-weight:700;cursor:pointer; }
+.s2-picker button:disabled { opacity:.4;cursor:not-allowed; }
+
+/* RMA 救火特定任務中央通報橫幅 */
+.rma-mission-modal { position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);z-index:10000;pointer-events:none;width:min(520px, 92vw);animation:rmaPopIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes rmaPopIn { from { opacity:0;transform:translate(-50%, -42%) scale(0.9); } to { opacity:1;transform:translate(-50%, -50%) scale(1); } }
+.rma-mission-box { background:linear-gradient(135deg, rgba(30,20,20,0.95), rgba(15,23,42,0.97));border:2px solid #ef4444;border-radius:16px;padding:24px 28px;text-align:center;box-shadow:0 16px 60px rgba(239,68,68,0.4),0 0 30px rgba(0,0,0,0.8);backdrop-filter:blur(8px); }
+.rma-mission-title { color:#fca5a5;font-size:22px;font-weight:900;letter-spacing:0.5px;text-shadow:0 0 12px rgba(239,68,68,0.6);margin-bottom:8px; }
+.rma-mission-subtitle { color:#e2e8f0;font-size:14px;line-height:1.5;margin:0 0 12px; }
+.rma-mission-progress { display:inline-block;padding:6px 16px;border-radius:20px;background:rgba(239,68,68,0.2);border:1px solid #ef4444;color:#fef08a;font-weight:800;font-size:15px; }
 .s2-login-note { font-size:12px;color:#93c5d7; }
