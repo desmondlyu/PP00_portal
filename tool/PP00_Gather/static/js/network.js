@@ -1496,6 +1496,8 @@ class EphemeralOfficeNetwork {
     this.npcPlayers.forEach((npc) => {
       const idx = npcSeq++;
       if (npc.combatDown) {
+        npc.knockback = null;
+        npc.jumpOffset = 0;
         if (now - (npc.combatDownAt || 0) >= 60000) {
           npc.combatDown = false;
           npc.actionState = npc.isSweeper ? 'sweep_floor' : null;
@@ -2233,10 +2235,10 @@ class EphemeralOfficeNetwork {
 
       // 2. 靜電戳反擊追擊中：衝刺追擊騷擾者並攻擊一次
       if (npc.chaseTarget && now < (npc.chaseUntil || 0)) {
-        const cx = typeof npc.chaseTarget.x === 'number' ? npc.chaseTarget.x : (npc.chaseTarget.getX ? npc.chaseTarget.getX() : npc.x);
-        const cy = typeof npc.chaseTarget.y === 'number' ? npc.chaseTarget.y : (npc.chaseTarget.getY ? npc.chaseTarget.getY() : npc.y);
+        const cx = npc.chaseTarget.getX ? npc.chaseTarget.getX() : (typeof npc.chaseTarget.x === 'number' ? npc.chaseTarget.x : npc.x);
+        const cy = npc.chaseTarget.getY ? npc.chaseTarget.getY() : (typeof npc.chaseTarget.y === 'number' ? npc.chaseTarget.y : npc.y);
         const cDist = Math.hypot(cx - npc.x, cy - npc.y);
-        if (cDist <= 44) {
+        if (cDist <= 60) {
           npc.isMoving = false;
           npc.dir = npc.x < cx ? 'right' : 'left';
           if (npc.onChaseArrival) {
@@ -2252,6 +2254,20 @@ class EphemeralOfficeNetwork {
           npc.targetY = cy;
           npc.actionState = null;
         }
+      } else if (npc.chaseTarget && now >= (npc.chaseUntil || 0)) {
+        const cx = npc.chaseTarget.getX ? npc.chaseTarget.getX() : (typeof npc.chaseTarget.x === 'number' ? npc.chaseTarget.x : npc.x);
+        const cy = npc.chaseTarget.getY ? npc.chaseTarget.getY() : (typeof npc.chaseTarget.y === 'number' ? npc.chaseTarget.y : npc.y);
+        const cDist = Math.hypot(cx - npc.x, cy - npc.y);
+        if (cDist <= 90 && npc.onChaseArrival) {
+          npc.isMoving = false;
+          npc.dir = npc.x < cx ? 'right' : 'left';
+          const cb = npc.onChaseArrival;
+          npc.onChaseArrival = null;
+          cb(npc);
+        }
+        npc.chaseTarget = null;
+        npc.chaseUntil = 0;
+        npc.onChaseArrival = null;
       }
 
       // 執行平滑走位 (包含撞牆平滑轉向與定身檢驗)

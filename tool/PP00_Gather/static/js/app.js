@@ -3589,6 +3589,7 @@ async function executeOfficeLogin(params) {
             const disgustQuotes = {
               npc_vp_boss: '成何體統！竟敢在辦公室動手動腳，看我不教訓你！😡',
               npc_dir_pp00: '太噁心了！嚴禁職場騷擾，吃我一記維修板手！💥',
+              npc_security_guard: '好噁心！竟敢襲警動手動腳，吃我一棒！⚡',
               npc_guard: '好噁心！竟敢襲警動手動腳，吃我一棒！⚡',
               npc_bird_commander: '嘎！非禮啊！軍紀嚴明，看我啄你！💢',
               default: '哎唷好噁心喔！離我遠一點，看我的厲害！💢'
@@ -3605,19 +3606,79 @@ async function executeOfficeLogin(params) {
             showToast(`🤢 【${escapeHtml(target.name)}】覺得你很噁心！「${disgustQuote}」憤怒衝上前揮擊！`, 'error');
             pushStatusLog(target.name, `🤢 怒斥：「${disgustQuote}」，衝上前追擊反擊你一次！`);
 
-            // 設定衝刺追擊目標與追到後攻擊回呼
+            // 設定衝刺追擊目標與追到後實際攻擊回呼
             target.actionState = null;
             target.actionUntil = 0;
             target.isMoving = true;
             target.chaseTarget = { x: localPlayer.x, y: localPlayer.y, getX: () => localPlayer.x, getY: () => localPlayer.y };
             target.chaseUntil = now + 4500;
             target.onChaseArrival = (npc) => {
-              npc.weaponSwing = { ticksLeft: 16, totalTicks: 16, startedAt: gameNow() };
+              let weaponEmoji = '👊';
+              if (npc.id === 'npc_vp_boss' || npc.avatarId === 'npc_vp_uncle') weaponEmoji = '🏌️‍♂️';
+              else if (npc.id === 'npc_dir_pp00' || npc.avatarId === 'npc_dir_pp00_slim') weaponEmoji = '🔧';
+              else if (npc.id === 'npc_security_guard' || npc.avatarId === 'npc_security_guard' || npc.isSecurityGuard || npc.name?.includes('警衛')) weaponEmoji = '🏏';
+              else if (npc.isSweeper || npc.id.includes('auntie') || npc.name?.includes('阿姨')) weaponEmoji = '🧹';
+              else if (npc.isBirdCommander || npc.id === 'npc_bird_commander' || npc.avatarId === 'npc_flamingo_cmd') weaponEmoji = '🪶';
+
+              npc.weaponSwing = { emoji: weaponEmoji, ticksLeft: 18, totalTicks: 18, startedAt: gameNow() };
               npc.emote = { emoji: '😤', expiresAt: gameNow() + 3000 };
+              npc.dir = npc.x < localPlayer.x ? 'right' : 'left';
+
               vfxList.push({ type: 'sparks', x: localPlayer.x, y: localPlayer.y });
-              const kx = localPlayer.x > npc.x ? 38 : -38;
-              localPlayer.knockback = { vx: kx, vy: 0, ticks: 12 };
-              showCombatToast(`💥 遭【${npc.name}】憤怒反擊擊退！`, 'error');
+              vfxList.push({
+                type: 'click_ring',
+                x: localPlayer.x,
+                y: localPlayer.y,
+                radius: 12,
+                maxRadius: 100,
+                alpha: 1,
+                color: '#ef4444',
+              });
+              spawnConfetti(localPlayer.x, localPlayer.y - 20);
+
+              cancelContextualAction();
+              localPlayer.actionState = null;
+              localPlayer.autoWalkTarget = null;
+              updatePoseLabelUI();
+
+              let dx = localPlayer.x - npc.x;
+              let dy = localPlayer.y - npc.y;
+              if (Math.hypot(dx, dy) < 1) {
+                dx = Math.random() - 0.5;
+                dy = Math.random() - 0.5;
+              }
+              const ang = Math.atan2(dy, dx);
+              const power = 22;
+              localPlayer.knockback = {
+                vx: Math.cos(ang) * power,
+                vy: Math.sin(ang) * power,
+                ticksLeft: 22,
+                totalTicks: 22,
+              };
+              localPlayer.jumpOffset = 38;
+              localPlayer.emote = { emoji: '💫', expiresAt: gameNow() + 2500 };
+
+              // 實質戰鬥傷害：送出 combat_hurt，進行衣裝耐久消耗、機率掉寶與暈眩
+              window.OfficeCombat?.send(network, 'combat_hurt', { targetId: network.clientId, npc: true });
+
+              const nowInj = gameNow();
+              if (Math.random() < 0.35 && nowInj >= (localPlayer.lightInjuredUntil || 0) && !localPlayer.isInjured) {
+                localPlayer.lightInjuredUntil = nowInj + 60000;
+                if (season.enabled && season.effects) {
+                  season.effects.lightUntil = Math.max(season.effects.lightUntil || 0, nowInj + 60000);
+                }
+                showCombatToast('🩹 輕微挫傷：移速降低 30% (持續 60 秒)', 'error');
+                pushCombatLog(npc.name, `🩹 遭【${npc.name}】憤怒反擊揮擊命中造成輕微挫傷！移速降低 30%（持續 60 秒）`);
+              }
+
+              showCombatToast(`💥 遭【${npc.name}】憤怒反擊重擊！受到實質攻擊！`, 'error');
+              pushStatusLog(npc.name, `💥 揮舞【${weaponEmoji}】反擊重創了你！`);
+              if (network) {
+                network.broadcastPacket('state_sync', { player: network.getPublicState() });
+              }
+              savePersistentState();
+              syncPlayerActiveWeaponState();
+              updateSelfHudCard();
             };
           }
           break;
@@ -3946,6 +4007,7 @@ async function executeOfficeLogin(params) {
               e.combatDownAt=Date.now();
               e.actionState='sleep_bed';
               e.isMoving=false;
+              e.knockback=null;
               showCombatToast(`${escapeHtml(e.name||'目標')} 被擊倒！`);
               setTimeout(()=>{
                 if(typeof ecosystem !== 'undefined' && ecosystem.mobs){
@@ -6763,7 +6825,7 @@ async function executeOfficeLogin(params) {
               actionState: p.actionState || null,
               isBerserk: !!p.isBerserk,
               isSweeper: !!p.isSweeper,
-              isKnockedBack: (reaction.active && reaction.kind !== 'dodge') || !!(p.knockback && p.knockback.ticksLeft > 0),
+              isKnockedBack: !p.combatDown && ((reaction.active && reaction.kind !== 'dodge') || !!(p.knockback && p.knockback.ticksLeft > 0)),
               heldItem: p.isNpc ? '' : p.heldItem,
               weaponSwing: p.weaponSwing ? {
                 ...p.weaponSwing,

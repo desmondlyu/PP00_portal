@@ -145,7 +145,7 @@
       const h=s.enemies[entityId];if(!h)continue;
       const down=h.until>now;if(down&&!e.combatDown)e.combatDownAt=now;
       e.combatDown=down;e.hp=h.hp;e.maxHp=h.maxHp;
-      if(e.combatDown){e.actionState='sleep_bed';e.isMoving=false;if(e.isMob&&now-(h.defeatedAt||now)>1800)n.callbacks.onCombatMobDefeat?.(e.uid);}
+      if(e.combatDown){e.actionState='sleep_bed';e.isMoving=false;e.knockback=null;if(e.isMob&&now-(h.defeatedAt||now)>1800)n.callbacks.onCombatMobDefeat?.(e.uid);}
       else if(h.hp<=0 && !e.isMob && n.isRoomMaster()){h.hp=h.maxHp;h.until=0;e.actionState=null;}
     }
     if(n.isRoomMaster()&&tick%120===0)s.items.forEach(item=>window.relocateBlockedDrop?.(item));

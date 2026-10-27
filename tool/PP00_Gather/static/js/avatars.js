@@ -478,6 +478,133 @@ function drawWearableLayer(ctx,costume,tick,dir='down') {
       break;
     }
 
+    case 'frog_eng': {
+      if (isUp) {
+        ctx.fillStyle = '#16a34a'; fillRoundRect(ctx, -14, -22, 28, 34, 12);
+        ctx.fillStyle = '#cbd5e1'; ctx.fillRect(-1, -16, 2, 24);
+        ctx.fillStyle = '#94a3b8'; ctx.fillRect(-2, -18, 4, 3);
+        ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(-8, -24, 6.5, 0, Math.PI * 2); ctx.arc(8, -24, 6.5, 0, Math.PI * 2); ctx.fill();
+      } else if (isSide) {
+        ctx.fillStyle = '#16a34a'; fillRoundRect(ctx, -12, -22, 25, 34, 11);
+        ctx.fillStyle = '#dcfce7'; fillRoundRect(ctx, -3, -4, 13, 14, 6);
+        ctx.fillStyle = '#ffffff'; fillRoundRect(ctx, 3, 1, 6, 6, 1.5);
+        ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(4, -24, 6.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(5, -24, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(6.5, -24, 2.3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fed7aa'; fillRoundRect(ctx, -1, -16, 11, 10, 4);
+        ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1.4; ctx.strokeRect(2, -14.5, 6, 4);
+      } else {
+        const frogGrad = ctx.createRadialGradient(-3, -6, 2, 0, -4, 22);
+        frogGrad.addColorStop(0, '#4ade80'); frogGrad.addColorStop(1, '#16a34a');
+        ctx.fillStyle = frogGrad; fillRoundRect(ctx, -14, -22, 28, 34, 12);
+        ctx.fillStyle = '#dcfce7'; fillRoundRect(ctx, -9, -4, 18, 14, 7);
+        ctx.strokeStyle = '#0284c7'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-4, -4); ctx.lineTo(0, 2); ctx.lineTo(4, -4); ctx.stroke();
+        ctx.fillStyle = '#ffffff'; fillRoundRect(ctx, -4, 1, 8, 6, 1.5);
+        ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(-8, -24, 6.5, 0, Math.PI * 2); ctx.arc(8, -24, 6.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(-8, -24, 4.5, 0, Math.PI * 2); ctx.arc(8, -24, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(-7.5, -24, 2.3, 0, Math.PI * 2); ctx.arc(8.5, -24, 2.3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fed7aa'; fillRoundRect(ctx, -8, -16, 16, 10, 5);
+        ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1.4; ctx.strokeRect(-6.5, -14.5, 5, 4); ctx.strokeRect(1.5, -14.5, 5, 4);
+      }
+      break;
+    }
+
+    case 'trex_intern': {
+      const tailSwing = Math.sin(tick * 0.22) * 5;
+      if (isUp) {
+        ctx.fillStyle = '#ea580c'; fillRoundRect(ctx, -12, -10, 24, 22, 8); fillRoundRect(ctx, -13, -30, 26, 21, 7);
+        ctx.fillStyle = '#c2410c'; for (let y = -28; y <= 4; y += 5) ctx.fillRect(-2, y, 4, 3);
+        ctx.fillStyle = '#ea580c'; ctx.beginPath(); ctx.moveTo(-6, 4); ctx.quadraticCurveTo(-18, 12 + tailSwing, -22, 18 + tailSwing); ctx.quadraticCurveTo(-14, 18 + tailSwing, -2, 6); ctx.closePath(); ctx.fill();
+      } else if (isSide) {
+        ctx.fillStyle = '#ea580c'; ctx.beginPath(); ctx.moveTo(-10, 6); ctx.quadraticCurveTo(-24, 8 + tailSwing, -28, 2 + tailSwing); ctx.quadraticCurveTo(-20, -2 + tailSwing, -10, 0); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#ea580c'; fillRoundRect(ctx, -10, -10, 22, 22, 7);
+        ctx.fillStyle = '#f97316'; fillRoundRect(ctx, -8, -30, 25, 21, 6);
+        ctx.fillStyle = '#1e293b'; fillRoundRect(ctx, 3, -20, 15, 8, 2);
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(6, -20, 3, 2); ctx.fillRect(12, -20, 3, 2);
+        ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(4, -24, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(5, -24, 1.8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ea580c'; ctx.fillRect(6, -4, 6, 3); ctx.fillStyle = '#22c55e'; ctx.fillRect(11, -7, 4, 8);
+      } else {
+        ctx.fillStyle = '#ea580c'; ctx.beginPath(); ctx.moveTo(-10, 6); ctx.quadraticCurveTo(-24, 8 + tailSwing, -26, 2 + tailSwing); ctx.quadraticCurveTo(-20, -2 + tailSwing, -10, 0); ctx.closePath(); ctx.fill();
+        const rexGrad = ctx.createLinearGradient(0, -28, 0, 12); rexGrad.addColorStop(0, '#fb923c'); rexGrad.addColorStop(1, '#ea580c');
+        ctx.fillStyle = rexGrad; fillRoundRect(ctx, -12, -10, 24, 22, 8);
+        ctx.fillStyle = '#ffedd5'; fillRoundRect(ctx, -7, -6, 14, 16, 6);
+        ctx.fillStyle = '#f97316'; fillRoundRect(ctx, -13, -30, 28, 21, 7);
+        ctx.fillStyle = '#1e293b'; fillRoundRect(ctx, -7, -18, 16, 8, 3);
+        ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(-5, -24, 3, 0, Math.PI * 2); ctx.arc(6, -24, 3, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    }
+
+    case 'kuaikuai_god': {
+      const haloY = -33 + Math.sin(tick * 0.12) * 2;
+      if (isUp) {
+        ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2.8; ctx.beginPath(); ctx.ellipse(0, haloY, 11, 3.5, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = '#047857'; fillRoundRect(ctx, -15, -26, 30, 36, 4);
+        ctx.fillStyle = '#fbbf24'; ctx.fillRect(-15, -26, 30, 3.5); ctx.fillRect(-15, 6.5, 30, 3.5);
+        ctx.fillStyle = '#059669'; ctx.fillRect(-3, -26, 6, 36); ctx.fillStyle = '#ffffff'; ctx.fillRect(-1, -26, 2, 36);
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(-12, -7, 8, 10); ctx.fillStyle = '#0f172a'; ctx.fillRect(-11, -5, 6, 1); ctx.fillRect(-11, -3, 6, 1); ctx.fillRect(-11, -1, 4, 1); ctx.fillStyle = '#ffffff'; ctx.fillRect(2, -6, 9, 8); ctx.fillStyle = '#0f172a'; for (let x = 3; x <= 9; x += 2) ctx.fillRect(x, -5, 1, 6);
+      } else if (isSide) {
+        ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2.8; ctx.beginPath(); ctx.ellipse(0, haloY, 6, 3.5, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = '#047857'; fillRoundRect(ctx, -9, -26, 18, 36, 4);
+        ctx.fillStyle = '#fbbf24'; ctx.fillRect(-9, -26, 18, 3.5); ctx.fillRect(-9, 6.5, 18, 3.5);
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(4, -8, 6, -Math.PI / 2, Math.PI / 2); ctx.fill();
+        ctx.fillStyle = '#0f172a'; ctx.fillRect(6, -9, 2, 2);
+      } else {
+        ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2.8; ctx.beginPath(); ctx.ellipse(0, haloY, 11, 3.5, 0, 0, Math.PI * 2); ctx.stroke();
+        const kkGrad = ctx.createLinearGradient(-15, -26, 15, 12); kkGrad.addColorStop(0, '#10b981'); kkGrad.addColorStop(1, '#047857');
+        ctx.fillStyle = kkGrad; fillRoundRect(ctx, -15, -26, 30, 36, 4);
+        ctx.fillStyle = '#fbbf24'; ctx.fillRect(-15, -26, 30, 3.5); ctx.fillRect(-15, 6.5, 30, 3.5);
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(0, -8, 10.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(-3.5, -9, 1.6, 0, Math.PI * 2); ctx.arc(3.5, -9, 1.6, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    }
+
+    case 'shark_slacker': {
+      if (isUp) {
+        ctx.fillStyle = '#0369a1'; fillRoundRect(ctx, -13, -25, 26, 37, 11);
+        ctx.fillStyle = '#0284c7'; ctx.beginPath(); ctx.moveTo(-3, -12); ctx.lineTo(0, -28); ctx.lineTo(5, -12); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-6, 8); ctx.lineTo(-12, 17); ctx.lineTo(-4, 14); ctx.lineTo(0, 11); ctx.closePath(); ctx.fill();
+      } else if (isSide) {
+        ctx.fillStyle = '#0284c7'; fillRoundRect(ctx, -12, -25, 24, 37, 10);
+        ctx.fillStyle = '#0369a1'; ctx.beginPath(); ctx.moveTo(-6, -8); ctx.lineTo(-16, -18); ctx.lineTo(-6, -14); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-10, 6); ctx.lineTo(-18, 12); ctx.lineTo(-11, 10); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#991b1b'; fillRoundRect(ctx, 0, -18, 12, 11, 4);
+        ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.moveTo(4, -13); ctx.lineTo(15, -10); ctx.lineTo(7, -3); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(2, -20, 2, 0, Math.PI * 2); ctx.fill();
+      } else {
+        const sharkGrad = ctx.createLinearGradient(0, -28, 0, 12); sharkGrad.addColorStop(0, '#0284c7'); sharkGrad.addColorStop(1, '#0369a1');
+        ctx.fillStyle = sharkGrad; fillRoundRect(ctx, -13, -25, 26, 37, 11);
+        ctx.fillStyle = '#f0f9ff'; fillRoundRect(ctx, -8, -4, 16, 15, 7);
+        ctx.fillStyle = '#991b1b'; fillRoundRect(ctx, -9, -18, 18, 11, 5);
+        ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.moveTo(-5, -12); ctx.lineTo(6, -12); ctx.lineTo(1, -2); ctx.closePath(); ctx.fill();
+      }
+      break;
+    }
+
+    case 'alien_debug': {
+      const spark = Math.sin(tick * 0.25) * 2;
+      if (isUp) {
+        ctx.fillStyle = '#e2e8f0'; fillRoundRect(ctx, -11, -4, 22, 16, 5);
+        ctx.fillStyle = '#94a3b8'; ctx.fillRect(-7, -2, 14, 10); ctx.fillStyle = '#38bdf8'; ctx.fillRect(-4, 0, 8, 3);
+        ctx.fillStyle = '#65a30d'; ctx.beginPath(); ctx.ellipse(0, -17, 14, 11, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#65a30d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-6, -26); ctx.lineTo(-10, -35 + spark); ctx.moveTo(6, -26); ctx.lineTo(10, -35 - spark); ctx.stroke();
+      } else if (isSide) {
+        ctx.fillStyle = '#e2e8f0'; fillRoundRect(ctx, -10, -4, 20, 16, 5);
+        ctx.fillStyle = '#65a30d'; ctx.beginPath(); ctx.ellipse(-2, -17, 13, 10, -0.2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.ellipse(3, -16, 4.2, 2.5, -0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#65a30d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -26); ctx.lineTo(4, -36 + spark); ctx.stroke();
+      } else {
+        ctx.fillStyle = '#e2e8f0'; fillRoundRect(ctx, -11, -4, 22, 16, 5);
+        ctx.strokeStyle = '#65a30d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-6, -26); ctx.lineTo(-10, -35 + spark); ctx.moveTo(6, -26); ctx.lineTo(10, -35 - spark); ctx.stroke();
+        const alienGrad = ctx.createRadialGradient(0, -18, 2, 0, -16, 16); alienGrad.addColorStop(0, '#bef264'); alienGrad.addColorStop(1, '#65a30d');
+        ctx.fillStyle = alienGrad; ctx.beginPath(); ctx.ellipse(0, -17, 14, 11, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.ellipse(-5.5, -16, 4.2, 2.5, 0.35, 0, Math.PI * 2); ctx.ellipse(5.5, -16, 4.2, 2.5, -0.35, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    }
+
     case 'code_wizard': {
       if (isUp) {
         ctx.fillStyle = '#6d28d9'; ctx.beginPath(); ctx.moveTo(-10, -4); ctx.lineTo(10, -4); ctx.lineTo(16, 17); ctx.lineTo(-16, 17); ctx.closePath(); ctx.fill();
@@ -487,7 +614,7 @@ function drawWearableLayer(ctx,costume,tick,dir='down') {
         ctx.fillStyle = '#6d28d9'; ctx.fillRect(-12, -4, 22, 21);
         ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.moveTo(-12, -29); ctx.lineTo(-4, -52); ctx.lineTo(10, -29); ctx.closePath(); ctx.fill(); ctx.fillRect(-15, -29, 28, 3);
         ctx.fillStyle = '#f1f5f9'; ctx.fillRect(2, -4, 6, 10);
-        ctx.fillStyle = '#713f12'; ctx.fillRect(12, -9, 3, 28);
+        ctx.fillStyle = '#713f12'; ctx.fillRect(12, -9, 3, 28); ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.arc(13.5, -12, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fde68a'; ctx.fillRect(-3, -40, 3, 3);
       } else {
         ctx.fillStyle = '#6d28d9'; ctx.beginPath(); ctx.moveTo(-10, -4); ctx.lineTo(10, -4); ctx.lineTo(16, 17); ctx.lineTo(-16, 17); ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#facc15'; ctx.fillRect(-1, -4, 2, 21); ctx.fillRect(-14, 14, 28, 2);
@@ -583,7 +710,10 @@ window.drawWackyAvatar = function (ctx, opts) {
   let poseOffsetX = 0;
   let poseRotate = 0;
 
-  if (isKnockedBack) {
+  if (opts.combatDown || actionState === 'sleep_bed') {
+    poseOffsetY = 10;
+    poseRotate = -Math.PI / 2 + Math.sin(tick * 0.05) * 0.03; // 倒地休養或熟睡微幅呼吸起伏
+  } else if (isKnockedBack) {
     poseRotate = tick * 0.48; // 被打飛時空中高速旋轉特效
   } else if (isFleeing) {
     poseOffsetX = Math.sin(tick * 0.9) * 3.5; // 慌張左右劇烈抖動
@@ -607,9 +737,6 @@ window.drawWackyAvatar = function (ctx, opts) {
   } else if (actionState === 'slack_nap') {
     poseOffsetY = 4;
     poseRotate = 0.16 + 0.06 * Math.sin(tick * 0.06); // 打瞌睡歪頭搖晃
-  } else if (actionState === 'sleep_bed') {
-    poseOffsetY = 10;
-    poseRotate = -Math.PI / 2 + Math.sin(tick * 0.05) * 0.03; // 躺平熟睡呼吸起伏
   } else if (actionState === 'pray_kuaikuai') {
     poseOffsetY = Math.sin(tick * 0.25) * 5; // 虔誠上下鞠躬膜拜
     poseRotate = Math.sin(tick * 0.25) * 0.18;
@@ -646,8 +773,8 @@ window.drawWackyAvatar = function (ctx, opts) {
     ctx.fillRect(-3, 12, 6, 6);
     ctx.fillRect(-11, 16, 22, 3);
     ctx.restore();
-  } else if (actionState === 'sleep_bed') {
-    // 🛌 躺平睡覺：在角色下方繪製柔軟睡墊與枕頭
+  } else if (actionState === 'sleep_bed' && !opts.combatDown) {
+    // 🛌 躺平睡覺：在角色下方繪製柔軟睡墊與枕頭（被擊倒休養時純躺在地板上，不繪製睡墊）
     ctx.save();
     ctx.fillStyle = '#1e3a8a';
     fillRoundRect(ctx, -26, -6, 52, 22, 6);
@@ -749,54 +876,16 @@ window.drawWackyAvatar = function (ctx, opts) {
       fillRoundRect(ctx, -12, -2, 24, 15, 5);
       ctx.fillStyle = '#334155';
       fillRoundRect(ctx, -9, -2, 18, 14, 4);
-      ctx.fillStyle = '#ef4444';
-      ctx.fillRect(-1.5, 0, 3, 9);
+      if (dir !== 'up') {
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(-1.5, 0, 3, 9);
+      }
       drawWearableLayer(ctx, { id: 'minotaur' }, tick, dir);
       break;
     }
 
     case 'frog_eng': {
-      const frogGrad = ctx.createRadialGradient(-3, -6, 2, 0, -4, 22);
-      frogGrad.addColorStop(0, '#4ade80');
-      frogGrad.addColorStop(1, '#16a34a');
-      ctx.fillStyle = frogGrad;
-      fillRoundRect(ctx, -14, -22, 28, 34, 12);
-
-      ctx.fillStyle = '#dcfce7';
-      fillRoundRect(ctx, -9, -4, 18, 14, 7);
-
-      ctx.strokeStyle = '#0284c7';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(-4, -4);
-      ctx.lineTo(0, 2);
-      ctx.lineTo(4, -4);
-      ctx.stroke();
-      ctx.fillStyle = '#ffffff';
-      fillRoundRect(ctx, -4, 1, 8, 6, 1.5);
-
-      ctx.fillStyle = '#22c55e';
-      ctx.beginPath();
-      ctx.arc(-8, -24, 6.5, 0, Math.PI * 2);
-      ctx.arc(8, -24, 6.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(-8, -24, 4.5, 0, Math.PI * 2);
-      ctx.arc(8, -24, 4.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.arc(-7.5, -24, 2.3, 0, Math.PI * 2);
-      ctx.arc(8.5, -24, 2.3, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#fed7aa';
-      fillRoundRect(ctx, -8, -16, 16, 10, 5);
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 1.4;
-      ctx.strokeRect(-6.5, -14.5, 5, 4);
-      ctx.strokeRect(1.5, -14.5, 5, 4);
+      drawWearableLayer(ctx, { id: 'frog_eng' }, tick, dir);
       break;
     }
 
@@ -805,44 +894,21 @@ window.drawWackyAvatar = function (ctx, opts) {
       fillRoundRect(ctx, -15, -5, 30, 10, 3);
       ctx.fillStyle = '#f8fafc';
       fillRoundRect(ctx, -10, -4, 20, 16, 3);
-      ctx.strokeStyle = '#facc15';
-      ctx.lineWidth = 2.2;
-      ctx.beginPath();
-      ctx.moveTo(-6, 0);
-      ctx.lineTo(0, 5);
-      ctx.lineTo(6, 0);
-      ctx.stroke();
+      if (dir !== 'up') {
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(-6, 0);
+        ctx.lineTo(0, 5);
+        ctx.lineTo(6, 0);
+        ctx.stroke();
+      }
       drawWearableLayer(ctx, { id: 'wafer_mecha' }, tick, dir);
       break;
     }
 
     case 'trex_intern': {
-      const tailSwing = Math.sin(tick * 0.22) * 5;
-      ctx.fillStyle = '#ea580c';
-      ctx.beginPath();
-      ctx.moveTo(-10, 6);
-      ctx.quadraticCurveTo(-24, 8 + tailSwing, -26, 2 + tailSwing);
-      ctx.quadraticCurveTo(-20, -2 + tailSwing, -10, 0);
-      ctx.closePath();
-      ctx.fill();
-
-      const rexGrad = ctx.createLinearGradient(0, -28, 0, 12);
-      rexGrad.addColorStop(0, '#fb923c');
-      rexGrad.addColorStop(1, '#ea580c');
-      ctx.fillStyle = rexGrad;
-      fillRoundRect(ctx, -12, -10, 24, 22, 8);
-      ctx.fillStyle = '#ffedd5';
-      fillRoundRect(ctx, -7, -6, 14, 16, 6);
-
-      ctx.fillStyle = '#f97316';
-      fillRoundRect(ctx, -13, -30, 28, 21, 7);
-      ctx.fillStyle = '#1e293b';
-      fillRoundRect(ctx, -7, -18, 16, 8, 3);
-      ctx.fillStyle = '#fde047';
-      ctx.beginPath();
-      ctx.arc(-5, -24, 3, 0, Math.PI * 2);
-      ctx.arc(6, -24, 3, 0, Math.PI * 2);
-      ctx.fill();
+      drawWearableLayer(ctx, { id: 'trex_intern' }, tick, dir);
       break;
     }
 
@@ -854,534 +920,970 @@ window.drawWackyAvatar = function (ctx, opts) {
     }
 
     case 'kuaikuai_god': {
-      const haloY = -33 + Math.sin(tick * 0.12) * 2;
-      ctx.strokeStyle = '#facc15';
-      ctx.lineWidth = 2.8;
-      ctx.beginPath();
-      ctx.ellipse(0, haloY, 11, 3.5, 0, 0, Math.PI * 2);
-      ctx.stroke();
-
-      const kkGrad = ctx.createLinearGradient(-15, -26, 15, 12);
-      kkGrad.addColorStop(0, '#10b981');
-      kkGrad.addColorStop(1, '#047857');
-      ctx.fillStyle = kkGrad;
-      fillRoundRect(ctx, -15, -26, 30, 36, 4);
-      ctx.fillStyle = '#fbbf24';
-      ctx.fillRect(-15, -26, 30, 3.5);
-      ctx.fillRect(-15, 6.5, 30, 3.5);
-
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(0, -8, 10.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.arc(-3.5, -9, 1.6, 0, Math.PI * 2);
-      ctx.arc(3.5, -9, 1.6, 0, Math.PI * 2);
-      ctx.fill();
+      drawWearableLayer(ctx, { id: 'kuaikuai_god' }, tick, dir);
       break;
     }
 
     case 'code_wizard': {
-      const robeGrad = ctx.createLinearGradient(0, -10, 0, 14);
-      robeGrad.addColorStop(0, '#6d28d9');
-      robeGrad.addColorStop(1, '#4c1d95');
-      ctx.fillStyle = robeGrad;
-      fillRoundRect(ctx, -12, -5, 24, 18, 6);
-
-      ctx.fillStyle = '#fed7aa';
-      fillRoundRect(ctx, -10, -22, 20, 14, 5);
-      ctx.fillStyle = '#f8fafc';
-      ctx.beginPath();
-      ctx.moveTo(-9, -12);
-      ctx.quadraticCurveTo(0, 10, 0, 12);
-      ctx.quadraticCurveTo(0, 10, 9, -12);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#38bdf8';
-      ctx.beginPath();
-      ctx.arc(-4, -16, 2, 0, Math.PI * 2);
-      ctx.arc(4, -16, 2, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#5b21b6';
-      ctx.beginPath();
-      ctx.ellipse(0, -21, 17, 4.5, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-11, -21);
-      ctx.lineTo(2, -42);
-      ctx.lineTo(11, -21);
-      ctx.closePath();
-      ctx.fill();
+      drawWearableLayer(ctx, { id: 'code_wizard' }, tick, dir);
       break;
     }
 
     case 'shark_slacker': {
-      const sharkGrad = ctx.createLinearGradient(0, -28, 0, 12);
-      sharkGrad.addColorStop(0, '#0284c7');
-      sharkGrad.addColorStop(1, '#0369a1');
-      ctx.fillStyle = sharkGrad;
-      fillRoundRect(ctx, -13, -25, 26, 37, 11);
-
-      ctx.fillStyle = '#f0f9ff';
-      fillRoundRect(ctx, -8, -4, 16, 15, 7);
-      ctx.fillStyle = '#991b1b';
-      fillRoundRect(ctx, -9, -18, 18, 11, 5);
-      ctx.fillStyle = '#facc15';
-      ctx.beginPath();
-      ctx.moveTo(-5, -12);
-      ctx.lineTo(6, -12);
-      ctx.lineTo(1, -2);
-      ctx.closePath();
-      ctx.fill();
+      drawWearableLayer(ctx, { id: 'shark_slacker' }, tick, dir);
       break;
     }
 
     case 'alien_debug': {
-      ctx.fillStyle = '#e2e8f0';
-      fillRoundRect(ctx, -11, -4, 22, 16, 5);
-      const spark = Math.sin(tick * 0.25) * 2;
-      ctx.strokeStyle = '#65a30d';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(-6, -26);
-      ctx.lineTo(-10, -35 + spark);
-      ctx.moveTo(6, -26);
-      ctx.lineTo(10, -35 - spark);
-      ctx.stroke();
-
-      const alienGrad = ctx.createRadialGradient(0, -18, 2, 0, -16, 16);
-      alienGrad.addColorStop(0, '#bef264');
-      alienGrad.addColorStop(1, '#65a30d');
-      ctx.fillStyle = alienGrad;
-      ctx.beginPath();
-      ctx.ellipse(0, -17, 14, 11, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.ellipse(-5.5, -16, 4.2, 2.5, 0.35, 0, Math.PI * 2);
-      ctx.ellipse(5.5, -16, 4.2, 2.5, -0.35, 0, Math.PI * 2);
-      ctx.fill();
+      drawWearableLayer(ctx, { id: 'alien_debug' }, tick, dir);
       break;
     }
 
     case 'npc_vp_uncle': {
       // 👑 VP 大老闆專屬形象：白髮微胖大叔，身穿深海藍高定雙排扣西裝、打金色領帶、戴金框眼鏡
-      // 1. 微胖圓潤深海藍高定西裝外套與福氣小肚腩
+      const isUp = dir === 'up';
+      const isSide = dir === 'left' || dir === 'right';
       const vpSuitGrad = ctx.createLinearGradient(0, -6, 0, 14);
       vpSuitGrad.addColorStop(0, '#1e3a8a');
       vpSuitGrad.addColorStop(1, '#172554');
-      ctx.fillStyle = vpSuitGrad;
-      fillRoundRect(ctx, -16, -5, 32, 18, 9);
-
-      // 白色高級襯衫 V 領與金色斜紋領帶
-      ctx.fillStyle = '#f8fafc';
-      ctx.beginPath();
-      ctx.moveTo(-6, -5);
-      ctx.lineTo(6, -5);
-      ctx.lineTo(0, 8);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#eab308';
-      ctx.beginPath();
-      ctx.moveTo(-2, -4);
-      ctx.lineTo(2, -4);
-      ctx.lineTo(3, 7);
-      ctx.lineTo(0, 10);
-      ctx.lineTo(-3, 7);
-      ctx.closePath();
-      ctx.fill();
-
-      // 深藍西裝雙排金釦與左胸金色袋巾
-      ctx.fillStyle = '#fde047';
-      ctx.fillRect(6, -1, 4, 2);
-      ctx.beginPath();
-      ctx.arc(-6, 4, 1.3, 0, Math.PI * 2);
-      ctx.arc(6, 4, 1.3, 0, Math.PI * 2);
-      ctx.arc(-6, 9, 1.3, 0, Math.PI * 2);
-      ctx.arc(6, 9, 1.3, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 2. 微胖圓潤大叔臉龐與雙下巴紅潤臉頰
-      ctx.fillStyle = '#fed7aa';
-      fillRoundRect(ctx, -13, -25, 26, 20, 9);
-      ctx.fillStyle = 'rgba(248, 113, 113, 0.35)';
-      ctx.beginPath();
-      ctx.arc(-8.5, -12, 3, 0, Math.PI * 2);
-      ctx.arc(8.5, -12, 3, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 3. 蓬鬆銀白大背頭與白髮鬢角、白濃眉、小八字白鬍
       const whiteHairGrad = ctx.createLinearGradient(0, -32, 0, -18);
       whiteHairGrad.addColorStop(0, '#ffffff');
       whiteHairGrad.addColorStop(1, '#cbd5e1');
-      ctx.fillStyle = whiteHairGrad;
-      fillRoundRect(ctx, -14, -30, 28, 9, 5);
-      // 兩側白髮鬢角
-      fillRoundRect(ctx, -14, -24, 3.5, 8, 1.5);
-      fillRoundRect(ctx, 10.5, -24, 3.5, 8, 1.5);
-      // 白濃眉
-      ctx.fillRect(-9, -20, 6, 2);
-      ctx.fillRect(3, -20, 6, 2);
-      // 慈祥白八字小鬍子
-      ctx.beginPath();
-      ctx.moveTo(0, -9.5);
-      ctx.lineTo(-5, -7.5);
-      ctx.lineTo(-2, -7);
-      ctx.lineTo(0, -8.2);
-      ctx.lineTo(2, -7);
-      ctx.lineTo(5, -7.5);
-      ctx.closePath();
-      ctx.fill();
 
-      // 4. 招牌金框眼鏡與鏡片反光
-      ctx.fillStyle = 'rgba(224, 242, 254, 0.65)';
-      fillRoundRect(ctx, -9.5, -17.5, 7.5, 5.5, 1.5);
-      fillRoundRect(ctx, 2, -17.5, 7.5, 5.5, 1.5);
-      ctx.strokeStyle = '#ca8a04';
-      ctx.lineWidth = 1.6;
-      strokeRoundRect(ctx, -9.5, -17.5, 7.5, 5.5, 1.5);
-      strokeRoundRect(ctx, 2, -17.5, 7.5, 5.5, 1.5);
-      ctx.beginPath();
-      ctx.moveTo(-2, -15);
-      ctx.lineTo(2, -15);
-      ctx.stroke();
+      if (isUp) {
+        // 背面：微胖海軍藍西裝後背、白色襯衫後領、西裝後背中縫與雙開衩、蓬鬆銀白大背頭後腦勺
+        ctx.fillStyle = vpSuitGrad;
+        fillRoundRect(ctx, -16, -5, 32, 18, 9);
+        // 白色襯衫後領
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(-7, -6, 14, 2.5);
+        // 後背中縫與下擺雙開衩
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(0, -4);
+        ctx.lineTo(0, 11);
+        ctx.moveTo(-7, 7);
+        ctx.lineTo(-7, 12);
+        ctx.moveTo(7, 7);
+        ctx.lineTo(7, 12);
+        ctx.stroke();
 
-      // 鏡片後的銳利雙眼
-      ctx.fillStyle = isBerserk ? '#ef4444' : '#0f172a';
-      ctx.beginPath();
-      ctx.arc(-5.5, -14.8, 1.4, 0, Math.PI * 2);
-      ctx.arc(5.5, -14.8, 1.4, 0, Math.PI * 2);
-      ctx.fill();
+        // 頭部與後腦銀白大背頭（完全覆蓋後腦，無五官、無鬍鬚、無金框眼鏡）
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, -13, -25, 26, 20, 9);
+        ctx.fillStyle = whiteHairGrad;
+        fillRoundRect(ctx, -14, -31, 28, 16, 6);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(-9, -19, 18, 2);
+      } else if (isSide) {
+        // 側面：微胖微挺的小肚腩側面、金色領帶側面露出一角、單排金釦與左胸袋巾、銀白鬢角與耳朵、單邊金框眼鏡與單眼、白八字鬍側面
+        ctx.fillStyle = vpSuitGrad;
+        fillRoundRect(ctx, -14, -5, 28, 18, 8);
+        // 襯衫與金色斜紋領帶側露出
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(2, -5, 4, 7);
+        ctx.fillStyle = '#eab308';
+        ctx.fillRect(4, -4, 3, 9);
+        // 單側金色口袋巾與金釦
+        ctx.fillStyle = '#fde047';
+        ctx.fillRect(6, -1, 3, 2);
+        ctx.beginPath();
+        ctx.arc(3, 4, 1.3, 0, Math.PI * 2);
+        ctx.arc(3, 9, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 側面頭部輪廓與紅潤臉頰
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, -12, -25, 24, 20, 8);
+        ctx.fillStyle = 'rgba(248, 113, 113, 0.35)';
+        ctx.beginPath();
+        ctx.arc(4, -12, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 銀白側梳髮與後側白耳鬢、耳廓
+        ctx.fillStyle = whiteHairGrad;
+        fillRoundRect(ctx, -13, -30, 25, 9, 5);
+        fillRoundRect(ctx, -12, -24, 5, 8, 1.5);
+        ctx.fillStyle = '#fed7aa';
+        ctx.beginPath();
+        ctx.arc(-7, -16, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 側面向前突出的慈祥白八字鬍
+        ctx.fillStyle = '#cbd5e1';
+        ctx.beginPath();
+        ctx.moveTo(3, -9);
+        ctx.lineTo(8, -7.5);
+        ctx.lineTo(4, -7);
+        ctx.closePath();
+        ctx.fill();
+
+        // 側面單邊金框眼鏡與銳利眼神
+        ctx.fillStyle = 'rgba(224, 242, 254, 0.65)';
+        fillRoundRect(ctx, 3, -17.5, 6.5, 5.5, 1.5);
+        ctx.strokeStyle = '#ca8a04';
+        ctx.lineWidth = 1.6;
+        strokeRoundRect(ctx, 3, -17.5, 6.5, 5.5, 1.5);
+        ctx.beginPath();
+        ctx.moveTo(3, -15);
+        ctx.lineTo(-6, -15);
+        ctx.stroke();
+
+        ctx.fillStyle = isBerserk ? '#ef4444' : '#0f172a';
+        ctx.beginPath();
+        ctx.arc(6.5, -14.8, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(4, -20, 5, 2);
+      } else {
+        // 正面 (dir === 'down')
+        ctx.fillStyle = vpSuitGrad;
+        fillRoundRect(ctx, -16, -5, 32, 18, 9);
+
+        // 白色高級襯衫 V 領與金色斜紋領帶
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.moveTo(-6, -5);
+        ctx.lineTo(6, -5);
+        ctx.lineTo(0, 8);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#eab308';
+        ctx.beginPath();
+        ctx.moveTo(-2, -4);
+        ctx.lineTo(2, -4);
+        ctx.lineTo(3, 7);
+        ctx.lineTo(0, 10);
+        ctx.lineTo(-3, 7);
+        ctx.closePath();
+        ctx.fill();
+
+        // 深藍西裝雙排金釦與左胸金色袋巾
+        ctx.fillStyle = '#fde047';
+        ctx.fillRect(6, -1, 4, 2);
+        ctx.beginPath();
+        ctx.arc(-6, 4, 1.3, 0, Math.PI * 2);
+        ctx.arc(6, 4, 1.3, 0, Math.PI * 2);
+        ctx.arc(-6, 9, 1.3, 0, Math.PI * 2);
+        ctx.arc(6, 9, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 2. 微胖圓潤大叔臉龐與雙下巴紅潤臉頰
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, -13, -25, 26, 20, 9);
+        ctx.fillStyle = 'rgba(248, 113, 113, 0.35)';
+        ctx.beginPath();
+        ctx.arc(-8.5, -12, 3, 0, Math.PI * 2);
+        ctx.arc(8.5, -12, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 3. 蓬鬆銀白大背頭與白髮鬢角、白濃眉、小八字白鬍
+        ctx.fillStyle = whiteHairGrad;
+        fillRoundRect(ctx, -14, -30, 28, 9, 5);
+        fillRoundRect(ctx, -14, -24, 3.5, 8, 1.5);
+        fillRoundRect(ctx, 10.5, -24, 3.5, 8, 1.5);
+        ctx.fillRect(-9, -20, 6, 2);
+        ctx.fillRect(3, -20, 6, 2);
+        ctx.beginPath();
+        ctx.moveTo(0, -9.5);
+        ctx.lineTo(-5, -7.5);
+        ctx.lineTo(-2, -7);
+        ctx.lineTo(0, -8.2);
+        ctx.lineTo(2, -7);
+        ctx.lineTo(5, -7.5);
+        ctx.closePath();
+        ctx.fill();
+
+        // 4. 招牌金框眼鏡與鏡片反光
+        ctx.fillStyle = 'rgba(224, 242, 254, 0.65)';
+        fillRoundRect(ctx, -9.5, -17.5, 7.5, 5.5, 1.5);
+        fillRoundRect(ctx, 2, -17.5, 7.5, 5.5, 1.5);
+        ctx.strokeStyle = '#ca8a04';
+        ctx.lineWidth = 1.6;
+        strokeRoundRect(ctx, -9.5, -17.5, 7.5, 5.5, 1.5);
+        strokeRoundRect(ctx, 2, -17.5, 7.5, 5.5, 1.5);
+        ctx.beginPath();
+        ctx.moveTo(-2, -15);
+        ctx.lineTo(2, -15);
+        ctx.stroke();
+
+        ctx.fillStyle = isBerserk ? '#ef4444' : '#0f172a';
+        ctx.beginPath();
+        ctx.arc(-5.5, -14.8, 1.4, 0, Math.PI * 2);
+        ctx.arc(5.5, -14.8, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
       break;
     }
 
     case 'npc_dir_pp00_slim': {
       // 🎖️ PP00 處長專屬形象：身材纖瘦、灰髮中年大叔，身穿與 VP 截然不同的「鐵灰修身三件式西裝 + 酒紅背心與酒紅領帶」
-      // 1. 纖瘦窄版鐵灰西裝外套 (-8.5..8.5，比微胖 VP 窄了近一半！)
+      const isUp = dir === 'up';
+      const isSide = dir === 'left' || dir === 'right';
       const slimSuitGrad = ctx.createLinearGradient(0, -5, 0, 13);
       slimSuitGrad.addColorStop(0, '#475569');
       slimSuitGrad.addColorStop(1, '#334155');
-      ctx.fillStyle = slimSuitGrad;
-      fillRoundRect(ctx, -8.5, -4, 17, 16, 3.5);
 
-      // 內搭酒紅色修身西裝背心與淺藍襯衫領口
-      ctx.fillStyle = '#881337';
-      fillRoundRect(ctx, -4.5, -3, 9, 13, 2);
-      ctx.fillStyle = '#e0f2fe';
-      ctx.beginPath();
-      ctx.moveTo(-4, -4);
-      ctx.lineTo(4, -4);
-      ctx.lineTo(0, 3);
-      ctx.closePath();
-      ctx.fill();
+      if (isUp) {
+        // 背面：纖瘦修身鐵灰西裝後背、淺藍襯衫後領、西裝後背直縫線，後頸俐落鐵灰短髮（無酒紅領帶、無工作證、無面容）
+        ctx.fillStyle = slimSuitGrad;
+        fillRoundRect(ctx, -8.5, -4, 17, 16, 3.5);
+        ctx.fillStyle = '#e0f2fe';
+        ctx.fillRect(-4.5, -5, 9, 2);
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(0, -3);
+        ctx.lineTo(0, 11);
+        ctx.stroke();
 
-      // 酒紅窄版領帶 + 銀色領帶夾 + 處長識別證
-      ctx.fillStyle = '#e11d48';
-      ctx.fillRect(-1.2, -3, 2.4, 10);
-      ctx.fillStyle = '#e2e8f0';
-      ctx.fillRect(-1.8, 2, 3.6, 1.2);
-      ctx.fillStyle = '#38bdf8';
-      ctx.fillRect(3.5, 1, 3.5, 4.5);
+        ctx.fillStyle = '#fdba74';
+        fillRoundRect(ctx, -8, -25, 16, 19, 5);
+        ctx.fillStyle = '#64748b';
+        fillRoundRect(ctx, -8.8, -29, 17.6, 14, 3.5);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(-5, -23, 10, 2);
+      } else if (isSide) {
+        // 側面：修身精實側面、前胸露出酒紅背心與領帶邊緣、掛胸前的處長識別證、單耳、三七分鐵灰旁分髮、單眼專注神情
+        ctx.fillStyle = slimSuitGrad;
+        fillRoundRect(ctx, -7.5, -4, 15, 16, 3);
+        // 內搭酒紅背心與領帶微露
+        ctx.fillStyle = '#881337';
+        ctx.fillRect(2, -3, 3, 11);
+        ctx.fillStyle = '#e0f2fe';
+        ctx.fillRect(2, -4, 3, 2.5);
+        ctx.fillStyle = '#e11d48';
+        ctx.fillRect(3.5, -3, 2, 7);
+        // 處長識別證側面
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(4, 2, 2.5, 4);
 
-      // 2. 纖瘦稜角分明的中年大叔臉型（窄長臉 + 淡法令紋）
-      ctx.fillStyle = '#fdba74';
-      fillRoundRect(ctx, -8, -25, 16, 19, 5);
-      ctx.strokeStyle = 'rgba(154, 52, 18, 0.35)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(-4.5, -12);
-      ctx.lineTo(-5.5, -9);
-      ctx.moveTo(4.5, -12);
-      ctx.lineTo(5.5, -9);
-      ctx.stroke();
+        // 臉型側面與後側耳朵
+        ctx.fillStyle = '#fdba74';
+        fillRoundRect(ctx, -7.5, -25, 15, 19, 4.5);
+        ctx.beginPath();
+        ctx.arc(-4, -15, 2.3, 0, Math.PI * 2);
+        ctx.fill();
 
-      // 3. 俐落三七分線鐵灰短髮與灰眉
-      ctx.fillStyle = '#64748b';
-      fillRoundRect(ctx, -8.8, -29, 17.6, 7.5, 3.5);
-      // 髮絲灰白挑染線條與旁分瀏海
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillRect(-6, -28, 4, 2);
-      ctx.fillRect(2, -27, 4, 2);
-      ctx.fillStyle = '#475569';
-      ctx.fillRect(-6.5, -19.5, 4.5, 1.5);
-      ctx.fillRect(2, -19.5, 4.5, 1.5);
+        // 鐵灰旁分短髮
+        ctx.fillStyle = '#64748b';
+        fillRoundRect(ctx, -8, -29, 16, 7.5, 3.5);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(-2, -28, 4, 2);
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(1, -19.5, 4, 1.5);
 
-      // 專注嚴謹的雙眼與抿嘴神情
-      ctx.fillStyle = isBerserk ? '#ef4444' : '#0f172a';
-      ctx.beginPath();
-      ctx.arc(-4, -16, 1.5, 0, Math.PI * 2);
-      ctx.arc(4, -16, 1.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#7c2d12';
-      ctx.lineWidth = 1.3;
-      ctx.beginPath();
-      ctx.moveTo(-3, -10);
-      ctx.lineTo(3, -10);
-      ctx.stroke();
+        // 側面嚴謹單眼與淡法令紋
+        ctx.fillStyle = isBerserk ? '#ef4444' : '#0f172a';
+        ctx.beginPath();
+        ctx.arc(3.5, -16, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(154, 52, 18, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(3, -12);
+        ctx.lineTo(4, -9);
+        ctx.stroke();
+        ctx.strokeStyle = '#7c2d12';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(2, -10);
+        ctx.lineTo(4.5, -10);
+        ctx.stroke();
+      } else {
+        // 正面 (dir === 'down')
+        ctx.fillStyle = slimSuitGrad;
+        fillRoundRect(ctx, -8.5, -4, 17, 16, 3.5);
+
+        // 內搭酒紅色修身西裝背心與淺藍襯衫領口
+        ctx.fillStyle = '#881337';
+        fillRoundRect(ctx, -4.5, -3, 9, 13, 2);
+        ctx.fillStyle = '#e0f2fe';
+        ctx.beginPath();
+        ctx.moveTo(-4, -4);
+        ctx.lineTo(4, -4);
+        ctx.lineTo(0, 3);
+        ctx.closePath();
+        ctx.fill();
+
+        // 酒紅窄版領帶 + 銀色領帶夾 + 處長識別證
+        ctx.fillStyle = '#e11d48';
+        ctx.fillRect(-1.2, -3, 2.4, 10);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillRect(-1.8, 2, 3.6, 1.2);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(3.5, 1, 3.5, 4.5);
+
+        // 2. 纖瘦稜角分明的中年大叔臉型（窄長臉 + 淡法令紋）
+        ctx.fillStyle = '#fdba74';
+        fillRoundRect(ctx, -8, -25, 16, 19, 5);
+        ctx.strokeStyle = 'rgba(154, 52, 18, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-4.5, -12);
+        ctx.lineTo(-5.5, -9);
+        ctx.moveTo(4.5, -12);
+        ctx.lineTo(5.5, -9);
+        ctx.stroke();
+
+        // 3. 俐落三七分線鐵灰短髮與灰眉
+        ctx.fillStyle = '#64748b';
+        fillRoundRect(ctx, -8.8, -29, 17.6, 7.5, 3.5);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(-6, -28, 4, 2);
+        ctx.fillRect(2, -27, 4, 2);
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(-6.5, -19.5, 4.5, 1.5);
+        ctx.fillRect(2, -19.5, 4.5, 1.5);
+
+        ctx.fillStyle = isBerserk ? '#ef4444' : '#0f172a';
+        ctx.beginPath();
+        ctx.arc(-4, -16, 1.5, 0, Math.PI * 2);
+        ctx.arc(4, -16, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#7c2d12';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(-3, -10);
+        ctx.lineTo(3, -10);
+        ctx.stroke();
+      }
       break;
     }
 
     case 'npc_auntie_meifeng': {
       // 🧹 打掃阿姨・美鳳姐專屬獨立形象：捲髮桃紅碎花頭巾 + 玫瑰粉保潔圍裙
-      ctx.fillStyle = '#9d174d';
-      fillRoundRect(ctx, -11, -3, 22, 15, 5);
-      ctx.fillStyle = '#f472b6';
-      fillRoundRect(ctx, -8.5, -2, 17, 13, 3);
-      ctx.fillStyle = '#ffffff';
-      fillRoundRect(ctx, -5, 4, 10, 5, 2);
+      const isUp = dir === 'up';
+      const isSide = dir === 'left' || dir === 'right';
 
-      // 親切阿姨臉龐
-      ctx.fillStyle = '#fed7aa';
-      fillRoundRect(ctx, -10, -23, 20, 17, 6);
-      // 蓬鬆深褐捲髮與桃紅花頭巾
-      ctx.fillStyle = '#451a03';
-      ctx.beginPath();
-      ctx.arc(-10, -17, 4, 0, Math.PI * 2);
-      ctx.arc(10, -17, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#db2777';
-      fillRoundRect(ctx, -11, -28, 22, 8, 4);
-      ctx.fillStyle = '#fde047';
-      ctx.beginPath();
-      ctx.arc(-5, -24, 1.5, 0, Math.PI * 2);
-      ctx.arc(0, -25, 1.5, 0, Math.PI * 2);
-      ctx.arc(5, -24, 1.5, 0, Math.PI * 2);
-      ctx.fill();
+      if (isUp) {
+        // 背面：桃紅衣服後背、粉紅圍裙交叉綁帶與後蝴蝶結、深褐波浪捲髮後腦勺、碎花頭巾後綁結（無正面微笑五官）
+        ctx.fillStyle = '#9d174d';
+        fillRoundRect(ctx, -11, -3, 22, 15, 5);
+        // 交叉圍裙綁帶
+        ctx.fillStyle = '#f472b6';
+        ctx.fillRect(-6, -3, 3, 11);
+        ctx.fillRect(3, -3, 3, 11);
+        // 後腰圍裙蝴蝶結
+        ctx.beginPath();
+        ctx.arc(0, 7, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(0, 7);
+        ctx.lineTo(-4, 11);
+        ctx.lineTo(0, 9);
+        ctx.lineTo(4, 11);
+        ctx.closePath();
+        ctx.fill();
 
-      // 笑咪咪雙眼與笑容
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.arc(-4, -15, 1.6, 0, Math.PI * 2);
-      ctx.arc(4, -15, 1.6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#be123c';
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.arc(0, -11.5, 3, 0.1 * Math.PI, 0.9 * Math.PI);
-      ctx.stroke();
+        // 後腦波浪捲髮
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, -10, -23, 20, 17, 6);
+        ctx.fillStyle = '#451a03';
+        ctx.beginPath();
+        ctx.arc(-8, -19, 4.5, 0, Math.PI * 2);
+        ctx.arc(0, -20, 5, 0, Math.PI * 2);
+        ctx.arc(8, -19, 4.5, 0, Math.PI * 2);
+        ctx.arc(0, -15, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 桃紅頭巾後包裹與黃小碎花
+        ctx.fillStyle = '#db2777';
+        fillRoundRect(ctx, -11, -28, 22, 7, 4);
+        ctx.beginPath();
+        ctx.arc(0, -22, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath();
+        ctx.arc(-5, -26, 1.5, 0, Math.PI * 2);
+        ctx.arc(5, -26, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (isSide) {
+        // 側面：圍裙前胸側包覆與白色小口袋側面、後方小綁帶、後頸捲髮、頭巾側繫、親切笑咪咪單眼與微笑
+        ctx.fillStyle = '#9d174d';
+        fillRoundRect(ctx, -9, -3, 18, 15, 4);
+        ctx.fillStyle = '#f472b6';
+        fillRoundRect(ctx, 0, -2, 7, 13, 2);
+        ctx.fillStyle = '#ffffff';
+        fillRoundRect(ctx, 3, 4, 4, 5, 1.5);
+        // 後綁帶露出
+        ctx.fillStyle = '#f472b6';
+        ctx.beginPath();
+        ctx.arc(-8, 7, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 側面臉部與後腦捲髮
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, -9, -23, 18, 17, 5);
+        ctx.fillStyle = '#451a03';
+        ctx.beginPath();
+        ctx.arc(-7, -17, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 頭巾側包與碎花
+        ctx.fillStyle = '#db2777';
+        fillRoundRect(ctx, -10, -28, 19, 8, 4);
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath();
+        ctx.arc(0, -25, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 側面笑咪咪單眼與親切弧形微笑
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(3, -15, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#be123c';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(3, -12, 2.5, 0.1 * Math.PI, 0.8 * Math.PI);
+        ctx.stroke();
+      } else {
+        // 正面 (dir === 'down')
+        ctx.fillStyle = '#9d174d';
+        fillRoundRect(ctx, -11, -3, 22, 15, 5);
+        ctx.fillStyle = '#f472b6';
+        fillRoundRect(ctx, -8.5, -2, 17, 13, 3);
+        ctx.fillStyle = '#ffffff';
+        fillRoundRect(ctx, -5, 4, 10, 5, 2);
+
+        // 親切阿姨臉龐
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, -10, -23, 20, 17, 6);
+        // 蓬鬆深褐捲髮與桃紅花頭巾
+        ctx.fillStyle = '#451a03';
+        ctx.beginPath();
+        ctx.arc(-10, -17, 4, 0, Math.PI * 2);
+        ctx.arc(10, -17, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#db2777';
+        fillRoundRect(ctx, -11, -28, 22, 8, 4);
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath();
+        ctx.arc(-5, -24, 1.5, 0, Math.PI * 2);
+        ctx.arc(0, -25, 1.5, 0, Math.PI * 2);
+        ctx.arc(5, -24, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 笑咪咪雙眼與笑容
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(-4, -15, 1.6, 0, Math.PI * 2);
+        ctx.arc(4, -15, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#be123c';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(0, -11.5, 3, 0.1 * Math.PI, 0.9 * Math.PI);
+        ctx.stroke();
+      }
       break;
     }
 
     case 'npc_auntie_shufen': {
       // 🧽 打掃阿姨・淑芬姐專屬獨立形象：丸子頭天藍格紋頭巾 + 青色防水圍裙 + 黃色橡膠手套
-      ctx.fillStyle = '#155e75';
-      fillRoundRect(ctx, -11, -3, 22, 15, 5);
-      ctx.fillStyle = '#22d3ee';
-      fillRoundRect(ctx, -8.5, -2, 17, 13, 3);
-      // 兩側亮黃橡膠家事手套
-      ctx.fillStyle = '#facc15';
-      ctx.beginPath();
-      ctx.arc(-12, 4, 3.5, 0, Math.PI * 2);
-      ctx.arc(12, 4, 3.5, 0, Math.PI * 2);
-      ctx.fill();
+      const isUp = dir === 'up';
+      const isSide = dir === 'left' || dir === 'right';
 
-      // 淑芬姐臉龐與頂部包頭丸子
-      ctx.fillStyle = '#27272a';
-      ctx.beginPath();
-      ctx.arc(0, -30, 5.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#fed7aa';
-      fillRoundRect(ctx, -10, -23, 20, 17, 6);
-      // 天藍格紋頭巾髮帶
-      ctx.fillStyle = '#0284c7';
-      fillRoundRect(ctx, -11, -26, 22, 6, 3);
-      ctx.fillStyle = '#bae6fd';
-      ctx.fillRect(-7, -25, 3, 4);
-      ctx.fillRect(0, -25, 3, 4);
-      ctx.fillRect(6, -25, 3, 4);
+      if (isUp) {
+        // 背面：深青基底、青色防水圍裙背部掛繩、兩側黃色家事橡膠手套、頂部高聳黑丸子頭背影、天藍格紋頭巾後側
+        ctx.fillStyle = '#155e75';
+        fillRoundRect(ctx, -11, -3, 22, 15, 5);
+        ctx.fillStyle = '#22d3ee';
+        ctx.fillRect(-6, -3, 3, 11);
+        ctx.fillRect(3, -3, 3, 11);
+        ctx.beginPath();
+        ctx.arc(0, 6, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        // 兩側微露亮黃手套
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(-11, 4, 3, 0, Math.PI * 2);
+        ctx.arc(11, 4, 3, 0, Math.PI * 2);
+        ctx.fill();
 
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.arc(-4, -15, 1.6, 0, Math.PI * 2);
-      ctx.arc(4, -15, 1.6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 1.3;
-      ctx.beginPath();
-      ctx.arc(0, -11.5, 2.8, 0.1 * Math.PI, 0.9 * Math.PI);
-      ctx.stroke();
+        // 頂部大丸子頭後視與後腦天藍格紋頭巾
+        ctx.fillStyle = '#27272a';
+        ctx.beginPath();
+        ctx.arc(0, -29, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, -10, -23, 20, 17, 6);
+        ctx.fillStyle = '#0284c7';
+        fillRoundRect(ctx, -11, -26, 22, 6, 3);
+        ctx.fillStyle = '#bae6fd';
+        ctx.fillRect(-5, -25, 3, 4);
+        ctx.fillRect(2, -25, 3, 4);
+      } else if (isSide) {
+        // 側面：青色圍裙側面、前方單隻亮黃手套、側向丸子頭、格紋頭巾側面、單眼與沉穩弧線微笑
+        ctx.fillStyle = '#155e75';
+        fillRoundRect(ctx, -9, -3, 18, 15, 4);
+        ctx.fillStyle = '#22d3ee';
+        fillRoundRect(ctx, 1, -2, 7, 13, 2);
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(7, 4, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 丸子頭微偏後上方
+        ctx.fillStyle = '#27272a';
+        ctx.beginPath();
+        ctx.arc(-3, -30, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, -9, -23, 18, 17, 5);
+        ctx.fillStyle = '#0284c7';
+        fillRoundRect(ctx, -10, -26, 19, 6, 3);
+        ctx.fillStyle = '#bae6fd';
+        ctx.fillRect(1, -25, 3, 4);
+
+        // 側面單眼與嘴角
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(3, -15, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.arc(2.5, -11.5, 2.5, 0.1 * Math.PI, 0.8 * Math.PI);
+        ctx.stroke();
+      } else {
+        // 正面 (dir === 'down')
+        ctx.fillStyle = '#155e75';
+        fillRoundRect(ctx, -11, -3, 22, 15, 5);
+        ctx.fillStyle = '#22d3ee';
+        fillRoundRect(ctx, -8.5, -2, 17, 13, 3);
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(-12, 4, 3.5, 0, Math.PI * 2);
+        ctx.arc(12, 4, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 淑芬姐臉龐與頂部包頭丸子
+        ctx.fillStyle = '#27272a';
+        ctx.beginPath();
+        ctx.arc(0, -30, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, -10, -23, 20, 17, 6);
+        ctx.fillStyle = '#0284c7';
+        fillRoundRect(ctx, -11, -26, 22, 6, 3);
+        ctx.fillStyle = '#bae6fd';
+        ctx.fillRect(-7, -25, 3, 4);
+        ctx.fillRect(0, -25, 3, 4);
+        ctx.fillRect(6, -25, 3, 4);
+
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(-4, -15, 1.6, 0, Math.PI * 2);
+        ctx.arc(4, -15, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.arc(0, -11.5, 2.8, 0.1 * Math.PI, 0.9 * Math.PI);
+        ctx.stroke();
+      }
       break;
     }
 
     case 'npc_flamingo_cmd':
     case 'flamingo_cmd': {
       // 🦩 鳥人指揮官 (NPC 專屬)：深藍指揮官制服 + 拍動粉紅羽翼 + 超誇張立體紅鶴長頸頭套
+      const isUp = dir === 'up';
+      const isSide = dir === 'left' || dir === 'right';
       const wingFlap = Math.sin(tick * 0.42) * 6;
-      // 兩側粉紅紅鶴翅膀
-      ctx.fillStyle = '#f472b6';
-      ctx.beginPath();
-      ctx.ellipse(-15, -2 + wingFlap * 0.5, 7, 11, -0.35, 0, Math.PI * 2);
-      ctx.ellipse(15, -2 - wingFlap * 0.5, 7, 11, 0.35, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 指揮官筆挺制服與金色肩章
-      ctx.fillStyle = '#1e293b';
-      fillRoundRect(ctx, -11, -4, 22, 16, 5);
-      ctx.fillStyle = '#facc15';
-      ctx.fillRect(-12, -4, 5, 3);
-      ctx.fillRect(7, -4, 5, 3);
-      ctx.fillRect(-2, -1, 4, 10);
-
-      // 角色臉部與紅鶴大頭套基底
+      const neckSway = Math.sin(tick * 0.22) * 2.5;
       const flamGrad = ctx.createLinearGradient(0, -32, 0, -4);
       flamGrad.addColorStop(0, '#ec4899');
       flamGrad.addColorStop(1, '#db2777');
-      ctx.fillStyle = flamGrad;
-      fillRoundRect(ctx, -13, -25, 26, 21, 9);
 
-      // 頭套內露出的指揮官墨鏡臉
-      ctx.fillStyle = '#fed7aa';
-      fillRoundRect(ctx, -8, -17, 16, 10, 4);
-      ctx.fillStyle = '#0f172a';
-      fillRoundRect(ctx, -7, -16, 6, 4, 1);
-      fillRoundRect(ctx, 1, -16, 6, 4, 1);
-      ctx.strokeStyle = '#facc15';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.moveTo(-1, -14);
-      ctx.lineTo(1, -14);
-      ctx.stroke();
+      if (isUp) {
+        // 背面：拍動雙翼、深藍制服後背中縫、金色肩章後部、紅鶴頭套後腦勺羽毛結、高聳紅鶴後頸與後視頭部雙眼
+        ctx.fillStyle = '#f472b6';
+        ctx.beginPath();
+        ctx.ellipse(-15, -2 + wingFlap * 0.5, 7, 11, -0.35, 0, Math.PI * 2);
+        ctx.ellipse(15, -2 - wingFlap * 0.5, 7, 11, 0.35, 0, Math.PI * 2);
+        ctx.fill();
 
-      // 高聳彎曲的紅鶴長脖子與紅鶴頭頂
-      const neckSway = Math.sin(tick * 0.22) * 2.5;
-      ctx.strokeStyle = '#ec4899';
-      ctx.lineWidth = 7;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(0, -23);
-      ctx.quadraticCurveTo(-6 + neckSway, -34, 2 + neckSway, -43);
-      ctx.stroke();
+        ctx.fillStyle = '#1e293b';
+        fillRoundRect(ctx, -11, -4, 22, 16, 5);
+        ctx.fillStyle = '#facc15';
+        ctx.fillRect(-12, -4, 5, 3);
+        ctx.fillRect(7, -4, 5, 3);
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(0, -4);
+        ctx.lineTo(0, 11);
+        ctx.stroke();
 
-      // 紅鶴頭部圓球
-      ctx.fillStyle = '#f472b6';
-      ctx.beginPath();
-      ctx.arc(3 + neckSway, -44, 6.5, 0, Math.PI * 2);
-      ctx.fill();
+        // 紅鶴大頭套後側（完全無指揮官臉部與墨鏡）
+        ctx.fillStyle = flamGrad;
+        fillRoundRect(ctx, -13, -25, 26, 21, 9);
+        ctx.fillStyle = '#f472b6';
+        ctx.beginPath();
+        ctx.arc(0, -14, 4, 0, Math.PI * 2);
+        ctx.fill();
 
-      // 紅鶴黑白彎曲尖喙
-      ctx.fillStyle = '#fef2f2';
-      ctx.beginPath();
-      ctx.moveTo(8 + neckSway, -46);
-      ctx.quadraticCurveTo(17 + neckSway, -45, 16 + neckSway, -38);
-      ctx.lineTo(8 + neckSway, -41);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.moveTo(13 + neckSway, -43);
-      ctx.lineTo(16 + neckSway, -38);
-      ctx.lineTo(11 + neckSway, -40);
-      ctx.closePath();
-      ctx.fill();
+        // 紅鶴長脖子後視直線延伸與頭部
+        ctx.strokeStyle = '#ec4899';
+        ctx.lineWidth = 7;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(0, -23);
+        ctx.quadraticCurveTo(neckSway, -34, neckSway, -43);
+        ctx.stroke();
 
-      // 紅鶴金黃色眼睛
-      ctx.fillStyle = '#fde047';
-      ctx.beginPath();
-      ctx.arc(4.5 + neckSway, -45, 1.8, 0, Math.PI * 2);
-      ctx.fill();
+        ctx.fillStyle = '#f472b6';
+        ctx.beginPath();
+        ctx.arc(neckSway, -44, 6.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 頭頂兩側紅鶴小眼睛
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath();
+        ctx.arc(-4 + neckSway, -44, 1.6, 0, Math.PI * 2);
+        ctx.arc(4 + neckSway, -44, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (isSide) {
+        // 側面：單側拍動大羽翼、制服側面單肩章、紅鶴頭套向前挖空露出指揮官側墨鏡、優雅S型向前延伸的紅鶴長脖與標誌性下彎巨喙
+        ctx.fillStyle = '#f472b6';
+        ctx.beginPath();
+        ctx.ellipse(-6, -2 + wingFlap * 0.5, 9, 13, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#1e293b';
+        fillRoundRect(ctx, -9, -4, 18, 16, 4);
+        ctx.fillStyle = '#facc15';
+        ctx.fillRect(1, -4, 6, 3);
+
+        // 紅鶴頭套側面與指揮官墨鏡面容
+        ctx.fillStyle = flamGrad;
+        fillRoundRect(ctx, -11, -25, 22, 21, 8);
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, 1, -17, 8, 10, 3);
+        ctx.fillStyle = '#0f172a';
+        fillRoundRect(ctx, 2, -16, 7, 4, 1);
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(2, -14);
+        ctx.lineTo(-3, -14);
+        ctx.stroke();
+
+        // 側面向前拱起的紅鶴優雅長頸
+        ctx.strokeStyle = '#ec4899';
+        ctx.lineWidth = 7;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-2, -23);
+        ctx.quadraticCurveTo(4 + neckSway, -34, 10 + neckSway, -43);
+        ctx.stroke();
+
+        ctx.fillStyle = '#f472b6';
+        ctx.beginPath();
+        ctx.arc(11 + neckSway, -44, 6.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 標誌性向前大幅勾下的紅鶴黑白巨喙
+        ctx.fillStyle = '#fef2f2';
+        ctx.beginPath();
+        ctx.moveTo(15 + neckSway, -46);
+        ctx.quadraticCurveTo(24 + neckSway, -44, 22 + neckSway, -36);
+        ctx.lineTo(15 + neckSway, -40);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.moveTo(19 + neckSway, -41);
+        ctx.lineTo(22 + neckSway, -36);
+        ctx.lineTo(17 + neckSway, -38);
+        ctx.closePath();
+        ctx.fill();
+
+        // 側面單金黃大眼
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath();
+        ctx.arc(13 + neckSway, -45, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // 正面 (dir === 'down')
+        ctx.fillStyle = '#f472b6';
+        ctx.beginPath();
+        ctx.ellipse(-15, -2 + wingFlap * 0.5, 7, 11, -0.35, 0, Math.PI * 2);
+        ctx.ellipse(15, -2 - wingFlap * 0.5, 7, 11, 0.35, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 指揮官筆挺制服與金色肩章
+        ctx.fillStyle = '#1e293b';
+        fillRoundRect(ctx, -11, -4, 22, 16, 5);
+        ctx.fillStyle = '#facc15';
+        ctx.fillRect(-12, -4, 5, 3);
+        ctx.fillRect(7, -4, 5, 3);
+        ctx.fillRect(-2, -1, 4, 10);
+
+        // 角色臉部與紅鶴大頭套基底
+        ctx.fillStyle = flamGrad;
+        fillRoundRect(ctx, -13, -25, 26, 21, 9);
+
+        // 頭套內露出的指揮官墨鏡臉
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, -8, -17, 16, 10, 4);
+        ctx.fillStyle = '#0f172a';
+        fillRoundRect(ctx, -7, -16, 6, 4, 1);
+        fillRoundRect(ctx, 1, -16, 6, 4, 1);
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(-1, -14);
+        ctx.lineTo(1, -14);
+        ctx.stroke();
+
+        // 高聳彎曲的紅鶴長脖子與紅鶴頭頂
+        ctx.strokeStyle = '#ec4899';
+        ctx.lineWidth = 7;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(0, -23);
+        ctx.quadraticCurveTo(-6 + neckSway, -34, 2 + neckSway, -43);
+        ctx.stroke();
+
+        // 紅鶴頭部圓球
+        ctx.fillStyle = '#f472b6';
+        ctx.beginPath();
+        ctx.arc(3 + neckSway, -44, 6.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 紅鶴黑白彎曲尖喙
+        ctx.fillStyle = '#fef2f2';
+        ctx.beginPath();
+        ctx.moveTo(8 + neckSway, -46);
+        ctx.quadraticCurveTo(17 + neckSway, -45, 16 + neckSway, -38);
+        ctx.lineTo(8 + neckSway, -41);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.moveTo(13 + neckSway, -43);
+        ctx.lineTo(16 + neckSway, -38);
+        ctx.lineTo(11 + neckSway, -40);
+        ctx.closePath();
+        ctx.fill();
+
+        // 紅鶴金黃色眼睛
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath();
+        ctx.arc(4.5 + neckSway, -45, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
       break;
     }
 
-        case 'npc_security_guard': {
+    case 'npc_security_guard': {
       // 🏏 夜間巡邏警衛・老李：深藍防暴安保制服 + 金徽大盤帽 + 黑色警棍
+      const isUp = dir === 'up';
+      const isSide = dir === 'left' || dir === 'right';
       const batonSwing = Math.sin(tick * 0.35) * 6;
 
-      // 1. 軀幹：深藍色制服與黑色戰術防暴背心
-      ctx.fillStyle = '#1e3a8a';
-      fillRoundRect(ctx, -11, -4, 22, 16, 4);
-      ctx.fillStyle = '#0f172a';
-      fillRoundRect(ctx, -8, -2, 16, 12, 3);
+      if (isUp) {
+        // 背面：深藍制服、黑色防暴戰術背心後背（SECURITY反光條）、雙肩金色肩章、戰術腰帶與後置手銬包、側身垂掛的黑色警棍、後腦短髮與大盤帽後帽檐（無面容、無帽徽）
+        ctx.fillStyle = '#1e3a8a';
+        fillRoundRect(ctx, -11, -4, 22, 16, 4);
+        ctx.fillStyle = '#0f172a';
+        fillRoundRect(ctx, -8, -2, 16, 12, 3);
+        // 反光條與肩章
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(-6, 1, 12, 2.5);
+        ctx.fillRect(-12, -4, 4, 3);
+        ctx.fillRect(8, -4, 4, 3);
+        // 戰術腰帶與手銬包
+        ctx.fillStyle = '#020617';
+        ctx.fillRect(-11, 8, 22, 4);
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(-3, 7, 6, 5);
 
-      // 金色肩章與警衛標籤
-      ctx.fillStyle = '#fbbf24';
-      ctx.fillRect(-12, -4, 4, 3);
-      ctx.fillRect(8, -4, 4, 3);
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(-6, 0, 5, 2.5);
-      ctx.fillStyle = '#fbbf24';
-      ctx.beginPath();
-      ctx.arc(3, 1, 1.8, 0, Math.PI * 2);
-      ctx.fill();
+        // 側身垂掛防暴警棍
+        ctx.save();
+        ctx.translate(12, 2 + batonSwing * 0.2);
+        ctx.fillStyle = '#020617';
+        fillRoundRect(ctx, -2, -10, 4, 18, 2);
+        ctx.restore();
 
-      // 戰術腰帶與對講機
-      ctx.fillStyle = '#020617';
-      ctx.fillRect(-11, 8, 22, 4);
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillRect(-2, 8, 4, 4);
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(-10, 6, 3, 6);
+        // 臉部後背與後頸短髮
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, -9, -21, 18, 17, 5);
+        ctx.fillStyle = '#1e293b';
+        fillRoundRect(ctx, -9, -16, 18, 6, 2);
 
-      // 2. 右手手持黑色防暴警棍
-      ctx.save();
-      ctx.translate(13, 2 + batonSwing * 0.3);
-      ctx.rotate(((25 + batonSwing * 3) * Math.PI) / 180);
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(-2, -2, 4, 6);
-      ctx.fillStyle = '#020617';
-      fillRoundRect(ctx, -2.5, -20, 5, 19, 2);
-      ctx.fillStyle = '#475569';
-      ctx.fillRect(-3, -16, 6, 2);
-      ctx.restore();
+        // 大盤帽後冠與後帽圈
+        ctx.fillStyle = '#1e3a8a';
+        fillRoundRect(ctx, -13, -31, 26, 13, 5);
+        ctx.fillStyle = '#020617';
+        fillRoundRect(ctx, -13, -21, 26, 3.5, 1.5);
+      } else if (isSide) {
+        // 側面：制服側面、防暴背心側身、胸口警徽側面微露、腰帶對講機與天線、向前揮舞的警棍、俐落鬢角與單側威嚴眼眸、大盤帽黑帽檐向前突出
+        ctx.fillStyle = '#1e3a8a';
+        fillRoundRect(ctx, -8, -4, 16, 16, 3.5);
+        ctx.fillStyle = '#0f172a';
+        fillRoundRect(ctx, -5, -2, 12, 12, 2.5);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(0, -4, 5, 3);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(4, 0, 3, 2.5);
 
-      // 3. 臉部與大盤帽
-      ctx.fillStyle = '#fed7aa';
-      fillRoundRect(ctx, -9, -21, 18, 17, 5);
+        // 側腰對講機
+        ctx.fillStyle = '#020617';
+        ctx.fillRect(-8, 8, 16, 4);
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(-7, 5, 3.5, 6);
+        ctx.strokeStyle = '#020617';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-5, 5);
+        ctx.lineTo(-5, 1);
+        ctx.stroke();
 
-      // 俐落鬢角
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(-10, -20, 3, 6);
-      ctx.fillRect(7, -20, 3, 6);
+        // 側面警棍揮擊動作
+        ctx.save();
+        ctx.translate(8, 2 + batonSwing * 0.3);
+        ctx.rotate(((30 + batonSwing * 3) * Math.PI) / 180);
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(-2, -2, 4, 6);
+        ctx.fillStyle = '#020617';
+        fillRoundRect(ctx, -2.5, -20, 5, 19, 2);
+        ctx.restore();
 
-      // 威嚴濃眉與雙眼
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(-6, -17, 4, 1.5);
-      ctx.fillRect(2, -17, 4, 1.5);
-      ctx.beginPath();
-      ctx.arc(-4, -13.5, 1.6, 0, Math.PI * 2);
-      ctx.arc(4, -13.5, 1.6, 0, Math.PI * 2);
-      ctx.fill();
+        // 臉部側面輪廓與鬢角耳廓
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, -8, -21, 16, 17, 4.5);
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(-7, -20, 3, 6);
+        ctx.fillStyle = '#fed7aa';
+        ctx.beginPath();
+        ctx.arc(-4, -14, 2.3, 0, Math.PI * 2);
+        ctx.fill();
 
-      // 微閉沉穩嘴唇
-      ctx.strokeStyle = '#78350f';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.moveTo(-2, -9);
-      ctx.lineTo(2, -9);
-      ctx.stroke();
+        // 大盤帽側面與向前突出的黑色平帽檐
+        ctx.fillStyle = '#1e3a8a';
+        fillRoundRect(ctx, -10, -31, 21, 12, 5);
+        ctx.fillStyle = '#020617';
+        fillRoundRect(ctx, -6, -22, 18, 4, 2);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(-8, -22, 15, 2);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(3, -27, 4, 5);
 
-      // 4. 金徽深藍大盤帽
-      ctx.fillStyle = '#1e3a8a';
-      fillRoundRect(ctx, -13, -31, 26, 12, 5);
-      ctx.fillStyle = '#020617';
-      fillRoundRect(ctx, -14, -22, 28, 4, 2);
-      ctx.fillStyle = '#fbbf24';
-      ctx.fillRect(-11, -22, 22, 2);
-      ctx.fillStyle = '#f59e0b';
-      ctx.beginPath();
-      ctx.moveTo(0, -28);
-      ctx.lineTo(4, -25);
-      ctx.lineTo(3, -21);
-      ctx.lineTo(-3, -21);
-      ctx.lineTo(-4, -25);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#fef08a';
-      ctx.beginPath();
-      ctx.arc(0, -24.5, 1.5, 0, Math.PI * 2);
-      ctx.fill();
+        // 威嚴單眉與眼神、沉穩抿嘴
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(2, -17, 4, 1.5);
+        ctx.beginPath();
+        ctx.arc(4, -13.5, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#78350f';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(2, -9);
+        ctx.lineTo(5, -9);
+        ctx.stroke();
+      } else {
+        // 正面 (dir === 'down')
+        // 1. 軀幹：深藍色制服與黑色戰術防暴背心
+        ctx.fillStyle = '#1e3a8a';
+        fillRoundRect(ctx, -11, -4, 22, 16, 4);
+        ctx.fillStyle = '#0f172a';
+        fillRoundRect(ctx, -8, -2, 16, 12, 3);
+
+        // 金色肩章與警衛標籤
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(-12, -4, 4, 3);
+        ctx.fillRect(8, -4, 4, 3);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(-6, 0, 5, 2.5);
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(3, 1, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 戰術腰帶與對講機
+        ctx.fillStyle = '#020617';
+        ctx.fillRect(-11, 8, 22, 4);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(-2, 8, 4, 4);
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(-10, 6, 3, 6);
+
+        // 2. 右手手持黑色防暴警棍
+        ctx.save();
+        ctx.translate(13, 2 + batonSwing * 0.3);
+        ctx.rotate(((25 + batonSwing * 3) * Math.PI) / 180);
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(-2, -2, 4, 6);
+        ctx.fillStyle = '#020617';
+        fillRoundRect(ctx, -2.5, -20, 5, 19, 2);
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(-3, -16, 6, 2);
+        ctx.restore();
+
+        // 3. 臉部與大盤帽
+        ctx.fillStyle = '#fed7aa';
+        fillRoundRect(ctx, -9, -21, 18, 17, 5);
+
+        // 俐落鬢角
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(-10, -20, 3, 6);
+        ctx.fillRect(7, -20, 3, 6);
+
+        // 威嚴濃眉與雙眼
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(-6, -17, 4, 1.5);
+        ctx.fillRect(2, -17, 4, 1.5);
+        ctx.beginPath();
+        ctx.arc(-4, -13.5, 1.6, 0, Math.PI * 2);
+        ctx.arc(4, -13.5, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 微閉沉穩嘴唇
+        ctx.strokeStyle = '#78350f';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(-2, -9);
+        ctx.lineTo(2, -9);
+        ctx.stroke();
+
+        // 4. 金徽深藍大盤帽
+        ctx.fillStyle = '#1e3a8a';
+        fillRoundRect(ctx, -13, -31, 26, 12, 5);
+        ctx.fillStyle = '#020617';
+        fillRoundRect(ctx, -14, -22, 28, 4, 2);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(-11, -22, 22, 2);
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.moveTo(0, -28);
+        ctx.lineTo(4, -25);
+        ctx.lineTo(3, -21);
+        ctx.lineTo(-3, -21);
+        ctx.lineTo(-4, -25);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        ctx.arc(0, -24.5, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
       break;
     }
 
     case 'crt_bot': {
       ctx.fillStyle = '#475569';
       fillRoundRect(ctx, -11, -5, 22, 18, 4);
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(-2, -3, 4, 14);
+      if (dir !== 'up') {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(-2, -3, 4, 14);
+      }
       drawWearableLayer(ctx, { id: 'crt_bot' }, tick, dir);
       break;
     }
@@ -1441,7 +1943,7 @@ window.drawWackyAvatar = function (ctx, opts) {
     }
   }
 
-  if(officePerson)drawWearableLayer(ctx,appearance.costume,tick,dir);
+  if(officePerson && appearance.renderId !== appearance.costume?.id)drawWearableLayer(ctx,appearance.costume,tick,dir);
 
   // 4. 若是打掃阿姨或啟動「🧹 揮汗大掃除」動作，在手上畫出動態揮舞的黃金長柄掃把
   if ((isSweeper && !actionState) || actionState === 'sweep_floor') {
@@ -1569,7 +2071,7 @@ window.drawWackyAvatar = function (ctx, opts) {
   // =========================================================================
   // 5. 繪製被暴走 NPC 擊飛時的空中殘影與衝擊波星芒
   // =========================================================================
-  if (isKnockedBack) {
+  if (isKnockedBack && !opts.combatDown) {
     ctx.save();
     ctx.translate(x, y - jumpOffset);
     ctx.textAlign = 'center';
