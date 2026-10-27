@@ -1,6 +1,42 @@
+-- 確保 public.gather_online_users 與 public.gather_audit_logs 資料表存在
+create table if not exists public.gather_online_users (
+  client_id text primary key,
+  user_name text not null,
+  unit text,
+  avatar_id text,
+  status text default 'active',
+  x numeric default 0,
+  y numeric default 0,
+  dir text default 'down',
+  action_state text,
+  held_item text,
+  equipped_slots jsonb default '[]'::jsonb,
+  last_heartbeat timestamptz default now()
+);
+
+create table if not exists public.gather_audit_logs (
+  id bigint generated always as identity primary key,
+  client_id text,
+  user_name text,
+  unit text,
+  event_type text not null,
+  meta jsonb default '{}'::jsonb,
+  created_at timestamptz default now()
+);
+
 -- Presence and history are written with the same cloud commit as the game state.
 -- Old browser tabs may read records, but cannot repopulate a reset via anonymous writes.
-revoke insert, update, delete, truncate, references, trigger on public.gather_online_users, public.gather_audit_logs from public, anon, authenticated;
+do $$
+begin
+  if exists (select from pg_tables where schemaname = 'public' and tablename = 'gather_online_users') then
+    execute 'grant select on table public.gather_online_users to anon, authenticated';
+    execute 'revoke insert, update, delete, truncate, references, trigger on public.gather_online_users from public, anon, authenticated';
+  end if;
+  if exists (select from pg_tables where schemaname = 'public' and tablename = 'gather_audit_logs') then
+    execute 'grant select on table public.gather_audit_logs to anon, authenticated';
+    execute 'revoke insert, update, delete, truncate, references, trigger on public.gather_audit_logs from public, anon, authenticated';
+  end if;
+end $$;
 create or replace function public.gather_s2_commit(p_revision bigint,p_state jsonb,p_scope text,p_request uuid,p_result jsonb) returns boolean
 language plpgsql security definer set search_path='' as $$
 declare
