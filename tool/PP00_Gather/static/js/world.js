@@ -1207,7 +1207,7 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
   ctx.textAlign='left';ctx.fillStyle='#bae6fd';ctx.font='bold 12px sans-serif';ctx.fillText('TAIEX · 台灣加權股價指數',sc.x+16,sc.y+6);
   ctx.fillStyle='#f8fafc';ctx.font='bold 26px monospace';ctx.fillText(stData.valueText||'--',sc.x+16,sc.y+39);
   ctx.fillStyle=stData.direction>0?'#ff6262':stData.direction<0?'#35d49a':'#aebdd0';ctx.font='bold 15px monospace';ctx.fillText(stData.changeText||'--',sc.x+16,sc.y+64);
-  ctx.fillStyle='#94a3b8';ctx.font='10px sans-serif';ctx.fillText(stData.dateText||'行情日期：--',sc.x+16,sc.y+86);ctx.fillText('TWSE · 最近交易日收盤資料',sc.x+16,sc.y+103);ctx.restore();
+  ctx.fillStyle='#94a3b8';ctx.font='10px sans-serif';ctx.fillText(stData.dateText||'行情日期：--',sc.x+16,sc.y+86);ctx.fillText(stData.statusText || 'TWSE · 官方即時行情',sc.x+16,sc.y+103);ctx.restore();
 
   // 會議室 B (中左：685..1180)
   drawOfficeMaterial(ctx, 685, 1252, 495, 560, 'carpet', '#dfcdd3', '#986d80');

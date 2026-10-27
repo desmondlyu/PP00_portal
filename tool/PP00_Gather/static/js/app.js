@@ -1812,7 +1812,7 @@
           st.valueText = data.formattedValue || data.value.toLocaleString('en-US', { minimumFractionDigits: 2 });
           st.changeText = data.formattedChange || '';
           st.direction = data.sign || 0;
-          st.dateText = `行情日期：${data.date}`;
+          st.dateText = data.time ? `行情時間：${data.date} ${data.time}` : `行情日期：${data.date}`;
           st.statusText = data.statusText || '最近交易日收盤資料 (TWSE 官方盤後)';
           loaded = true;
         }
