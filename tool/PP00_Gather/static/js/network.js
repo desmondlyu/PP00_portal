@@ -26,8 +26,50 @@ class EphemeralOfficeNetwork {
 
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', () => this.disconnect());
-      window.addEventListener('pagehide', () => this.disconnect());
+      window.addEventListener('pagehide', (event) => { if (!event.persisted) this.disconnect(); });
     }
+  }
+
+  // Session-only keys: no private key or plaintext is persisted.
+  async preparePrivateKey() {
+    if (!this.privateKeyPromise) this.privateKeyPromise = (async () => {
+      this.privateKeyPair = await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'}, false, ['deriveKey']);
+      this.privatePublicKey = await crypto.subtle.exportKey('jwk', this.privateKeyPair.publicKey);
+    })();
+    return this.privateKeyPromise;
+  }
+
+  async peerKey(publicKey) {
+    await this.preparePrivateKey();
+    const peer = await crypto.subtle.importKey('jwk', publicKey, {name:'ECDH',namedCurve:'P-256'}, false, []);
+    return crypto.subtle.deriveKey({name:'ECDH',public:peer}, this.privateKeyPair.privateKey, {name:'AES-GCM',length:256}, false, ['encrypt','decrypt']);
+  }
+
+  async encryptPrivate(publicKey, text) {
+    const key = await this.peerKey(publicKey);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, new TextEncoder().encode(text));
+    return {iv:Array.from(iv), ciphertext:Array.from(new Uint8Array(encrypted))};
+  }
+
+  async decryptPrivate(publicKey, packet) {
+    if (!Array.isArray(packet.iv) || packet.iv.length !== 12 || !Array.isArray(packet.ciphertext) || packet.ciphertext.length > 1024) throw new Error('Invalid private message');
+    const key = await this.peerKey(publicKey);
+    return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(packet.iv)}, key, new Uint8Array(packet.ciphertext)));
+  }
+
+  async sendEncryptedPrivate(targetId, text) {
+    const peer = this.remotePlayers.get(targetId);
+    if (!peer || peer.connectionLostAt || !peer.privatePublicKey || !this.isCloudConnected) throw new Error('對方離線或加密尚未就緒，草稿已保留');
+    const payload = await this.encryptPrivate(peer.privatePublicKey, text);
+    if (!this.remotePlayers.has(targetId) || this.remotePlayers.get(targetId).connectionLostAt) throw new Error('對方已離線，草稿已保留');
+    const result = await this.broadcastPacket('private_chat_encrypted', {targetId, ...payload});
+    if (result !== 'ok') throw new Error('私訊傳送失敗，草稿已保留');
+  }
+
+  deferPlayerLeave(id) {
+    const p = this.remotePlayers.get(id);
+    if (p && !p.connectionLostAt) {p.connectionLostAt = Date.now();p.status = 'away';}
   }
 
   markPlayerLeft(id, permanent = true) {
@@ -573,6 +615,9 @@ class EphemeralOfficeNetwork {
   }
 
   connect(playerProfile, roomCode = 'PP00') {
+    this.preparePrivateKey().then(() => {
+      if (this.localPlayer) this.broadcastPacket('state_sync', {player:this.getPublicState()});
+    }).catch(() => console.warn('此瀏覽器無法啟用加密私訊'));
     this.localPlayer = playerProfile;
     if (this.localPlayer) {
       this.localPlayer.id = this.clientId;
@@ -638,7 +683,7 @@ class EphemeralOfficeNetwork {
           })
           .on('presence', { event: 'leave' }, ({ key }) => {
             if (key === this.clientId) return;
-            this.markPlayerLeft(key, false);
+            this.deferPlayerLeave(key);
           })
           .subscribe(async (status) => {
             if (status === 'SUBSCRIBED' && !this.disconnectPromise) {
@@ -687,7 +732,8 @@ class EphemeralOfficeNetwork {
       outfitAvatarId: this.localPlayer.outfitAvatarId || null,
       outfitUid: this.localPlayer.outfitUid || null,
       inventoryState: {inventory:(this.localPlayer.inventory || []).map(i=>({id:i.id,category:i.category,durability:i.durability,maxDurability:i.maxDurability,count:i.count})), equippedSlots:(this.localPlayer.equippedSlots || []).map(i=>i?{}:null)},
-      status: this.localPlayer.status,
+      status: typeof document !== 'undefined' && document.hidden ? 'away' : this.localPlayer.status,
+      privatePublicKey: this.privatePublicKey || null,
       heldItem: this.localPlayer.heldItem,
       actionState: this.localPlayer.actionState || null,
       occupiedSpotId: this.localPlayer.occupiedSpotId || null,
@@ -767,7 +813,10 @@ class EphemeralOfficeNetwork {
     const currentX = (isFirstTime || isFarTeleport) ? targetX : existing.x;
     const currentY = (isFirstTime || isFarTeleport) ? targetY : existing.y;
 
+    const reconnecting = !!existing.connectionLostAt;
     const merged = Object.assign(existing, {
+      connectionLostAt: null,
+      privatePublicKey: pData.privatePublicKey || existing.privatePublicKey || null,
       id: pData.id,
       name: this.sanitizeText(pData.name || '同事', 16),
       unit: this.sanitizeText(pData.unit || 'PP00', 8),
@@ -798,7 +847,7 @@ class EphemeralOfficeNetwork {
     });
     this.remotePlayers.set(pData.id, merged);
 
-    if (notifyJoin && !existing.joinNotified && this.callbacks.onPlayerJoin) {
+    if (notifyJoin && !reconnecting && !existing.joinNotified && this.callbacks.onPlayerJoin) {
       merged.joinNotified = true;
       this.callbacks.onPlayerJoin(merged);
     }
@@ -948,22 +997,14 @@ class EphemeralOfficeNetwork {
         }
         break;
       }
-      case 'private_chat': {
-        if (!this.localPlayer) return;
-        if (pkt.targetId === this.clientId) {
-          if (this.callbacks.onPrivateChat) {
-            this.callbacks.onPrivateChat({
-              id: pkt.nonce,
-              senderId: pkt.senderId,
-              senderName: this.sanitizeText(pkt.senderName || '同事', 16),
-              senderUnit: this.sanitizeText(pkt.senderUnit || 'PP00', 8),
-              text: this.sanitizeText(pkt.text, 100),
-              targetId: pkt.targetId,
-              targetName: this.sanitizeText(pkt.targetName || this.localPlayer.name, 16),
-              createdAt: (window.GatherServerClock?.now() || Date.now()),
-            });
-          }
-        }
+      case 'private_chat_encrypted': {
+        if (!this.localPlayer || pkt.targetId !== this.clientId) break;
+        const sender = this.remotePlayers.get(pkt.senderId);
+        if (!sender?.privatePublicKey) break;
+        this.decryptPrivate(sender.privatePublicKey, pkt).then(text => {
+          if (!this.localPlayer) return;
+          this.callbacks.onPrivateChat?.({id:pkt.nonce,senderId:pkt.senderId,senderName:sender.name,senderUnit:sender.unit,text:this.sanitizeText(text,100),targetId:this.clientId,targetName:this.localPlayer.name,createdAt:Date.now()});
+        }).catch(() => console.warn('拒絕無法解密的私訊'));
         break;
       }
       case 'skill_action': {
@@ -2343,7 +2384,7 @@ class EphemeralOfficeNetwork {
 
     // 清理超過 60 秒無訊號的遠端玩家
     this.remotePlayers.forEach((p, id) => {
-      if (p.lastSeen && now - p.lastSeen > 60000) {
+      if ((p.connectionLostAt && Date.now() - p.connectionLostAt > 180000) || (p.lastSeen && now - p.lastSeen > 180000)) {
         this.remotePlayers.delete(id);
         if (this.callbacks.onPlayerLeave) {
           this.callbacks.onPlayerLeave(p);
