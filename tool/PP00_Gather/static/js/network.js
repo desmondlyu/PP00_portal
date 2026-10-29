@@ -603,10 +603,13 @@ class EphemeralOfficeNetwork {
     const cfg = window.GATHER_CONFIG;
     if (window.supabase && cfg.supabaseUrl && cfg.supabaseAnonKey) {
       try {
-        this.supabaseClient = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
-          auth: { persistSession: false, autoRefreshToken: false },
+        if (this.realtimeChannel && this.supabaseClient) { try { this.supabaseClient.removeChannel?.(this.realtimeChannel); } catch (_) {} this.realtimeChannel = null; }
+        this.supabaseClient = window.__gatherSharedSupabaseClient || window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+          auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'pp00-gather-ephemeral-auth', storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} } },
+          realtime: { worker: true, heartbeatIntervalMs: 15000 },
         });
 
+        window.__gatherSharedSupabaseClient = this.supabaseClient;
         this.realtimeChannel = this.supabaseClient.channel(channelTopic, {
           config: {
             broadcast: { self: false, ack: false },
@@ -745,7 +748,7 @@ class EphemeralOfficeNetwork {
       } catch (_) {}
     }
 
-    if (this.realtimeChannel && this.isCloudConnected) {
+    if (this.realtimeChannel && this.isCloudConnected && (!this.realtimeChannel.state || this.realtimeChannel.state === 'joined')) {
       try {
         return this.realtimeChannel.send({
           type: 'broadcast',
@@ -1077,7 +1080,8 @@ class EphemeralOfficeNetwork {
         if (this.clientId && pkt.senderId && pkt.senderId > this.clientId && this.isRoomMaster()) {
           break;
         }
-        this.lastMasterSyncTime = (window.GatherServerClock?.now() || Date.now());
+        const now = (window.GatherServerClock?.now() || Date.now());
+        this.lastMasterSyncTime = now;
         if (Array.isArray(pkt.npcs)) {
           pkt.npcs.forEach((remoteNpc) => {
             let localNpc = this.npcPlayers.get(remoteNpc.id);
@@ -2350,7 +2354,7 @@ class EphemeralOfficeNetwork {
 
     // 清理超過 60 秒無訊號的遠端玩家
     this.remotePlayers.forEach((p, id) => {
-      if ((p.connectionLostAt && Date.now() - p.connectionLostAt > 180000) || (p.lastSeen && now - p.lastSeen > 180000)) {
+      if ((p.connectionLostAt && Date.now() - p.connectionLostAt > 3600000) || (p.lastSeen && now - p.lastSeen > 3600000)) {
         this.remotePlayers.delete(id);
         if (this.callbacks.onPlayerLeave) {
           this.callbacks.onPlayerLeave(p);
