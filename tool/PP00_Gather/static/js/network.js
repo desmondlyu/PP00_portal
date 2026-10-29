@@ -58,10 +58,26 @@ class EphemeralOfficeNetwork {
     return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(packet.iv)}, key, new Uint8Array(packet.ciphertext)));
   }
 
+  async ensureRealtimeReady() {
+    if (!this.realtimeChannel) {
+      const detail=this.lastRealtimeError || (!window.supabase?.createClient ? '通訊程式未載入，請重新整理遊戲' : '即時頻道尚未建立，請重新登入');
+      throw new Error(detail+'；草稿已保留');
+    }
+    if (this.realtimeChannel.state) this.isCloudConnected=this.realtimeChannel.state === 'joined';
+    if (this.isCloudConnected) return;
+    this.supabaseClient?.realtime?.connect();
+    for(let attempt=0;attempt<40;attempt++) {
+      if(this.disconnectPromise) break;
+      if(this.realtimeChannel?.state === 'joined' || this.isCloudConnected) {this.isCloudConnected=true;return;}
+      await new Promise(resolve=>setTimeout(resolve,100));
+    }
+    throw new Error(`即時聊天連線失敗（${this.lastRealtimeError || this.realtimeChannel?.state || '未連線'}），請確認網路允許即時連線後重試；草稿已保留`);
+  }
+
   async sendEncryptedPrivate(targetId, text) {
     let peer = this.remotePlayers.get(targetId);
     if (!peer || peer.connectionLostAt) throw new Error('對方已離線，草稿已保留');
-    if (!this.isCloudConnected || !this.realtimeChannel) throw new Error('多人連線尚未就緒，請稍後重試；草稿已保留');
+    await this.ensureRealtimeReady();
     await this.preparePrivateKey();
     if (!peer.privatePublicKey) {
       await this.broadcastPacket('private_key_request', {targetId});
@@ -699,7 +715,8 @@ class EphemeralOfficeNetwork {
             if (key === this.clientId) return;
             this.deferPlayerLeave(key);
           })
-          .subscribe(async (status) => {
+          .subscribe(async (status, error) => {
+            this.lastRealtimeError = error?.message || (status === 'SUBSCRIBED' ? null : status);
             if (status === 'SUBSCRIBED' && !this.disconnectPromise) {
               this.isCloudConnected = true;
               if (this.callbacks.onConnectionChange) {
@@ -729,6 +746,7 @@ class EphemeralOfficeNetwork {
           });
         }
       } catch (e) {
+        this.lastRealtimeError=e.message || '通訊初始化失敗';
         console.warn('切換本地頻道：', e);
       }
     }
