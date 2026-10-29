@@ -59,8 +59,22 @@ class EphemeralOfficeNetwork {
   }
 
   async sendEncryptedPrivate(targetId, text) {
-    const peer = this.remotePlayers.get(targetId);
-    if (!peer || peer.connectionLostAt || !peer.privatePublicKey || !this.isCloudConnected) throw new Error('對方離線或加密尚未就緒，草稿已保留');
+    let peer = this.remotePlayers.get(targetId);
+    if (!peer || peer.connectionLostAt) throw new Error('對方已離線，草稿已保留');
+    if (!this.isCloudConnected || !this.realtimeChannel) throw new Error('多人連線尚未就緒，請稍後重試；草稿已保留');
+    await this.preparePrivateKey();
+    if (!peer.privatePublicKey) {
+      await this.broadcastPacket('private_key_request', {targetId});
+      for (let attempt=0; attempt<15; attempt++) {
+        peer=this.remotePlayers.get(targetId);
+        if (!peer || peer.connectionLostAt || peer.privatePublicKey) break;
+        await new Promise(resolve=>setTimeout(resolve,100));
+      }
+      if (!peer || peer.connectionLostAt) throw new Error('對方已離線，草稿已保留');
+      if (!peer.privatePublicKey) throw new Error('對方的私訊加密尚未就緒，請對方重新整理遊戲後重試；草稿已保留');
+    }
+    // Advertise our key too: peers discovered through the cloud roster may not have it yet.
+    await this.broadcastPacket('state_sync', {player:this.getPublicState()});
     const payload = await this.encryptPrivate(peer.privatePublicKey, text);
     if (!this.remotePlayers.has(targetId) || this.remotePlayers.get(targetId).connectionLostAt) throw new Error('對方已離線，草稿已保留');
     const result = await this.broadcastPacket('private_chat_encrypted', {targetId, ...payload});
@@ -995,6 +1009,13 @@ class EphemeralOfficeNetwork {
             expiresAt: (window.GatherServerClock?.now() || Date.now()) + (window.GATHER_CONFIG?.security?.chatMessageTtlMs || 30000),
           });
         }
+        break;
+      }
+      case 'private_key_request': {
+        if (!this.localPlayer || pkt.targetId !== this.clientId) break;
+        this.preparePrivateKey().then(()=>{
+          if (this.localPlayer) this.broadcastPacket('state_sync', {player:this.getPublicState()});
+        }).catch(()=>{});
         break;
       }
       case 'private_chat_encrypted': {

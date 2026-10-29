@@ -5257,8 +5257,8 @@ async function executeOfficeLogin(params) {
   /**
    * 🔒 發送私人對談訊息（僅限真實線上使用者接收，NPC 無法進行私人對談）
    */
-  async function sendPrivateChatMessage(target, text) {
-    if (!target) { showToast('對方已離線，草稿已保留', 'error'); return false; }
+  async function sendPrivateChatMessage(target, text, reportError = message => showToast(message, 'error')) {
+    if (!target) { reportError('對方已離線，草稿已保留'); return false; }
 
     // 檢查是否為 NPC：私人對談僅限真實使用者
     const isNpc =
@@ -5275,14 +5275,14 @@ async function executeOfficeLogin(params) {
     if (!cleanText) return false;
 
     const now = gameNow();
-    if (now - network.lastChatAt < window.GATHER_CONFIG.security.chatCooldownMs) return false;
+    if (now - network.lastChatAt < window.GATHER_CONFIG.security.chatCooldownMs) {reportError('發送太快，請稍後再試');return false;}
     network.lastChatAt = now;
     lastUserActionAt = now;
 
     try {
       await network.sendEncryptedPrivate(target.id, cleanText);
     } catch (error) {
-      showToast(error.message, 'error');
+      reportError(error.message || '私訊發送失敗，請重試；草稿已保留');
       return false;
     }
     pushUserChat(localPlayer.name, localPlayer.unit, cleanText, true, true, target.name);
@@ -5518,7 +5518,10 @@ async function executeOfficeLogin(params) {
     const suggestions = pipDoc.createElement('div');
     suggestions.style.cssText = 'max-height:140px;overflow:auto;background:#162033;color:white';
     const pipForm = pipDoc.getElementById('pipForm');
-    pipForm.before(recipient, suggestions);
+    const sendStatus=pipDoc.createElement('div');sendStatus.id='pipSendStatus';
+    sendStatus.setAttribute('role','status');sendStatus.setAttribute('aria-live','polite');
+    sendStatus.style.cssText='padding:4px 8px;color:#fbbf24;font-size:12px;overflow-wrap:anywhere';
+    pipForm.before(recipient, suggestions, sendStatus);
     const pipInput = pipDoc.getElementById('pipInput');
     pipInput.placeholder = '輸入 @ 選擇同事私訊；其他為公開聊天';
     let choices = [], choiceIndex = 0;
@@ -5574,10 +5577,25 @@ async function executeOfficeLogin(params) {
         if (form.dataset.sending) return;
         form.dataset.sending = '1';
         const draft = input.value;
-        const sent = pipTargetId ? await sendPrivateChatMessage(network.remotePlayers.get(pipTargetId), text) : (input.value.includes('@') ? false : sendLocalChatMessage(text));
-        delete form.dataset.sending;
-        if (sent && input.value === draft) {
-          input.value = '';
+        const submit=form.querySelector('button[type="submit"]');
+        if(submit){submit.disabled=true;submit.textContent='傳送中…';}
+        sendStatus.textContent='';
+        try {
+          const sent = pipTargetId
+            ? await sendPrivateChatMessage(network.remotePlayers.get(pipTargetId), text, message=>{sendStatus.textContent=message;})
+            : (input.value.includes('@') ? (sendStatus.textContent='請先從 @ 名單選擇收件者',false) : sendLocalChatMessage(text));
+          if (sent) {
+            sendStatus.textContent='已送出';sendStatus.style.color='#6ee7b7';
+            if(input.value===draft) input.value='';
+          } else {
+            sendStatus.style.color='#fbbf24';
+            if(!sendStatus.textContent)sendStatus.textContent='未送出，請稍後再試；草稿已保留';
+          }
+        } catch(error) {
+          sendStatus.textContent=error.message || '發送失敗，草稿已保留';sendStatus.style.color='#fbbf24';
+        } finally {
+          delete form.dataset.sending;
+          if(submit){submit.disabled=false;submit.textContent='發送';}
         }
       });
     }
