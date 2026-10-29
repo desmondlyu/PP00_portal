@@ -26,6 +26,7 @@
   const notifiedArrivals = new Set();
   let chatOnlyFilter = false;
   let activePipWindow = null;
+  let mainMentions = null;
 
   // Clear only this game's obsolete state once; passwords and assets never migrate.
   try{if(season.enabled&&localStorage.getItem('gather_cloud_reset')!=='20261026-cloud6'){
@@ -609,7 +610,7 @@
       }
     }
     ecosystem.mobs=ecosystem.mobs.filter(m=>snap.enemies?.[m.uid||m.id]&&window.OfficeCombat.defeatVisible(m));
-    for(const q of snap.players){if(q.id===p.id)continue;if(!network.remotePlayers.has(q.clientId))network.upsertRemotePlayer({id:q.clientId,name:q.name,unit:q.unit,x:q.x,y:q.y,avatarId:q.avatarId,status:'active'},true);const remote=network.remotePlayers.get(q.clientId);if(remote){if(q.action==='toilet'){remote.x=q.x;remote.y=q.y;remote.targetX=q.x;remote.targetY=q.y;remote.actionState='toilet';}else if(remote.actionState==='toilet')remote.actionState=null;remote.seasonPlayerId=q.id;remote.isInjured=q.effects.injuredUntil>now;remote.lightInjuredUntil=q.effects.lightUntil||0;remote.outfitAvatarId=q.worn;}}
+    for(const q of snap.players){if(q.id===p.id)continue;if(!network.remotePlayers.has(q.clientId))network.upsertRemotePlayer({id:q.clientId,name:q.name,unit:q.unit,x:q.x,y:q.y,avatarId:q.avatarId,status:'active'},true);const remote=network.remotePlayers.get(q.clientId);if(remote){remote.lastSeen=now;remote.connectionLostAt=null;if(q.action==='toilet'){remote.x=q.x;remote.y=q.y;remote.targetX=q.x;remote.targetY=q.y;remote.actionState='toilet';}else if(remote.actionState==='toilet')remote.actionState=null;remote.seasonPlayerId=q.id;remote.isInjured=q.effects.injuredUntil>now;remote.lightInjuredUntil=q.effects.lightUntil||0;remote.outfitAvatarId=q.worn;}}
     // 檢測是否扭蛋獲得新服裝 (包包未滿時直接進入 p.items)
     if (p.items) {
       const currentOutfits = p.items.filter(i => i.category === 'outfit');
@@ -637,7 +638,7 @@
     if(!season.client)season.client=new window.GatherProfileClient(window.GATHER_CONFIG.supabaseUrl+'/functions/v1/gather-season2',{storage:localStorage,onSnapshot:applySeasonSnapshot});
     await season.client.recover();
     let result;
-    if(params.isAutoReload&&season.client.token){result=await season.client.send('resume',{connection:network.clientId});}
+    if(params.isAutoReload){if(!season.client.token)throw new Error('AUTO_RELOAD_NO_TOKEN');result=await season.client.send('resume',{connection:network.clientId});}
     else {
       const pin=params.password||document.getElementById('loginPasscode').value;
       result=await season.client.send('enter',{name:params.name,unit:params.unit,pin,avatarId:params.avatarId,connection:network.clientId});
@@ -776,7 +777,7 @@
         localPlayer.actionState = 'sleep_bed';
       }
       syncPlayerActiveWeaponState();
-      if (window.gatherSupabase) {
+      if (!season.enabled && window.gatherSupabase) {
         window.gatherSupabase.syncDurability(localPlayer.equippedSlots);
       }
     } else {
@@ -815,6 +816,7 @@
       onPlayerLeave: (player) => {
         pushStatusLog('系統', `👋 ${player.name} 已離線離開辦公室`);
         showToast(`👋 <b>${escapeHtml(player.name)}</b> 已離開辦公室`, 'leave');
+        notifyPlayerDeparture(player);
         renderSidebarRoster();
       },
       onRemoteMurmur: (pkt) => {
@@ -895,7 +897,7 @@
         const suffix = msg.isNearby ? ' (身邊)' : '';
         pushUserChat(msg.senderName + suffix, msg.senderUnit, msg.text, false);
         triggerChatNotifyFlash(msg.senderName);
-        if (document.hidden) {
+        if (document.hidden || !document.hasFocus?.()) {
           triggerDesktopNotification(msg.senderName, msg.senderUnit, msg.text);
         }
       },
@@ -909,7 +911,7 @@
           // 聊天室窗已展開：使用者正在看聊天窗，維持頂部輕量通知避免遮擋視線
           showToast(`🔒 收到來自 <b>${escapeHtml(msg.senderName)}</b> 的私人對談！`, 'join');
         }
-        if (document.hidden) {
+        if (document.hidden || !document.hasFocus?.()) {
           triggerDesktopNotification(msg.senderName, msg.senderUnit, `[私人對談] ${msg.text}`);
         }
       },
@@ -1231,17 +1233,35 @@
       if (window.gatherSupabase) window.gatherSupabase.logoutUser();
     });
 
+    try {
+      if (typeof Worker === 'function' && typeof Blob === 'function' && typeof URL !== 'undefined' && URL.createObjectURL) {
+        const w = new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(1),8000)'], { type: 'application/javascript' })));
+        w.onmessage = () => { if (!network.disconnectPromise && isLoggedIn) { network.broadcastPacket('state_sync', {player:network.getPublicState()}); seasonPoll(); } };
+      }
+    } catch (_) {}
     const presenceTimer = setInterval(() => {
-      if (!isLoggedIn || network.disconnectPromise) {clearInterval(presenceTimer);return;}
-      if (document.hidden) {
+      if (network.disconnectPromise) {clearInterval(presenceTimer);return;} if (!isLoggedIn) return;
+      const runBackgroundKeepalive = () => {
+        if (network.disconnectPromise || !isLoggedIn) return;
+        if (!network.isCloudConnected && window.supabase && window.GATHER_CONFIG?.supabaseUrl) {
+          network.connect(localPlayer, season.enabled ? 'PP00-S2' : 'PP00');
+        } else if (network.isCloudConnected && (!network.realtimeChannel?.state || network.realtimeChannel.state === 'joined')) {
+          network.realtimeChannel?.track(network.getPublicState());
+        }
+        network.broadcastPacket('state_sync', {player:network.getPublicState()});
+        seasonPoll();
+      };
+      runBackgroundKeepalive();
+      if (false) {
         network.broadcastPacket('state_sync', {player:network.getPublicState()});
         seasonPoll();
       }
     }, 8000);
+
     document.addEventListener('visibilitychange', () => {
       if (!isLoggedIn || network.disconnectPromise) return;
       network.broadcastPacket('state_sync', {player:network.getPublicState()});
-      network.realtimeChannel?.track(network.getPublicState());
+      if (network.isCloudConnected && (!network.realtimeChannel?.state || network.realtimeChannel.state === 'joined')) network.realtimeChannel?.track(network.getPublicState());
       if (!document.hidden) seasonPoll();
     });
     requestAnimationFrame(gameLoop);
@@ -1950,7 +1970,7 @@
   // 4. 登入視窗、可縮合面板、情境動作按鈕與左下整合聊天 UI 綁定
   // =========================================================================
 async function executeOfficeLogin(params) {
-      if(season.enabled){try{const snap=await seasonLogin(params);params={...params,avatarId:snap.player.avatarId,roomCode:"PP00"};}catch(e){const err=document.getElementById("loginErrorMsg");err.textContent=e.message;err.style.display="block";return;}}
+      if(season.enabled){try{const snap=await seasonLogin(params);params={...params,avatarId:snap.player.avatarId,roomCode:"PP00"};}catch(e){if(params.isAutoReload){try{localStorage.removeItem('gather_s2_token');}catch(_){}if(season.client)season.client.token=null;saveLoginSession(false);return;}const err=document.getElementById("loginErrorMsg");if(err){err.textContent=e.message;err.style.display="block";}return;}}
       const { name, unit, roomCode, status, avatarId, isAutoReload = false } = params;
       const cleanName = network.sanitizeText(name, 16);
       const cleanRoom = network.sanitizeText(roomCode || 'PP00', 16) || 'PP00';
@@ -1984,7 +2004,7 @@ async function executeOfficeLogin(params) {
       loginTimestamp = gameNow();
       network.connect(localPlayer, season.enabled?cleanRoom+'-S2':cleanRoom);
 
-      if (window.gatherSupabase) {
+      if (!season.enabled && window.gatherSupabase) {
         window.gatherSupabase.init({
           callbacks: {
             onError: () => {if(!document.hidden)showCombatToast('連線正在恢復；雲端交易將重新確認');},
@@ -2195,7 +2215,8 @@ async function executeOfficeLogin(params) {
       }
 
       // 自動重新連線：免手動點選「進入辦公室」！
-      if (savedSession.autoLogin && savedSession.name && savedSession.unit) {
+      const hasSeasonToken = !season.enabled || (() => { try { return !!localStorage.getItem('gather_s2_token'); } catch (_) { return false; } })();
+      if (savedSession.autoLogin && savedSession.name && savedSession.unit && hasSeasonToken) {
         setTimeout(() => {
           if (!isLoggedIn) {
             executeOfficeLogin({
@@ -2529,10 +2550,13 @@ async function executeOfficeLogin(params) {
     }
     if (target) {
       selectedTargetId = target.id;
+      mainMentions?.setBanner?.(target);
     }
 
     const sendModeSel = document.getElementById('chatSendModeSelect');
     if (sendModeSel) {
+      const privOpt = sendModeSel.querySelector?.('option[value="private"]');
+      if (privOpt) privOpt.disabled = false;
       sendModeSel.value = 'private';
       dispatchChangeEvent(sendModeSel);
     }
@@ -2798,6 +2822,7 @@ async function executeOfficeLogin(params) {
       pad.addEventListener(name, (event) => { if (event.pointerId === activePointer) clearMovement(); });
     }
     window.addEventListener('blur', clearMovement);
+
     document.addEventListener('visibilitychange', () => { if (document.hidden) clearMovement(); });
     document.addEventListener('focusin', (event) => {
       if (event.target.matches('input, textarea, select')) clearMovement();
@@ -5082,6 +5107,35 @@ async function executeOfficeLogin(params) {
     if (document.hidden || !document.hasFocus()) triggerDesktopNotification('🟢 同事上線', '', text);
   }
 
+  function notifyPlayerDeparture(player) {
+    if (!player?.id || player.id === network?.clientId || player.isNpc || player.isMob || String(player.id).startsWith('npc_')) return;
+    notifiedArrivals.delete(player.id);
+    const text = `👋 ${player.name}${player.unit ? ` (${player.unit})` : ''} 已離線離開辦公室！`;
+    const item = {id:'departure_'+player.id+'_'+gameNow(), senderName:'離線通知', senderUnit:'', text, timeStr:getFormatTime(), kind:'departure', createdAt:gameNow()};
+    pipArrivalHistory.push(item);
+    if (pipArrivalHistory.length > 20) pipArrivalHistory.shift();
+    if (activePipWindow && !activePipWindow.closed) renderPipChatMessage(activePipWindow, item);
+    if (document.hidden || !document.hasFocus()) triggerDesktopNotification('👋 同事離線', '', text);
+  }
+
+  function resolveInlineMention(rawText) {
+    const trimmed = String(rawText || '').trim();
+    if (!trimmed.startsWith('@')) return null;
+    const m = trimmed.match(/^@([^\s@]+)(?:\s+([\s\S]*))?$/u);
+    if (!m) return { peer: null, body: '' };
+    const query = m[1].toLowerCase();
+    const body = (m[2] || '').trim();
+    const peers = [...(network?.remotePlayers?.values() || [])].filter(
+      (p) => !p.isNpc && !p.isMob && p.id !== network?.clientId && !String(p.id).startsWith('npc_')
+    );
+    const peer =
+      peers.find((p) => String(p.name || '').toLowerCase() === query) ||
+      peers.find((p) => `${p.name}(${p.unit})`.toLowerCase() === query || `${p.name}（${p.unit}）`.toLowerCase() === query) ||
+      peers.find((p) => `${p.name} ${p.unit}`.toLowerCase().includes(query)) ||
+      null;
+    return { peer, body };
+  }
+
   function pushUserChat(senderName, senderUnit, text, isSelf = false, isPrivate = false, targetName = '', senderId = null) {
     const chatItem = {
       id: 'chat_' + gameNow() + '_' + Math.random().toString(36).slice(2, 6),
@@ -5258,6 +5312,10 @@ async function executeOfficeLogin(params) {
    * 🔒 發送私人對談訊息（僅限真實線上使用者接收，NPC 無法進行私人對談）
    */
   async function sendPrivateChatMessage(target, text, reportError = message => showToast(message, 'error')) {
+    if (target && network?.remotePlayers && !network.remotePlayers.has(target.id)) {
+      const refreshed = [...network.remotePlayers.values()].find((p) => !p.isNpc && !p.isMob && p.name === target.name && (!target.unit || p.unit === target.unit));
+      if (refreshed) target = refreshed;
+    }
     if (!target) { reportError('對方已離線，草稿已保留'); return false; }
 
     // 檢查是否為 NPC：私人對談僅限真實使用者
@@ -5402,7 +5460,7 @@ async function executeOfficeLogin(params) {
     form.before(recipient,suggestions);
     let choices=[],index=0;
     const choose=peer=>{
-      if(!network.remotePlayers.has(peer.id)||network.remotePlayers.get(peer.id).connectionLostAt)return;
+      if(!peer||!peer.id||peer.isNpc||String(peer.id).startsWith('npc_'))return;
       input.value=input.value.replace(/(?:^|\s)@[^@\s]*$/u,'').trim();
       recipient.replaceChildren(doc.createTextNode(`🔒 私訊給：${peer.name}（${peer.unit}） `));
       const clear=doc.createElement('button');clear.type='button';clear.textContent='× 公開聊天';
@@ -5412,7 +5470,7 @@ async function executeOfficeLogin(params) {
     const render=()=>{
       suggestions.replaceChildren();const match=input.value.match(/(?:^|\s)@([^@\s]*)$/u);
       if(!match){choices=[];return;}
-      choices=[...network.remotePlayers.values()].filter(p=>!p.isNpc&&!p.isMob&&!p.connectionLostAt&&p.id!==network.clientId&&!String(p.id).startsWith('npc_')&&`${p.name} ${p.unit}`.toLowerCase().includes(match[1].toLowerCase()));
+      choices=[...network.remotePlayers.values()].filter(p=>!p.isNpc&&!p.isMob&&p.id!==network.clientId&&!String(p.id).startsWith('npc_')&&`${p.name} ${p.unit}`.toLowerCase().includes(match[1].toLowerCase()));
       index=Math.min(index,Math.max(0,choices.length-1));
       choices.forEach((p,i)=>{
         const button=doc.createElement('button');button.type='button';button.textContent=`${p.name}（${p.unit}）`;
@@ -5432,7 +5490,7 @@ async function executeOfficeLogin(params) {
         e.preventDefault();if(e.key==='Enter')choose(choices[index]);else{index=(index+(e.key==='ArrowDown'?1:choices.length-1))%choices.length;render();}
       }else if(e.key==='Escape'){suggestions.replaceChildren();choices=[];}
     });
-    return {select(id){const peer=network.remotePlayers.get(id);if(peer)choose(peer);},reset(){recipient.replaceChildren();suggestions.replaceChildren();choices=[];}};
+    return {select(idOrPeer){const peer=typeof idOrPeer==='object'&&idOrPeer?idOrPeer:network.remotePlayers.get(idOrPeer)||network.getAllOtherPlayers().find(p=>p.id===idOrPeer);if(peer)choose(peer);},setBanner(peer){if(!peer)return;recipient.replaceChildren(doc.createTextNode(`🔒 私訊給：${peer.name}（${peer.unit || 'PP00'}） `));const clear=doc.createElement('button');clear.type='button';clear.textContent='× 公開聊天';clear.onclick=()=>{recipient.replaceChildren();onClear();input.focus();};recipient.append(clear);suggestions.replaceChildren();choices=[];},reset(){recipient.replaceChildren();suggestions.replaceChildren();choices=[];}};
   }
 
   function setupPipDom(pipWin) {
@@ -5503,6 +5561,8 @@ async function executeOfficeLogin(params) {
       }
       .pip-msg.arrival { color:#6ee7b7; padding:4px 0; }
       .pip-msg.arrival .pip-text, .pip-msg.arrival .pip-author { color:#6ee7b7; }
+      .pip-msg.departure { color:#fca5a5; padding:4px 0; }
+      .pip-msg.departure .pip-text, .pip-msg.departure .pip-author { color:#fca5a5; }
       .pip-empty {
         color: #475569;
         font-size: 11px;
@@ -5586,7 +5646,7 @@ async function executeOfficeLogin(params) {
         try {
           const sent = pipTargetId
             ? await sendPrivateChatMessage(network.remotePlayers.get(pipTargetId), text, message=>{sendStatus.textContent=message;})
-            : (input.value.includes('@') ? (sendStatus.textContent='請先從 @ 名單選擇收件者',false) : sendLocalChatMessage(text));
+            : (()=>{const m=resolveInlineMention(text);if(!m)return sendLocalChatMessage(text);if(!m.peer){sendStatus.textContent='找不到該線上同事，私訊未送出';return false;}mentions.select(m.peer);if(!m.body){sendStatus.textContent='已選取私訊對象，請輸入訊息';return false;}return sendPrivateChatMessage(m.peer,m.body,message=>{sendStatus.textContent=message;});})();
           if (sent) {
             sendStatus.textContent='已送出';sendStatus.style.color='#6ee7b7';
             if(input.value===draft) input.value='';
@@ -5620,7 +5680,7 @@ async function executeOfficeLogin(params) {
       box.innerHTML = '';
       const pipHistory = [...userChatHistory, ...pipArrivalHistory].sort((a,b)=>a.createdAt-b.createdAt).slice(-20);
       if (pipHistory.length === 0) {
-        box.innerHTML = '<div class="pip-empty">暫無同事訊息或上線通知 · 已過濾 NPC 碎碎念</div>';
+        box.innerHTML = '<div class="pip-empty">暫無同事訊息或上下線通知 · 已過濾 NPC 碎碎念</div>';
         return;
       }
       pipHistory.forEach((item) => {
@@ -5642,8 +5702,8 @@ async function executeOfficeLogin(params) {
       if (empty) empty.remove();
 
       const div = doc.createElement('div');
-      div.className = 'pip-msg' + (item.kind === 'arrival' ? ' arrival' : '') + (item.isSelf ? ' self' : '') + (item.isPrivate ? ' whisper' : '');
-      const authorLabel = item.kind === 'arrival' ? '🟢 同事上線：' : item.isPrivate
+      div.className = 'pip-msg' + (item.kind === 'arrival' ? ' arrival' : item.kind === 'departure' ? ' departure' : '') + (item.isSelf ? ' self' : '') + (item.isPrivate ? ' whisper' : '');
+      const authorLabel = item.kind === 'arrival' ? '🟢 同事上線：' : item.kind === 'departure' ? '👋 同事離線：' : item.isPrivate
         ? (item.isSelf ? `🔒 [密語 ➔ ${escapeHtml(item.targetName)}]` : `🔒 [私訊 ➔ 來自 ${escapeHtml(item.senderName)}]`)
         : `${escapeHtml(item.senderName)}${item.senderUnit ? ` (${escapeHtml(item.senderUnit)})` : ''}:`;
       div.innerHTML = `
@@ -5711,19 +5771,19 @@ async function executeOfficeLogin(params) {
       });
     }
 
-    let mainMentions=null;
+    mainMentions=null;
     const sendModeSel = document.getElementById('chatSendModeSelect');
     const chatInput = document.getElementById('proxChatInput');
     if (sendModeSel && chatInput) {
       sendModeSel.addEventListener('change', () => {
         const mode = sendModeSel.value;
-        if(mode!=='private'){mainMentions?.reset();selectedTargetId=null;}
+        if(mode!=='private'){mainMentions?.reset();}
         if (mode === 'chat') {
           chatInput.placeholder = '輸入對談訊息 (按 Enter 發送)...';
         } else if (mode === 'private') {
           const rawTarget = (selectedTargetId
             ? network.getAllOtherPlayers().find((p) => p.id === selectedTargetId)
-            : null);
+            : null) || (nearbyPlayers.find((p) => !p.isNpc && !String(p.id).startsWith('npc_')) || null);
           const isNpc =
             rawTarget &&
             (rawTarget.isNpc ||
@@ -5748,7 +5808,7 @@ async function executeOfficeLogin(params) {
         chatInput.placeholder='輸入訊息；輸入 @ 選取線上同事私訊';
         mainMentions=installChatMentions(chatInput,proxForm,p=>{
           selectedTargetId=p.id;
-          if(sendModeSel){const option=sendModeSel.querySelector('option[value="private"]');if(option)option.disabled=false;sendModeSel.value='private';}
+          if(sendModeSel){const option=sendModeSel.querySelector?.('option[value="private"]');if(option)option.disabled=false;sendModeSel.value='private';dispatchChangeEvent(sendModeSel);}
         },()=>{selectedTargetId=null;if(sendModeSel)sendModeSel.value='chat';});
       }
 
@@ -5758,7 +5818,15 @@ async function executeOfficeLogin(params) {
         const text = network.sanitizeText(rawText, 100);
         if (!text) return;
 
-        if(/(?:^|\s)@[^@\s]*$/u.test(text)){showToast('請先從 @ 名單選擇收件者','error');return;}
+        const inlineMention = resolveInlineMention(rawText);
+        if (inlineMention) {
+          if (!inlineMention.peer) { showToast('⚠️ 找不到該線上同事，私訊未送出！', 'error'); return; }
+          mainMentions?.select(inlineMention.peer);
+          if (!inlineMention.body) { showToast(`🔒 已選取 @${inlineMention.peer.name}，請輸入私訊內容`, 'join'); return; }
+          const sentInline = await sendPrivateChatMessage(inlineMention.peer, inlineMention.body);
+          if (sentInline && chatInput) chatInput.value = '';
+          return;
+        }
         const mode = sendModeSel ? sendModeSel.value : 'chat';
         if (mode === 'chat') {
           const sent = sendLocalChatMessage(text);
@@ -5767,7 +5835,7 @@ async function executeOfficeLogin(params) {
           // 🔒 私人對談：僅指定的真實線上使用者可見
           const target = (selectedTargetId
             ? network.getAllOtherPlayers().find((p) => p.id === selectedTargetId)
-            : null);
+            : null) || (nearbyPlayers.find((p) => !p.isNpc && !String(p.id).startsWith('npc_')) || null);
           if (!target) {
             pushStatusLog('系統', '⚠️ 請先在地圖或名單中點選一位真實線上同仁，再發送私人對談訊息！');
             showToast('⚠️ 請先點選一位真實線上同仁！', 'error');
@@ -6186,12 +6254,15 @@ async function executeOfficeLogin(params) {
         const sendModeSel = document.getElementById('chatSendModeSelect');
         const chatInput = document.getElementById('proxChatInput');
         if (sendModeSel) {
-          sendModeSel.value = 'private';
+          const privOpt = sendModeSel.querySelector?.('option[value="private"]');
+      if (privOpt) privOpt.disabled = false;
+      sendModeSel.value = 'private';
           dispatchChangeEvent(sendModeSel);
         }
         if (chatInput && window.innerWidth > 900) {
           chatInput.focus();
         }
+        mainMentions?.setBanner?.(colleague);
         pushStatusLog('系統', `🔒 已選定【${colleague.name}】，聊天模式已自動預設為「私訊」（僅對方可見）`);
 
         privateBtn.onclick = () => {
@@ -6204,12 +6275,15 @@ async function executeOfficeLogin(params) {
           }
           const isCurrentlyPrivate = sendModeSel && sendModeSel.value === 'private';
           if (sendModeSel) {
+            const privOpt = sendModeSel.querySelector?.('option[value="private"]');
+            if (privOpt) privOpt.disabled = false;
             sendModeSel.value = isCurrentlyPrivate ? 'chat' : 'private';
             dispatchChangeEvent(sendModeSel);
           }
           if (!isCurrentlyPrivate) {
             privateBtn.classList.add('active');
             if (chatInput && window.innerWidth > 900) chatInput.focus();
+            mainMentions?.setBanner?.(colleague);
             pushStatusLog('系統', `🔒 已切換至與【${colleague.name}】的私人密語通道（僅對方可見）`);
           } else {
             privateBtn.classList.remove('active');

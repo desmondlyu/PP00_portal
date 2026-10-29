@@ -63,9 +63,11 @@
       }
 
       try {
-        this.client = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
-          auth: { persistSession: false, autoRefreshToken: false },
+        this.client = window.__gatherSharedSupabaseClient || window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+          auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'pp00-gather-ephemeral-auth', storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} } },
+          realtime: { worker: true, heartbeatIntervalMs: 15000 },
         });
+        window.__gatherSharedSupabaseClient = this.client;
         this.isInitialized = true;
         if (!this.visibilityHandler) {
           this.visibilityHandler = () => {
@@ -294,7 +296,7 @@
 
     // 訂閱 Realtime 表變更
     subscribeRealtime() {
-      if (!this.client) return;
+      if (window.GATHER_CONFIG?.season2 || !this.client) return;
       try {
         this.channel = this.client
           .channel('pp00_gather_db_changes')
