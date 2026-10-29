@@ -24,6 +24,10 @@ html, body, #officeCanvas, .touch-controls, .touch-move-pad, .touch-move-knob, .
   --grad-amber: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
   --text-light: #f8fafc;
   --text-muted: #94a3b8;
+  --left-panel-w: clamp(235px, 15vw, 295px);
+  --chat-panel-w: clamp(350px, 24.5vw, 615px);
+  --chat-msg-h: clamp(135px, calc(37vh - 125px), 384px);
+  --chat-chrome-h: 156px;
 }
 
 *,
@@ -397,6 +401,7 @@ html {
   position: fixed;
   top: 12px;
   left: 300px;
+  left: calc(var(--left-panel-w, 295px) + 22px);
   right: 16px;
   z-index: 40;
   display: flex;
@@ -819,7 +824,9 @@ html {
   top: 12px;
   left: 14px;
   max-height: calc(100vh - 460px);
+  max-height: calc(100dvh - var(--chat-msg-h, 384px) - var(--chat-chrome-h, 156px) - 32px);
   width: 295px;
+  width: var(--left-panel-w, 295px);
   z-index: 45;
   background: rgba(15, 23, 42, 0.94);
   backdrop-filter: blur(14px);
@@ -838,6 +845,7 @@ html {
   bottom: auto;
   height: 44px;
   width: 295px;
+  width: var(--left-panel-w, 295px);
 }
 
 .left-gather-panel.minimized .campus-collapsible-body {
@@ -1080,6 +1088,7 @@ html {
 .bottom-hud-dock {
   position: fixed;
   left: 645px;
+  left: calc(var(--chat-panel-w, 615px) + 28px);
   right: 20px;
   bottom: 14px;
   z-index: 50;
@@ -1282,6 +1291,7 @@ html {
   bottom: 12px;
   right: auto;
   width: 615px;
+  width: var(--chat-panel-w, 615px);
   z-index: 48;
   background: rgba(9, 14, 26, 0.96);
   backdrop-filter: blur(18px);
@@ -1470,6 +1480,7 @@ html {
 
 .prox-chat-messages {
   height: 384px;
+  height: var(--chat-msg-h, 384px);
   overflow-y: auto;
   padding: 12px 15px;
   background: rgba(7, 11, 21, 0.95);
@@ -1708,7 +1719,9 @@ html {
   position: fixed;
   left: 16px;
   bottom: 420px;
+  bottom: calc(var(--chat-msg-h, 384px) + var(--chat-chrome-h, 156px) + 8px);
   width: 615px;
+  width: var(--chat-panel-w, 615px);
   z-index: 55;
   padding: 10px 16px;
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98));
@@ -3774,5 +3787,434 @@ body.hunt-active::after {
 }
 
 .gacha-confirm-btn:active {
+.gacha-confirm-btn:active {
   transform: scale(0.97);
+}
+
+/* =========================================================================
+   9. 電腦與筆電多解析度自適應 HUD 系統 (2560x1440 原尺寸保留，筆電/FHD 自動等比例收斂)
+   ========================================================================= */
+@media (min-width: 901px) and (pointer: fine) {
+  .net-status-watermark {
+    left: calc(var(--left-panel-w, 295px) + 24px);
+    top: 18px;
+  }
+
+  .prox-chat-panel.chat-minimized ~ .colleague-profile-card,
+  .prox-chat-panel.collapsed ~ .colleague-profile-card {
+    bottom: 118px;
+    width: min(92vw, var(--chat-panel-w, 420px));
+  }
+
+  body:has(.prox-chat-panel.chat-minimized) .left-gather-panel:not(.minimized),
+  body:has(.prox-chat-panel.collapsed) .left-gather-panel:not(.minimized) {
+    max-height: calc(100dvh - 138px);
+  }
+
+  .prox-chat-form input {
+    min-width: 0;
+  }
+
+  .chat-send-mode-select {
+    max-width: 40%;
+    text-overflow: ellipsis;
+  }
+
+  .prox-chat-form button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+/* 一般桌機 (1080p) 與常見筆電解析度 (寬 <= 1960px 或 高 <= 1080px)：自動將 2K 放大版元件微縮 */
+@media (min-width: 901px) and (pointer: fine) and (max-width: 1960px),
+       (min-width: 901px) and (pointer: fine) and (max-height: 1080px) {
+  :root {
+    --left-panel-w: clamp(225px, 15vw, 275px);
+    --chat-panel-w: clamp(340px, 24.5vw, 490px);
+    --chat-msg-h: clamp(130px, calc(34vh - 108px), 270px);
+    --chat-chrome-h: 124px;
+  }
+
+  .prox-chat-panel {
+    border-radius: 16px;
+  }
+
+  .chat-user-status-bar {
+    padding: 7px 12px;
+    gap: 8px;
+  }
+
+  .self-avatar-canvas {
+    width: 34px;
+    height: 34px;
+  }
+
+  .chat-user-title-row {
+    font-size: 13.5px;
+    gap: 5px;
+  }
+
+  .chat-self-item {
+    font-size: 14px;
+  }
+
+  .chat-self-exp {
+    font-size: 11.5px;
+  }
+
+  .self-status-select {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+
+  .prox-chat-header {
+    padding: 6px 12px;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .chat-header-left {
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .chat-title-text {
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .chat-filter-toggle {
+    font-size: 12px;
+    gap: 4px;
+    white-space: nowrap;
+  }
+
+  .chat-filter-toggle input[type='checkbox'] {
+    width: 14px;
+    height: 14px;
+  }
+
+  .chat-header-btns {
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .pip-btn,
+  .burn-btn,
+  .chat-collapse-btn {
+    padding: 3px 7px;
+    font-size: 11.5px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  .prox-chat-messages {
+    padding: 8px 11px;
+    gap: 4px;
+  }
+
+  .prox-chat-empty {
+    font-size: 12.5px;
+  }
+
+  .prox-chat-item {
+    padding: 4px 9px;
+    font-size: 13px;
+    gap: 5px;
+    border-radius: 7px;
+  }
+
+  .prox-chat-item.kind-status {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+
+  .prox-chat-time {
+    font-size: 11px;
+  }
+
+  .prox-chat-author,
+  .prox-chat-text {
+    font-size: 13px;
+  }
+
+  .prox-chat-form {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .chat-send-mode-select {
+    padding: 6px 8px;
+    font-size: 12px;
+    max-width: 130px;
+  }
+
+  .prox-chat-form input {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  .prox-chat-form button {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .bottom-hud-dock {
+    left: calc(var(--chat-panel-w, 460px) + 22px);
+    right: 16px;
+    bottom: 12px;
+    gap: 10px;
+  }
+
+  .bottom-center-command-dock {
+    padding: 5px 12px 7px;
+    border-radius: 18px;
+  }
+
+  .prox-target-label {
+    font-size: 10px;
+    padding: 2px 10px;
+    gap: 5px;
+  }
+
+  .skill-btn-row,
+  .touch-skills-group {
+    gap: 5px;
+  }
+
+  .skill-tile-btn {
+    width: 40px !important;
+    height: 44px !important;
+    border-radius: 11px !important;
+  }
+
+  .skill-tile-btn .tile-icon {
+    font-size: 17px;
+  }
+
+  .skill-tile-btn .tile-label {
+    font-size: 9px;
+  }
+
+  .combat-action-cluster {
+    padding: 5px 10px;
+    gap: 8px;
+    border-radius: 22px;
+  }
+
+  .cluster-pill-btn {
+    height: 27px;
+    padding: 0 9px;
+    font-size: 10.5px;
+  }
+
+  .combat-main-attack-btn {
+    width: 56px;
+    height: 56px;
+  }
+
+  .combat-main-attack-btn .atk-icon {
+    font-size: 20px;
+  }
+
+  .combat-main-attack-btn .atk-label {
+    font-size: 9px;
+  }
+}
+
+/* 筆電高 DPI 縮放 (125%~150% = 1536x864 / 1440x900 / 1366x768 / 1280x720) 緊湊模式 */
+@media (min-width: 901px) and (pointer: fine) and (max-width: 1560px),
+       (min-width: 901px) and (pointer: fine) and (max-height: 880px) {
+  :root {
+    --left-panel-w: clamp(205px, 14.5vw, 240px);
+    --chat-panel-w: clamp(315px, 24vw, 390px);
+    --chat-msg-h: clamp(105px, calc(31vh - 95px), 175px);
+    --chat-chrome-h: 112px;
+  }
+
+  .login-overlay {
+    overflow-y: auto;
+    padding: 12px;
+  }
+
+  .login-modal-card {
+    max-width: 840px;
+    grid-template-columns: 280px 1fr;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+  }
+
+  .login-left-showcase {
+    padding: 16px 14px;
+  }
+
+  .login-right-form {
+    padding: 16px 20px;
+    gap: 10px;
+  }
+
+  .left-gather-panel {
+    padding: 7px 10px;
+    border-radius: 13px;
+  }
+
+  .left-gather-panel.minimized {
+    height: 38px;
+  }
+
+  .gather-panel-title {
+    font-size: 11.5px;
+  }
+
+  .online-count-pill {
+    font-size: 9.5px;
+    padding: 1px 6px;
+  }
+
+  .panel-collapse-btn {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .hud-pill-group {
+    padding: 4px 10px;
+    gap: 6px;
+  }
+
+  .hud-mini-btn {
+    padding: 4px 9px;
+    font-size: 11px;
+  }
+
+  .chat-user-status-bar {
+    padding: 5px 10px;
+    gap: 6px;
+  }
+
+  .self-avatar-canvas {
+    width: 28px;
+    height: 28px;
+  }
+
+  .chat-user-title-row {
+    font-size: 12px;
+  }
+
+  .chat-self-exp {
+    font-size: 10.5px;
+  }
+
+  .self-status-select {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+
+  .prox-chat-header {
+    padding: 5px 10px;
+    gap: 4px;
+  }
+
+  .chat-header-left {
+    gap: 6px;
+  }
+
+  .chat-title-text {
+    font-size: 11.5px;
+  }
+
+  .chat-filter-toggle {
+    font-size: 11px;
+    gap: 3px;
+  }
+
+  .pip-btn,
+  .burn-btn,
+  .chat-collapse-btn {
+    padding: 2px 6px;
+    font-size: 10.5px;
+  }
+
+  .prox-chat-item,
+  .prox-chat-author,
+  .prox-chat-text {
+    font-size: 12px;
+  }
+
+  .prox-chat-form {
+    padding: 5px 8px;
+    gap: 5px;
+  }
+
+  .chat-send-mode-select {
+    font-size: 11px;
+    padding: 5px 6px;
+    max-width: 108px;
+  }
+
+  .prox-chat-form input {
+    font-size: 12px;
+    padding: 5px 8px;
+  }
+
+  .prox-chat-form button {
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+
+  .bottom-hud-dock {
+    left: calc(var(--chat-panel-w, 360px) + 16px);
+    right: 12px;
+    bottom: 10px;
+    gap: 8px;
+  }
+
+  .bottom-center-command-dock {
+    flex-direction: row !important;
+    padding: 4px 10px 6px;
+  }
+
+  .prox-target-label {
+    font-size: 9.5px;
+    padding: 1px 8px;
+  }
+
+  .skill-tile-btn {
+    width: 36px !important;
+    height: 40px !important;
+    border-radius: 9px !important;
+  }
+
+  .skill-tile-btn .tile-icon {
+    font-size: 15px;
+  }
+
+  .skill-tile-btn .tile-label {
+    font-size: 8.5px;
+  }
+
+  .combat-action-cluster {
+    padding: 4px 8px;
+    gap: 6px;
+  }
+
+  .cluster-pill-btn {
+    height: 24px;
+    padding: 0 7px;
+    font-size: 10px;
+  }
+
+  .combat-main-attack-btn {
+    width: 50px;
+    height: 50px;
+  }
+
+  .combat-main-attack-btn .atk-icon {
+    font-size: 18px;
+  }
+
+  .combat-main-attack-btn .atk-label {
+    font-size: 8.5px;
+  }
 }

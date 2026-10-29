@@ -624,3 +624,15 @@ test('Bird commander: follows only when player is nearby (<= 400px), releases wh
 
 test('Season 2 ignores unauthenticated legacy heal completion packets',()=>{const env=createTestEnv();const n=new env.window.EphemeralOfficeNetwork();n.connect({name:'Victim',unit:'PP32',x:900,y:1350});n.localPlayer.isInjured=true;n.handleIncomingPacket({type:'heal_complete',nonce:'forged',targetId:n.clientId});assert.equal(n.localPlayer.isInjured,true);});
 test('Season 2 master election ignores legacy clients not in authenticated cloud roster',()=>{const e=createTestEnv(),n=new e.window.EphemeralOfficeNetwork();n.clientId='z';n.remotePlayers.set('a',{id:'a',name:'legacy'});e.window.GATHER_SEASON_PLAYERS=[{id:'cloud-z',clientId:'z'}];assert.equal(n.isRoomMaster(),true);});
+
+test('Responsive HUD scaling preserves 2560x1440 dimensions and adapts cleanly on laptops/smaller monitors', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../static/css/style.css'), 'utf8');
+  const appCode = fs.readFileSync(path.join(__dirname, '../static/js/app.js'), 'utf8');
+
+  assert.ok(css.includes('--chat-panel-w:'), 'CSS must define fluid --chat-panel-w custom property');
+  assert.ok(css.includes('--chat-msg-h:'), 'CSS must define fluid --chat-msg-h custom property');
+  assert.ok(css.includes('--left-panel-w:'), 'CSS must define fluid --left-panel-w custom property');
+  assert.ok(css.includes('left: calc(var(--chat-panel-w, 615px) + 28px);'), 'bottom-hud-dock must dynamically track chat panel width');
+  assert.ok(css.includes('(max-width: 1960px)') && css.includes('(max-width: 1560px)'), 'CSS must include responsive desktop/laptop breakpoints');
+  assert.ok(appCode.includes('vw >= 2100 && vh >= 1150'), 'getMinimapRect must preserve 195px on 2K and scale down on laptops');
+});

@@ -6773,11 +6773,17 @@ async function executeOfficeLogin(params) {
     if (window.innerWidth <= 900 || window.matchMedia('(pointer: coarse)').matches) {
       return { x: -1000, y: -1000, w: 0, h: 0 };
     }
-    const w = 195;
+    const vw = window.innerWidth || canvas.width || 1920;
+    const vh = window.innerHeight || canvas.height || 1080;
+    const w = (vw >= 2100 && vh >= 1150) ? 195 : Math.round(Math.max(140, Math.min(195, Math.min(vw * 0.115, vh * 0.18))));
     const h = Math.round(w * 132 / 195);
     return {
       x: canvas.width - w - 16,
-      y: 58,
+      y: (() => {
+        const topHud = typeof document !== 'undefined' && typeof document.querySelector === 'function' ? document.querySelector('.top-hud-bar') : null;
+        const r = topHud && typeof topHud.getBoundingClientRect === 'function' ? topHud.getBoundingClientRect() : null;
+        return (r && r.bottom > 0) ? Math.max(52, Math.round(r.bottom + 8)) : 58;
+      })(),
       w,
       h,
     };
@@ -6831,7 +6837,9 @@ async function executeOfficeLogin(params) {
     ctx.fillStyle = '#cbd5e1';
     ctx.font = '700 10px "Outfit", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('🗺️ 園區雷達 (點擊瞬移導航)', mm.x + 8, mm.y + mm.h - 6);
+    ctx.font = mm.w < 165 ? '700 9px "Outfit", sans-serif' : '700 10px "Outfit", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(mm.w < 165 ? '🗺️ 園區雷達 (點擊導航)' : '🗺️ 園區雷達 (點擊瞬移導航)', mm.x + 8, mm.y + mm.h - 6);
 
     // 右上角小巧關閉按鈕 ✕
     ctx.fillStyle = 'rgba(239, 68, 68, 0.85)';
