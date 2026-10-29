@@ -748,6 +748,9 @@ class EphemeralOfficeNetwork {
       } catch (_) {}
     }
 
+    if (this.realtimeChannel && this.isCloudConnected && this.realtimeChannel.state && this.realtimeChannel.state !== 'joined' && typeof this.realtimeChannel.httpSend === 'function') {
+      try { return this.realtimeChannel.httpSend('ephemeral_pkt', packet); } catch (_) {}
+    }
     if (this.realtimeChannel && this.isCloudConnected && (!this.realtimeChannel.state || this.realtimeChannel.state === 'joined')) {
       try {
         return this.realtimeChannel.send({
@@ -806,7 +809,13 @@ class EphemeralOfficeNetwork {
       emote: existing.emote || null,
       lastSeen: (window.GatherServerClock?.now() || Date.now()),
     });
-    this.remotePlayers.set(pData.id, merged);
+      for (const [oldId, oldPeer] of this.remotePlayers.entries()) {
+        if (oldId !== pData.id && oldPeer && oldPeer.name === merged.name && oldPeer.unit === merged.unit) {
+          if (oldPeer.joinNotified) merged.joinNotified = true;
+          this.remotePlayers.delete(oldId);
+        }
+      }
+      this.remotePlayers.set(pData.id, merged);
 
     if (notifyJoin && !reconnecting && !existing.joinNotified && this.callbacks.onPlayerJoin) {
       merged.joinNotified = true;
@@ -960,7 +969,8 @@ class EphemeralOfficeNetwork {
       }
       case 'private_chat': {
         if (!this.localPlayer) return;
-        if (pkt.targetId === this.clientId) {
+        const isTargetMe = pkt.targetId === this.clientId || (pkt.targetName && this.localPlayer.name && pkt.targetName === this.localPlayer.name && (!pkt.targetUnit || !this.localPlayer.unit || pkt.targetUnit === this.localPlayer.unit));
+        if (isTargetMe) {
           if (this.callbacks.onPrivateChat) {
             this.callbacks.onPrivateChat({
               id: pkt.nonce,

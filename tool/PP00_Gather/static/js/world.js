@@ -915,8 +915,8 @@ class OfficeEcosystem {
       }
 
       // 怪物隨機碰觸/衝撞玩家：造成擊退與輕微挫傷判定
-      if (!mob.combatDown && allPlayers) {
-        for (const pl of allPlayers) {
+      if (!mob.combatDown && players) {
+        for (const pl of players) {
           if (pl.id === 'local' && Math.hypot(mob.x - pl.x, mob.y - pl.y) < 38) {
             if (now - (mob.lastPlayerHitAt || 0) > 4000) {
               mob.lastPlayerHitAt = now;

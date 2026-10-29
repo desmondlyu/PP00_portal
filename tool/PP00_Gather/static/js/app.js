@@ -27,6 +27,7 @@
   let chatOnlyFilter = false;
   let activePipWindow = null;
   let mainMentions = null;
+  let selectedTargetPeer = null;
 
   // Clear only this game's obsolete state once; passwords and assets never migrate.
   try{if(season.enabled&&localStorage.getItem('gather_cloud_reset')!=='20261026-cloud6'){
@@ -2550,6 +2551,7 @@ async function executeOfficeLogin(params) {
     }
     if (target) {
       selectedTargetId = target.id;
+      selectedTargetPeer = target;
       mainMentions?.setBanner?.(target);
     }
 
@@ -3179,6 +3181,7 @@ async function executeOfficeLogin(params) {
         const card = document.getElementById('colleagueProfileCard');
         if (card) card.classList.add('hidden');
         selectedTargetId = null;
+        selectedTargetPeer = null;
         const sendModeSel = document.getElementById('chatSendModeSelect');
         if (sendModeSel && sendModeSel.value === 'private') {
           sendModeSel.value = 'chat';
@@ -4843,6 +4846,7 @@ async function executeOfficeLogin(params) {
         healerName: localPlayer.name,
         targetId: target.id,
         targetName: target.name,
+        targetUnit: target.unit,
       });
     }
     showToast(`🩹 正在對【${target.name}】進行 5 秒急救包紮！請保持靠近！`, 'join');
@@ -5136,6 +5140,22 @@ async function executeOfficeLogin(params) {
     return { peer, body };
   }
 
+  function resolveOnlinePeer(idOrPeer, fallbackPeer = null) {
+    const peers = [...(network?.remotePlayers?.values() || [])].filter(
+      (p) => p && !p.isNpc && !p.isMob && p.id !== network?.clientId && !String(p.id).startsWith('npc_')
+    );
+    const id = typeof idOrPeer === 'string' ? idOrPeer : idOrPeer?.id;
+    const ref = (typeof idOrPeer === 'object' && idOrPeer) || fallbackPeer || (id ? network?.remotePlayers?.get(id) : null);
+    if (ref?.name) {
+      const byName = peers
+        .filter((p) => p.name === ref.name && (!ref.unit || p.unit === ref.unit))
+        .sort((a, b) => (Number(!!a.connectionLostAt) - Number(!!b.connectionLostAt)) || ((b.lastSeen || 0) - (a.lastSeen || 0)));
+      if (byName.length) return byName[0];
+    }
+    if (id && network?.remotePlayers?.has(id)) return network.remotePlayers.get(id);
+    return ref || null;
+  }
+
   function pushUserChat(senderName, senderUnit, text, isSelf = false, isPrivate = false, targetName = '', senderId = null) {
     const chatItem = {
       id: 'chat_' + gameNow() + '_' + Math.random().toString(36).slice(2, 6),
@@ -5312,10 +5332,7 @@ async function executeOfficeLogin(params) {
    * 🔒 發送私人對談訊息（僅限真實線上使用者接收，NPC 無法進行私人對談）
    */
   async function sendPrivateChatMessage(target, text, reportError = message => showToast(message, 'error')) {
-    if (target && network?.remotePlayers && !network.remotePlayers.has(target.id)) {
-      const refreshed = [...network.remotePlayers.values()].find((p) => !p.isNpc && !p.isMob && p.name === target.name && (!target.unit || p.unit === target.unit));
-      if (refreshed) target = refreshed;
-    }
+    target = resolveOnlinePeer(target, selectedTargetPeer);
     if (!target) { reportError('對方已離線，草稿已保留'); return false; }
 
     // 檢查是否為 NPC：私人對談僅限真實使用者
@@ -5341,6 +5358,7 @@ async function executeOfficeLogin(params) {
       network.broadcastPacket('private_chat', {
         targetId: target.id,
         targetName: target.name,
+        targetUnit: target.unit,
         senderName: localPlayer.name,
         senderUnit: localPlayer.unit,
         text: cleanText,
@@ -5620,11 +5638,11 @@ async function executeOfficeLogin(params) {
 
     syncPipAllMessages(pipWin);
 
-    let pipTargetId = null;
+    let pipTargetId = null, pipTargetPeer = null;
     const pipForm = pipDoc.getElementById('pipForm');
     const pipInput = pipDoc.getElementById('pipInput');
     pipInput.placeholder='輸入 @ 選擇同事私訊；其他為公開聊天';
-    const mentions=installChatMentions(pipInput,pipForm,p=>{pipTargetId=p.id;},()=>{pipTargetId=null;});
+    const mentions=installChatMentions(pipInput,pipForm,p=>{pipTargetId=p.id;pipTargetPeer=p;},()=>{pipTargetId=null;pipTargetPeer=null;});
     pipWin.selectPrivateRecipient=mentions.select;
     const sendStatus=pipDoc.createElement('div');sendStatus.id='pipSendStatus';
     sendStatus.setAttribute('role','status');sendStatus.setAttribute('aria-live','polite');
@@ -5645,7 +5663,7 @@ async function executeOfficeLogin(params) {
         sendStatus.textContent='';
         try {
           const sent = pipTargetId
-            ? await sendPrivateChatMessage(network.remotePlayers.get(pipTargetId), text, message=>{sendStatus.textContent=message;})
+            ? await sendPrivateChatMessage(resolveOnlinePeer(pipTargetId, pipTargetPeer), text, message=>{sendStatus.textContent=message;})
             : (()=>{const m=resolveInlineMention(text);if(!m)return sendLocalChatMessage(text);if(!m.peer){sendStatus.textContent='找不到該線上同事，私訊未送出';return false;}mentions.select(m.peer);if(!m.body){sendStatus.textContent='已選取私訊對象，請輸入訊息';return false;}return sendPrivateChatMessage(m.peer,m.body,message=>{sendStatus.textContent=message;});})();
           if (sent) {
             sendStatus.textContent='已送出';sendStatus.style.color='#6ee7b7';
@@ -5782,7 +5800,7 @@ async function executeOfficeLogin(params) {
           chatInput.placeholder = '輸入對談訊息 (按 Enter 發送)...';
         } else if (mode === 'private') {
           const rawTarget = (selectedTargetId
-            ? network.getAllOtherPlayers().find((p) => p.id === selectedTargetId)
+            ? resolveOnlinePeer(selectedTargetId, selectedTargetPeer) || network.getAllOtherPlayers().find((p) => p.id === selectedTargetId)
             : null) || (nearbyPlayers.find((p) => !p.isNpc && !String(p.id).startsWith('npc_')) || null);
           const isNpc =
             rawTarget &&
@@ -5807,9 +5825,9 @@ async function executeOfficeLogin(params) {
       if(chatInput){
         chatInput.placeholder='輸入訊息；輸入 @ 選取線上同事私訊';
         mainMentions=installChatMentions(chatInput,proxForm,p=>{
-          selectedTargetId=p.id;
+          selectedTargetId=p.id;selectedTargetPeer=p;
           if(sendModeSel){const option=sendModeSel.querySelector?.('option[value="private"]');if(option)option.disabled=false;sendModeSel.value='private';dispatchChangeEvent(sendModeSel);}
-        },()=>{selectedTargetId=null;if(sendModeSel)sendModeSel.value='chat';});
+        },()=>{selectedTargetId=null;selectedTargetPeer=null;if(sendModeSel)sendModeSel.value='chat';});
       }
 
       proxForm.addEventListener('submit', async (e) => {
@@ -5834,7 +5852,7 @@ async function executeOfficeLogin(params) {
         } else if (mode === 'private') {
           // 🔒 私人對談：僅指定的真實線上使用者可見
           const target = (selectedTargetId
-            ? network.getAllOtherPlayers().find((p) => p.id === selectedTargetId)
+            ? resolveOnlinePeer(selectedTargetId, selectedTargetPeer) || network.getAllOtherPlayers().find((p) => p.id === selectedTargetId)
             : null) || (nearbyPlayers.find((p) => !p.isNpc && !String(p.id).startsWith('npc_')) || null);
           if (!target) {
             pushStatusLog('系統', '⚠️ 請先在地圖或名單中點選一位真實線上同仁，再發送私人對談訊息！');
@@ -6193,6 +6211,8 @@ async function executeOfficeLogin(params) {
   }
 
   function openColleagueProfileCard(colleague) {
+    selectedTargetId = colleague.id;
+    selectedTargetPeer = colleague;
     const card = document.getElementById('colleagueProfileCard');
     if (!card) return;
     const av = window.getAvatarMetaById
