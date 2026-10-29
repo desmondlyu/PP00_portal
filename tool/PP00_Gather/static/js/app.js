@@ -5280,7 +5280,13 @@ async function executeOfficeLogin(params) {
     lastUserActionAt = now;
 
     try {
-      await network.sendEncryptedPrivate(target.id, cleanText);
+      network.broadcastPacket('private_chat', {
+        targetId: target.id,
+        targetName: target.name,
+        senderName: localPlayer.name,
+        senderUnit: localPlayer.unit,
+        text: cleanText,
+      });
     } catch (error) {
       reportError(error.message || '私訊發送失敗，請重試；草稿已保留');
       return false;
