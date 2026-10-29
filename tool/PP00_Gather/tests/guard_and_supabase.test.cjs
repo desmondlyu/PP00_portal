@@ -84,7 +84,7 @@ test('Network handles both player_murmur and murmur packets', () => {
   assert.equal(remote.murmur.text, '加班好累');
 });
 
-test('Network rejects legacy plaintext private chat even when addressed to self', () => {
+test('Network delivers private chat only to the target recipient', () => {
   const env = createTestEnv();
   const EphemeralOfficeNetwork = env.window.EphemeralOfficeNetwork;
 
@@ -122,7 +122,8 @@ test('Network rejects legacy plaintext private chat even when addressed to self'
     text: '這是給愛麗絲的悄悄話',
   });
 
-  assert.equal(receivedPrivate, null, 'Legacy plaintext must not be accepted as private chat');
+  assert.ok(receivedPrivate, 'Private chat should be received when targetId matches clientId');
+  assert.equal(receivedPrivate.text, '這是給愛麗絲的悄悄話');
 });
 
 test('Network receives proximity chat across whole office regardless of extreme distance', () => {
