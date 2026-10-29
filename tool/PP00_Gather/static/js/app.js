@@ -22,6 +22,8 @@
   // - NPC 與狀態/動作紀錄上限 10 行 (自動洗掉)
   const userChatHistory = [];
   const statusLogHistory = [];
+  const pipArrivalHistory = [];
+  const notifiedArrivals = new Set();
   let chatOnlyFilter = false;
   let activePipWindow = null;
 
@@ -806,6 +808,7 @@
         // 登入歡迎動畫只顯示給「已經在線上」，看到新使用者登入時的提示
         if (loginTimestamp && gameNow() - loginTimestamp > 3000) {
           showWelcome(player);
+          notifyPlayerArrival(player);
         }
         renderSidebarRoster();
       },
@@ -5067,6 +5070,18 @@ async function executeOfficeLogin(params) {
   //    - 支援 Document Picture-in-Picture / 獨立彈跳視窗「永遠置頂」
   //    - 支援原生桌面通知 Web Notifications API（背景視窗自動推播）
   // =========================================================================
+  function notifyPlayerArrival(player) {
+    if (!player?.id || player.id === network?.clientId || player.isNpc || player.isMob || String(player.id).startsWith('npc_') || notifiedArrivals.has(player.id)) return;
+    notifiedArrivals.add(player.id);
+    if (notifiedArrivals.size > 1000) notifiedArrivals.delete(notifiedArrivals.values().next().value);
+    const text = `🟢 ${player.name} (${player.unit}) 已上線進入辦公室！`;
+    const item = {id:'arrival_'+player.id, senderName:'上線通知', senderUnit:'', text, timeStr:getFormatTime(), kind:'arrival', createdAt:gameNow()};
+    pipArrivalHistory.push(item);
+    if (pipArrivalHistory.length > 20) pipArrivalHistory.shift();
+    if (activePipWindow && !activePipWindow.closed) renderPipChatMessage(activePipWindow, item);
+    if (document.hidden || !document.hasFocus()) triggerDesktopNotification('🟢 同事上線', '', text);
+  }
+
   function pushUserChat(senderName, senderUnit, text, isSelf = false, isPrivate = false, targetName = '', senderId = null) {
     const chatItem = {
       id: 'chat_' + gameNow() + '_' + Math.random().toString(36).slice(2, 6),
@@ -5438,6 +5453,8 @@ async function executeOfficeLogin(params) {
       .pip-text {
         color: #f1f5f9;
       }
+      .pip-msg.arrival { color:#6ee7b7; padding:4px 0; }
+      .pip-msg.arrival .pip-text, .pip-msg.arrival .pip-author { color:#6ee7b7; }
       .pip-empty {
         color: #475569;
         font-size: 11px;
@@ -5580,11 +5597,12 @@ async function executeOfficeLogin(params) {
       const box = pipWin.document.getElementById('pipMessages');
       if (!box) return;
       box.innerHTML = '';
-      if (userChatHistory.length === 0) {
-        box.innerHTML = '<div class="pip-empty">暫無同事訊息 · 已過濾 NPC 碎碎念</div>';
+      const pipHistory = [...userChatHistory, ...pipArrivalHistory].sort((a,b)=>a.createdAt-b.createdAt).slice(-20);
+      if (pipHistory.length === 0) {
+        box.innerHTML = '<div class="pip-empty">暫無同事訊息或上線通知 · 已過濾 NPC 碎碎念</div>';
         return;
       }
-      userChatHistory.forEach((item) => {
+      pipHistory.forEach((item) => {
         renderPipChatMessage(pipWin, item);
       });
       box.scrollTop = box.scrollHeight;
@@ -5603,8 +5621,8 @@ async function executeOfficeLogin(params) {
       if (empty) empty.remove();
 
       const div = doc.createElement('div');
-      div.className = 'pip-msg' + (item.isSelf ? ' self' : '') + (item.isPrivate ? ' whisper' : '');
-      const authorLabel = item.isPrivate
+      div.className = 'pip-msg' + (item.kind === 'arrival' ? ' arrival' : '') + (item.isSelf ? ' self' : '') + (item.isPrivate ? ' whisper' : '');
+      const authorLabel = item.kind === 'arrival' ? '🟢 同事上線：' : item.isPrivate
         ? (item.isSelf ? `🔒 [密語 ➔ ${escapeHtml(item.targetName)}]` : `🔒 [私訊 ➔ 來自 ${escapeHtml(item.senderName)}]`)
         : `${escapeHtml(item.senderName)}${item.senderUnit ? ` (${escapeHtml(item.senderUnit)})` : ''}:`;
       div.innerHTML = `
@@ -5641,6 +5659,7 @@ async function executeOfficeLogin(params) {
     if (burnBtn) {
       burnBtn.addEventListener('click', () => {
         userChatHistory.length = 0;
+        pipArrivalHistory.length = 0;
         statusLogHistory.length = 0;
         delete localPlayer.murmur;
         localPlayer.murmur = null;
