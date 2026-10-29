@@ -386,29 +386,52 @@ class EphemeralOfficeNetwork {
         waypoints: [
           { x: 1060, y: 520 },  // 中央北大廳
           { x: 640, y: 520 },   // 西側走廊
+          { x: 395, y: 520 },   // VP 辦公室門外走廊
           { x: 380, y: 350 },   // 進入 VP 大老闆辦公室門口
-          { x: 380, y: 220 },   // 深入 VP 辦公室內部窗邊
-          { x: 380, y: 350 },   // 出 VP 辦公室
+          { x: 490, y: 260 },   // 深入 VP 辦公室內部東側
+          { x: 380, y: 260 },   // 深入 VP 辦公室辦公桌前
+          { x: 380, y: 350 },   // 準備出 VP 辦公室
+          { x: 395, y: 520 },   // 出 VP 辦公室門外走廊
           { x: 200, y: 520 },   // 大門入口接待區
           { x: 200, y: 1180 },  // 西南走廊
+          { x: 395, y: 1180 },  // Meeting Room A 門外走廊
+          { x: 410, y: 1380 },  // 進入 Meeting Room A
           { x: 410, y: 1450 },  // 飄進 Meeting Room A 戰情看盤室
+          { x: 560, y: 1520 },  // 繞過會議桌東側
           { x: 410, y: 1650 },  // 深入 Meeting Room A 會議桌底
+          { x: 560, y: 1520 },  // 繞回會議桌東側
           { x: 410, y: 1380 },  // 出 Meeting Room A
+          { x: 395, y: 1180 },  // Meeting Room A 門外走廊
+          { x: 925, y: 1180 },  // Meeting Room B 門外走廊
+          { x: 935, y: 1380 },  // 進入 Meeting Room B
           { x: 935, y: 1450 },  // 飄進 Meeting Room B 專案審查室
+          { x: 1090, y: 1520 }, // 繞過會議桌東側
           { x: 935, y: 1650 },  // 深入 Meeting Room B 投影幕前
+          { x: 1090, y: 1520 }, // 繞回會議桌東側
+          { x: 935, y: 1380 },  // 準備出 Meeting Room B
           { x: 935, y: 1200 },  // 出 Meeting Room B
           { x: 1400, y: 1200 }, // 南側走廊
+          { x: 1800, y: 1205 }, // Lab 實驗室門外
           { x: 1695, y: 1360 }, // 飄進 Lab 半導體實驗室機台區
+          { x: 1695, y: 1500 }, // Lab 走道中段
           { x: 1820, y: 1520 }, // 深入機台測試深處
+          { x: 1695, y: 1500 }, // 返回 Lab 走道
+          { x: 1695, y: 1360 }, // 返回 Lab 入口區
           { x: 1800, y: 1205 }, // 出 Lab 實驗室
           { x: 2120, y: 1180 }, // 東南大道
           { x: 2120, y: 820 },  // 洗手間門口走廊
+          { x: 2220, y: 820 },  // 進入洗手間玄關
           { x: 2255, y: 682 },  // 穿進洗手間洗手台鏡子前
           { x: 2420, y: 765 },  // 穿梭於馬桶隔間走道
           { x: 2160, y: 820 },  // 穿出洗手間
           { x: 2120, y: 520 },  // 東北走廊
+          { x: 2360, y: 520 },  // 茶水間門外走廊
           { x: 2350, y: 350 },  // 飄進茶水間咖啡機旁
+          { x: 2250, y: 280 },  // 茶水間西側走道
           { x: 2360, y: 200 },  // 茶水間角落
+          { x: 2250, y: 280 },  // 茶水間西側走道返回
+          { x: 2350, y: 350 },  // 茶水間門口內
+          { x: 2360, y: 520 },  // 出茶水間門外走廊
           { x: 2120, y: 520 },  // 回到中央大廳
         ],
         murmurs: ['夜深了……還不回家嗎？', '噓……我只是路過。'],
@@ -1245,26 +1268,60 @@ class EphemeralOfficeNetwork {
     const minionWpsA = [
       { x: 1060, y: 520 },  // 中央北大廳
       { x: 640, y: 520 },   // 西側走廊
+      { x: 395, y: 520 },   // VP 辦公室門外走廊
       { x: 380, y: 350 },   // VP 大老闆辦公室門口
+      { x: 395, y: 520 },   // 出 VP 辦公室門外走廊
       { x: 200, y: 520 },   // 接待區
+      { x: 200, y: 1180 },  // 西南走廊
+      { x: 395, y: 1180 },  // Meeting Room A 門外
       { x: 410, y: 1450 },  // Meeting Room A 戰情看盤室
+      { x: 395, y: 1180 },  // 出 Meeting Room A
+      { x: 925, y: 1180 },  // Meeting Room B 門外
       { x: 935, y: 1450 },  // Meeting Room B 專案審查室
+      { x: 925, y: 1180 },  // 出 Meeting Room B
       { x: 1400, y: 1200 }, // 南側走廊
+      { x: 1800, y: 1205 }, // Lab 實驗室門外
       { x: 1695, y: 1360 }, // Lab 半導體實驗室
+      { x: 1800, y: 1205 }, // 出 Lab 實驗室
+      { x: 2120, y: 1180 }, // 東南走廊
       { x: 2120, y: 820 },  // 洗手間走廊
+      { x: 2120, y: 520 },  // 東北走廊
+      { x: 2360, y: 520 },  // 茶水間門外
       { x: 2350, y: 350 },  // 茶水間咖啡區
+      { x: 2360, y: 520 },  // 出茶水間門外
+      { x: 2120, y: 520 },  // 東北走廊返回
     ];
     const minionWpsB = [
       { x: 2350, y: 350 },  // 茶水間咖啡區
+      { x: 2360, y: 520 },  // 出茶水間門外
       { x: 2120, y: 520 },  // 東北走廊
+      { x: 2120, y: 820 },  // 洗手間門外走廊
+      { x: 2220, y: 820 },  // 進入洗手間玄關
       { x: 2255, y: 682 },  // 洗手間洗手台
+      { x: 2220, y: 820 },  // 出洗手間玄關
+      { x: 2120, y: 820 },  // 洗手間門外走廊
+      { x: 2120, y: 1180 }, // 東南走廊
+      { x: 1800, y: 1205 }, // Lab 門外
+      { x: 1695, y: 1360 }, // Lab 走道入口
+      { x: 1695, y: 1500 }, // Lab 走道中段
       { x: 1820, y: 1520 }, // Lab 實驗室測試深處
+      { x: 1695, y: 1500 }, // 返回 Lab 走道
+      { x: 1695, y: 1360 }, // 返回 Lab 入口
+      { x: 1800, y: 1205 }, // 出 Lab 門外
       { x: 1400, y: 1200 }, // 南側走廊
+      { x: 925, y: 1180 },  // Meeting Room B 門外
       { x: 935, y: 1450 },  // Meeting Room B
+      { x: 925, y: 1180 },  // 出 Meeting Room B
+      { x: 395, y: 1180 },  // Meeting Room A 門外
       { x: 410, y: 1450 },  // Meeting Room A
+      { x: 395, y: 1180 },  // 出 Meeting Room A
       { x: 200, y: 1180 },  // 西南走廊
+      { x: 200, y: 520 },   // 西側走廊
+      { x: 395, y: 520 },   // VP 辦公室門外
       { x: 380, y: 350 },   // VP 辦公室
+      { x: 395, y: 520 },   // 出 VP 辦公室門外
       { x: 1060, y: 520 },  // 回到中央大廳
+      { x: 2360, y: 520 },  // 前往茶水間門外
     ];
 
     this.npcPlayers.set('npc_ghost_minion_1', {
@@ -1577,21 +1634,56 @@ class EphemeralOfficeNetwork {
             targetPoint = npc.waypoints[npc.waypointIdx % npc.waypoints.length];
           }
           if (targetPoint) {
-            const dx = targetPoint.x - npc.x, dy = targetPoint.y - npc.y, d = Math.hypot(dx, dy);
-            if (d < 12) npc.waypointIdx++;
-            else {
+            const rawDist = Math.hypot(targetPoint.x - npc.x, targetPoint.y - npc.y);
+            if (rawDist < 16) {
+              npc.waypointIdx++;
+              npc.ghostStuckTicks = 0;
+            } else {
+              let steerPoint = targetPoint;
+              const inVp = npc.x < 620 && npc.y < 455;
+              const targetInVp = targetPoint.x < 620 && targetPoint.y < 445;
+              if (inVp && !targetInVp) {
+                if (npc.y < 155 && npc.x < 490) steerPoint = { x: 520, y: 135 };
+                else if (npc.y < 255 && npc.x < 250) steerPoint = { x: 220, y: 270 };
+                else if (npc.y < 255) steerPoint = { x: 520, y: 270 };
+                else if (npc.y < 345 && npc.x < 345) steerPoint = { x: 395, y: 270 };
+                else if (npc.x < 350 || npc.x > 440) steerPoint = { x: 395, y: 360 };
+                else steerPoint = { x: 395, y: 510 };
+              } else if (!inVp && targetInVp) {
+                if (npc.x >= 620 && npc.y < 495) steerPoint = { x: 650, y: 510 };
+                else if (npc.x < 350 || npc.x > 440) steerPoint = { x: 395, y: 510 };
+              }
+              const dx = steerPoint.x - npc.x, dy = steerPoint.y - npc.y, d = Math.hypot(dx, dy) || 1;
               const step = Math.min(d, moveSpeed);
               const nx = npc.x + (dx / d) * step;
               const ny = npc.y + (dy / d) * step;
+              let moved = false;
               if (!window.isPositionBlocked?.(nx, ny, 12)) {
                 npc.x = nx;
                 npc.y = ny;
-              } else if (!window.isPositionBlocked?.(nx, npc.y, 12)) {
+                moved = true;
+              } else if (Math.abs(nx - npc.x) > 0.1 && !window.isPositionBlocked?.(nx, npc.y, 12)) {
                 npc.x = nx;
-              } else if (!window.isPositionBlocked?.(npc.x, ny, 12)) {
+                moved = true;
+              } else if (Math.abs(ny - npc.y) > 0.1 && !window.isPositionBlocked?.(npc.x, ny, 12)) {
                 npc.y = ny;
+                moved = true;
+              }
+              if (!moved) {
+                npc.ghostStuckTicks = (npc.ghostStuckTicks || 0) + 1;
+                if (npc.ghostStuckTicks >= 16) {
+                  npc.waypointIdx++;
+                  npc.ghostStuckTicks = 0;
+                }
               } else {
-                npc.waypointIdx++;
+                npc.ghostStuckTicks = 0;
+              }
+              npc.targetX = steerPoint.x;
+              npc.targetY = steerPoint.y;
+              if (Math.abs(dx) > Math.abs(dy)) {
+                npc.dir = dx > 0 ? 'right' : 'left';
+              } else {
+                npc.dir = dy > 0 ? 'down' : 'up';
               }
             }
           }
