@@ -1,0 +1,9 @@
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const vm=require('node:vm');
+function game(hidden=true,permission='granted'){
+ const notifications=[],items=[];class Notification{static permission=permission;constructor(title,options){notifications.push({title,...options});}close(){}}
+ const context={console,Date,Math,Notification,setTimeout:()=>0,localStorage:{getItem:()=>null},document:{hidden,hasFocus:()=>!hidden,getElementById:()=>null},window:{GATHER_CONFIG:{},Notification,addEventListener(){}}};vm.createContext(context);
+ let source=fs.readFileSync(__dirname+'/../static/js/app.js','utf8');source=source.replace("  window.addEventListener('DOMContentLoaded', init);",`loginTimestamp=Date.now()-10000;activePipWindow={closed:false};renderPipChatMessage=(_w,item)=>items.push(item);network={clientId:'self'};window.arrive=notifyPlayerArrival;window.history=()=>pipArrivalHistory;`);context.items=items;vm.runInContext(source,context);return {w:context.window,notifications,items};
+}
+test('background arrival notifies desktop and floating history exactly once',()=>{const {w,notifications,items}=game();w.arrive({id:'bob',name:'Bob',unit:'PP32'});w.arrive({id:'bob',name:'Bob',unit:'PP32'});assert.equal(notifications.length,1);assert.match(notifications[0].body,/Bob.*上線/);assert.equal(items.length,1);assert.equal(w.history().length,1);});
+test('foreground arrival remains in floating chat without desktop interruption',()=>{const {w,notifications,items}=game(false);w.arrive({id:'bob',name:'Bob',unit:'PP32'});assert.equal(notifications.length,0);assert.equal(items.length,1);});
+test('denied notifications still record arrival, NPC and self never notify',()=>{const {w,notifications,items}=game(true,'denied');w.arrive({id:'bob',name:'Bob',unit:'PP32'});w.arrive({id:'npc_a',name:'NPC',isNpc:true});w.arrive({id:'self',name:'Self'});assert.equal(notifications.length,0);assert.equal(items.length,1);});
