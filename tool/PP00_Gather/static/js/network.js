@@ -30,73 +30,6 @@ class EphemeralOfficeNetwork {
     }
   }
 
-  // Session-only keys: no private key or plaintext is persisted.
-  async preparePrivateKey() {
-    if (!this.privateKeyPromise) this.privateKeyPromise = (async () => {
-      this.privateKeyPair = await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'}, false, ['deriveKey']);
-      this.privatePublicKey = await crypto.subtle.exportKey('jwk', this.privateKeyPair.publicKey);
-    })();
-    return this.privateKeyPromise;
-  }
-
-  async peerKey(publicKey) {
-    await this.preparePrivateKey();
-    const peer = await crypto.subtle.importKey('jwk', publicKey, {name:'ECDH',namedCurve:'P-256'}, false, []);
-    return crypto.subtle.deriveKey({name:'ECDH',public:peer}, this.privateKeyPair.privateKey, {name:'AES-GCM',length:256}, false, ['encrypt','decrypt']);
-  }
-
-  async encryptPrivate(publicKey, text) {
-    const key = await this.peerKey(publicKey);
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encrypted = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, new TextEncoder().encode(text));
-    return {iv:Array.from(iv), ciphertext:Array.from(new Uint8Array(encrypted))};
-  }
-
-  async decryptPrivate(publicKey, packet) {
-    if (!Array.isArray(packet.iv) || packet.iv.length !== 12 || !Array.isArray(packet.ciphertext) || packet.ciphertext.length > 1024) throw new Error('Invalid private message');
-    const key = await this.peerKey(publicKey);
-    return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(packet.iv)}, key, new Uint8Array(packet.ciphertext)));
-  }
-
-  async ensureRealtimeReady() {
-    if (!this.realtimeChannel) {
-      const detail=this.lastRealtimeError || (!window.supabase?.createClient ? '通訊程式未載入，請重新整理遊戲' : '即時頻道尚未建立，請重新登入');
-      throw new Error(detail+'；草稿已保留');
-    }
-    if (this.realtimeChannel.state) this.isCloudConnected=this.realtimeChannel.state === 'joined';
-    if (this.isCloudConnected) return;
-    this.supabaseClient?.realtime?.connect();
-    for(let attempt=0;attempt<40;attempt++) {
-      if(this.disconnectPromise) break;
-      if(this.realtimeChannel?.state === 'joined' || this.isCloudConnected) {this.isCloudConnected=true;return;}
-      await new Promise(resolve=>setTimeout(resolve,100));
-    }
-    throw new Error(`即時聊天連線失敗（${this.lastRealtimeError || this.realtimeChannel?.state || '未連線'}），請確認網路允許即時連線後重試；草稿已保留`);
-  }
-
-  async sendEncryptedPrivate(targetId, text) {
-    let peer = this.remotePlayers.get(targetId);
-    if (!peer || peer.connectionLostAt) throw new Error('對方已離線，草稿已保留');
-    await this.ensureRealtimeReady();
-    await this.preparePrivateKey();
-    if (!peer.privatePublicKey) {
-      await this.broadcastPacket('private_key_request', {targetId});
-      for (let attempt=0; attempt<15; attempt++) {
-        peer=this.remotePlayers.get(targetId);
-        if (!peer || peer.connectionLostAt || peer.privatePublicKey) break;
-        await new Promise(resolve=>setTimeout(resolve,100));
-      }
-      if (!peer || peer.connectionLostAt) throw new Error('對方已離線，草稿已保留');
-      if (!peer.privatePublicKey) throw new Error('對方的私訊加密尚未就緒，請對方重新整理遊戲後重試；草稿已保留');
-    }
-    // Advertise our key too: peers discovered through the cloud roster may not have it yet.
-    await this.broadcastPacket('state_sync', {player:this.getPublicState()});
-    const payload = await this.encryptPrivate(peer.privatePublicKey, text);
-    if (!this.remotePlayers.has(targetId) || this.remotePlayers.get(targetId).connectionLostAt) throw new Error('對方已離線，草稿已保留');
-    const result = await this.broadcastPacket('private_chat_encrypted', {targetId, ...payload});
-    if (result !== 'ok') throw new Error('私訊傳送失敗，草稿已保留');
-  }
-
   deferPlayerLeave(id) {
     const p = this.remotePlayers.get(id);
     if (p && !p.connectionLostAt) {p.connectionLostAt = Date.now();p.status = 'away';}
@@ -645,9 +578,6 @@ class EphemeralOfficeNetwork {
   }
 
   connect(playerProfile, roomCode = 'PP00') {
-    this.preparePrivateKey().then(() => {
-      if (this.localPlayer) this.broadcastPacket('state_sync', {player:this.getPublicState()});
-    }).catch(() => console.warn('此瀏覽器無法啟用加密私訊'));
     this.localPlayer = playerProfile;
     if (this.localPlayer) {
       this.localPlayer.id = this.clientId;
@@ -715,8 +645,7 @@ class EphemeralOfficeNetwork {
             if (key === this.clientId) return;
             this.deferPlayerLeave(key);
           })
-          .subscribe(async (status, error) => {
-            this.lastRealtimeError = error?.message || (status === 'SUBSCRIBED' ? null : status);
+          .subscribe(async (status) => {
             if (status === 'SUBSCRIBED' && !this.disconnectPromise) {
               this.isCloudConnected = true;
               if (this.callbacks.onConnectionChange) {
@@ -746,7 +675,6 @@ class EphemeralOfficeNetwork {
           });
         }
       } catch (e) {
-        this.lastRealtimeError=e.message || '通訊初始化失敗';
         console.warn('切換本地頻道：', e);
       }
     }
@@ -765,7 +693,6 @@ class EphemeralOfficeNetwork {
       outfitUid: this.localPlayer.outfitUid || null,
       inventoryState: {inventory:(this.localPlayer.inventory || []).map(i=>({id:i.id,category:i.category,durability:i.durability,maxDurability:i.maxDurability,count:i.count})), equippedSlots:(this.localPlayer.equippedSlots || []).map(i=>i?{}:null)},
       status: typeof document !== 'undefined' && document.hidden ? 'away' : this.localPlayer.status,
-      privatePublicKey: this.privatePublicKey || null,
       heldItem: this.localPlayer.heldItem,
       actionState: this.localPlayer.actionState || null,
       occupiedSpotId: this.localPlayer.occupiedSpotId || null,
@@ -848,7 +775,6 @@ class EphemeralOfficeNetwork {
     const reconnecting = !!existing.connectionLostAt;
     const merged = Object.assign(existing, {
       connectionLostAt: null,
-      privatePublicKey: pData.privatePublicKey || existing.privatePublicKey || null,
       id: pData.id,
       name: this.sanitizeText(pData.name || '同事', 16),
       unit: this.sanitizeText(pData.unit || 'PP00', 8),
@@ -1029,21 +955,22 @@ class EphemeralOfficeNetwork {
         }
         break;
       }
-      case 'private_key_request': {
-        if (!this.localPlayer || pkt.targetId !== this.clientId) break;
-        this.preparePrivateKey().then(()=>{
-          if (this.localPlayer) this.broadcastPacket('state_sync', {player:this.getPublicState()});
-        }).catch(()=>{});
-        break;
-      }
-      case 'private_chat_encrypted': {
-        if (!this.localPlayer || pkt.targetId !== this.clientId) break;
-        const sender = this.remotePlayers.get(pkt.senderId);
-        if (!sender?.privatePublicKey) break;
-        this.decryptPrivate(sender.privatePublicKey, pkt).then(text => {
-          if (!this.localPlayer) return;
-          this.callbacks.onPrivateChat?.({id:pkt.nonce,senderId:pkt.senderId,senderName:sender.name,senderUnit:sender.unit,text:this.sanitizeText(text,100),targetId:this.clientId,targetName:this.localPlayer.name,createdAt:Date.now()});
-        }).catch(() => console.warn('拒絕無法解密的私訊'));
+      case 'private_chat': {
+        if (!this.localPlayer) return;
+        if (pkt.targetId === this.clientId) {
+          if (this.callbacks.onPrivateChat) {
+            this.callbacks.onPrivateChat({
+              id: pkt.nonce,
+              senderId: pkt.senderId,
+              senderName: this.sanitizeText(pkt.senderName || '同事', 16),
+              senderUnit: this.sanitizeText(pkt.senderUnit || 'PP00', 8),
+              text: this.sanitizeText(pkt.text, 100),
+              targetId: pkt.targetId,
+              targetName: this.sanitizeText(pkt.targetName || this.localPlayer.name, 16),
+              createdAt: (window.GatherServerClock?.now() || Date.now()),
+            });
+          }
+        }
         break;
       }
       case 'skill_action': {
