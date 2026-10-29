@@ -897,7 +897,7 @@
         }
       },
       onPrivateChat: (msg) => {
-        pushUserChat(msg.senderName, msg.senderUnit, msg.text, false, true, localPlayer.name);
+        pushUserChat(msg.senderName, msg.senderUnit, msg.text, false, true, localPlayer.name, msg.senderId);
         triggerChatNotifyFlash(msg.senderName, true);
         if (isChatPanelCollapsed()) {
           // 聊天室窗使用者縮合中：在畫面正中央顯示醒目的大方塊卡片
@@ -1222,11 +1222,25 @@
       savePersistentState();
       if (window.gatherSupabase) window.gatherSupabase.logoutUser();
     });
-    window.addEventListener('pagehide', () => {
+    window.addEventListener('pagehide', (event) => {
+      if (event.persisted) return;
       savePersistentState();
       if (window.gatherSupabase) window.gatherSupabase.logoutUser();
     });
 
+    const presenceTimer = setInterval(() => {
+      if (!isLoggedIn || network.disconnectPromise) {clearInterval(presenceTimer);return;}
+      if (document.hidden) {
+        network.broadcastPacket('state_sync', {player:network.getPublicState()});
+        seasonPoll();
+      }
+    }, 8000);
+    document.addEventListener('visibilitychange', () => {
+      if (!isLoggedIn || network.disconnectPromise) return;
+      network.broadcastPacket('state_sync', {player:network.getPublicState()});
+      network.realtimeChannel?.track(network.getPublicState());
+      if (!document.hidden) seasonPoll();
+    });
     requestAnimationFrame(gameLoop);
   }
 
@@ -2003,7 +2017,7 @@ async function executeOfficeLogin(params) {
                 if (payload.eventType === 'DELETE') {
                   const leavingId = payload.old?.client_id;
                   if (leavingId && network.remotePlayers.has(leavingId)) {
-                    network.remotePlayers.delete(leavingId);
+                    network.deferPlayerLeave(leavingId);
                     renderSidebarRoster();
                   }
                 } else {
@@ -5053,10 +5067,11 @@ async function executeOfficeLogin(params) {
   //    - 支援 Document Picture-in-Picture / 獨立彈跳視窗「永遠置頂」
   //    - 支援原生桌面通知 Web Notifications API（背景視窗自動推播）
   // =========================================================================
-  function pushUserChat(senderName, senderUnit, text, isSelf = false, isPrivate = false, targetName = '') {
+  function pushUserChat(senderName, senderUnit, text, isSelf = false, isPrivate = false, targetName = '', senderId = null) {
     const chatItem = {
       id: 'chat_' + gameNow() + '_' + Math.random().toString(36).slice(2, 6),
       senderName,
+      senderId,
       senderUnit,
       text,
       timeStr: getFormatTime(),
@@ -5227,8 +5242,8 @@ async function executeOfficeLogin(params) {
   /**
    * 🔒 發送私人對談訊息（僅限真實線上使用者接收，NPC 無法進行私人對談）
    */
-  function sendPrivateChatMessage(target, text) {
-    if (!target) return false;
+  async function sendPrivateChatMessage(target, text) {
+    if (!target) { showToast('對方已離線，草稿已保留', 'error'); return false; }
 
     // 檢查是否為 NPC：私人對談僅限真實使用者
     const isNpc =
@@ -5249,18 +5264,14 @@ async function executeOfficeLogin(params) {
     network.lastChatAt = now;
     lastUserActionAt = now;
 
-    // 本機顯示對真實目標的私人對談紀錄
+    try {
+      await network.sendEncryptedPrivate(target.id, cleanText);
+    } catch (error) {
+      showToast(error.message, 'error');
+      return false;
+    }
     pushUserChat(localPlayer.name, localPlayer.unit, cleanText, true, true, target.name);
     addExp(8);
-
-    // 遠端真實玩家私訊廣播 (僅 targetId 接收)
-    network.broadcastPacket('private_chat', {
-      targetId: target.id,
-      targetName: target.name,
-      senderName: localPlayer.name,
-      senderUnit: localPlayer.unit,
-      text: cleanText,
-    });
 
     return true;
   }
@@ -5484,15 +5495,71 @@ async function executeOfficeLogin(params) {
 
     syncPipAllMessages(pipWin);
 
+    let pipTargetId = null;
+    const recipient = pipDoc.createElement('div');
+    recipient.style.cssText = 'padding:5px 8px;color:#c4b5fd;font-size:12px';
+    const suggestions = pipDoc.createElement('div');
+    suggestions.style.cssText = 'max-height:140px;overflow:auto;background:#162033;color:white';
+    const pipForm = pipDoc.getElementById('pipForm');
+    pipForm.before(recipient, suggestions);
+    const pipInput = pipDoc.getElementById('pipInput');
+    pipInput.placeholder = '輸入 @ 選擇同事私訊；其他為公開聊天';
+    let choices = [], choiceIndex = 0;
+    const renderChoices = () => {
+      suggestions.replaceChildren();
+      const match = pipInput.value.match(/(?:^|\s)@([^@\s]*)$/u);
+      if (!match) {choices=[];return;}
+      choices = [...network.remotePlayers.values()].filter(p => !p.isNpc && !p.isMob && !p.connectionLostAt && p.id !== network.clientId && `${p.name} ${p.unit}`.toLowerCase().includes(match[1].toLowerCase()));
+      choiceIndex = Math.min(choiceIndex, Math.max(0,choices.length-1));
+      choices.forEach((p,i) => {
+        const button = pipDoc.createElement('button');button.type='button';
+        button.textContent = `${p.name}（${p.unit}）`;
+        if (typeof window.drawWackyAvatar === 'function') {
+          const avatar=pipDoc.createElement('canvas');avatar.width=28;avatar.height=30;avatar.style.cssText='vertical-align:middle;margin-right:6px';
+          const avatarCtx=avatar.getContext('2d');
+          if (avatarCtx) {avatarCtx.imageSmoothingEnabled=false;window.drawWackyAvatar(avatarCtx,{avatarId:p.avatarId,outfitAvatarId:p.outfitAvatarId,x:14,y:24,dir:'down',isMoving:false,tick:0,scale:0.44});}
+          button.prepend(avatar);
+        }
+        button.style.cssText = `display:block;width:100%;text-align:left;padding:8px;color:white;border:0;background:${i===choiceIndex?'#155e75':'transparent'}`;
+        button.onclick = () => {
+          pipTargetId=p.id;pipInput.value=pipInput.value.replace(/(?:^|\s)@[^@\s]*$/u,'').trim();
+          recipient.replaceChildren(pipDoc.createTextNode(`🔒 私訊給：${p.name}（${p.unit}） `));
+          const clear=pipDoc.createElement('button');clear.type='button';clear.textContent='× 公開聊天';
+          clear.onclick=()=>{pipTargetId=null;recipient.replaceChildren();pipInput.focus();};recipient.append(clear);
+          suggestions.replaceChildren();choices=[];pipInput.focus();
+        };suggestions.append(button);
+      });
+      if (!choices.length) suggestions.textContent='沒有符合的線上同事';
+    };
+    pipWin.selectPrivateRecipient = id => {
+      const peer=network.remotePlayers.get(id);
+      if (!peer || peer.connectionLostAt) return;
+      pipInput.value='@';renderChoices();
+      const index=choices.findIndex(p=>p.id===id);
+      if(index>=0)suggestions.children[index]?.click();
+    };
+    pipInput.addEventListener('input',()=>{choiceIndex=0;renderChoices();});
+    pipInput.addEventListener('keydown',e=>{
+      if(e.isComposing)return;
+      if(choices.length && ['ArrowDown','ArrowUp','Enter'].includes(e.key)){
+        e.preventDefault();
+        if(e.key==='Enter')suggestions.children[choiceIndex]?.click();
+        else {choiceIndex=(choiceIndex+(e.key==='ArrowDown'?1:choices.length-1))%choices.length;renderChoices();}
+      } else if(e.key==='Escape'){suggestions.replaceChildren();choices=[];}
+    });
     const form = pipDoc.getElementById('pipForm');
     const input = pipDoc.getElementById('pipInput');
     if (form && input) {
-      form.addEventListener('submit', (e) => {
+      form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const text = input.value;
         if (!text || !text.trim()) return;
-        const sent = sendLocalChatMessage(text);
-        if (sent) {
+        if (form.dataset.sending) return;
+        form.dataset.sending = '1';
+        const draft = input.value;
+        const sent = pipTargetId ? await sendPrivateChatMessage(network.remotePlayers.get(pipTargetId), text) : (input.value.includes('@') ? false : sendLocalChatMessage(text));
+        delete form.dataset.sending;
+        if (sent && input.value === draft) {
           input.value = '';
         }
       });
@@ -5545,6 +5612,10 @@ async function executeOfficeLogin(params) {
         <span class="pip-author" style="${item.isPrivate ? 'color:#c084fc;font-weight:700;' : ''}">${authorLabel}</span>
         <span class="pip-text">${escapeHtml(item.text)}</span>
       `;
+      if (item.isPrivate && !item.isSelf && item.senderId) {
+        const reply=doc.createElement('button');reply.type='button';reply.textContent='回覆';
+        reply.onclick=()=>pipWin.selectPrivateRecipient?.(item.senderId);div.append(reply);
+      }
       box.appendChild(div);
 
       const maxLines = window.GATHER_CONFIG?.security?.maxUserChatLines || 20;
@@ -5610,7 +5681,7 @@ async function executeOfficeLogin(params) {
         } else if (mode === 'private') {
           const rawTarget = (selectedTargetId
             ? network.getAllOtherPlayers().find((p) => p.id === selectedTargetId)
-            : null) || (nearbyPlayers.find((p) => !p.isNpc && !String(p.id).startsWith('npc_')) || null);
+            : null);
           const isNpc =
             rawTarget &&
             (rawTarget.isNpc ||
@@ -5631,7 +5702,7 @@ async function executeOfficeLogin(params) {
 
     const proxForm = document.getElementById('proxChatForm');
     if (proxForm) {
-      proxForm.addEventListener('submit', (e) => {
+      proxForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const rawText = chatInput ? chatInput.value : '';
         const text = network.sanitizeText(rawText, 100);
@@ -5645,7 +5716,7 @@ async function executeOfficeLogin(params) {
           // 🔒 私人對談：僅指定的真實線上使用者可見
           const target = (selectedTargetId
             ? network.getAllOtherPlayers().find((p) => p.id === selectedTargetId)
-            : null) || (nearbyPlayers.find((p) => !p.isNpc && !String(p.id).startsWith('npc_')) || null);
+            : null);
           if (!target) {
             pushStatusLog('系統', '⚠️ 請先在地圖或名單中點選一位真實線上同仁，再發送私人對談訊息！');
             showToast('⚠️ 請先點選一位真實線上同仁！', 'error');
@@ -5660,8 +5731,8 @@ async function executeOfficeLogin(params) {
             showToast(`⚠️【${target.name}】是 NPC，私人對談僅限對真實線上使用者發送！`, 'error');
             return;
           }
-          const sent = sendPrivateChatMessage(target, text);
-          if (sent && chatInput) chatInput.value = '';
+          const sent = await sendPrivateChatMessage(target, text);
+          if (sent && chatInput && chatInput.value === rawText) chatInput.value = '';
         } else {
           // 💭 MURMUR 模式：只會顯示在頭上，維持20秒，有卡片效果，重複MURMUR會蓋掉原本的
           const mood = 'normal';
