@@ -2529,6 +2529,16 @@ async function executeOfficeLogin(params) {
     } catch (_) {}
   }
 
+  function updateChatCollapseBtnUI(isCollapsed, btnEl = document.getElementById('toggleChatCollapseBtn')) {
+    if (!btnEl) return;
+    btnEl.classList.toggle('is-collapsed', Boolean(isCollapsed));
+    btnEl.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+    btnEl.setAttribute('title', isCollapsed ? '向上展開聊天視窗' : '向下縮合聊天視窗');
+    const arrow = isCollapsed ? '▲' : '▼';
+    const label = isCollapsed ? '展開' : '縮合';
+    btnEl.innerHTML = `<span class="chat-collapse-arrow" aria-hidden="true">${arrow}</span><span class="chat-collapse-text">${label}</span>`;
+  }
+
   function openChatToReply(senderName, senderId) {
     const chatPanel = document.getElementById('proxChatPanel');
     const toggleChatBtn = document.getElementById('toggleChatCollapseBtn');
@@ -2537,7 +2547,7 @@ async function executeOfficeLogin(params) {
       chatPanel.classList.remove('chat-minimized');
       chatPanel.classList.add('mobile-open');
     }
-    if (toggleChatBtn) toggleChatBtn.textContent = '➖ 縮合';
+    updateChatCollapseBtnUI(false, toggleChatBtn);
     if (mobileChatBtn) mobileChatBtn.classList.add('active');
     clearChatNotifyFlash();
     dismissCenterPrivateChatBox();
@@ -2745,18 +2755,21 @@ async function executeOfficeLogin(params) {
         const shouldOpen = forceOpen !== null ? forceOpen : !chatPanel.classList.contains('mobile-open');
         chatPanel.classList.toggle('mobile-open', shouldOpen);
         chatPanel.classList.toggle('chat-minimized', !shouldOpen);
+        updateChatCollapseBtnUI(!shouldOpen, toggleChatBtn);
         if (mobileChatBtn) mobileChatBtn.classList.toggle('active', shouldOpen);
         if (shouldOpen) {
-          clearChatNotifyFlash();
+          updateChatCollapseBtnUI(false);
+      clearChatNotifyFlash();
           dismissCenterPrivateChatBox();
           // 手機模式下展開聊天視窗不自動 focus 輸入框，避免強制彈出手機虛擬鍵盤擠壓畫面
         }
       } else {
         const isMin = forceOpen !== null ? !forceOpen : chatPanel.classList.toggle('chat-minimized');
-        if (toggleChatBtn) toggleChatBtn.textContent = isMin ? '➕ 展開' : '➖ 縮合';
+        updateChatCollapseBtnUI(isMin, toggleChatBtn);
         if (mobileChatBtn) mobileChatBtn.classList.toggle('active', !isMin);
         if (!isMin) {
-          clearChatNotifyFlash();
+          updateChatCollapseBtnUI(false);
+      clearChatNotifyFlash();
           dismissCenterPrivateChatBox();
           document.getElementById('proxChatInput')?.focus();
         }
@@ -2847,7 +2860,7 @@ async function executeOfficeLogin(params) {
     }
     if (window.matchMedia('(max-width: 900px), (pointer: coarse)').matches) {
       document.getElementById('proxChatPanel').classList.add('chat-minimized');
-      document.getElementById('toggleChatCollapseBtn').textContent = '➕ 展開';
+      updateChatCollapseBtnUI(true, document.getElementById('toggleChatCollapseBtn'));
     }
   }
 
@@ -3245,6 +3258,7 @@ async function executeOfficeLogin(params) {
         drawer.classList.remove('chat-minimized');
         drawer.classList.add('mobile-open');
       }
+      updateChatCollapseBtnUI(false);
       clearChatNotifyFlash();
       if (window.innerWidth > 900) {
         const input = document.getElementById('proxChatInput');
@@ -4484,7 +4498,32 @@ async function executeOfficeLogin(params) {
     });
 
     // 4. 會議室 B (專案審查室) - 8 張精確對齊獨立會議椅
-    const meetBChairs = [
+    // 4. PP00 禮佛區 (原會議室 B 擴建) - 8 張「拜」字紅金蓮花跪墊 (靠近按 E 呈現跪著狀態並產生 5 種祈福 MURMUR)
+    const kneelingCushions = window.WORLD_MAP.kneelingCushions || [
+      { id: 'cushion_meet_b_1', name: '1號誠心拜墊', x: 960, y: 1495, dir: 'up' },
+      { id: 'cushion_meet_b_2', name: '2號All-Pass拜墊', x: 1050, y: 1495, dir: 'up' },
+      { id: 'cushion_meet_b_3', name: '3號恐龍蛋拜墊', x: 1140, y: 1495, dir: 'up' },
+      { id: 'cushion_meet_b_4', name: '4號Qual順遂拜墊', x: 1230, y: 1495, dir: 'up' },
+      { id: 'cushion_meet_b_5', name: '5號退散客退拜墊', x: 960, y: 1615, dir: 'up' },
+      { id: 'cushion_meet_b_6', name: '6號MSS神速拜墊', x: 1050, y: 1615, dir: 'up' },
+      { id: 'cushion_meet_b_7', name: '7號良率滿分拜墊', x: 1140, y: 1615, dir: 'up' },
+      { id: 'cushion_meet_b_8', name: '8號功德圓滿拜墊', x: 1230, y: 1615, dir: 'up' },
+    ];
+    kneelingCushions.forEach((c) => {
+      spots.push({
+        id: c.id,
+        name: c.name,
+        shortHint: `[按 E] 🙏 跪拜【${c.name}】`,
+        label: `🙏 跪在【${c.name}】虔誠禮佛祈福 [按E]`,
+        actionId: 'kneel_pray',
+        standX: c.x,
+        standY: c.y,
+        dir: c.dir || 'up',
+        triggerDist: 38,
+        isKneelingCushion: true,
+      });
+    });
+    const meetBChairs = []; if (false) [
       { id: 'seat_meet_b_t1', name: '會議室B-席位1', x: 852, y: 1418, dir: 'down' },
       { id: 'seat_meet_b_t2', name: '會議室B-席位2', x: 912, y: 1418, dir: 'down' },
       { id: 'seat_meet_b_t3', name: '會議室B-席位3', x: 972, y: 1418, dir: 'down' },
@@ -4632,10 +4671,12 @@ async function executeOfficeLogin(params) {
       if (!other || other.id === localPlayer.id) return false;
       // 1. 他人已明確佔用該互動點 ID
       if (other.occupiedSpotId && other.occupiedSpotId === spot.id) return true;
+      // 1.5 若有重傷同仁正在該位置附近休養，嚴禁重疊入座或跪拜
+      if ((other.isInjured || other.actionState === 'sleep_bed' || other.combatDown) && Math.hypot(other.x - spot.standX, other.y - spot.standY) < 48) return true;
       // 2. 他人處於就座情境動作且確實停留在該座位中心
       const isSeatedAction =
         other.actionState &&
-        ['sit_code', 'slack_nap', 'meeting_discuss', 'golf_putt', 'watch_stock', 'wash_hands'].includes(
+        ['sit_code', 'slack_nap', 'meeting_discuss', 'kneel_pray', 'golf_putt', 'watch_stock', 'wash_hands'].includes(
           other.actionState
         );
       if (isSeatedAction && !other.isMoving && Math.hypot(other.x - spot.standX, other.y - spot.standY) < 24) {
@@ -5078,6 +5119,46 @@ async function executeOfficeLogin(params) {
         localPlayer.actionState = 'golf_putt';
         localPlayer.occupiedSpotId = fac.id;
         pushStatusLog('你', '⛳ 在 VP 大老闆獨立室揮桿練習高爾夫推桿！');
+        updatePoseLabelUI();
+        network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        return;
+      }
+
+      // 🙏 PP00 禮佛區 8 張「拜」字蓮花跪墊互動：呈現跪著狀態並產生 5 種祈福 MURMUR 台詞
+      if (fac.isKneelingCushion || fac.actionId === 'kneel_pray') {
+        const prayMurmurs = window.GATHER_CONFIG?.buddhaWorshipMurmurs || [
+          'CPR要ALL PASS',
+          '我希望有恐龍蛋獎金',
+          '拜託不要在QUAL FAIL',
+          '客退快滾啦不要再煩',
+          'MSS希望寫快一點',
+        ];
+        localPlayer._prayMurmurIdx = ((typeof localPlayer._prayMurmurIdx === 'number' ? localPlayer._prayMurmurIdx : -1) + 1) % prayMurmurs.length;
+        const prayLine = prayMurmurs[localPlayer._prayMurmurIdx];
+        const now = gameNow();
+        localPlayer.actionState = 'kneel_pray';
+        localPlayer.occupiedSpotId = fac.id;
+        localPlayer.dir = 'up';
+        localPlayer.emote = { emoji: '🙏', expiresAt: now + 5000 };
+        localPlayer.murmur = {
+          text: prayLine,
+          mood: 'idea',
+          createdAt: now,
+          expiresAt: now + (window.GATHER_CONFIG?.security?.murmurTtlMs || 20000),
+        };
+        updatePoseLabelUI();
+        if (network) {
+          network.broadcastPacket('murmur', { text: prayLine, mood: 'idea' });
+          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        }
+        pushStatusLog('你', `🙏 虔誠跪在【${fac.name}】向金佛膜拜祈福：「${prayLine}」`);
+        showToast(`🙏 虔誠跪拜祈福：「<b>${escapeHtml(prayLine)}</b>」`, 'join');
+        return;
+      }
+      if (false) { if (false) {
+        localPlayer.occupiedSpotId = fac.id;
+        pushStatusLog('你', '⛳ 在 VP 大老闆獨立室揮桿練習高爾夫推桿！');
+      }
         updatePoseLabelUI();
         network.broadcastPacket('state_sync', { player: network.getPublicState() });
         return;
@@ -6447,6 +6528,29 @@ async function executeOfficeLogin(params) {
 
     // 防卡死安全機制：若玩家座標意外重疊於會議桌或牆壁碰撞區，立即自動彈出至最近空地
     ensurePlayerNotStuck();
+
+    // 🙏 若玩家持續跪在禮佛區「拜」字蓮花跪墊上，定時輪播 5 種祈福 MURMUR 台詞
+    if (localPlayer.actionState === 'kneel_pray' && !localPlayer.isMoving && tick > 0 && tick % 300 === 0) {
+      const prayMurmurs = window.GATHER_CONFIG?.buddhaWorshipMurmurs || [
+        'CPR要ALL PASS',
+        '我希望有恐龍蛋獎金',
+        '拜託不要在QUAL FAIL',
+        '客退快滾啦不要再煩',
+        'MSS希望寫快一點',
+      ];
+      localPlayer._prayMurmurIdx = ((typeof localPlayer._prayMurmurIdx === 'number' ? localPlayer._prayMurmurIdx : 0) + 1) % prayMurmurs.length;
+      const prayLine = prayMurmurs[localPlayer._prayMurmurIdx];
+      const now = gameNow();
+      localPlayer.murmur = {
+        text: prayLine,
+        mood: 'idea',
+        createdAt: now,
+        expiresAt: now + (window.GATHER_CONFIG?.security?.murmurTtlMs || 20000),
+      };
+      if (network) {
+        network.broadcastPacket('murmur', { text: prayLine, mood: 'idea' });
+      }
+    }
 
     // 1. 處理被暴走 NPC 攻擊後的「自動被打飛」拋物線物理位移（絕不定身，玩家仍可隨時移動！）
     if (localPlayer.knockback && localPlayer.knockback.ticksLeft > 0) {

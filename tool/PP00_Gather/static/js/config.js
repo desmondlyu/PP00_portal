@@ -51,6 +51,7 @@ window.GATHER_CONFIG = {
   // 12 種情境動作與專屬快捷鍵 (含新增「🛌 睡覺」與 Alt+快捷鍵)
   contextualActions: [
     {id:'play_arcade',label:'打電動',icon:'🎮',zoneHint:'電競室',desc:'手持控制器玩遊戲'},
+    { id: 'kneel_pray', label: '🙏 跪拜禮佛', icon: '🙏', zoneHint: '禮佛區 [E]', desc: '虔誠跪在拜墊上祈求神佛保佑' },
     { id: 'sit_code', label: '💻 坐下寫Code', hotkey: 'Alt+1', altKey: '1', icon: '💻', zoneHint: '辦公桌 [E]', desc: '坐下敲鍵盤寫Code' },
     { id: 'toilet', label: '🚽 上廁所', hotkey: 'Alt+2', altKey: '2', icon: '🚽', zoneHint: '馬桶間 [E]', desc: '關門蹲馬桶解放' },
     { id: 'wash_hands', label: '🧼 洗手搓泡', hotkey: 'Alt+3', altKey: '3', icon: '🧼', zoneHint: '洗手台 [E]', desc: '開水搓泡泡洗手' },
@@ -63,6 +64,16 @@ window.GATHER_CONFIG = {
     { id: 'sweep_floor', label: '🧹 大掃除', hotkey: 'Alt+0', altKey: '0', icon: '🧹', zoneHint: '走廊/廁所', desc: '揮掃把清掃地板' },
     { id: 'victory_dance', label: '🕺 慶功熱舞', hotkey: 'Alt+-', altKey: '-', icon: '🕺', zoneHint: '任意位置', desc: '良率100%動感熱舞' },
     { id: 'zen_debug', label: '🧘 通靈Debug', hotkey: 'Alt+=', altKey: '=', icon: '🧘', zoneHint: '任意位置', desc: '盤腿漂浮通靈除錯' },
+  ],
+
+  // 廁所大便時門外走過的角色/NPC隨機催促台詞
+  // 禮佛區跪拜祈福 5 種專屬 MURMUR 台詞
+  buddhaWorshipMurmurs: [
+    'CPR要ALL PASS',
+    '我希望有恐龍蛋獎金',
+    '拜託不要在QUAL FAIL',
+    '客退快滾啦不要再煩',
+    'MSS希望寫快一點',
   ],
 
   // 廁所大便時門外走過的角色/NPC隨機催促台詞
