@@ -6988,7 +6988,12 @@ async function executeOfficeLogin(params) {
     }
     const vw = window.innerWidth || canvas.width || 1920;
     const vh = window.innerHeight || canvas.height || 1080;
-    const w = (vw >= 2100 && vh >= 1150) ? 195 : Math.round(Math.max(140, Math.min(195, Math.min(vw * 0.115, vh * 0.18))));
+    // 1440P (2K) 基準為 195px；1080P 按 75% 等比縮放至 146px；小螢幕/筆電等比縮放至 120px
+    const w = (vw >= 2100 && vh >= 1150)
+      ? 195
+      : (vw >= 1600 && vh >= 900)
+        ? 146
+        : Math.round(Math.max(115, Math.min(146, Math.min(vw * 0.09, vh * 0.14))));
     const h = Math.round(w * 132 / 195);
     return {
       x: canvas.width - w - 16,

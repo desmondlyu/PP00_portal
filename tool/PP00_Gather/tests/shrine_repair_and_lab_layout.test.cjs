@@ -111,3 +111,32 @@ test('Interactive repair: remove legacy progress text and maintain durable repai
   assert.ok(engineMjs.includes('entry.broken=false;entry.handledAt=now;'), 'server/engine.mjs must un-break equipment omitted by master world heartbeat');
 });
 
+test('Responsive expansion & scaling: 1440P baseline vs 1080P/mobile proportional sizes and anti-clipping rules', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../static/css/style.css'), 'utf8');
+  const appJs = fs.readFileSync(path.join(__dirname, '../static/js/app.js'), 'utf8');
+
+  // 1. 1440P 基準保證與彈性容器
+  assert.ok(css.includes('width: var(--chat-panel-w, 615px);'), 'Base chat panel width must follow --chat-panel-w 615px');
+  assert.ok(css.includes('height: var(--chat-msg-h, 384px);'), 'Base chat messages must support --chat-msg-h 384px');
+  assert.ok(css.includes('.prox-chat-body-wrap {') && css.includes('flex: 1 1 auto;'), 'Chat body wrap must flex adaptively');
+
+  // 2. 1080P 等比微縮 (75%) 與防截斷
+  assert.ok(css.includes('--chat-panel-w: clamp(340px, 24.5vw, 490px);'), '1080P chat panel width must adapt');
+  assert.ok(css.includes('max-height: calc(100dvh - 80px);'), '1080P chat panel must have max-height constraint against screen overflow');
+  assert.ok(css.includes('width: min(435px, 92vw);'), '1080P inventory frame must scale down to 75% of 1440P (435px)');
+  assert.ok(css.includes('width: 33px;') && css.includes('height: 33px;'), '1080P inventory slots must scale down to 33px');
+  assert.ok(css.includes('#toggleChatCollapseBtn.chat-collapse-btn') && css.includes('padding: 3px 8px !important;'), '1080P chat header collapse btn must be compact to prevent clipping');
+
+  // 3. 筆電模式等比微縮 (60%~65%)
+  assert.ok(css.includes('width: min(380px, 92vw);'), 'Laptop inventory frame must scale down to ~380px');
+  assert.ok(css.includes('width: 29px;') && css.includes('height: 29px;'), 'Laptop inventory slots must scale down to 29px');
+  assert.ok(css.includes('max-height: calc(100dvh - 65px);'), 'Laptop chat panel must fit low height screens');
+
+  // 4. 手機版展開視窗與觸控操作防溢出
+  assert.ok(css.includes('width: min(420px, 95vw);'), 'Mobile inventory frame must fit mobile screen gracefully');
+  assert.ok(css.includes('max-height: 55dvh;') && css.includes('overflow-y: auto;'), 'Mobile touchSkillsGroup must have max-height to avoid blocking HUD');
+
+  // 5. 雷達小地圖等比比例計算
+  assert.ok(appJs.includes('vw >= 2100 && vh >= 1150') && appJs.includes('vw >= 1600 && vh >= 900'), 'getMinimapRect must distinguish 1440P, 1080P, and smaller viewports');
+  assert.ok(appJs.includes('? 146'), '1080P minimap width must scale down to 146px (75% of 195px)');
+});
