@@ -230,6 +230,10 @@ window.WORLD_MAP = {
 // 禮佛區神像與「拜」字蓮花跪墊像素繪圖引擎 (支援載入參考圖片 d0043b4c48112b5cb823ffbcde8f2e83_t.jpeg 與 2d31a243-8876-459c-aaff-f955a6b8b65a.jpg 並提供高擬真像素繪製)
 let _buddhaSpriteCanvas = null;
 let _buddhaSpriteLoading = false;
+
+/**
+ * 載入使用者上傳之像素佛像圖 buddha_shrine.jpg (1024x765)，並在離屏 Canvas 進行背景純白透明去背
+ */
 function getBuddhaReferenceCanvas() {
   if (_buddhaSpriteCanvas) return _buddhaSpriteCanvas;
   if (_buddhaSpriteLoading || typeof Image === 'undefined' || typeof document === 'undefined') return null;
@@ -240,404 +244,217 @@ function getBuddhaReferenceCanvas() {
     img.onload = () => {
       try {
         const c = document.createElement('canvas');
-        c.width = img.width || 128;
-        c.height = img.height || 128;
+        c.width = img.width || 1024;
+        c.height = img.height || 765;
         const cctx = c.getContext('2d');
         cctx.drawImage(img, 0, 0);
         const imgData = cctx.getImageData(0, 0, c.width, c.height);
         const d = imgData.data;
         for (let i = 0; i < d.length; i += 4) {
-          // 去除純白與淺灰背景，保留像素金佛本體與深色描邊
-          if (d[i] > 235 && d[i + 1] > 235 && d[i + 2] > 235) {
+          const r = d[i], g = d[i + 1], b = d[i + 2];
+          // 去除純白與極淺灰背景，邊緣平滑抗鋸齒淡化
+          if (r > 235 && g > 235 && b > 235) {
             d[i + 3] = 0;
+          } else if (r > 218 && g > 218 && b > 218) {
+            const avg = (r + g + b) / 3;
+            d[i + 3] = Math.max(0, Math.min(255, Math.round(((235 - avg) / 17) * 255)));
           }
         }
         cctx.putImageData(imgData, 0, 0);
         _buddhaSpriteCanvas = c;
       } catch (_e) {
-        // Fallback to procedural pixel art
+        // Fallback to procedural rendering if tainted
       }
     };
-    img.src = './d0043b4c48112b5cb823ffbcde8f2e83_t.jpeg';
-  } catch (_err) {
-    // Ignore in headless environment
-  }
+    img.onerror = () => {
+      const imgFallback = new Image();
+      imgFallback.onload = () => {
+        try {
+          const c = document.createElement('canvas');
+          c.width = imgFallback.width || 1024;
+          c.height = imgFallback.height || 765;
+          const cctx = c.getContext('2d');
+          cctx.drawImage(imgFallback, 0, 0);
+          const imgData = cctx.getImageData(0, 0, c.width, c.height);
+          const d = imgData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            if (d[i] > 235 && d[i + 1] > 235 && d[i + 2] > 235) d[i + 3] = 0;
+          }
+          cctx.putImageData(imgData, 0, 0);
+          _buddhaSpriteCanvas = c;
+        } catch (_err) {}
+      };
+      imgFallback.src = './static/buddha_shrine.jpg';
+    };
+    img.src = './buddha_shrine.jpg';
+  } catch (_err) {}
   return null;
 }
 
-// 釋迦牟尼佛像調色板與上升微粒粒子 (參考 code.txt 像素藝術與金色神聖美學)
-const BUDDHA_PALETTE = {
-  haloCore: '#FFFBE6',
-  haloInner: '#FFD700',
-  haloMid: '#FFA000',
-  haloOuter: '#E65100',
-  haloRim: '#7F2200',
-  skinShine: '#FFFBE6',
-  skinLight: '#F7DCB4',
-  skinMid: '#DE9B5E',
-  skinDark: '#995E2B',
-  hairDark: '#0e0e1f',
-  hairMid: '#1e1e3b',
-  hairLight: '#393963',
-  robeLight: '#FF9800',
-  robeMid: '#E65100',
-  robeDark: '#B71C1C',
-  robeShadow: '#5D100A',
-  urna: '#FFFFFF',
-  lip: '#C25450',
-  lotusLight: '#FFB8D2',
-  lotusMid: '#FF6EA7',
-  lotusDark: '#C2185B',
-  lotusBase: '#4A1133',
-  goldTrim: '#FFE082'
-};
-
-const _buddhaParticles = [];
-for (let i = 0; i < 48; i++) {
-  _buddhaParticles.push({
-    x: Math.random() * 96,
-    y: Math.random() * 112,
-    speedY: 0.15 + Math.random() * 0.35,
+// 金色祈福微粒
+const _buddhaHolyParticles = [];
+for (let i = 0; i < 36; i++) {
+  _buddhaHolyParticles.push({
+    x: (Math.random() - 0.5) * 120,
+    y: (Math.random() - 0.5) * 100,
+    speedY: 0.12 + Math.random() * 0.25,
     swaySpeed: 0.03 + Math.random() * 0.04,
     phase: Math.random() * Math.PI * 2,
-    size: Math.random() > 0.75 ? 2 : 1,
-    colorIndex: Math.floor(Math.random() * 3)
+    size: Math.random() > 0.7 ? 2 : 1
   });
 }
 
+/**
+ * 繪製釋迦牟尼像素佛像 (嚴格依據 1024x765 長寬比渲染，頭部飽滿自然不壓縮，背後繪製同心神聖佛光環)
+ */
 function drawBuddhaStatue(ctx, cx, cy, tick = 0) {
   ctx.save();
 
-  // 1. 佛像上方金牌題字「✨ 有神快拜 保佑PASS ✨」牌匾
-  const plaqueW = 196;
-  const plaqueH = 26;
-  const plaqueX = cx - plaqueW / 2;
-  const plaqueY = cy - 96;
+  // 1. 佛像背後神聖金色大佛光環 (Dynamic Double Golden Halo Aureole)
+  const pulse = Math.sin(tick * 0.05) * 3;
+  const haloCenterY = cy - 42; // 對齊佛陀頭部中心
 
-  // 牌匾 3D 琥珀金底座與深緋紅底版
-  ctx.fillStyle = '#450a0a';
-  ctx.fillRect(plaqueX - 2, plaqueY - 2, plaqueW + 4, plaqueH + 4);
-  ctx.fillStyle = '#7f1d1d';
-  ctx.fillRect(plaqueX, plaqueY, plaqueW, plaqueH);
-  ctx.strokeStyle = '#facc15';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(plaqueX + 2, plaqueY + 2, plaqueW - 4, plaqueH - 4);
+  // 1.1 大身背光金色同心漸層暈光
+  const bigHalo = ctx.createRadialGradient(cx, haloCenterY, 14, cx, haloCenterY, 68 + pulse);
+  bigHalo.addColorStop(0, 'rgba(255, 251, 230, 0.95)');
+  bigHalo.addColorStop(0.35, 'rgba(254, 215, 0, 0.82)');
+  bigHalo.addColorStop(0.7, 'rgba(245, 158, 11, 0.42)');
+  bigHalo.addColorStop(1, 'rgba(230, 81, 0, 0)');
+  ctx.fillStyle = bigHalo;
+  ctx.beginPath();
+  ctx.arc(cx, haloCenterY, 68 + pulse, 0, Math.PI * 2);
+  ctx.fill();
 
-  // 四角金邊花紋
-  ctx.fillStyle = '#fef08a';
-  ctx.fillRect(plaqueX + 4, plaqueY + 4, 3, 3);
-  ctx.fillRect(plaqueX + plaqueW - 7, plaqueY + 4, 3, 3);
-  ctx.fillRect(plaqueX + 4, plaqueY + plaqueH - 7, 3, 3);
-  ctx.fillRect(plaqueX + plaqueW - 7, plaqueY + plaqueH - 7, 3, 3);
-
-  // 題字：有神快拜 保佑PASS
-  ctx.font = '900 13px "Microsoft JhengHei", "PMingLiU", serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(250, 204, 21, 0.9)';
-  ctx.shadowBlur = 8;
-  ctx.fillStyle = '#78350f';
-  ctx.fillText('✨ 有神快拜 保佑PASS ✨', cx + 1, plaqueY + plaqueH / 2 + 1);
-  ctx.fillStyle = '#fef08a';
-  ctx.fillText('✨ 有神快拜 保佑PASS ✨', cx, plaqueY + plaqueH / 2);
-  ctx.shadowBlur = 0;
-
-  // 2. 釋迦牟尼佛像本體 (參考 code.txt 規格以 Canvas 2D 像素繪製)
-  const originX = Math.round(cx - 48);
-  const originY = Math.round(cy - 88);
-  const P = BUDDHA_PALETTE;
-
-  const p = (x, y, color) => {
-    if (!color || x < 0 || x >= 96 || y < 0 || y >= 112) return;
-    ctx.fillStyle = color;
-    ctx.fillRect(originX + Math.floor(x), originY + Math.floor(y), 1, 1);
-  };
-
-  const pSym = (bcx, dy, y, color) => {
-    p(bcx - dy, y, color);
-    if (dy !== 0) p(bcx + dy, y, color);
-  };
-
-  const hLine = (x1, x2, y, color) => {
-    ctx.fillStyle = color;
-    const left = Math.min(x1, x2);
-    const width = Math.abs(x2 - x1) + 1;
-    ctx.fillRect(originX + left, originY + y, width, 1);
-  };
-
-  const hLineSym = (bcx, span, y, color) => {
-    if (span <= 0) return;
-    hLine(bcx - span, bcx + span, y, color);
-  };
-
-  const bcx = 48;
-
-  // 2.1 動態旋轉背光與呼吸佛光 (Continuous Ambient Aureole)
-  const haloCenterY = 40;
-  const breathe = Math.sin(tick * 0.04) * 2.2;
-  const maxHaloRadius = 37 + breathe;
-
-  // 呼吸外輪金色佛光射線
-  for (let r = Math.floor(maxHaloRadius); r >= 8; r -= 2) {
-    let col = P.haloRim;
-    if (r < maxHaloRadius * 0.32) col = P.haloCore;
-    else if (r < maxHaloRadius * 0.58) col = P.haloInner;
-    else if (r < maxHaloRadius * 0.82) col = P.haloMid;
-    else if (r < maxHaloRadius * 0.96) col = P.haloOuter;
-
-    for (let angle = 0; angle < 360; angle += 8) {
-      const rad = (angle * Math.PI) / 180;
-      const ray = Math.sin(angle * 10 * (Math.PI / 180) + tick * 0.04);
-      if (r > maxHaloRadius * 0.72 && ray < -0.2) continue;
-      const px = Math.round(bcx + Math.cos(rad) * r);
-      const py = Math.round(haloCenterY + Math.sin(rad) * (r * 0.95));
-      p(px, py, col);
-    }
+  // 1.2 旋轉金色光輪射線 (16 芒放射狀佛光)
+  ctx.save();
+  ctx.translate(cx, haloCenterY);
+  ctx.rotate(tick * 0.02);
+  ctx.strokeStyle = 'rgba(253, 224, 71, 0.35)';
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < 16; i++) {
+    const angle = (i * Math.PI) / 8;
+    const r1 = 34;
+    const r2 = 56 + Math.sin(tick * 0.1 + i) * 4;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(angle) * r1, Math.sin(angle) * r1);
+    ctx.lineTo(Math.cos(angle) * r2, Math.sin(angle) * r2);
+    ctx.stroke();
   }
+  ctx.restore();
 
-  // 內圈金色念珠光環 (Inner ornate halo beads)
-  const innerRadius = 26;
-  for (let a = 0; a < 360; a += 15) {
+  // 1.3 內層念珠光環 (圓潤金珠圍繞頭光)
+  const innerR = 30;
+  for (let a = 0; a < 360; a += 20) {
     const rad = (a * Math.PI) / 180;
-    const bx = Math.round(bcx + Math.cos(rad) * innerRadius);
-    const by = Math.round(haloCenterY + Math.sin(rad) * innerRadius);
-    p(bx, by, P.goldTrim);
-    p(bx + 1, by, P.haloCore);
+    const bx = cx + Math.cos(rad) * innerR;
+    const by = haloCenterY + Math.sin(rad) * (innerR * 0.95);
+    ctx.fillStyle = '#fef08a';
+    ctx.fillRect(Math.round(bx), Math.round(by), 2, 2);
+    ctx.fillStyle = '#b45309';
+    ctx.fillRect(Math.round(bx + 1), Math.round(by + 1), 1, 1);
   }
 
-  // 2.2 蓮花寶座 (Lotus Throne)
-  const lotusY = 84;
-  hLine(28, 68, lotusY + 14, P.lotusBase);
-  hLine(30, 66, lotusY + 15, '#19061c');
-  hLine(33, 63, lotusY + 16, '#0f0312');
-
-  const lowerPetals = [
-    { y: lotusY + 9, w: 34, c: P.lotusDark },
-    { y: lotusY + 10, w: 32, c: P.lotusMid },
-    { y: lotusY + 11, w: 30, c: P.lotusDark },
-    { y: lotusY + 12, w: 26, c: P.lotusBase },
-    { y: lotusY + 13, w: 22, c: P.lotusBase }
+  // 1.4 四周閃耀的金色祈福十字星芒 (對應原圖四周金星)
+  const sparkOffsets = [
+    { dx: -54, dy: -38, scale: 1.0 },
+    { dx: 54, dy: -36, scale: 0.9 },
+    { dx: -58, dy: 16, scale: 0.8 },
+    { dx: 58, dy: 18, scale: 1.1 }
   ];
-  lowerPetals.forEach(row => {
-    hLineSym(bcx, row.w, row.y, row.c);
-    pSym(bcx, row.w, row.y, P.goldTrim);
-    pSym(bcx, row.w - 1, row.y, P.lotusLight);
+  sparkOffsets.forEach((sp, idx) => {
+    const sLen = (4 + Math.sin(tick * 0.12 + idx * 2) * 2.5) * sp.scale;
+    const sx = cx + sp.dx;
+    const sy = haloCenterY + sp.dy;
+    ctx.strokeStyle = 'rgba(254, 240, 138, 0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(sx - sLen, sy);
+    ctx.lineTo(sx + sLen, sy);
+    ctx.moveTo(sx, sy - sLen);
+    ctx.lineTo(sx, sy + sLen);
+    ctx.stroke();
   });
 
-  const midPetals = [
-    { y: lotusY + 4, w: 33, c: P.lotusMid },
-    { y: lotusY + 5, w: 35, c: P.lotusLight },
-    { y: lotusY + 6, w: 34, c: P.lotusMid },
-    { y: lotusY + 7, w: 32, c: P.lotusDark },
-    { y: lotusY + 8, w: 29, c: P.lotusDark }
-  ];
-  midPetals.forEach(row => {
-    hLineSym(bcx, row.w, row.y, row.c);
-    pSym(bcx, row.w, row.y, P.goldTrim);
-  });
+  // 2. 繪製佛像本體 (嚴格維持 1024x765 原始長寬比，寬度 140px，高度 105px，頭身比飽滿自然不壓縮)
+  const refCanvas = getBuddhaReferenceCanvas();
+  const statueW = 140;
+  const statueH = 105; // 140 / (1024 / 765) = 104.68px
+  const statueX = Math.round(cx - statueW / 2);
+  const statueY = Math.round(cy - 88); // 蓮花底座貼合神案供桌 (cy + 17)
 
-  const topPetals = [
-    { y: lotusY - 1, w: 28, c: P.lotusLight },
-    { y: lotusY,     w: 31, c: P.lotusMid },
-    { y: lotusY + 1, w: 32, c: P.lotusLight },
-    { y: lotusY + 2, w: 31, c: P.lotusDark },
-    { y: lotusY + 3, w: 28, c: P.lotusDark }
-  ];
-  topPetals.forEach(row => {
-    hLineSym(bcx, row.w, row.y, row.c);
-  });
+  if (refCanvas) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(refCanvas, statueX, statueY, statueW, statueH);
+  } else {
+    // 3. 程序化高擬真像素金佛 (依照附件圖 1024x765 比例繪製：肉髻摩尼寶珠、飽滿佛首、白毫、偏袒右肩袈裟、雙手印、粉紅仰覆蓮花座)
+    const px = 2;
+    const pRect = (color, gx, gy, gw, gh) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(cx + gx * px, cy + gy * px, gw * px, gh * px);
+    };
 
-  [-28, -20, -10, 0, 10, 20, 28].forEach(dx => {
-    p(bcx + dx, lotusY + 4, P.lotusLight);
-    p(bcx + dx, lotusY + 5, P.skinShine);
-    p(bcx + dx, lotusY + 6, P.lotusDark);
-    p(bcx + dx, lotusY + 7, P.lotusBase);
-  });
+    // 蓮花寶座底層
+    pRect('#4a1133', -28, 4, 56, 6);
+    pRect('#c2185b', -26, 0, 52, 5);
+    pRect('#ff6ea7', -24, -3, 48, 4);
+    pRect('#ffb8d2', -22, -6, 44, 4);
+    pRect('#065f46', -20, -8, 40, 3); // 蓮蓬金綠台
+    pRect('#facc15', -18, -9, 36, 2);
 
-  hLineSym(bcx, 24, lotusY - 2, P.goldTrim);
-  hLineSym(bcx, 23, lotusY - 3, P.haloMid);
-  for (let sx = -20; sx <= 20; sx += 4) {
-    p(bcx + sx, lotusY - 2, P.haloCore);
+    // 跏趺雙盤坐腿
+    pRect('#7c2d12', -20, -18, 40, 9);
+    pRect('#c2410c', -18, -17, 36, 8);
+    pRect('#f97316', -16, -16, 32, 6);
+    // 露腳底心
+    pRect('#f7dcb4', -9, -15, 4, 3);
+    pRect('#f7dcb4', 5, -15, 4, 3);
+
+    // 身軀與偏袒右肩袈裟
+    pRect('#7c2d12', -15, -31, 30, 14);
+    pRect('#c2410c', -14, -30, 16, 13);
+    pRect('#ea580c', -12, -29, 14, 11);
+    pRect('#f7dcb4', 2, -30, 11, 12); // 袒露右胸
+    pRect('#facc15', -2, -30, 2, 13); // 金滾邊
+
+    // 雙手：右手說法印、左手禪定印
+    pRect('#f7dcb4', -6, -20, 12, 3); // 左手禪定印
+    pRect('#f7dcb4', 3, -27, 4, 7);  // 右手當胸立掌
+    pRect('#fbbf24', 4, -25, 2, 2);  // 掌心法輪印
+
+    // 佛首與五官 (比例飽滿修長，垂直跨度加大，頭部絕不壓縮)
+    pRect('#f7dcb4', -9, -46, 18, 15);
+    pRect('#de9b5e', -8, -45, 16, 14);
+    pRect('#fef08a', -6, -44, 12, 12);
+    // 長耳垂肩
+    pRect('#de9b5e', -11, -44, 2, 10);
+    pRect('#de9b5e', 9, -44, 2, 10);
+    // 雙眉與慈悲眼目
+    pRect('#1e1e3b', -6, -41, 4, 1);
+    pRect('#1e1e3b', 2, -41, 4, 1);
+    pRect('#1e1e3b', -5, -39, 3, 1);
+    pRect('#1e1e3b', 2, -39, 3, 1);
+    // 眉間朱砂白毫
+    pRect('#dc2626', -1, -42, 2, 2);
+    // 微笑唇線
+    pRect('#b91c1c', -2, -35, 4, 1);
+
+    // 螺髮與肉髻
+    pRect('#0f172a', -9, -51, 18, 6);
+    pRect('#1e293b', -7, -53, 14, 4);
+    pRect('#0f172a', -4, -56, 8, 4); // 頂上肉髻
+    pRect('#fbbf24', -1, -57, 2, 2); // 摩尼寶珠
   }
 
-  // 2.3 跏趺坐姿 (Seated Full Lotus Position)
-  const legY = 76;
-  hLineSym(bcx, 26, legY + 4, P.robeShadow);
-  hLineSym(bcx, 25, legY + 3, P.robeDark);
-  hLineSym(bcx, 24, legY + 2, P.robeMid);
-  hLineSym(bcx, 23, legY + 1, P.robeMid);
-  hLineSym(bcx, 22, legY,     P.robeLight);
-  hLineSym(bcx, 20, legY - 1, P.robeMid);
-
-  for (let f = -18; f <= 18; f += 4) {
-    p(bcx + f, legY + 1, P.robeDark);
-    p(bcx + f + 1, legY + 2, P.robeLight);
-  }
-
-  // 露出腳底心
-  hLine(bcx + 9, bcx + 13, legY - 1, P.skinLight);
-  p(bcx + 14, legY - 1, P.skinDark);
-  p(bcx + 11, legY - 2, P.skinLight);
-  p(bcx + 10, legY - 2, P.skinShine);
-
-  hLine(bcx - 13, bcx - 9, legY - 1, P.skinLight);
-  p(bcx - 14, legY - 1, P.skinDark);
-  p(bcx - 11, legY - 2, P.skinLight);
-  p(bcx - 10, legY - 2, P.skinShine);
-
-  // 2.4 身軀與偏袒右肩袈裟 (Torso & Saffron Robe)
-  const torsoY = 50;
-  const bodyWidths = [
-    { y: torsoY + 9,  w: 12 },
-    { y: torsoY + 10, w: 13 },
-    { y: torsoY + 11, w: 14 },
-    { y: torsoY + 12, w: 15 },
-    { y: torsoY + 13, w: 16 },
-    { y: torsoY + 14, w: 18 },
-    { y: torsoY + 15, w: 19 },
-    { y: torsoY + 16, w: 20 },
-    { y: torsoY + 17, w: 21 }
-  ];
-
-  bodyWidths.forEach(row => {
-    hLineSym(bcx, row.w, row.y, P.skinMid);
-    hLine(bcx - 5, bcx + row.w - 2, row.y, P.skinLight);
-    p(bcx + row.w - 1, row.y, P.skinMid);
-    p(bcx + row.w, row.y, P.skinDark);
-
-    const drapeCut = bcx - 4 + Math.floor((row.y - torsoY - 9) * 0.95);
-    const robeLeft = bcx - row.w;
-    if (drapeCut >= robeLeft) {
-      hLine(robeLeft, drapeCut, row.y, P.robeMid);
-      p(robeLeft, row.y, P.robeDark);
-      p(drapeCut, row.y, P.goldTrim);
-      p(drapeCut - 1, row.y, P.robeLight);
-    }
-  });
-
-  // 2.5 雙手臂與印相 (說法印 / 禪定印)
-  // 左手禪定印 (Dhyana Mudra)
-  hLine(bcx - 8, bcx + 5, legY - 3, P.skinLight);
-  hLine(bcx - 7, bcx + 4, legY - 4, P.skinShine);
-  p(bcx - 9, legY - 3, P.skinDark);
-  p(bcx + 6, legY - 3, P.skinDark);
-
-  // 右手當胸說法印 (Vitarka Mudra)
-  const rArmY = 57;
-  for (let ay = 0; ay < 9; ay++) {
-    hLine(bcx + 10 - Math.floor(ay * 0.3), bcx + 13 - Math.floor(ay * 0.2), rArmY + ay, P.skinLight);
-    p(bcx + 14 - Math.floor(ay * 0.2), rArmY + ay, P.skinDark);
-  }
-  hLine(bcx + 7, bcx + 10, rArmY - 1, P.skinLight);
-  hLine(bcx + 7, bcx + 10, rArmY - 2, P.skinLight);
-  p(bcx + 8, rArmY - 2, P.skinShine);
-  p(bcx + 9, rArmY - 2, P.haloInner); // 掌心金色法輪印
-  p(bcx + 7, rArmY - 3, P.skinLight);
-  p(bcx + 8, rArmY - 4, P.skinLight);
-  p(bcx + 9, rArmY - 4, P.skinLight);
-  p(bcx + 10, rArmY - 3, P.skinLight);
-  p(bcx + 6, rArmY - 2, P.skinMid);
-
-  // 頸部三道痕 (Neck Folds)
-  hLineSym(bcx, 5, 48, P.skinMid);
-  hLineSym(bcx, 5, 47, P.skinLight);
-  hLineSym(bcx, 5, 46, P.skinMid);
-  hLineSym(bcx, 4, 45, P.skinLight);
-  pSym(bcx, 5, 46, P.skinDark);
-  pSym(bcx, 5, 48, P.skinDark);
-
-  // 2.6 佛首與慈悲面容 (Head & Meditative Face)
-  const headY = 30;
-  const headRows = [
-    { y: headY + 6,  w: 6 },
-    { y: headY + 7,  w: 7 },
-    { y: headY + 8,  w: 7 },
-    { y: headY + 9,  w: 7 },
-    { y: headY + 10, w: 7 },
-    { y: headY + 11, w: 6 },
-    { y: headY + 12, w: 5 },
-    { y: headY + 13, w: 3 }
-  ];
-  headRows.forEach(row => {
-    hLineSym(bcx, row.w, row.y, P.skinLight);
-    pSym(bcx, row.w, row.y, P.skinMid);
-  });
-
-  // 雙耳垂肩
-  const earY = headY + 7;
-  for (let ey = 0; ey < 8; ey++) {
-    pSym(bcx, 8, earY + ey, ey === 7 ? P.skinMid : P.skinLight);
-    pSym(bcx, 9, earY + ey, P.skinDark);
-  }
-  pSym(bcx, 8, earY + 3, P.skinDark);
-  pSym(bcx, 8, earY + 4, P.skinDark);
-
-  // 眉毛
-  pSym(bcx, 2, headY + 7, P.hairLight);
-  pSym(bcx, 3, headY + 6, P.hairMid);
-  pSym(bcx, 4, headY + 6, P.hairMid);
-  pSym(bcx, 5, headY + 7, P.hairLight);
-
-  // 眉間白毫 (Urna)
-  p(bcx, headY + 6, P.urna);
-  p(bcx, headY + 5, P.haloCore);
-
-  // 慈悲垂目
-  pSym(bcx, 2, headY + 8, P.hairMid);
-  pSym(bcx, 3, headY + 8, P.hairMid);
-  pSym(bcx, 4, headY + 8, P.hairLight);
-  pSym(bcx, 3, headY + 9, P.skinMid);
-
-  // 鼻與微笑唇線
-  p(bcx, headY + 8, P.skinShine);
-  p(bcx, headY + 9, P.skinLight);
-  p(bcx, headY + 10, P.skinDark);
-  pSym(bcx, 1, headY + 11, P.lip);
-  p(bcx, headY + 11, P.lip);
-  p(bcx, headY + 12, P.skinMid);
-
-  // 2.7 肉髻與螺髮 (Ushnisha & Curly Hair)
-  hLineSym(bcx, 4, headY,     P.hairDark);
-  hLineSym(bcx, 3, headY - 1, P.hairDark);
-  hLineSym(bcx, 2, headY - 2, P.hairMid);
-  p(bcx, headY - 3, P.haloCore);
-  p(bcx, headY - 2, P.goldTrim);
-
-  const hairSpans = [
-    { y: headY + 1, w: 6 },
-    { y: headY + 2, w: 7 },
-    { y: headY + 3, w: 7 },
-    { y: headY + 4, w: 7 },
-    { y: headY + 5, w: 6 }
-  ];
-  hairSpans.forEach(row => {
-    hLineSym(bcx, row.w, row.y, P.hairDark);
-  });
-
-  const curls = [
-    [0, headY], [2, headY], [-2, headY],
-    [1, headY + 1], [-1, headY + 1], [3, headY + 1], [-3, headY + 1],
-    [0, headY + 2], [2, headY + 2], [-2, headY + 2], [4, headY + 2], [-4, headY + 2],
-    [1, headY + 3], [-1, headY + 3], [3, headY + 3], [-3, headY + 3], [5, headY + 3], [-5, headY + 3],
-    [0, headY + 4], [2, headY + 4], [-2, headY + 4], [4, headY + 4], [-4, headY + 4]
-  ];
-  curls.forEach(([dx, dy]) => {
-    p(bcx + dx, dy, P.hairLight);
-  });
-
-  // 2.8 裊裊升騰香煙與金色祈福聖光微粒
-  _buddhaParticles.forEach(pt => {
+  // 4. 冉冉飄逸的金色祈福微粒
+  _buddhaHolyParticles.forEach(pt => {
     pt.y -= pt.speedY;
-    pt.x += Math.sin(tick * pt.swaySpeed + pt.phase) * 0.2;
-    if (pt.y < 2) {
-      pt.y = 110;
-      pt.x = Math.random() * 96;
+    pt.x += Math.sin(tick * pt.swaySpeed + pt.phase) * 0.15;
+    if (pt.y < -50) {
+      pt.y = 45;
+      pt.x = (Math.random() - 0.5) * 110;
     }
-    const pCols = [P.haloCore, P.haloInner, P.goldTrim];
-    p(pt.x, pt.y, pCols[pt.colorIndex]);
-    if (pt.size > 1) {
-      p(pt.x + 1, pt.y, 'rgba(255, 255, 255, 0.45)');
-    }
+    ctx.fillStyle = pt.size > 1 ? '#fef08a' : '#f59e0b';
+    ctx.fillRect(Math.round(cx + pt.x), Math.round(haloCenterY + pt.y), pt.size, pt.size);
   });
 
   ctx.restore();
@@ -1769,6 +1586,35 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
   ctx.strokeStyle = '#fbbf24';
   ctx.lineWidth = 2;
   ctx.strokeRect(905, 1440, 380, 235);
+
+  // 佛像正下方祈福地毯金字題字：「有人快拜 保佑Pass」
+  ctx.save();
+  const carpetBannerW = 260;
+  const carpetBannerH = 26;
+  const carpetBannerX = 1090 - carpetBannerW / 2;
+  const carpetBannerY = 1450;
+  ctx.fillStyle = '#450a0a';
+  ctx.fillRect(carpetBannerX - 2, carpetBannerY - 1, carpetBannerW + 4, carpetBannerH + 2);
+  ctx.fillStyle = '#991b1b';
+  ctx.fillRect(carpetBannerX, carpetBannerY, carpetBannerW, carpetBannerH);
+  ctx.strokeStyle = '#facc15';
+  ctx.lineWidth = 1.8;
+  ctx.strokeRect(carpetBannerX + 2, carpetBannerY + 2, carpetBannerW - 4, carpetBannerH - 4);
+  ctx.fillStyle = '#fef08a';
+  ctx.fillRect(carpetBannerX + 4, carpetBannerY + 4, 3, 3);
+  ctx.fillRect(carpetBannerX + carpetBannerW - 7, carpetBannerY + 4, 3, 3);
+  ctx.fillRect(carpetBannerX + 4, carpetBannerY + carpetBannerH - 7, 3, 3);
+  ctx.fillRect(carpetBannerX + carpetBannerW - 7, carpetBannerY + carpetBannerH - 7, 3, 3);
+  ctx.font = '900 13.5px "Microsoft JhengHei", "PMingLiU", serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(250, 204, 21, 0.95)';
+  ctx.shadowBlur = 8;
+  ctx.fillStyle = '#78350f';
+  ctx.fillText('✨ 有人快拜 保佑Pass ✨', 1090 + 1, carpetBannerY + carpetBannerH / 2 + 1);
+  ctx.fillStyle = '#fef08a';
+  ctx.fillText('✨ 有人快拜 保佑Pass ✨', 1090, carpetBannerY + carpetBannerH / 2);
+  ctx.restore();
 
   // 大雄寶殿神案供桌與「PP00 禮佛區」橫匾 (x: 1010..1170, y: 1270..1360)
   draw3DPixelBox(ctx, 975, 1258, 230, 34, 16, '#78350f', '#451a03', '#271709');

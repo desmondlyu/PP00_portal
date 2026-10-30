@@ -23,6 +23,8 @@ const gain=(p,n)=>award(p,Math.round(n*(1+p.items.filter(i=>i.slot!=null).reduce
 const walkable=assets.walkable||[];
 const clear=(x,y)=>x>160&&y>80&&x<2660&&y<1790&&!assets.colliders.some(r=>x+18>r.x&&x-18<r.x+r.w&&y+18>r.y&&y-18<r.y+r.h);
 const segment=(x,y,xx,yy)=>{const n=Math.ceil(Math.hypot(xx-x,yy-y)/8);for(let i=0;i<=n;i++)if(!clear(x+(xx-x)*i/Math.max(1,n),y+(yy-y)*i/Math.max(1,n)))return false;return true;};
+const clearPickup=(x,y)=>x>160&&y>80&&x<2660&&y<1790&&!assets.colliders.some(r=>x+4>r.x&&x-4<r.x+r.w&&y+4>r.y&&y-4<r.y+r.h);
+const segmentPickup=(x,y,xx,yy)=>{const n=Math.ceil(Math.hypot(xx-x,yy-y)/8);for(let i=1;i<n;i++)if(!clearPickup(x+(xx-x)*i/Math.max(1,n),y+(yy-y)*i/Math.max(1,n)))return false;return true;};
 export function floor(x,y){
   let best=null,distance=Infinity;
   for(const [xx,yy]of walkable){const d=(xx-x)**2+(yy-y)**2;if(d<distance){distance=d;best={x:xx,y:yy};}}
@@ -151,7 +153,13 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   if(kind==='active'){if(!Number.isInteger(b.slot)||b.slot<0||b.slot>2)fail('欄位錯誤');p.activeSlot=b.slot;return;}
   if(kind==='claim_legacy'){const i=p.overflow?.find(i=>i.uid===b.uid);if(!i||!capacity(p,i))fail('無法領取');p.overflow=p.overflow.filter(a=>a.uid!==b.uid);p.items.push(i);return;}
   if(kind==='pickup'){
-    const d=s.drops[b.uid];if(!d||d.claimed||d.room&&d.room!==p.room||d.pickupAfter>now||!near(p,d.x,d.y,R.pickupRadius(R.level(p.exp)))||!segment(p.x,p.y,d.x,d.y)||!capacity(p,d))fail('物品已被撿走、距離過遠、有障礙物或背包已滿');
+    const d=s.drops[b.uid];
+    if(!d||d.claimed||d.room&&d.room!==p.room)fail('物品已被撿走');
+    if(d.pickupAfter>now)fail('物品掉落保護中，請稍候');
+    const rad=R.pickupRadius(R.level(p.exp))+25;
+    if(!near(p,d.x,d.y,rad))fail('距離過遠');
+    if(!segmentPickup(p.x,p.y,d.x,d.y))fail('有障礙物阻擋');
+    if(!capacity(p,d))fail('背包已滿');
     const existing=d.category!=='outfit'&&p.items.find(i=>i.id===d.id&&i.category!=='outfit');
     if(existing&&p.items.length>=10){existing.count=(existing.count||1)+1;if((d.durability||0)>(existing.durability||0))existing.durability=d.durability;}
     else p.items.push({...d,uid:uid(),slot:null});
