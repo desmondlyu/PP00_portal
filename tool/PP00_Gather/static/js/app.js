@@ -658,10 +658,10 @@
       const channel=season.client.snapshot?.player?.channel;
       if(channel){
         const chDist = Math.hypot(localPlayer.x - channel.x, localPlayer.y - channel.y);
-        if(chDist > 30 || (localPlayer.isMoving && !['sit_code', 'pray_kuaikuai', 'play_arcade'].includes(localPlayer.actionState))){
+        if(chDist > 30 || (localPlayer.isMoving && !['sit_code', 'pray_kuaikuai', 'play_arcade', 'repair_wrench'].includes(localPlayer.actionState))){
           season.client.snapshot.player.channel = null;
           seasonSend("cancel").catch(() => {});
-          if(['sit_code', 'pray_kuaikuai', 'play_arcade'].includes(localPlayer.actionState)){
+          if(['sit_code', 'pray_kuaikuai', 'play_arcade', 'repair_wrench'].includes(localPlayer.actionState)){
             localPlayer.actionState = null;
           }
         } else if(gameNow() - channel.at >= (channel.kind==='lounge'?5000:channel.kind==='heal'?channel.duration:3000)){
@@ -716,7 +716,18 @@
       const cy=Math.max(target.y,Math.min(localPlayer.y,target.y+target.h));
       return Math.hypot(localPlayer.x-cx,localPlayer.y-cy)<=100||Math.hypot(localPlayer.x-target.x-target.w/2,localPlayer.y-target.y-target.h-18)<135;
     });
-    if(fault){const target=fault[0].startsWith('ws_')?window.WORLD_MAP.workstations[Number(fault[0].slice(3))]:window.WORLD_MAP.labEquipments[Number(fault[0].slice(4))];if(target){localPlayer.x=target.x+target.w/2;localPlayer.y=target.y+target.h+18;localPlayer.dir='up';}const res=await seasonSend('device_start',{target:fault[0]});if(res){localPlayer.actionState=fault[0].startsWith('lab_')?'pray_kuaikuai':'sit_code';return true;}return false;}
+    if(fault){
+      const isLab = fault[0].startsWith('lab_');
+      const target=isLab?window.WORLD_MAP.labEquipments[Number(fault[0].slice(4))]:window.WORLD_MAP.workstations[Number(fault[0].slice(3))];
+      if(target){localPlayer.x=target.x+target.w/2;localPlayer.y=target.y+target.h+18;localPlayer.dir='up';}
+      const res=await seasonSend('device_start',{target:fault[0]});
+      if(res){
+        localPlayer.actionState='repair_wrench';
+        startActiveRepairSession(target, isLab ? 'lab' : 'ws', target.name || target.owner);
+        return true;
+      }
+      return false;
+    }
     const f=window.OfficeFacilities?.nearby?.(localPlayer,snap);
     if(f){await window.OfficeFacilities.use(f,season.client,()=>({x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState})).catch(seasonError);if(season.client.snapshot.player.channel)localPlayer.actionState=f.id==='shrine'?'pray_kuaikuai':f.id==='lounge'?'play_arcade':'sit_code';return true;}
     return false;
@@ -4720,14 +4731,15 @@ async function executeOfficeLogin(params) {
       const ncy = Math.max(ws.y, Math.min(py, ws.y + ws.h));
       if (ws.isBroken && (Math.hypot(px - ncx, py - ncy) <= 95 || Math.hypot(px - seatX, py - seatY) < 125)) {
         return {
-          label: `🔧 修復遭【${ws.brokenBy || '怪物'}】破壞的【${ws.owner}】電腦 (完成獲得經驗) [按E]`,
-          shortHint: `[按 E] 🔧 修復電腦`,
-          actionId: 'sit_code',
+          label: `🔧 修復遭【${ws.brokenBy || '怪物'}】破壞的【${ws.owner}】電腦 (完成獲得經驗與掉落物) [按E]`,
+          shortHint: `[按 E] 🔧 維修電腦`,
+          actionId: 'repair_wrench',
           targetX: seatX,
           targetY: seatY,
           targetDir: 'up',
           repairTarget: ws,
           repairName: ws.owner,
+          repairType: 'ws',
         };
       }
     }
@@ -4739,14 +4751,15 @@ async function executeOfficeLogin(params) {
       const necy = Math.max(eq.y, Math.min(py, eq.y + eq.h));
       if (eq.isBroken && (Math.hypot(px - necx, py - necy) <= 100 || Math.hypot(px - cx, py - cy) < 135)) {
         return {
-          label: `🔧 修復遭【${eq.brokenBy || '怪物'}】破壞的【${eq.name}】機台 (完成獲得經驗) [按E]`,
-          shortHint: `[按 E] 🔧 修復機台`,
-          actionId: 'pray_kuaikuai',
+          label: `🔧 修復遭【${eq.brokenBy || '怪物'}】破壞的【${eq.name}】機台 (完成獲得經驗與掉落物) [按E]`,
+          shortHint: `[按 E] 🔧 維修機台`,
+          actionId: 'repair_wrench',
           targetX: cx,
           targetY: cy,
           targetDir: 'up',
           repairTarget: eq,
           repairName: eq.name,
+          repairType: 'lab',
         };
       }
     }
@@ -4979,27 +4992,9 @@ async function executeOfficeLogin(params) {
         return;
       }
 
-      // 修復設備
+      // 修復設備：啟動 3 秒持扳手專業維修倒數與進度條，完成後變回正常樣子、放彩帶、彈出無字框「完成維修」並掉落物資
       if (fac.repairTarget && fac.repairTarget.isBroken) {
-        if(season.enabled && season.client?.snapshot?.player?.channel){return;}
-        fac.repairTarget.isBroken = false;
-        fac.repairTarget.brokenBy = null;
-        if (fac.repairTarget.kind) {
-          fac.repairTarget.status = 'PASS 99.9%';
-          fac.repairTarget.statusColor = '#22c55e';
-          const eqIdx = window.WORLD_MAP.labEquipments.indexOf(fac.repairTarget);
-          if (eqIdx !== -1) network.broadcastPacket('device_repair', { type: 'lab', idx: eqIdx });
-        } else {
-          fac.repairTarget.screenState = 'pass';
-          fac.repairTarget.leftScreen = 'Pass';
-          fac.repairTarget.rightScreen = 'Good';
-          const wsIdx = window.WORLD_MAP.workstations.indexOf(fac.repairTarget);
-          if (wsIdx !== -1) network.broadcastPacket('device_repair', { type: 'ws', idx: wsIdx });
-        }
-        forceLevelUp(fac.repairName || '設備');
-        localPlayer.actionState = fac.actionId;
-        updatePoseLabelUI();
-        network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        startActiveRepairSession(fac.repairTarget, fac.repairType || (fac.repairTarget.kind ? 'lab' : 'ws'), fac.repairName || '設備');
         return;
       }
 
@@ -6192,7 +6187,7 @@ async function executeOfficeLogin(params) {
   function renderSidebarRoster() {
     const listEl = document.getElementById('onlineRosterList');
     if (!listEl) return;
-    const others = network.getAllOtherPlayers();
+    const others = network.getAllOtherPlayers().filter(p => !p.combatDown && (p.hp == null || p.hp > 0));
     const mobs = ((ecosystem && ecosystem.mobs) || []).filter((m) => m && m.hp > 0 && !m.combatDown && (!window.OfficeCombat?.defeatVisible || window.OfficeCombat.defeatVisible(m)));
     const totalCount = 1 + others.length + mobs.length;
     const countBadge = document.getElementById('onlineCountBadge');
@@ -7260,6 +7255,9 @@ async function executeOfficeLogin(params) {
           ctx.restore();
         }
 
+        if (typeof renderEquipmentRepairAnimations === 'function') {
+          renderEquipmentRepairAnimations(ctx, tick);
+        }
         if (typeof renderMedicalHealingAnimations === 'function') {
           renderMedicalHealingAnimations(ctx, tick);
         }
@@ -7284,6 +7282,176 @@ async function executeOfficeLogin(params) {
   /**
    * 繪製 5 秒緊急醫療急救動畫（醫療光束、治癒光環、心跳脈衝線、飛舞愛心粒子與科技感進度 HUD）
    */
+  
+  // 專業機台與電腦維修會話狀態 (3 秒倒數、扳手動畫、掉落物、彩帶與完成文字)
+  let activeRepairSession = null;
+
+  function startActiveRepairSession(target, type, name) {
+    if (!target) return;
+    localPlayer.actionState = 'repair_wrench';
+    localPlayer.dir = 'up';
+    const tx = target.x + (target.w ? target.w / 2 : 20);
+    const ty = target.y + (target.h ? target.h / 2 : 20);
+    activeRepairSession = {
+      target,
+      type: type || (target.kind ? 'lab' : 'ws'),
+      name: name || target.name || target.owner || '機台設備',
+      startTime: gameNow(),
+      duration: 3000,
+      startX: localPlayer.x,
+      startY: localPlayer.y,
+      targetX: tx,
+      targetY: ty,
+    };
+    pushStatusLog('你', `🔧 拿出專業機台扳手，開始全神貫注檢修【${activeRepairSession.name}】...`);
+    updatePoseLabelUI();
+    network.broadcastPacket('state_sync', { player: network.getPublicState() });
+  }
+
+  function completeRepairSession() {
+    if (!activeRepairSession) return;
+    const sess = activeRepairSession;
+    const tgt = sess.target;
+    tgt.isBroken = false;
+    tgt.brokenBy = null;
+    if (sess.type === 'lab' || tgt.kind) {
+      tgt.status = 'PASS READY (100%)';
+      tgt.statusColor = '#22c55e';
+      const eqIdx = window.WORLD_MAP.labEquipments.indexOf(tgt);
+      if (eqIdx !== -1) network.broadcastPacket('device_repair', { type: 'lab', idx: eqIdx });
+    } else {
+      tgt.screenState = 'pass';
+      tgt.leftScreen = 'Pass';
+      tgt.rightScreen = 'Good';
+      const wsIdx = window.WORLD_MAP.workstations.indexOf(tgt);
+      if (wsIdx !== -1) network.broadcastPacket('device_repair', { type: 'ws', idx: wsIdx });
+    }
+
+    if (season.enabled && season.client) {
+      season.client.send('device_finish').catch(() => {});
+    }
+
+    // 1. 放彩帶特效 (spawnConfetti)
+    spawnConfetti(sess.targetX, sess.targetY);
+    spawnConfetti(localPlayer.x, localPlayer.y - 20);
+
+    // 2. 彈出無字框的「完成維修」金色發光浮動文字 (向上飄散漸變淡出)
+    vfxList.push({
+      type: 'floating_text',
+      text: '🎉 完成維修',
+      x: sess.targetX,
+      y: sess.targetY - 30,
+      vy: -1.1,
+      alpha: 1.0,
+      decay: 0.013,
+      color: '#fef08a',
+      glow: 'rgba(250, 204, 21, 0.95)',
+      font: '900 18px "Microsoft JhengHei", "PMingLiU", sans-serif'
+    });
+
+    // 3. 掉落實用維修物資獎勵 (板手、綠乖乖、咖啡、珍奶、披薩)
+    const rewardPool = [
+      { id: 'wrench', name: '機台維修扳手', emoji: '🔧', category: 'weapon' },
+      { id: 'kuaikuai', name: '椰子綠乖乖', emoji: '💚', category: 'food' },
+      { id: 'coffee', name: '美式黑咖啡', emoji: '☕', category: 'food' },
+      { id: 'boba', name: '波霸珍珠奶茶', emoji: '🧋', category: 'food' },
+      { id: 'pizza', name: '急救熱披薩', emoji: '🍕', category: 'food' }
+    ];
+    const rewardMeta = rewardPool[Math.floor(Math.random() * rewardPool.length)];
+    const droppedItem = addItemToInventory(rewardMeta, false);
+    if (droppedItem) {
+      pushStatusLog('系統', `🎉 【${sess.name}】維修完成！恢復 PASS 運轉，獲得物資【${rewardMeta.emoji} ${rewardMeta.name}】！`);
+    }
+
+    // 4. 獲得經驗與提示
+    forceLevelUp(sess.name);
+    showCombatToast(`🎉 【${sess.name}】維修完成！獲得經驗值 +35 EXP 與獎勵物資！`, 'join');
+    localPlayer.actionState = null;
+    activeRepairSession = null;
+    updatePoseLabelUI();
+    network.broadcastPacket('state_sync', { player: network.getPublicState() });
+  }
+
+  function renderEquipmentRepairAnimations(ctx, tick) {
+    if (!activeRepairSession) return;
+    const sess = activeRepairSession;
+    // 檢查玩家是否走動離開維修位置
+    const dist = Math.hypot(localPlayer.x - sess.startX, localPlayer.y - sess.startY);
+    if (dist > 40) {
+      activeRepairSession = null;
+      if (localPlayer.actionState === 'repair_wrench') localPlayer.actionState = null;
+      if (season.enabled) seasonSend('cancel').catch(() => {});
+      showCombatToast('維修已取消');
+      updatePoseLabelUI();
+      return;
+    }
+
+    const elapsed = gameNow() - sess.startTime;
+    const progress = Math.min(1, elapsed / sess.duration);
+
+    ctx.save();
+
+    // 1. 維修扳手與機台之間的焊接火花飛濺與電弧
+    const sparkCount = 3;
+    for (let i = 0; i < sparkCount; i++) {
+      const spPhase = (tick * 0.15 + i * 0.3) % 1;
+      const spx = localPlayer.x + (sess.targetX - localPlayer.x) * 0.4 + Math.sin(tick * 0.3 + i) * 14;
+      const spy = localPlayer.y - 20 - spPhase * 16;
+      ctx.fillStyle = i % 2 === 0 ? '#fde047' : '#38bdf8';
+      ctx.fillRect(spx, spy, 3, 3);
+    }
+
+    // 2. 懸浮於維修區上方的 3 秒專業維修進度條 HUD
+    const hudW = 150;
+    const hudH = 26;
+    const hudX = localPlayer.x - hudW / 2;
+    const hudY = localPlayer.y - 92 - (localPlayer.jumpOffset || 0);
+
+    // 深色膠囊背景與金黃科技光環
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(hudX, hudY, hudW, hudH, 13);
+    } else {
+      ctx.rect(hudX, hudY, hudW, hudH);
+    }
+    ctx.fill();
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    // 翠綠填充進度槽
+    const innerPadding = 3;
+    const barW = (hudW - innerPadding * 2) * progress;
+    if (barW > 4) {
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(hudX + innerPadding, hudY + innerPadding, barW, hudH - innerPadding * 2, 10);
+      } else {
+        ctx.rect(hudX + innerPadding, hudY + innerPadding, barW, hudH - innerPadding * 2);
+      }
+      ctx.fill();
+    }
+
+    // 倒數文字與百分比
+    const remainSec = Math.max(0, (3 - elapsed / 1000)).toFixed(1);
+    ctx.font = '800 11px "Microsoft JhengHei", "Outfit", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur = 4;
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillText(`🔧 維修中 ${Math.round(progress * 100)}% (${remainSec}s)`, localPlayer.x, hudY + hudH / 2);
+
+    ctx.restore();
+
+    // 倒數結束 -> 觸發完成
+    if (elapsed >= sess.duration) {
+      completeRepairSession();
+    }
+  }
+
   function renderMedicalHealingAnimations(ctx, tick) {
     if (!network) return;
 
@@ -7617,6 +7785,26 @@ async function executeOfficeLogin(params) {
         ctx.globalAlpha = Math.max(0, v.alpha);
         ctx.fillRect(v.x, v.y, 5, 5);
         ctx.globalAlpha = 1;
+      } else if (v.type === 'floating_text') {
+        v.y += v.vy || -1.0;
+        v.alpha -= (v.decay || 0.015);
+        if (v.alpha <= 0) {
+          vfxList.splice(i, 1);
+          continue;
+        }
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, v.alpha);
+        ctx.font = v.font || '900 18px "Microsoft JhengHei", "PMingLiU", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // 無字框 (No box/border), 僅金色耀眼外發光題字
+        if (v.glow) {
+          ctx.shadowColor = v.glow;
+          ctx.shadowBlur = 10;
+        }
+        ctx.fillStyle = v.color || '#fef08a';
+        ctx.fillText(v.text, v.x, v.y);
+        ctx.restore();
       }
     }
   }

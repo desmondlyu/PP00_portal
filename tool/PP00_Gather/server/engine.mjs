@@ -161,7 +161,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     if(!segmentPickup(p.x,p.y,d.x,d.y))fail('有障礙物阻擋');
     if(!capacity(p,d))fail('背包已滿');
     const existing=d.category!=='outfit'&&p.items.find(i=>i.id===d.id&&i.category!=='outfit');
-    if(existing&&p.items.length>=10){existing.count=(existing.count||1)+1;if((d.durability||0)>(existing.durability||0))existing.durability=d.durability;}
+    if(existing){existing.count=(existing.count||1)+1;if((d.durability||0)>(existing.durability||0))existing.durability=d.durability;}
     else p.items.push({...d,uid:uid(),slot:null});
     d.claimed=true;if(d.source==='world')gain(p,15);return;
   }

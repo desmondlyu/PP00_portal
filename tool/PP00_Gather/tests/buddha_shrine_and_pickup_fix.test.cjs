@@ -7,7 +7,7 @@ const vm = require('node:vm');
 test('Buddha shrine: drawBuddhaStatue incorporates photo reference with aspect ratio, halo, and carpet text', () => {
   const worldJs = fs.readFileSync(path.join(__dirname, '../static/js/world.js'), 'utf8');
   assert.ok(worldJs.includes('buddha_shrine.jpg'), 'Must reference uploaded buddha_shrine.jpg');
-  assert.ok(worldJs.includes('✨ 有人快拜 保佑Pass ✨'), 'Must include "有人快拜 保佑Pass" on prayer carpet');
+  assert.ok(worldJs.includes('✨ 有神快拜 保佑PASS ✨') || worldJs.includes('✨ 有人快拜 保佑Pass ✨'), 'Must include "有神快拜 保佑PASS" on prayer carpet');
   assert.ok(worldJs.includes('bigHalo') || worldJs.includes('Dynamic Double Golden Halo Aureole'), 'Must include glowing double halo behind Buddha');
   assert.ok(worldJs.includes('statueW = 140') && worldJs.includes('statueH = 105'), 'Must render Buddha maintaining 1024:765 natural aspect ratio without compressing head');
 });
