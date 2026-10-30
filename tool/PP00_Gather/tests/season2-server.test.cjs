@@ -13,7 +13,7 @@ test('materials cannot consume worn outfits, equipped weapons or duplicate insta
 test('moving cancels a channel; a shield cannot exempt boss discipline',async()=>{const E=await engine();const s=game(),p=s.players.p;p.x=1238;p.y=350;E.act(s,'p','lounge_start',{},1000);E.act(s,'p','heartbeat',{x:1238,y:390},2000);assert.equal(p.channel,null);assert.throws(()=>E.act(s,'p','facility_finish',{},7000),/中斷/);p.x=380;p.y=310;p.effects.shieldUntil=100000;s.enemies.b={id:'b',role:'vp',x:400,y:310,hp:3,maxHp:3,room:'PP00'};E.strike(s,p,'b',8000,()=>.1);assert.equal(p.effects.lockedUntil,16000);assert.equal(p.effects.shieldUntil,100000);});
 test('two simultaneous recovery cases use separate clear seats and rescue awards once',async()=>{const E=await engine();const s=game();E.hurt(s,s.players.p,'npc',1000,()=>0);E.hurt(s,s.players.q,'npc',1000,()=>0);assert.notDeepEqual([s.players.p.x,s.players.p.y],[s.players.q.x,s.players.q.y]);const helper=player('h');s.players.h=helper;helper.x=s.players.p.x;helper.y=s.players.p.y;E.act(s,'h','heal_start',{target:'p'},2000);E.act(s,'h','heal_finish',{},8000);assert.equal(helper.exp,50);assert.throws(()=>E.act(s,'h','heal_finish',{},9000),/急救/);});
 test('ordinary equipment repair awards fixed XP once after a timed repair',async()=>{const E=await engine();const s=game(),p=s.players.p;const t=E.assets.tasks[0];p.x=t.x;p.y=t.y;s.broken={[t.id]:{broken:true,room:p.room}};E.act(s,'p','device_start',{target:t.id},1000);assert.throws(()=>E.act(s,'p','device_finish',{},2000),/時間/);E.act(s,'p','device_finish',{},4100);assert.equal(p.exp,30);assert.equal(s.broken[t.id].broken,false);assert.throws(()=>E.act(s,'p','device_start',{target:t.id},5000),/故障/);});
-test('all ten owned items count toward capacity even when three are equipped',async()=>{const E=await engine();const s=game(),p=s.players.p;p.items=Array.from({length:10},(_,i)=>({uid:'i'+i,id:'wrench',category:'weapon',slot:i<3?i:null}));s.drops.d={uid:'d',id:'pizza',category:'item',source:'world',x:p.x,y:p.y};assert.throws(()=>E.act(s,'p','pickup',{uid:'d'},1000),/背包/);});
+test('ten bag storage items count toward capacity independently of equipped slots',async()=>{const E=await engine();const s=game(),p=s.players.p;p.items=Array.from({length:13},(_,i)=>({uid:'i'+i,id:'wrench',category:'weapon',slot:i<3?i:null}));s.drops.d={uid:'d',id:'pizza',category:'item',source:'world',x:p.x,y:p.y};assert.throws(()=>E.act(s,'p','pickup',{uid:'d'},1000),/背包/);});
 test('real snack catalog items can pay for gacha',async()=>{const E=await engine();const s=game(),p=s.players.p;p.x=1963;p.y=350;p.items=['pizza','coffee'].map((id,i)=>({...E.assets.items.find(m=>m.id===id),uid:'i'+i,durability:2,slot:null}));E.act(s,'p','gacha',{materials:['i0','i1']},1000,()=>0);assert.equal(p.items.length,1);assert.equal(p.items[0].category,'outfit');});
 test('pending materials cannot be equipped, damage cancels pending and confirmation revalidates',async()=>{const E=await engine();const s=game(),p=s.players.p;p.x=1963;p.y=350;p.items=E.assets.items.filter(i=>i.category==='outfit').slice(1,4).map((m,i)=>({...m,uid:'o'+i,durability:3})).concat(['wrench','bench'].map((id,i)=>({...E.assets.items.find(m=>m.id===id),uid:'m'+i,durability:3})));E.act(s,'p','gacha',{materials:['m0','m1']},1000,()=>0);assert.throws(()=>E.act(s,'p','equip',{uid:'m0'},1100),/保留/);E.hurt(s,p,'npc',2000,()=>.9);assert.equal(p.pending,null);assert.throws(()=>E.act(s,'p','gacha_confirm',{replace:'o0'},3000),/結束/);});
 test('damage and logout cancel healing channels',async()=>{const E=await engine();const s=game(),p=s.players.p,q=s.players.q;p.x=q.x=900;p.y=q.y=1350;q.effects.injuredUntil=300000;E.act(s,'p','heal_start',{target:'q'},1000);E.hurt(s,p,'npc',2000,()=>.9);assert.equal(p.channel,null);assert.throws(()=>E.act(s,'p','heal_finish',{},8000),/中斷/);E.act(s,'p','heal_start',{target:'q'},9000);E.act(s,'p','logout',{},10000);assert.equal(p.channel,null);});
@@ -154,4 +154,104 @@ test('bare-handed attack works with 1s cooldown and 10 hits to repel without wea
   }
   assert.equal(s.enemies.mob.hp, 0);
   assert.equal(s.enemies.mob.reaction.kind, 'defeat');
+});
+
+test('storage bag full at 10 items stacks gifted item if same material exists, never exceeding 10', async () => {
+  const E = await engine();
+  const s = game(), p = s.players.p, q = s.players.q;
+  p.x = 1000; p.y = 350;
+  q.x = 1050; q.y = 350;
+  // Q has 10 items in bag, one of which is coffee (material)
+  q.items = Array.from({ length: 9 }, (_, i) => ({ uid: 'qi' + i, id: 'wrench', category: 'weapon', slot: null }));
+  q.items.push({ uid: 'q_coffee', id: 'coffee', category: 'item', slot: null, count: 1, durability: 2 });
+  // P has coffee to gift
+  p.items = [{ uid: 'p_coffee', id: 'coffee', category: 'item', slot: null, count: 1, durability: 3 }];
+
+  assert.equal(q.items.filter(i => i.slot == null).length, 10);
+  E.act(s, 'p', 'gift', { target: 'q', uid: 'p_coffee' }, 1000);
+  // Q should still have exactly 10 bag items, with coffee count incremented to 2 and durability updated to 3
+  assert.equal(q.items.filter(i => i.slot == null).length, 10);
+  const qCoffee = q.items.find(i => i.id === 'coffee');
+  assert.equal(qCoffee.count, 2);
+  assert.equal(qCoffee.durability, 3);
+});
+
+test('storage bag full at 10 items blocks claim_legacy if same item is only in equipped slot', async () => {
+  const E = await engine();
+  const s = game(), p = s.players.p;
+  // P has 3 equipped items (one is wrench) and 10 bag items (none of which is wrench)
+  p.items = [
+    { uid: 'eq0', id: 'wrench', category: 'weapon', slot: 0 },
+    { uid: 'eq1', id: 'keyboard', category: 'weapon', slot: 1 },
+    { uid: 'eq2', id: 'mouse', category: 'weapon', slot: 2 },
+    ...Array.from({ length: 10 }, (_, i) => ({ uid: 'b' + i, id: 'pizza', category: 'item', slot: null }))
+  ];
+  p.overflow = [{ uid: 'ov_wrench', id: 'wrench', category: 'weapon' }];
+
+  assert.equal(p.items.filter(i => i.slot == null).length, 10);
+  assert.throws(() => E.act(s, 'p', 'claim_legacy', { uid: 'ov_wrench' }, 1000), /無法領取/);
+  // Bag length must remain 10
+  assert.equal(p.items.filter(i => i.slot == null).length, 10);
+});
+
+test('device_repair for broken equipment in different room or out of range awards no exp and does not repair', async () => {
+  const E = await engine();
+  const s = game(), p = s.players.p;
+  p.room = 'PP00';
+  p.exp = 0;
+  // Lab device broken in another room 'LAB'
+  s.broken = { 'lab_0': { broken: true, room: 'LAB' } };
+
+  E.act(s, 'p', 'device_repair', { target: 'lab_0' }, 1000);
+  assert.equal(p.exp, 0, 'No EXP should be awarded for cross-room repair');
+  assert.equal(s.broken['lab_0'].broken, true, 'Cross-room device must remain broken');
+});
+
+test('device_finish without active channel fails and awards no exp', async () => {
+  const E = await engine();
+  const s = game(), p = s.players.p;
+  const t = E.assets.tasks[0];
+  p.x = t.x; p.y = t.y;
+  p.exp = 0;
+  p.channel = null;
+  s.broken = { [t.id]: { broken: true, room: p.room } };
+
+  assert.throws(() => E.act(s, 'p', 'device_finish', {}, 1000), /修復時間不足/);
+  assert.equal(p.exp, 0, 'No EXP should be awarded without channel');
+  assert.equal(s.broken[t.id].broken, true, 'Device must remain broken');
+});
+
+test('storage bag full at 10 items: npc_love_gift stacks matching item without creating 11th slot', async () => {
+  const E = await engine();
+  const s = game(), p = s.players.p;
+  // 10 items in bag, including pizza
+  p.items = Array.from({ length: 9 }, (_, i) => ({ uid: 'item_' + i, id: 'wrench', category: 'weapon', slot: null }));
+  p.items.push({ uid: 'p_pizza', id: 'pizza', category: 'item', slot: null, count: 1, durability: 2 });
+  assert.equal(p.items.filter(i => i.slot == null).length, 10);
+
+  // RNG returning index for 'pizza' (index 0 in pool ['pizza','boba',...])
+  E.act(s, 'p', 'npc_love_gift', {}, 1000, () => 0);
+  assert.equal(p.items.filter(i => i.slot == null).length, 10, 'Bag must remain exactly 10 slots');
+  const pizza = p.items.find(i => i.id === 'pizza');
+  assert.equal(pizza.count, 2, 'Pizza stack count must be 2');
+});
+
+test('storage bag full at 10 items: rma_report stacks matching reward item without creating 11th slot', async () => {
+  const E = await engine();
+  const s = game(), p = s.players.p;
+  p.x = 998; p.y = 350;
+  // 10 items in bag, one is keyboard
+  p.items = Array.from({ length: 9 }, (_, i) => ({ uid: 'item_' + i, id: 'wrench', category: 'weapon', slot: null }));
+  p.items.push({ uid: 'p_key', id: 'keyboard', category: 'weapon', slot: null, count: 1, durability: 3 });
+  assert.equal(p.items.filter(i => i.slot == null).length, 10);
+
+  // Set up ready reporting task
+  s.tasks[p.room] = { claimer: 'p', stage: 'reporting', targets: [], repairedIds: [] };
+  // Find keyboard in assets.items and pick it
+  const keyIdx = E.assets.items.findIndex(i => i.id === 'keyboard');
+  E.act(s, 'p', 'rma_report', {}, 1000, () => (keyIdx + 0.1) / E.assets.items.length);
+
+  assert.equal(p.items.filter(i => i.slot == null).length, 10, 'Bag must remain exactly 10 slots');
+  const key = p.items.find(i => i.id === 'keyboard');
+  assert.equal(key.count, 2, 'Keyboard stack count must be 2');
 });

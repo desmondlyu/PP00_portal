@@ -171,3 +171,18 @@ test('Remote knockback spin prevention, default collapsed chat & minimap, and au
   // 4. NPC 巡邏支援房長同步超時自動備援巡邏，防止重整後 NPC 原地卡死
   assert.ok(netJs.includes('now - (this.lastMasterSyncTime || 0) >= 2500'), 'NPC movement must have fallback autonomous patrol when master sync times out');
 });
+
+test('Storage bag independence, simplified clean nameplate, and below-character interaction prompt card', () => {
+  const appJs = fs.readFileSync(path.join(__dirname, '../static/js/app.js'), 'utf8');
+  const engineMjs = fs.readFileSync(path.join(__dirname, '../server/engine.mjs'), 'utf8');
+
+  // 1. 儲物欄獨立 10 格 (不被已裝備 3 格佔用)
+  assert.ok(engineMjs.includes('bag(p).length<10'), 'server/engine.mjs capacity must check bag items length < 10, not total items');
+
+  // 2. 名牌簡化：只顯示名字，不顯示頭銜/裝備emoji/卡片框
+  assert.ok(appJs.includes("const displayLabel = p.name || '';"), 'drawPlayerNameplateAndBubbles must only show name');
+  assert.ok(appJs.includes("const itemEmoji = '';"), 'drawPlayerNameplateAndBubbles must not draw held item emoji above head');
+
+  // 3. 靠近物品互動卡片顯示於人物下方 (y + 36)
+  assert.ok(appJs.includes('const hy = localPlayer.y + 36'), 'Nearby interaction prompt card must be placed below player');
+});
