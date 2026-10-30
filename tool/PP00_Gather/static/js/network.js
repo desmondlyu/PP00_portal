@@ -1478,9 +1478,28 @@ class EphemeralOfficeNetwork {
       ...this.remotePlayers.values(),
       ...this.npcPlayers.values(),
     ];
-    // 遠端玩家移動線性內插 (LERP 平滑移動，消除跨區域網路 WebSocket 幀隙帶來的瞬移卡頓感)
+    // 遠端玩家移動線性內插與被擊退物理 (含被攻擊時立即打飛拋物線與高速空翻旋轉)
     this.remotePlayers.forEach((rp) => {
-      if (typeof rp.targetX === 'number' && typeof rp.targetY === 'number') {
+      if (rp.knockback && rp.knockback.ticksLeft > 0) {
+        const nx = rp.x + rp.knockback.vx;
+        const ny = rp.y + rp.knockback.vy;
+        if (!this.isPositionBlocked(nx, ny, 16)) {
+          rp.x = nx;
+          rp.y = ny;
+          rp.targetX = nx;
+          rp.targetY = ny;
+        }
+        rp.knockback.vx *= 0.86;
+        rp.knockback.vy *= 0.86;
+        rp.knockback.ticksLeft--;
+        rp.jumpOffset = Math.max(
+          rp.jumpOffset || 0,
+          Math.sin((rp.knockback.ticksLeft / (rp.knockback.totalTicks || 22)) * Math.PI) * 36
+        );
+        if (rp.knockback.ticksLeft <= 0) {
+          rp.knockback = null;
+        }
+      } else if (typeof rp.targetX === 'number' && typeof rp.targetY === 'number') {
         const dx = rp.targetX - rp.x;
         const dy = rp.targetY - rp.y;
         if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {

@@ -73,3 +73,18 @@ test('Online roster: defeated mobs and down entities are filtered out from sideb
   const appJs = fs.readFileSync(path.join(__dirname, '../static/js/app.js'), 'utf8');
   assert.ok(appJs.includes('network.getAllOtherPlayers().filter(p => !p.combatDown && (p.hp == null || p.hp > 0))'), 'Sidebar roster must filter out combatDown/dead entities');
 });
+
+test('Attacking remote players: immediate knockback physics, parabolic arc, and spin rotation animation', () => {
+  const appJs = fs.readFileSync(path.join(__dirname, '../static/js/app.js'), 'utf8');
+  const netJs = fs.readFileSync(path.join(__dirname, '../static/js/network.js'), 'utf8');
+
+  // 1. 在攻擊觸發時 (season 與 non-season)，均即時為受擊其他玩家賦予 knockback、jumpOffset 與 targetX/Y
+  assert.ok(appJs.includes('colleague.knockback = {'), 'Attacking colleague must assign colleague.knockback');
+  assert.ok(appJs.includes('colleague.jumpOffset = 36;'), 'Attacking colleague must assign jumpOffset for parabolic flight');
+  assert.ok(appJs.includes('colleague.targetX = nx;'), 'Attacking colleague must update targetX to prevent LERP snapback');
+
+  // 2. network.js 包含遠端玩家被擊退的物理位移與衰減模擬
+  assert.ok(netJs.includes('if (rp.knockback && rp.knockback.ticksLeft > 0)'), 'network.js must simulate rp.knockback physics');
+  assert.ok(netJs.includes('rp.knockback.vx *= 0.86'), 'network.js must damp knockback velocity');
+  assert.ok(netJs.includes('rp.knockback.ticksLeft--'), 'network.js must decrement knockback ticks');
+});

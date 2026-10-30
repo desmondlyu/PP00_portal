@@ -4090,6 +4090,60 @@ async function executeOfficeLogin(params) {
           }
         }
       }
+      // 💥 即時打擊感：攻擊附近的線上其他同仁 (Remote Players)，立即賦予空中擊退拋物線、旋轉打擊與受擊特效
+      if (network && network.remotePlayers) {
+        network.remotePlayers.forEach((colleague) => {
+          if (colleague.combatDown || Math.hypot(colleague.x - localPlayer.x, colleague.y - localPlayer.y) > 135) return;
+          const dx = colleague.x - localPlayer.x, dy = colleague.y - localPlayer.y;
+          const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 8));
+          let blocked = false;
+          for (let i = 0; i <= steps; i++) {
+            if (window.isPositionBlocked(localPlayer.x + dx * i / steps, localPlayer.y + dy * i / steps, 18)) {
+              blocked = true;
+              break;
+            }
+          }
+          if (blocked) return;
+          const angle = Math.atan2(dy, dx);
+          const pushDist = isFist ? 45 : 85;
+          const kbPower = isFist ? 9 : 16;
+          colleague.knockback = {
+            vx: Math.cos(angle) * kbPower,
+            vy: Math.sin(angle) * kbPower,
+            ticksLeft: 22,
+            totalTicks: 22,
+          };
+          colleague.jumpOffset = 36;
+          colleague.emote = { emoji: isFist ? '👊' : '💫', expiresAt: now + 2500 };
+          const nx = Math.max(180, Math.min(window.WORLD_MAP.width - 150, colleague.x + Math.cos(angle) * pushDist));
+          const ny = Math.max(100, Math.min(window.WORLD_MAP.height - 120, colleague.y + Math.sin(angle) * pushDist));
+          if (!window.isPositionBlocked(nx, ny, 16)) {
+            colleague.targetX = nx;
+            colleague.targetY = ny;
+          }
+          vfxList.push({
+            type: 'click_ring',
+            x: colleague.x,
+            y: colleague.y - 12,
+            radius: 8,
+            maxRadius: 36,
+            alpha: 1,
+            color: isFist ? '#f43f5e' : '#facc15',
+          });
+          network.broadcastPacket('weapon_attack', {
+            targetId: colleague.id,
+            senderName: localPlayer.name,
+            weaponEmoji: w.emoji,
+            weaponName: w.name,
+            power: w.power || 26,
+            fromX: localPlayer.x,
+            fromY: localPlayer.y,
+            isCriticalInjury: false,
+          });
+          showCombatToast(`💥 擊退同事【${colleague.name}】！`);
+        });
+      }
+
       seasonSend('attack',{targets:previews.map(([e])=>e.uid||e.id),...(attackWorld?{world:attackWorld}:{})}).finally(()=>{season.attacking=false;});
       return;
     }
@@ -4176,10 +4230,31 @@ async function executeOfficeLogin(params) {
           dy = 0;
         }
         const ang = Math.atan2(dy, dx);
-        colleague.jumpOffset = 32;
-        colleague.emote = { emoji: '💫', expiresAt: now + 3000 };
-        colleague.x = Math.max(180, Math.min(window.WORLD_MAP.width - 150, colleague.x + Math.cos(ang) * 95));
-        colleague.y = Math.max(100, Math.min(window.WORLD_MAP.height - 120, colleague.y + Math.sin(ang) * 95));
+        const pushDist = isFist ? 45 : 85;
+        const kbPower = isFist ? 9 : 16;
+        colleague.knockback = {
+          vx: Math.cos(ang) * kbPower,
+          vy: Math.sin(ang) * kbPower,
+          ticksLeft: 22,
+          totalTicks: 22,
+        };
+        colleague.jumpOffset = 36;
+        colleague.emote = { emoji: isFist ? '👊' : '💫', expiresAt: now + 3000 };
+        const nx = Math.max(180, Math.min(window.WORLD_MAP.width - 150, colleague.x + Math.cos(ang) * pushDist));
+        const ny = Math.max(100, Math.min(window.WORLD_MAP.height - 120, colleague.y + Math.sin(ang) * pushDist));
+        if (!window.isPositionBlocked(nx, ny, 16)) {
+          colleague.targetX = nx;
+          colleague.targetY = ny;
+        }
+        vfxList.push({
+          type: 'click_ring',
+          x: colleague.x,
+          y: colleague.y - 12,
+          radius: 8,
+          maxRadius: 36,
+          alpha: 1,
+          color: isFist ? '#f43f5e' : '#facc15',
+        });
 
         // 🚑 規則 3：攻擊線上使用者，5% 機率躺在會議室因重傷休息無法動彈 5 分鐘
         const critChance = window.GATHER_CONFIG?.security?.userCritInjuryChance ?? 0.05;
