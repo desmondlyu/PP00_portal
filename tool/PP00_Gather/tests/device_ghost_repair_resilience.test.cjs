@@ -134,7 +134,7 @@ function setupTestAppEnvironment(realMap = false) {
   if (realMap) vm.runInContext(fs.readFileSync(path.join(root, 'world.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(root, 'network.js'), 'utf8'), context);
   let appSrc = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
-  appSrc = appSrc.replace("window.addEventListener('DOMContentLoaded', init);", 'window.__testInit = init; window.__testStartRepair = startActiveRepairSession;');
+  appSrc = appSrc.replace("window.addEventListener('DOMContentLoaded', init);", 'window.__testInit = init; window.__testStartRepair = startActiveRepairSession; window.__testSyncEquipment = syncEquipmentState;');
   vm.runInContext(appSrc, context);
   return context;
 }
@@ -319,6 +319,51 @@ test('Cloud repair requires a snapshot and a target belonging to the equipment l
     assert.doesNotThrow(() => context.window.__testStartRepair(foreignTarget, type, 'Missing equipment list'));
     assert.equal(T.getActiveRepairSession(), null, 'A missing list must not start a repair');
   }
+});
+
+test('Equipment visuals rebuild from the authoritative snapshot, including active and recently repaired devices', () => {
+  const context = setupTestAppEnvironment(true);
+  const T = context.window.__PP00_TEST__;
+  const map = context.window.WORLD_MAP;
+  const normalLab = map.labEquipments[3];
+  const brokenLab = map.labEquipments[5];
+  const normalWs = map.workstations[0];
+  const brokenWs = map.workstations[1];
+  for (const target of [normalLab, brokenLab, normalWs, brokenWs]) {
+    Object.assign(target, { isBroken: true, brokenBy: 'Old mob', status: 'BROKEN',
+      statusColor: '#ef4444', screenState: 'pass', leftScreen: 'FIX E', rightScreen: 'FAIL', lastRepairedAt: Date.now() });
+  }
+  T.setActiveRepairSession({ target: normalLab });
+  context.window.__testSyncEquipment({ lab_5: { broken: true, brokenBy: 'Current mob' }, ws_1: { broken: true } });
+  assert.equal(normalLab.isBroken, false);
+  assert.equal(normalLab.brokenBy, null);
+  assert.equal(normalLab.status, 'PASS READY (100%)');
+  assert.equal(normalLab.statusColor, '#22c55e');
+  assert.equal(normalWs.isBroken, false);
+  assert.equal(normalWs.leftScreen, 'Pass');
+  assert.equal(normalWs.rightScreen, 'Good');
+  assert.equal(brokenLab.isBroken, true);
+  assert.equal(brokenLab.brokenBy, 'Current mob');
+  assert.equal(brokenLab.status, '💥BROKEN!');
+  assert.equal(brokenWs.isBroken, true);
+  assert.equal(brokenWs.screenState, 'error');
+  assert.equal(T.getActiveRepairSession().target, normalLab, 'Peer repair must not fabricate a local reward');
+  context.window.__testSyncEquipment(undefined);
+  assert.equal(brokenLab.isBroken, true, 'An incomplete snapshot must not clear real faults');
+});
+
+test('Healthy cloud workstations never randomly advertise FIX E or FAIL', () => {
+  const context = setupTestAppEnvironment(true);
+  // Pick the first workstation and the old random red branch deterministically.
+  context.Math = Object.create(Math);
+  context.Math.random = () => 0;
+  context.WORKSTATION_SCREEN_OPTIONS = context.window.WORKSTATION_SCREEN_OPTIONS;
+  const eco = new context.window.OfficeEcosystem();
+  for (const ws of context.window.WORLD_MAP.workstations) ws.isBroken = false;
+  eco.update(60, []);
+  const ws = context.window.WORLD_MAP.workstations[0];
+  assert.ok(!['ERR!!', 'FIX E', 'FAIL', '😭', '哭臉'].includes(ws.leftScreen));
+  assert.equal(ws.isBroken, false);
 });
 
 for (const [collection, index] of [['labEquipments', 0], ['labEquipments', 3], ['labEquipments', 5], ['workstations', 0]]) {
