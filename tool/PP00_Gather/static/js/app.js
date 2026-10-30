@@ -292,7 +292,9 @@
           pushStatusLog('系統', '💖 消除急救物資（咖啡/披薩/珍奶），重傷時間扣除完畢，成功甦醒！');
         }
         if (network) {
-          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
           window.OfficeCombat?.send(network, 'recovery_release');
         }
       })();
@@ -357,7 +359,9 @@
     updateInjuryCountdownHUD();
     ensurePlayerNotStuck();
     if (network) {
+      if (network) {
       network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
       window.OfficeCombat?.send(network, 'recovery_release');
     }
   }
@@ -561,7 +565,9 @@
           localPlayer.jumpOffset = 40;
           spawnConfetti(localPlayer.x, localPlayer.y - 15);
           if (network) {
-            network.broadcastPacket('state_sync', { player: network.getPublicState() });
+            if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
           }
         }
       }
@@ -647,7 +653,7 @@
     }
     return result;
   }
-  function seasonWorldPayload(){return {enemies:[...network.npcPlayers.values(),...(ecosystem.mobs||[])].map(e=>({id:e.uid||e.id,templateId:e.id,name:e.name,x:e.x,y:e.y,attacking:!!(e.isBerserk||e.isAggressive||e.isGhost)})),broken:[...window.WORLD_MAP.workstations.map((e,i)=>e.isBroken?'ws_'+i:null),...window.WORLD_MAP.labEquipments.map((e,i)=>e.isBroken?'lab_'+i:null)].filter(Boolean)};}
+  function seasonWorldPayload(){const npcs=network?.npcPlayers?[...network.npcPlayers.values()]:[];const mobs=ecosystem?.mobs?[...ecosystem.mobs]:[];return {enemies:[...npcs,...mobs].map(e=>({id:e.uid||e.id,templateId:e.id,name:e.name,x:e.x,y:e.y,attacking:!!(e.isBerserk||e.isAggressive||e.isGhost)}))};}
   async function seasonPoll() {
     if(!season.enabled||!isLoggedIn||season.polling||season.client?.busy||gameNow()-season.lastPoll<2000)return;
     season.polling=true;season.lastPoll=gameNow();
@@ -838,7 +844,7 @@
         pushStatusLog('系統', `👾 怪物【${mob.name}】暴走，衝向 ${target.name}！按 [F] 揮裝備擊退！`);
       },
       onEquipmentBroken: (mob, target) => {
-        pushStatusLog('系統', `💥 【${target.name}】遭怪物【${mob.name}】破壞！靠近按 [E] 修復獲得經驗！`);
+        requestDeviceSabotage(mob, target);
       },
       onMobHitPlayer: (mob, pl) => {
         if (season.enabled) return;
@@ -1101,8 +1107,8 @@
             });
         }
 
-        // 同步工作站螢幕與損壞狀態
-        if (Array.isArray(pkt.workstations) && window.WORLD_MAP?.workstations) {
+        // 同步工作站螢幕與損壞狀態 (雲端模式下由 Supabase 後端權威同步，防止房長舊狀態覆蓋)
+        if (!season.enabled && Array.isArray(pkt.workstations) && window.WORLD_MAP?.workstations) {
           pkt.workstations.forEach((wsState) => {
             const ws = window.WORLD_MAP.workstations[wsState.idx];
             if (ws) {
@@ -1114,8 +1120,8 @@
           });
         }
 
-        // 同步 Lab 機台損壞與狀態
-        if (Array.isArray(pkt.labEquipments) && window.WORLD_MAP?.labEquipments) {
+        // 同步 Lab 機台損壞與狀態 (雲端模式下由 Supabase 後端權威同步，防止房長舊狀態覆蓋)
+        if (!season.enabled && Array.isArray(pkt.labEquipments) && window.WORLD_MAP?.labEquipments) {
           pkt.labEquipments.forEach((eqState) => {
             const eq = window.WORLD_MAP.labEquipments[eqState.idx];
             if (eq) {
@@ -1132,6 +1138,7 @@
         }
       },
       onRemoteDeviceRepair: (pkt) => {
+        if (season.enabled) return; // 雲端模式由 Supabase 快照權威同步，忽略 P2P 覆寫
         if (pkt.type === 'ws' && window.WORLD_MAP?.workstations?.[pkt.idx]) {
           const ws = window.WORLD_MAP.workstations[pkt.idx];
           ws.isBroken = false;
@@ -1411,7 +1418,9 @@
     renderMinecraftInventoryUI();
     savePersistentState();
     if (isLoggedIn && network) {
+      if (network) {
       network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
     }
   }
 
@@ -2482,7 +2491,9 @@ async function executeOfficeLogin(params) {
     localPlayer.occupiedSpotId = null;
     localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
     updatePoseLabelUI();
-    network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
   }
 
   function startContextualAction(actionId) {
@@ -2513,7 +2524,9 @@ async function executeOfficeLogin(params) {
     }
 
     updatePoseLabelUI();
-    network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
     network.broadcastPacket('status_log', {
       senderName: localPlayer.name,
       text: `開始「${actMeta.label}」`,
@@ -2991,7 +3004,9 @@ async function executeOfficeLogin(params) {
         localPlayer.status = 'active';
         const sel = document.getElementById('selfStatusSelect');
         if (sel) sel.value = 'active';
-        network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
         pushStatusLog('系統', '恢復操作，切換為「🟢 上線」狀態');
         renderSidebarRoster();
       }
@@ -3153,7 +3168,9 @@ async function executeOfficeLogin(params) {
         localPlayer.status = 'active';
         const sel = document.getElementById('selfStatusSelect');
         if (sel) sel.value = 'active';
-        network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
         pushStatusLog('系統', '恢復操作，切換為「🟢 上線」狀態');
         renderSidebarRoster();
       }
@@ -3800,7 +3817,9 @@ async function executeOfficeLogin(params) {
               showCombatToast(`💥 遭【${npc.name}】憤怒反擊重擊！受到實質攻擊！`, 'error');
               pushStatusLog(npc.name, `💥 揮舞【${weaponEmoji}】反擊重創了你！`);
               if (network) {
-                network.broadcastPacket('state_sync', { player: network.getPublicState() });
+                if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
               }
               savePersistentState();
               syncPlayerActiveWeaponState();
@@ -4079,7 +4098,9 @@ async function executeOfficeLogin(params) {
       }
     }
     if (network) {
+      if (network) {
       network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
     }
   }
 
@@ -4408,7 +4429,9 @@ async function executeOfficeLogin(params) {
       );
       showCombatToast(pkt.hunt ? '🚑 累計受擊三次，重傷退出本場！' : '🚑 遭受致命重擊！身受重傷，在會議室 B 休養 5 分鐘（無法動彈）', 'error');
       if (network) {
-        network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
       }
       return;
     }
@@ -5065,7 +5088,9 @@ async function executeOfficeLogin(params) {
         }
         const gained = addExp(15);
         updateSelfHudCard();
-        network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
         pushStatusLog('你', `🎒 撿起掉落物 ${added.emoji} ${added.name}（+${gained} EXP）`);
         return;
       }
@@ -5144,7 +5169,9 @@ async function executeOfficeLogin(params) {
           spawnConfetti(fac.stall.seatX, fac.stall.seatY - 10);
           pushStatusLog('你', `🌊 【${fac.stall.name}】沖水完畢離開隔間`);
           network.broadcastPacket('toilet_state', { stallId: fac.stall.id, occupiedBy: null, doorOpen: 1 });
-          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
           setTimeout(() => {
             fac.stall.doorOpen = 0;
             network.broadcastPacket('toilet_state', { stallId: fac.stall.id, occupiedBy: null, doorOpen: 0 });
@@ -5162,7 +5189,9 @@ async function executeOfficeLogin(params) {
           fac.stall.occupiedBy = localPlayer.id;
           updatePoseLabelUI();
           network.broadcastPacket('toilet_state', { stallId: fac.stall.id, occupiedBy: localPlayer.id, doorOpen: 0 });
-          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
           pushStatusLog('你', `🚪 進入【${fac.stall.name}】關上隔間門鎖上，開始順暢排解壓力...`);
           network.broadcastPacket('murmur', { text: '💩 呼... 終於輪到我了', mood: 'sweat' });
           return;
@@ -5194,7 +5223,9 @@ async function executeOfficeLogin(params) {
         }
         localPlayer.occupiedSpotId = fac.id;
         updatePoseLabelUI();
-        network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
         return;
       }
 
@@ -5203,7 +5234,9 @@ async function executeOfficeLogin(params) {
         localPlayer.actionState = null; localPlayer.injuredX = null; localPlayer.injuredY = null;
         localPlayer.occupiedSpotId = null;
         updatePoseLabelUI();
-        network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
         pushStatusLog('你', `🚶 起身離開【${fac.name}】`);
         return;
       }
@@ -5249,7 +5282,9 @@ async function executeOfficeLogin(params) {
         localPlayer.occupiedSpotId = fac.id;
         pushStatusLog('你', '⛳ 在 VP 大老闆獨立室揮桿練習高爾夫推桿！');
         updatePoseLabelUI();
-        network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
         return;
       }
 
@@ -5278,7 +5313,9 @@ async function executeOfficeLogin(params) {
         updatePoseLabelUI();
         if (network) {
           network.broadcastPacket('murmur', { text: prayLine, mood: 'idea' });
-          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
         }
         pushStatusLog('你', `🙏 虔誠跪在【${fac.name}】向金佛膜拜祈福：「${prayLine}」`);
         showToast(`🙏 虔誠跪拜祈福：「<b>${escapeHtml(prayLine)}</b>」`, 'join');
@@ -5289,14 +5326,18 @@ async function executeOfficeLogin(params) {
         pushStatusLog('你', '⛳ 在 VP 大老闆獨立室揮桿練習高爾夫推桿！');
       }
         updatePoseLabelUI();
-        network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
         return;
       }
 
       localPlayer.actionState = fac.actionId;
       localPlayer.occupiedSpotId = fac.stall?.id || fac.id;
       updatePoseLabelUI();
+      if (network) {
       network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
       pushStatusLog('你', fac.label.replace(' [按E]', ''));
     }
   }
@@ -6113,7 +6154,9 @@ async function executeOfficeLogin(params) {
         localPlayer.status = newStatus;
         isAutoIdled = false;
         lastUserActionAt = gameNow();
-        network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
         const stMeta = window.GATHER_CONFIG.statuses.find((s) => s.id === newStatus);
         pushStatusLog('你', `線上狀態切換為：${stMeta ? stMeta.icon + ' ' + stMeta.label : newStatus}`);
         renderSidebarRoster();
@@ -6611,7 +6654,9 @@ async function executeOfficeLogin(params) {
         pushStatusLog('系統', '✨ 傷勢完全痊癒！你已完成休養，恢復自由行動！');
         showToast('✨ 傷勢完全痊癒！恢復自由走動能力！', 'join');
         if (network) {
-          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
           window.OfficeCombat?.send(network, 'recovery_release');
         }
       }
@@ -6775,7 +6820,9 @@ async function executeOfficeLogin(params) {
         pushStatusLog('系統', `✨ 【${npcName}】連續毆打懲戒結束，消氣放你一馬！`);
         showToast(`✨ 【${npcName}】管教結束，恢復行動自由！`, 'success');
         if (network) {
-          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
         }
         return;
       }
@@ -6801,7 +6848,9 @@ async function executeOfficeLogin(params) {
         pushStatusLog('系統', '👮 警衛管教結束！反省完畢，恢復行動與反擊自由！');
         showToast('👮 警衛管教結束，恢復行動與反擊自由！', 'success');
         if (network) {
-          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
         }
       }
     }
@@ -7168,7 +7217,9 @@ async function executeOfficeLogin(params) {
         const sel = document.getElementById('selfStatusSelect');
         if (sel) sel.value = 'idle';
         if (network && typeof network.broadcastPacket === 'function') {
-          network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
         }
         pushStatusLog('系統', '30 秒無操作，自動切換為「🟡 閒置」狀態');
         renderSidebarRoster();
@@ -7465,43 +7516,52 @@ async function executeOfficeLogin(params) {
     };
     pushStatusLog('你', `🔧 拿出專業機台扳手，開始全神貫注檢修【${activeRepairSession.name}】...`);
     updatePoseLabelUI();
-    network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
   }
 
-  function completeRepairSession() {
+  async function completeRepairSession() {
     if (!activeRepairSession) return;
     const sess = activeRepairSession;
+    if (sess.completing) return;
+    sess.completing = true;
     const tgt = sess.target;
-    tgt.isBroken = false;
-    tgt.brokenBy = null;
-    tgt.lastRepairedAt = gameNow();
-
     const isLab = sess.type === 'lab' || tgt.kind;
     const eqIdx = isLab ? window.WORLD_MAP.labEquipments.indexOf(tgt) : -1;
     const wsIdx = !isLab ? window.WORLD_MAP.workstations.indexOf(tgt) : -1;
     const targetId = isLab ? `lab_${eqIdx}` : `ws_${wsIdx}`;
 
+    if (season.enabled && season.client) {
+      try {
+        await season.client.send('device_finish', { type: isLab ? 'lab' : 'ws', idx: isLab ? eqIdx : wsIdx, target: targetId, id: targetId });
+        if (season.client.snapshot?.broken?.[targetId]) {
+          season.client.snapshot.broken[targetId].broken = false;
+          season.client.snapshot.broken[targetId].handledAt = gameNow();
+        }
+      } catch (err) {
+        pushStatusLog('系統', `⚠️ 機台維修未通過後端驗證：${err.message || '請重新操作'}`);
+        showCombatToast(`維修未通過：${err.message || '請重新操作'}`, 'injury');
+        localPlayer.actionState = null;
+        activeRepairSession = null;
+        updatePoseLabelUI();
+        return;
+      }
+    }
+
+    tgt.isBroken = false;
+    tgt.brokenBy = null;
+    tgt.lastRepairedAt = gameNow();
+
     if (isLab) {
       tgt.status = 'PASS READY (100%)';
       tgt.statusColor = '#22c55e';
-      if (eqIdx !== -1) network.broadcastPacket('device_repair', { type: 'lab', idx: eqIdx, id: targetId });
+      if (!season.enabled && eqIdx !== -1) network.broadcastPacket('device_repair', { type: 'lab', idx: eqIdx, id: targetId });
     } else {
       tgt.screenState = 'pass';
       tgt.leftScreen = 'Pass';
       tgt.rightScreen = 'Good';
-      if (wsIdx !== -1) network.broadcastPacket('device_repair', { type: 'ws', idx: wsIdx, id: targetId });
-    }
-
-    if (season.enabled && season.client) {
-      if (season.client.snapshot?.broken?.[targetId]) {
-        season.client.snapshot.broken[targetId].broken = false;
-        season.client.snapshot.broken[targetId].handledAt = gameNow();
-      }
-      if (season.client.snapshot?.player?.channel) {
-        season.client.snapshot.player.channel = null;
-      }
-      season.client.send('device_repair', { type: isLab ? 'lab' : 'ws', idx: isLab ? eqIdx : wsIdx, target: targetId, id: targetId }).catch(() => {});
-      season.client.send('device_finish', { type: isLab ? 'lab' : 'ws', idx: isLab ? eqIdx : wsIdx, target: targetId, id: targetId }).catch(() => {});
+      if (!season.enabled && wsIdx !== -1) network.broadcastPacket('device_repair', { type: 'ws', idx: wsIdx, id: targetId });
     }
 
     // 1. 放彩帶特效 (spawnConfetti)
@@ -7522,27 +7582,111 @@ async function executeOfficeLogin(params) {
       font: '900 18px "Microsoft JhengHei", "PMingLiU", sans-serif'
     });
 
-    // 3. 掉落實用維修物資獎勵 (板手、綠乖乖、咖啡、珍奶、披薩)
-    const rewardPool = [
-      { id: 'wrench', name: '機台維修扳手', emoji: '🔧', category: 'weapon' },
-      { id: 'kuaikuai', name: '椰子綠乖乖', emoji: '💚', category: 'food' },
-      { id: 'coffee', name: '美式黑咖啡', emoji: '☕', category: 'food' },
-      { id: 'boba', name: '波霸珍珠奶茶', emoji: '🧋', category: 'food' },
-      { id: 'pizza', name: '急救熱披薩', emoji: '🍕', category: 'food' }
-    ];
-    const rewardMeta = rewardPool[Math.floor(Math.random() * rewardPool.length)];
-    const droppedItem = addItemToInventory(rewardMeta, false);
-    if (droppedItem) {
-      pushStatusLog('系統', `🎉 【${sess.name}】維修完成！恢復 PASS 運轉，獲得物資【${rewardMeta.emoji} ${rewardMeta.name}】！`);
+    if (!season.enabled) {
+      // 3. 非雲端模式時才由本機產生掉落物資 (雲端模式由伺服器在 device_finish 直接生成入庫/掉落)
+      const rewardPool = [
+        { id: 'wrench', name: '機台維修扳手', emoji: '🔧', category: 'weapon' },
+        { id: 'kuaikuai', name: '椰子綠乖乖', emoji: '💚', category: 'food' },
+        { id: 'coffee', name: '美式黑咖啡', emoji: '☕', category: 'food' },
+        { id: 'boba', name: '波霸珍珠奶茶', emoji: '🧋', category: 'food' },
+        { id: 'pizza', name: '急救熱披薩', emoji: '🍕', category: 'food' }
+      ];
+      const rewardMeta = rewardPool[Math.floor(Math.random() * rewardPool.length)];
+      const droppedItem = addItemToInventory(rewardMeta, false);
+      if (droppedItem) {
+        pushStatusLog('系統', `🎉 【${sess.name}】維修完成！恢復 PASS 運轉，獲得物資【${rewardMeta.emoji} ${rewardMeta.name}】！`);
+      }
+      forceLevelUp(sess.name);
+      showCombatToast(`🎉 【${sess.name}】維修完成！獲得經驗值 +35 EXP 與獎勵物資！`, 'join');
+    } else {
+      showCombatToast(`🎉 【${sess.name}】維修完成！伺服器已記錄修復與發放物資！`, 'join');
     }
 
-    // 4. 獲得經驗與提示
-    forceLevelUp(sess.name);
-    showCombatToast(`🎉 【${sess.name}】維修完成！獲得經驗值 +35 EXP 與獎勵物資！`, 'join');
     localPlayer.actionState = null;
     activeRepairSession = null;
     updatePoseLabelUI();
-    network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    if (network) {
+      network.broadcastPacket('state_sync', { player: network.getPublicState() });
+    }
+  }
+
+  async function requestDeviceSabotage(mob, target) {
+    if (!season.enabled || !season.client) {
+      const tgtRef = target.ref || target;
+      tgtRef.isBroken = true;
+      tgtRef.brokenBy = mob.name;
+      if (target.kind === 'lab' || tgtRef.kind) {
+        tgtRef.status = '💥BROKEN!';
+        tgtRef.statusColor = '#ef4444';
+      } else {
+        tgtRef.screenState = 'error';
+        tgtRef.leftScreen = 'Fail';
+        tgtRef.rightScreen = 'Err';
+      }
+      pushStatusLog('系統', `💥 【${target.name}】遭怪物【${mob.name}】破壞！靠近按 [E] 修復獲得經驗！`);
+      return true;
+    }
+
+    const tgtRef = target.ref || target;
+    const isLab = target.kind === 'lab' || tgtRef.kind;
+    const eqIdx = isLab ? (window.WORLD_MAP?.labEquipments || []).indexOf(tgtRef) : -1;
+    const wsIdx = !isLab ? (window.WORLD_MAP?.workstations || []).indexOf(tgtRef) : -1;
+    const targetId = isLab ? `lab_${eqIdx}` : `ws_${wsIdx}`;
+    const mobId = mob.uid || mob.id;
+
+    let grantId = mob.sabotageGrant || season.client.snapshot?.enemies?.[mobId]?.sabotageGrant;
+    if (!grantId) {
+      try {
+        let payload = { enemies: [] };
+        if (typeof seasonWorldPayload === 'function') {
+          try { payload = seasonWorldPayload() || { enemies: [] }; } catch (_) {}
+        }
+        payload.enemies = payload.enemies || [];
+        let enemyEntry = payload.enemies.find(e => e.id === mobId);
+        if (!enemyEntry) {
+          enemyEntry = { id: mobId, name: mob.name || 'Mob', x: mob.x || 0, y: mob.y || 0, attacking: true };
+          payload.enemies.push(enemyEntry);
+        } else {
+          enemyEntry.attacking = true;
+        }
+        await season.client.send('world', payload);
+        grantId = mob.sabotageGrant || season.client.snapshot?.enemies?.[mobId]?.sabotageGrant;
+      } catch (_) {}
+    }
+
+    if (!grantId) {
+      return false;
+    }
+
+    try {
+      await season.client.send('device_break', {
+        target: targetId,
+        mobId: mobId,
+        brokenBy: mob.name || 'Mob',
+        grantId: grantId,
+        eventId: grantId,
+      });
+      tgtRef.isBroken = true;
+      tgtRef.brokenBy = mob.name;
+      if (isLab) {
+        tgtRef.status = '💥BROKEN!';
+        tgtRef.statusColor = '#ef4444';
+      } else {
+        tgtRef.screenState = 'error';
+        tgtRef.leftScreen = 'Fail';
+        tgtRef.rightScreen = 'Err';
+      }
+      pushStatusLog('系統', `💥 【${target.name}】遭怪物【${mob.name}】破壞！靠近按 [E] 修復獲得經驗！`);
+      return true;
+    } catch (err) {
+      // 請求失敗僅代表此次破壞操作未確認，絕不可強制蓋為完好 (isBroken = false)
+      // 依快照最新權威狀態為準，若快照已記錄故障則維持故障
+      const snapBroken = season.client.snapshot?.broken?.[targetId]?.broken;
+      if (snapBroken !== undefined) {
+        tgtRef.isBroken = !!snapBroken;
+      }
+      return false;
+    }
   }
 
   function renderEquipmentRepairAnimations(ctx, tick) {
@@ -7962,6 +8106,13 @@ async function executeOfficeLogin(params) {
     detectNearbyFacility,
     tryInteractWithEnvironment,
     getOfficeInteractiveSpots,
+    completeRepairSession,
+    requestDeviceSabotage,
+    setNetwork: (n) => { network = n; },
+    getActiveRepairSession: () => activeRepairSession,
+    setActiveRepairSession: (s) => { activeRepairSession = s; },
+    getVfxList: () => vfxList,
+    getSeason: () => season,
   };
   window.addEventListener('DOMContentLoaded', init);
 })();

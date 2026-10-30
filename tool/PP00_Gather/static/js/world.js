@@ -1317,14 +1317,20 @@ class OfficeEcosystem {
           const distToEq = Math.hypot(mob.targetX - mob.x, mob.targetY - mob.y);
           if (distToEq < 38) {
             // 💥 破壞電腦或實驗室機台！
-            mob.sabotageTarget.ref.isBroken = true;
-            mob.sabotageTarget.ref.brokenBy = mob.name;
-            if (mob.sabotageTarget.kind === 'lab') {
-              mob.sabotageTarget.ref.status = '💥BROKEN!';
-              mob.sabotageTarget.ref.statusColor = '#ef4444';
-            }
-            if (this.callbacks && this.callbacks.onEquipmentBroken) {
-              this.callbacks.onEquipmentBroken(mob, mob.sabotageTarget);
+            if (window.GATHER_CONFIG?.season2 || (typeof season !== 'undefined' && season?.enabled)) {
+              if (this.callbacks && this.callbacks.onEquipmentBroken) {
+                this.callbacks.onEquipmentBroken(mob, mob.sabotageTarget);
+              }
+            } else {
+              mob.sabotageTarget.ref.isBroken = true;
+              mob.sabotageTarget.ref.brokenBy = mob.name;
+              if (mob.sabotageTarget.kind === 'lab') {
+                mob.sabotageTarget.ref.status = '💥BROKEN!';
+                mob.sabotageTarget.ref.statusColor = '#ef4444';
+              }
+              if (this.callbacks && this.callbacks.onEquipmentBroken) {
+                this.callbacks.onEquipmentBroken(mob, mob.sabotageTarget);
+              }
             }
             mob.isBerserk = false;
             mob.sabotageTarget = null;
