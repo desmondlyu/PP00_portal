@@ -724,6 +724,9 @@ window.drawWackyAvatar = function (ctx, opts) {
     poseOffsetY = 12;
     poseRotate = -Math.PI / 2 + Math.sin(tick * 0.1) * 0.04; // 側身倒地暈厥
     poseOffsetX = Math.sin(tick * 0.8) * 2; // 全身嚇到發抖抽搐
+  } else if (actionState === 'repair_wrench') {
+    poseOffsetY = 2 + Math.sin(tick * 0.4) * 2; // 前傾專注維修律動
+    poseRotate = -0.05 + Math.sin(tick * 0.4) * 0.05;
   } else if ((actionState === 'sit_code' || actionState === 'play_arcade')) {
     poseOffsetY = 5;
     poseOffsetX = Math.sin(tick * 0.7) * 0.8; // 高速打字微震動
@@ -2456,6 +2459,27 @@ function drawContextAction(ctx, action, tick) {
     ctx.globalAlpha = 1;
   };
   switch (action) {
+    case 'repair_wrench': {
+      // 專業機台維修：手持鋼製活動扳手敲擊維修，迸射電焊與機械火花微粒（非打電腦）
+      const swing = Math.sin(tick * 0.45);
+      const wrenchLift = swing * 6;
+      px(14, 8, 12, 8, '#dc2626');
+      px(16, 6, 8, 2, '#475569');
+      px(19, 11, 2, 2, '#facc15');
+      arm(-12, 0, -4, 4);
+      arm(12, 0, 10, -8 + wrenchLift);
+      px(11, -12 + wrenchLift, 3, 10, '#94a3b8');
+      px(12, -10 + wrenchLift, 1, 6, '#cbd5e1');
+      px(9, -16 + wrenchLift, 7, 4, '#64748b');
+      px(11, -15 + wrenchLift, 3, 3, '#1e293b');
+      if (swing > 0.3) {
+        const sparkPhase = (tick * 0.8) % 1;
+        px(8 - sparkPhase * 6, -14 - sparkPhase * 8, 2, 2, '#fde047');
+        px(16 + sparkPhase * 7, -15 - sparkPhase * 6, 2, 2, '#38bdf8');
+        px(12 + Math.sin(tick) * 8, -18 - sparkPhase * 10, 2, 2, '#fb923c');
+      }
+      break;
+    }
     case 'play_arcade': {
       arm(-12,0,-8,4+Math.sin(tick*.5));arm(12,0,8,4+Math.cos(tick*.5));
       px(-12,1,24,10,'#334155');px(-8,3,3,6,'#67e8f9');px(-10,5,7,2,'#67e8f9');px(5,3,3,3,'#f472b6');px(9,6,3,3,'#fbbf24');

@@ -152,7 +152,7 @@ class EphemeralOfficeNetwork {
           { x: 1800, y: 820 }, // 東側走道
           { x: 1800, y: 1205 }, // Lab 實驗室大門外
           { x: 1800, y: 1260 }, // 進入 Lab 門檻
-          { x: 1695, y: 1450 }, // Lab 實驗室中央走道巡視設備
+          { x: 1740, y: 1500 }, // Lab 實驗室中央寬敞大道巡視設備
           { x: 1800, y: 1260 }, // 出 Lab 門檻
           { x: 1800, y: 1205 }, // 南側走道
           { x: 1060, y: 1180 }, // 中央南北大道南口
@@ -270,7 +270,7 @@ class EphemeralOfficeNetwork {
           { x: 925, y: 1180 }, // 返回走廊
           { x: 1060, y: 1180 }, // 中央南北大道南口
           { x: 1800, y: 1205 }, // Lab 門口外
-          { x: 1695, y: 1360 }, // Lab 巡邏抓怪
+          { x: 1740, y: 1500 }, // Lab 巡邏抓怪 (中央寬敞大道)
           { x: 1800, y: 1205 }, // 出 Lab
           { x: 2120, y: 1180 }, // 東南轉角
           { x: 2120, y: 850 }, // 盥洗室外走道
@@ -326,7 +326,7 @@ class EphemeralOfficeNetwork {
           { x: 2120, y: 520 }, // 東北大道
           { x: 2120, y: 1180 }, // 東南走道
           { x: 1800, y: 1205 }, // Lab 門口
-          { x: 1695, y: 1360 }, // Lab 催促機台進度 (走道順暢點)
+          { x: 1740, y: 1500 }, // Lab 催促機台進度 (中央寬敞大道)
           { x: 1800, y: 1205 }, // 出 Lab
           { x: 1060, y: 1180 }, // 南側大道
           { x: 925, y: 1180 }, // Meeting B 門口
@@ -412,11 +412,11 @@ class EphemeralOfficeNetwork {
           { x: 935, y: 1200 },  // 出 Meeting Room B
           { x: 1400, y: 1200 }, // 南側走廊
           { x: 1800, y: 1205 }, // Lab 實驗室門外
-          { x: 1695, y: 1360 }, // 飄進 Lab 半導體實驗室機台區
+          { x: 1695, y: 1360 }, // 飄進 Lab 半導體實驗室 (幽靈穿牆浮空)
           { x: 1695, y: 1500 }, // Lab 走道中段
           { x: 1820, y: 1520 }, // 深入機台測試深處
           { x: 1695, y: 1500 }, // 返回 Lab 走道
-          { x: 1695, y: 1360 }, // 返回 Lab 入口區
+          { x: 1800, y: 1260 }, // 返回 Lab 門檻
           { x: 1800, y: 1205 }, // 出 Lab 實驗室
           { x: 2120, y: 1180 }, // 東南大道
           { x: 2120, y: 820 },  // 洗手間門口走廊
@@ -513,7 +513,7 @@ class EphemeralOfficeNetwork {
         { x: 2120, y: 520 }, // 東北大道
         { x: 2120, y: 1180 }, // 東南走道
         { x: 1800, y: 1205 }, // Lab 門口
-        { x: 1695, y: 1360 }, // Lab 催促機台進度 (走道順暢點)
+        { x: 1740, y: 1500 }, // Lab 催促機台進度 (中央寬敞大道)
         { x: 1800, y: 1205 }, // 出 Lab
         { x: 1060, y: 1180 }, // 南側大道
         { x: 925, y: 1180 }, // Meeting B 門口
@@ -1282,7 +1282,7 @@ class EphemeralOfficeNetwork {
       { x: 925, y: 1180 },  // 出 Meeting Room B
       { x: 1400, y: 1200 }, // 南側走廊
       { x: 1800, y: 1205 }, // Lab 實驗室門外
-      { x: 1695, y: 1360 }, // Lab 半導體實驗室
+      { x: 1695, y: 1360 }, // Lab 半導體實驗室 (幽靈浮空)
       { x: 1800, y: 1205 }, // 出 Lab 實驗室
       { x: 2120, y: 1180 }, // 東南走廊
       { x: 2120, y: 820 },  // 洗手間走廊
@@ -1307,7 +1307,7 @@ class EphemeralOfficeNetwork {
       { x: 1695, y: 1500 }, // Lab 走道中段
       { x: 1820, y: 1520 }, // Lab 實驗室測試深處
       { x: 1695, y: 1500 }, // 返回 Lab 走道
-      { x: 1695, y: 1360 }, // 返回 Lab 入口
+      { x: 1800, y: 1260 }, // 返回 Lab 入口
       { x: 1800, y: 1205 }, // 出 Lab 門外
       { x: 1400, y: 1200 }, // 南側走廊
       { x: 925, y: 1180 },  // Meeting Room B 門外
@@ -2082,7 +2082,7 @@ class EphemeralOfficeNetwork {
           npc.actionState = null;
         } else {
           const distToDevice = Math.hypot(npc.x - npc.repairingTarget.x, npc.y - npc.repairingTarget.y);
-          if (distToDevice <= 48) {
+          if (distToDevice <= 65) {
             // 到達損壞機台，進行 4.5 秒修理動作 (zen_debug 盤腿懸浮除錯)
             if (!npc.repairStartedAt) {
               npc.repairStartedAt = now;
@@ -2207,8 +2207,8 @@ class EphemeralOfficeNetwork {
                       type: 'ws',
                       idx: wsIdx,
                       name: `電腦 (${ws.owner || wsIdx})`,
-                      x: ws.x + 32,
-                      y: ws.y + 45,
+                      x: ws.x + ws.w / 2,
+                      y: ws.y + ws.h + 20,
                     });
                   }
                 });
@@ -2222,7 +2222,7 @@ class EphemeralOfficeNetwork {
                       idx: eqIdx,
                       name: eq.name || '機台',
                       x: eq.x + eq.w / 2,
-                      y: eq.y + eq.h / 2,
+                      y: eq.y + eq.h + 20,
                     });
                   }
                 });

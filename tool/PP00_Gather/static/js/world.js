@@ -158,15 +158,15 @@ window.WORLD_MAP = {
 
   // Lab 實驗室重型 3D 像素設備 (隨機切換正常運轉、自動校準、晶圓傳送、待命等真實狀態)
   labEquipments: [
-    { id: 'tester_1', kind: 'tester', name: 'Advantest T5830ES #1', x: 1470, y: 1330, w: 145, h: 110, status: 'RUN 99.9%', statusColor: '#22c55e' },
-    { id: 'tester_2', kind: 'tester', name: 'Advantest T5830ES #2', x: 1920, y: 1330, w: 145, h: 110, status: 'AUTO CALIB', statusColor: '#38bdf8' },
-    { id: 'tester_3', kind: 'tester', name: 'Advantest T5385ES #3', x: 1470, y: 1560, w: 145, h: 110, status: 'PASS READY', statusColor: '#22c55e' },
-    { id: 'tester_4', kind: 'tester', name: 'Advantest T5833 #4', x: 1920, y: 1560, w: 145, h: 110, status: 'LOT CHANGE', statusColor: '#facc15' },
-    { id: 'loader_1', kind: 'loader', name: 'Wafer Loader EFEM-A', x: 1740, y: 1340, w: 140, h: 115, status: 'LOADING', statusColor: '#38bdf8' },
-    { id: 'loader_2', kind: 'loader', name: 'Wafer Loader EFEM-B', x: 1740, y: 1560, w: 140, h: 115, status: 'ALIGN OK', statusColor: '#22c55e' },
-    { id: 'oven_1', kind: 'oven', name: '高溫爐烤箱 (130°C Burn-In)', x: 2105, y: 1330, w: 150, h: 120, temp: '130.0°C', status: 'BAKING', statusColor: '#f97316' },
-    { id: 'oven_2', kind: 'oven', name: '高溫/低溫烘箱 (-45°C~90°C)', x: 2290, y: 1330, w: 150, h: 120, temp: '90.0°C', status: 'STABLE', statusColor: '#22c55e' },
-    { id: 'oven_3', kind: 'oven', name: 'HTOL 老化高溫爐 #3', x: 2105, y: 1560, w: 150, h: 120, temp: '25.0°C', status: 'COOLING', statusColor: '#38bdf8' },
+    // 列 1: Tester 測試機組 (x: 1520，留出東西兩側寬敞過道)
+    { id: 'tester_1', kind: 'tester', name: 'Advantest T5830ES #1', x: 1520, y: 1330, w: 145, h: 110, status: 'RUN 99.9%', statusColor: '#22c55e' },
+    { id: 'tester_3', kind: 'tester', name: 'Advantest T5385ES #3', x: 1520, y: 1580, w: 145, h: 110, status: 'PASS READY', statusColor: '#22c55e' },
+    // 列 2: Wafer Loader 晶圓裝載機組 (x: 1820，間隔 155px 縱向林蔭過道)
+    { id: 'loader_1', kind: 'loader', name: 'Wafer Loader EFEM-A', x: 1820, y: 1330, w: 140, h: 115, status: 'LOADING', statusColor: '#38bdf8' },
+    { id: 'loader_2', kind: 'loader', name: 'Wafer Loader EFEM-B', x: 1820, y: 1580, w: 140, h: 115, status: 'ALIGN OK', statusColor: '#22c55e' },
+    // 列 3: Oven 高溫爐/老化爐組 (x: 2120，間隔 160px 縱向過道，距右側工作站 205px)
+    { id: 'oven_1', kind: 'oven', name: '高溫爐烤箱 (130°C Burn-In)', x: 2120, y: 1330, w: 150, h: 120, temp: '130.0°C', status: 'BAKING', statusColor: '#f97316' },
+    { id: 'oven_3', kind: 'oven', name: 'HTOL 老化高溫爐 #3', x: 2120, y: 1580, w: 150, h: 120, temp: '25.0°C', status: 'COOLING', statusColor: '#38bdf8' },
   ],
 
   // 會議室 A 台股即時看盤巨型大螢幕座標
@@ -197,17 +197,17 @@ window.WORLD_MAP = {
     // 兩間獨立會議室大會議桌 (不遮蔽南北側各 4 張獨立會議椅)
     { x: 280, y: 1450, w: 250, h: 135 },
     // 禮佛區大佛神案供桌碰撞區 (原會議室 B 辦公桌已移除，保留西側重傷養傷空間與 8 張跪墊互動空間)
-    { x: 1010, y: 1270, w: 160, h: 90 },
+    { x: 1010, y: 1316, w: 160, h: 64 },
   ],
 
   // 禮佛區大佛神案與金色坐佛神像座標 (參考 d0043b4c48112b5cb823ffbcde8f2e83_t.jpeg)
   buddhaAltar: {
     x: 1010,
-    y: 1270,
+    y: 1316,
     w: 160,
-    h: 90,
+    h: 64,
     statueX: 1090,
-    statueY: 1306,
+    statueY: 1345,
   },
 
   // 禮佛區 8 張「拜」字紅金蓮花跪墊 (參考 2d31a243-8876-459c-aaff-f955a6b8b65a.jpg，按 E 進入跪著狀態與 5 種祈福 MURMUR)
@@ -1611,41 +1611,10 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
   ctx.shadowColor = 'rgba(250, 204, 21, 0.95)';
   ctx.shadowBlur = 8;
   ctx.fillStyle = '#78350f';
-  ctx.fillText('✨ 有人快拜 保佑Pass ✨', 1090 + 1, carpetBannerY + carpetBannerH / 2 + 1);
+  ctx.fillText('✨ 有神快拜 保佑PASS ✨', 1090 + 1, carpetBannerY + carpetBannerH / 2 + 1);
   ctx.fillStyle = '#fef08a';
-  ctx.fillText('✨ 有人快拜 保佑Pass ✨', 1090, carpetBannerY + carpetBannerH / 2);
+  ctx.fillText('✨ 有神快拜 保佑PASS ✨', 1090, carpetBannerY + carpetBannerH / 2);
   ctx.restore();
-
-  // 大雄寶殿神案供桌與「PP00 禮佛區」橫匾 (x: 1010..1170, y: 1270..1360)
-  draw3DPixelBox(ctx, 975, 1258, 230, 34, 16, '#78350f', '#451a03', '#271709');
-  ctx.fillStyle = '#fde047';
-  ctx.font = '900 13px "Microsoft JhengHei", "Outfit", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('🏮 有神快拜 · 保佑PASS 🏮', 1090, 1264);
-
-  // 神案供桌本體與金紅桌圍
-  draw3DPixelBox(ctx, 1010, 1295, 160, 65, 22, '#991b1b', '#7f1d1d', '#450a0a');
-  ctx.fillStyle = '#facc15';
-  ctx.fillRect(1016, 1338, 148, 4);
-  ctx.strokeStyle = '#fde047';
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(1024, 1300, 132, 34);
-
-  // 左右光明蓮花燈與供果
-  draw3DPixelBox(ctx, 1020, 1302, 16, 22, 14, '#fde047', '#ca8a04', '#854d0e');
-  draw3DPixelBox(ctx, 1144, 1302, 16, 22, 14, '#fde047', '#ca8a04', '#854d0e');
-
-  // 中央金佛神像 (參考 d0043b4c48112b5cb823ffbcde8f2e83_t.jpeg)
-  drawBuddhaStatue(ctx, 1090, 1306, tick);
-
-  // 神案前紫銅香爐與裊裊香煙
-  draw3DPixelBox(ctx, 1074, 1330, 32, 18, 14, '#fbbf24', '#b45309', '#78350f');
-  for (let s = 0; s < 3; s++) {
-    const sx = 1084 + s * 6 + Math.sin(tick * 0.08 + s) * 3;
-    const sy = 1312 - ((tick * 0.4 + s * 8) % 18);
-    ctx.fillStyle = 'rgba(254, 249, 195, 0.55)';
-    ctx.fillRect(Math.round(sx), Math.round(sy), 3, 5);
-  }
 
   // 繪製 8 張「拜」字紅金蓮花跪墊 (參考 2d31a243-8876-459c-aaff-f955a6b8b65a.jpg)
   (window.WORLD_MAP.kneelingCushions || []).forEach((cushion) => {
@@ -1764,6 +1733,42 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
   window.WORLD_MAP.walls.forEach((w) => {
     draw3DPixelBox(ctx, w.x, w.y, w.w, w.h, 24, w.colorTop, w.colorFront, '#1e293b');
   });
+
+  // ⛩️ 禮佛區大佛神案供桌本體與佛像 (繪製於隔間牆之後，佛頭高聳開闊絕不被牆壁蓋住，背後純粹金光環)
+  // 神案供桌本體 (y: 1316..1380)
+  draw3DPixelBox(ctx, 1010, 1316, 160, 64, 20, '#991b1b', '#7f1d1d', '#450a0a');
+  ctx.fillStyle = '#facc15';
+  ctx.fillRect(1016, 1362, 148, 4);
+  ctx.strokeStyle = '#fde047';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(1022, 1322, 136, 48);
+
+  // 左右光明蓮花燈與供果
+  draw3DPixelBox(ctx, 1020, 1324, 16, 22, 14, '#fde047', '#ca8a04', '#854d0e');
+  draw3DPixelBox(ctx, 1144, 1324, 16, 22, 14, '#fde047', '#ca8a04', '#854d0e');
+
+  // 佛像正下方供桌正面題字：「✨ 有神快拜 保佑PASS ✨」(文字嚴格位於佛像下方，背後不設牌匾)
+  ctx.save();
+  ctx.fillStyle = '#fde047';
+  ctx.font = '900 13px "Microsoft JhengHei", "PMingLiU", serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(250, 204, 21, 0.95)';
+  ctx.shadowBlur = 8;
+  ctx.fillText('✨ 有神快拜 保佑PASS ✨', 1090, 1350);
+  ctx.restore();
+
+  // 中央像素金佛神像 (端坐供桌正中央 cy: 1345，佛頂肉髻位於 1257，完全不被北牆 1230..1252 遮蔽)
+  drawBuddhaStatue(ctx, 1090, 1345, tick);
+
+  // 神案前紫銅香爐與裊裊香煙
+  draw3DPixelBox(ctx, 1074, 1356, 32, 18, 14, '#fbbf24', '#b45309', '#78350f');
+  for (let s = 0; s < 3; s++) {
+    const sx = 1084 + s * 6 + Math.sin(tick * 0.08 + s) * 3;
+    const sy = 1338 - ((tick * 0.4 + s * 8) % 18);
+    ctx.fillStyle = 'rgba(254, 249, 195, 0.55)';
+    ctx.fillRect(Math.round(sx), Math.round(sy), 3, 5);
+  }
 
   // 🔒 若觸發 10 秒關門狀態（會議室 A/B 或 攻擊 VP/PP00處長被抓去辦公室關緊閉訓話 10 秒），繪製 3D 像素防逃脫雷射門閘
   if (window.MEETING_LOCK_STATE && Date.now() < window.MEETING_LOCK_STATE.lockedUntil) {
