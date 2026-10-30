@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>釋迦摩尼佛 - 像素風格 Canvas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: radial-gradient(circle at 50% 40%, #171226 0%, #0c0a14 65%, #05040a 100%);
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    /* Crisp retro pixel rendering without anti-aliasing */
+    .pixelated-render {
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    @keyframes holyPulse {
+      0%, 100% {
+        box-shadow: 0 0 45px rgba(245, 185, 66, 0.2), 0 0 90px rgba(212, 110, 39, 0.1);
+      }
+      50% {
+        box-shadow: 0 0 75px rgba(255, 215, 0, 0.35), 0 0 130px rgba(230, 130, 40, 0.2);
+      }
+    }
+
+    .shrine-canvas-frame {
+      animation: holyPulse 5s infinite ease-in-out;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen w-screen flex items-center justify-center">
+
+  <!-- Main Canvas Container (Centered, Clean, No UI) -->
+  <div class="relative p-2 sm:p-3 rounded-2xl bg-gradient-to-b from-amber-600/20 via-slate-900/80 to-amber-950/30 border border-amber-500/20 shrine-canvas-frame backdrop-blur-md">
+    <!-- Corner Ornaments -->
+    <div class="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-amber-400/50"></div>
+    <div class="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-amber-400/50"></div>
+    <div class="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-amber-400/50"></div>
+    <div class="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-amber-400/50"></div>
+
+    <!-- Autonomous Pixel Canvas -->
+    <canvas 
+      id="pixelCanvas" 
+      width="96" 
+      height="112" 
+      class="pixelated-render rounded-lg bg-black/70 shadow-2xl block w-[288px] h-[336px] sm:w-[384px] sm:h-[448px] md:w-[480px] md:h-[560px]"
+    ></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('pixelCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = 96;
+    const H = 112;
+
+    let tick = 0;
+
+    // Palette: Classic Gold & Crimson Saffron Kasaya
+    const P = {
+      bgTop: '#100b1a',
+      bgBottom: '#1e1224',
+      haloCore: '#FFFBE6',
+      haloInner: '#FFD700',
+      haloMid: '#FFA000',
+      haloOuter: '#E65100',
+      haloRim: '#7F2200',
+      skinShine: '#FFFBE6',
+      skinLight: '#F7DCB4',
+      skinMid: '#DE9B5E',
+      skinDark: '#995E2B',
+      hairDark: '#0e0e1f',
+      hairMid: '#1e1e3b',
+      hairLight: '#393963',
+      robeLight: '#FF9800',
+      robeMid: '#E65100',
+      robeDark: '#B71C1C',
+      robeShadow: '#5D100A',
+      urna: '#FFFFFF',
+      lip: '#C25450',
+      lotusLight: '#FFB8D2',
+      lotusMid: '#FF6EA7',
+      lotusDark: '#C2185B',
+      lotusBase: '#4A1133',
+      goldTrim: '#FFE082'
+    };
+
+    // Rising gold light & incense pixel particles
+    const particles = [];
+    for (let i = 0; i < 48; i++) {
+      particles.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        speedY: 0.15 + Math.random() * 0.35,
+        swaySpeed: 0.03 + Math.random() * 0.04,
+        phase: Math.random() * Math.PI * 2,
+        size: Math.random() > 0.75 ? 2 : 1,
+        colorIndex: Math.floor(Math.random() * 3)
+      });
+    }
+
+    function p(x, y, color) {
+      if (!color || x < 0 || x >= W || y < 0 || y >= H) return;
+      ctx.fillStyle = color;
+      ctx.fillRect(Math.floor(x), Math.floor(y), 1, 1);
+    }
+
+    function pSym(cx, dy, y, color) {
+      p(cx - dy, y, color);
+      if (dy !== 0) p(cx + dy, y, color);
+    }
+
+    function hLine(x1, x2, y, color) {
+      ctx.fillStyle = color;
+      const left = Math.min(x1, x2);
+      const width = Math.abs(x2 - x1) + 1;
+      ctx.fillRect(left, y, width, 1);
+    }
+
+    function hLineSym(cx, span, y, color) {
+      if (span <= 0) return;
+      hLine(cx - span, cx + span, y, color);
+    }
+
+    function renderBuddha() {
+      tick++;
+      const cx = 48; // Center of 96-width canvas
+
+      // 1. Temple Night Background
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+      bgGrad.addColorStop(0, P.bgTop);
+      bgGrad.addColorStop(1, P.bgBottom);
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, W, H);
+
+      // Subtle checkered temple floor tile perspective
+      for (let y = 100; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const isTile = ((x + ((y - 100) * 2)) % 8 < 4) ^ (y % 2 === 0);
+          if (isTile) p(x, y, 'rgba(255, 255, 255, 0.02)');
+        }
+      }
+
+      // 2. Continuous Ambient Aureole (動態旋轉背光與呼吸佛光)
+      const haloCenterY = 40;
+      const breathe = Math.sin(tick * 0.04) * 2.2;
+      const maxHaloRadius = 37 + breathe;
+
+      // Outer ray ring with rotating ray flares
+      for (let r = Math.floor(maxHaloRadius); r >= 8; r--) {
+        let col = P.haloRim;
+        if (r < maxHaloRadius * 0.32) col = P.haloCore;
+        else if (r < maxHaloRadius * 0.58) col = P.haloInner;
+        else if (r < maxHaloRadius * 0.82) col = P.haloMid;
+        else if (r < maxHaloRadius * 0.96) col = P.haloOuter;
+
+        for (let angle = 0; angle < 360; angle += 4) {
+          const rad = (angle * Math.PI) / 180;
+          // Rotating ray pattern
+          const ray = Math.sin(angle * 10 * (Math.PI / 180) + tick * 0.04);
+          if (r > maxHaloRadius * 0.72 && ray < -0.2) continue;
+
+          const px = Math.round(cx + Math.cos(rad) * r);
+          const py = Math.round(haloCenterY + Math.sin(rad) * (r * 0.95));
+          p(px, py, col);
+        }
+      }
+
+      // Inner ornate halo beads
+      const innerRadius = 26;
+      for (let a = 0; a < 360; a += 15) {
+        const rad = (a * Math.PI) / 180;
+        const bx = Math.round(cx + Math.cos(rad) * innerRadius);
+        const by = Math.round(haloCenterY + Math.sin(rad) * innerRadius);
+        p(bx, by, P.goldTrim);
+        p(bx + 1, by, P.haloCore);
+      }
+
+      // 3. Lotus Throne (蓮花寶座)
+      const lotusY = 84;
+
+      // Base stone tier
+      hLine(28, 68, lotusY + 14, P.lotusBase);
+      hLine(30, 66, lotusY + 15, '#19061c');
+      hLine(33, 63, lotusY + 16, '#0f0312');
+
+      // Bottom outward petals
+      const lowerPetals = [
+        { y: lotusY + 9, w: 34, c: P.lotusDark },
+        { y: lotusY + 10, w: 32, c: P.lotusMid },
+        { y: lotusY + 11, w: 30, c: P.lotusDark },
+        { y: lotusY + 12, w: 26, c: P.lotusBase },
+        { y: lotusY + 13, w: 22, c: P.lotusBase }
+      ];
+      lowerPetals.forEach(row => {
+        hLineSym(cx, row.w, row.y, row.c);
+        pSym(cx, row.w, row.y, P.goldTrim);
+        pSym(cx, row.w - 1, row.y, P.lotusLight);
+      });
+
+      // Mid blossoming petals
+      const midPetals = [
+        { y: lotusY + 4, w: 33, c: P.lotusMid },
+        { y: lotusY + 5, w: 35, c: P.lotusLight },
+        { y: lotusY + 6, w: 34, c: P.lotusMid },
+        { y: lotusY + 7, w: 32, c: P.lotusDark },
+        { y: lotusY + 8, w: 29, c: P.lotusDark }
+      ];
+      midPetals.forEach(row => {
+        hLineSym(cx, row.w, row.y, row.c);
+        pSym(cx, row.w, row.y, P.goldTrim);
+      });
+
+      // Upper petal tier cradling the Buddha
+      const topPetals = [
+        { y: lotusY - 1, w: 28, c: P.lotusLight },
+        { y: lotusY,     w: 31, c: P.lotusMid },
+        { y: lotusY + 1, w: 32, c: P.lotusLight },
+        { y: lotusY + 2, w: 31, c: P.lotusDark },
+        { y: lotusY + 3, w: 28, c: P.lotusDark }
+      ];
+      topPetals.forEach(row => {
+        hLineSym(cx, row.w, row.y, row.c);
+      });
+
+      // Petal separation highlights
+      [-28, -20, -10, 0, 10, 20, 28].forEach(dx => {
+        p(cx + dx, lotusY + 4, P.lotusLight);
+        p(cx + dx, lotusY + 5, P.skinShine);
+        p(cx + dx, lotusY + 6, P.lotusDark);
+        p(cx + dx, lotusY + 7, P.lotusBase);
+      });
+
+      // Golden Lotus Seed Disc Platform
+      hLineSym(cx, 24, lotusY - 2, P.goldTrim);
+      hLineSym(cx, 23, lotusY - 3, P.haloMid);
+      for (let sx = -20; sx <= 20; sx += 4) {
+        p(cx + sx, lotusY - 2, P.haloCore);
+      }
+
+      // 4. Seated Full Lotus Position (跏趺坐)
+      const legY = 76;
+      hLineSym(cx, 26, legY + 4, P.robeShadow);
+      hLineSym(cx, 25, legY + 3, P.robeDark);
+      hLineSym(cx, 24, legY + 2, P.robeMid);
+      hLineSym(cx, 23, legY + 1, P.robeMid);
+      hLineSym(cx, 22, legY,     P.robeLight);
+      hLineSym(cx, 20, legY - 1, P.robeMid);
+
+      for (let f = -18; f <= 18; f += 4) {
+        p(cx + f, legY + 1, P.robeDark);
+        p(cx + f + 1, legY + 2, P.robeLight);
+      }
+
+      // Bare soles of the feet facing upwards
+      // Right foot
+      hLine(cx + 9, cx + 13, legY - 1, P.skinLight);
+      p(cx + 14, legY - 1, P.skinDark);
+      p(cx + 11, legY - 2, P.skinLight);
+      p(cx + 10, legY - 2, P.skinShine);
+      // Left foot
+      hLine(cx - 13, cx - 9, legY - 1, P.skinLight);
+      p(cx - 14, legY - 1, P.skinDark);
+      p(cx - 11, legY - 2, P.skinLight);
+      p(cx - 10, legY - 2, P.skinShine);
+
+      // 5. Torso & Flowing Saffron Robe (偏袒右肩袈裟)
+      const torsoY = 50;
+      const bodyWidths = [
+        { y: torsoY + 9,  w: 12 },
+        { y: torsoY + 10, w: 13 },
+        { y: torsoY + 11, w: 14 },
+        { y: torsoY + 12, w: 15 },
+        { y: torsoY + 13, w: 16 },
+        { y: torsoY + 14, w: 18 },
+        { y: torsoY + 15, w: 19 },
+        { y: torsoY + 16, w: 20 },
+        { y: torsoY + 17, w: 21 }
+      ];
+
+      bodyWidths.forEach(row => {
+        hLineSym(cx, row.w, row.y, P.skinMid);
+        hLine(cx - 5, cx + row.w - 2, row.y, P.skinLight);
+        p(cx + row.w - 1, row.y, P.skinMid);
+        p(cx + row.w, row.y, P.skinDark);
+
+        const drapeCut = cx - 4 + Math.floor((row.y - torsoY - 9) * 0.95);
+        const robeLeft = cx - row.w;
+        if (drapeCut >= robeLeft) {
+          hLine(robeLeft, drapeCut, row.y, P.robeMid);
+          p(robeLeft, row.y, P.robeDark);
+          p(drapeCut, row.y, P.goldTrim);
+          p(drapeCut - 1, row.y, P.robeLight);
+        }
+      });
+
+      // 6. Arms & Sacred Mudra (說法印 / 禪定印)
+      // Left arm resting in lap (Dhyana Mudra)
+      hLine(cx - 8, cx + 5, legY - 3, P.skinLight);
+      hLine(cx - 7, cx + 4, legY - 4, P.skinShine);
+      p(cx - 9, legY - 3, P.skinDark);
+      p(cx + 6, legY - 3, P.skinDark);
+
+      // Right arm raised (Vitarka Mudra)
+      const rArmY = 57;
+      for (let ay = 0; ay < 9; ay++) {
+        hLine(cx + 10 - Math.floor(ay * 0.3), cx + 13 - Math.floor(ay * 0.2), rArmY + ay, P.skinLight);
+        p(cx + 14 - Math.floor(ay * 0.2), rArmY + ay, P.skinDark);
+      }
+      // Right hand palm
+      hLine(cx + 7, cx + 10, rArmY - 1, P.skinLight);
+      hLine(cx + 7, cx + 10, rArmY - 2, P.skinLight);
+      p(cx + 8, rArmY - 2, P.skinShine);
+      p(cx + 9, rArmY - 2, P.haloInner); // Wheel mark on palm
+      // Fingers
+      p(cx + 7, rArmY - 3, P.skinLight);
+      p(cx + 8, rArmY - 4, P.skinLight);
+      p(cx + 9, rArmY - 4, P.skinLight);
+      p(cx + 10, rArmY - 3, P.skinLight);
+      p(cx + 6, rArmY - 2, P.skinMid); // Vitarka gesture thumb-touch
+
+      // Auspicious Neck Folds (三道痕)
+      hLineSym(cx, 5, 48, P.skinMid);
+      hLineSym(cx, 5, 47, P.skinLight);
+      hLineSym(cx, 5, 46, P.skinMid);
+      hLineSym(cx, 4, 45, P.skinLight);
+      pSym(cx, 5, 46, P.skinDark);
+      pSym(cx, 5, 48, P.skinDark);
+
+      // 7. Head & Meditative Face
+      const headY = 30;
+      const headRows = [
+        { y: headY + 6,  w: 6 },
+        { y: headY + 7,  w: 7 },
+        { y: headY + 8,  w: 7 },
+        { y: headY + 9,  w: 7 },
+        { y: headY + 10, w: 7 },
+        { y: headY + 11, w: 6 },
+        { y: headY + 12, w: 5 },
+        { y: headY + 13, w: 3 }
+      ];
+
+      headRows.forEach(row => {
+        hLineSym(cx, row.w, row.y, P.skinLight);
+        pSym(cx, row.w, row.y, P.skinMid);
+      });
+
+      // Long Earlobe (雙耳垂肩)
+      const earY = headY + 7;
+      for (let ey = 0; ey < 8; ey++) {
+        pSym(cx, 8, earY + ey, ey === 7 ? P.skinMid : P.skinLight);
+        pSym(cx, 9, earY + ey, P.skinDark);
+      }
+      pSym(cx, 8, earY + 3, P.skinDark);
+      pSym(cx, 8, earY + 4, P.skinDark);
+
+      // Eyebrows
+      pSym(cx, 2, headY + 7, P.hairLight);
+      pSym(cx, 3, headY + 6, P.hairMid);
+      pSym(cx, 4, headY + 6, P.hairMid);
+      pSym(cx, 5, headY + 7, P.hairLight);
+
+      // Urna (白毫)
+      p(cx, headY + 6, P.urna);
+      p(cx, headY + 5, P.haloCore);
+
+      // Meditative Eyes (慈悲垂目)
+      pSym(cx, 2, headY + 8, P.hairMid);
+      pSym(cx, 3, headY + 8, P.hairMid);
+      pSym(cx, 4, headY + 8, P.hairLight);
+      pSym(cx, 3, headY + 9, P.skinMid);
+
+      // Nose
+      p(cx, headY + 8, P.skinShine);
+      p(cx, headY + 9, P.skinLight);
+      p(cx, headY + 10, P.skinDark);
+
+      // Gentle Lips
+      pSym(cx, 1, headY + 11, P.lip);
+      p(cx, headY + 11, P.lip);
+      p(cx, headY + 12, P.skinMid);
+
+      // 8. Ushnisha & Curly Hair (肉髻與螺髮)
+      hLineSym(cx, 4, headY,     P.hairDark);
+      hLineSym(cx, 3, headY - 1, P.hairDark);
+      hLineSym(cx, 2, headY - 2, P.hairMid);
+      p(cx, headY - 3, P.haloCore); // Mani jewel atop ushnisha
+      p(cx, headY - 2, P.goldTrim);
+
+      const hairSpans = [
+        { y: headY + 1, w: 6 },
+        { y: headY + 2, w: 7 },
+        { y: headY + 3, w: 7 },
+        { y: headY + 4, w: 7 },
+        { y: headY + 5, w: 6 }
+      ];
+      hairSpans.forEach(row => {
+        hLineSym(cx, row.w, row.y, P.hairDark);
+      });
+
+      // Blue-black spiral highlights
+      const curls = [
+        [0, headY], [2, headY], [-2, headY],
+        [1, headY + 1], [-1, headY + 1], [3, headY + 1], [-3, headY + 1],
+        [0, headY + 2], [2, headY + 2], [-2, headY + 2], [4, headY + 2], [-4, headY + 2],
+        [1, headY + 3], [-1, headY + 3], [3, headY + 3], [-3, headY + 3], [5, headY + 3], [-5, headY + 3],
+        [0, headY + 4], [2, headY + 4], [-2, headY + 4], [4, headY + 4], [-4, headY + 4]
+      ];
+      curls.forEach(([dx, dy]) => {
+        p(cx + dx, dy, P.hairLight);
+      });
+
+      // 9. Rising Incense & Holy Dust Particles
+      particles.forEach(pt => {
+        pt.y -= pt.speedY;
+        pt.x += Math.sin(tick * pt.swaySpeed + pt.phase) * 0.2;
+        if (pt.y < 2) {
+          pt.y = H - 4;
+          pt.x = Math.random() * W;
+        }
+
+        const pCols = [P.haloCore, P.haloInner, P.goldTrim];
+        p(pt.x, pt.y, pCols[pt.colorIndex]);
+        if (pt.size > 1) {
+          p(pt.x + 1, pt.y, 'rgba(255, 255, 255, 0.45)');
+          p(pt.x, pt.y - 1, 'rgba(255, 215, 0, 0.35)');
+        }
+      });
+
+      requestAnimationFrame(renderBuddha);
+    }
+
+    window.onload = function () {
+      renderBuddha();
+    };
+  </script>
+</body>
+</html>

@@ -17,7 +17,7 @@ const pick=(xs,rng)=>xs[Math.min(xs.length-1,Math.floor(rng()*xs.length))];
 const uid=()=>crypto.randomUUID();
 const fresh=(id)=>({...itemMeta(id),uid:uid(),durability:itemMeta(id).maxDurability||3});
 const bag=p=>p.items.filter(i=>i.slot==null);
-const capacity=(p,item)=>p.items.length<10&&(item.category!=='outfit'||outfits(p).length<3);
+const capacity=(p,item)=>(item.category==='outfit'?(p.items.length<10&&outfits(p).length<3):(p.items.length<10||p.items.some(i=>i.id===item.id&&i.category!=='outfit')));
 const award=(p,n)=>{p.exp=R.change(p.exp,n);};
 const gain=(p,n)=>award(p,Math.round(n*(1+p.items.filter(i=>i.slot!=null).reduce((a,i)=>a+(itemMeta(i.id)?.expBonusPct||0),0)/100)));
 const walkable=assets.walkable||[];
@@ -152,7 +152,10 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   if(kind==='claim_legacy'){const i=p.overflow?.find(i=>i.uid===b.uid);if(!i||!capacity(p,i))fail('無法領取');p.overflow=p.overflow.filter(a=>a.uid!==b.uid);p.items.push(i);return;}
   if(kind==='pickup'){
     const d=s.drops[b.uid];if(!d||d.claimed||d.room&&d.room!==p.room||d.pickupAfter>now||!near(p,d.x,d.y,R.pickupRadius(R.level(p.exp)))||!segment(p.x,p.y,d.x,d.y)||!capacity(p,d))fail('物品已被撿走、距離過遠、有障礙物或背包已滿');
-    p.items.push({...d,uid:uid(),slot:null});d.claimed=true;if(d.source==='world')gain(p,15);return;
+    const existing=d.category!=='outfit'&&p.items.find(i=>i.id===d.id&&i.category!=='outfit');
+    if(existing&&p.items.length>=10){existing.count=(existing.count||1)+1;if((d.durability||0)>(existing.durability||0))existing.durability=d.durability;}
+    else p.items.push({...d,uid:uid(),slot:null});
+    d.claimed=true;if(d.source==='world')gain(p,15);return;
   }
   if(kind==='drop'){
     const i=p.items.find(i=>i.uid===b.uid);if(!i||p.pending?.materials.includes(i.uid))fail('不能丟棄');p.items=p.items.filter(a=>a.uid!==i.uid);if(p.worn===i.uid)p.worn=null;
@@ -199,7 +202,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   }
   if(kind==='device_start'){
     const t=assets.tasks.find(t=>t.id===b.target),fault=s.broken?.[b.target];
-    if(!t||!fault?.broken||fault.room!==p.room||!near(p,t.x,t.y,100))fail('無可維修故障');
+    if(!t||!fault?.broken||fault.room!==p.room||!near(p,t.x,t.y,135))fail('無可維修故障');
     p.channel={kind:'device',at:now,x:p.x,y:p.y,target:b.target};return;
   }
   if(kind==='device_finish'){
