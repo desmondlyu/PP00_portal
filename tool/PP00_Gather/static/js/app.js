@@ -603,7 +603,60 @@
       }
     }
     ecosystem.groundItems=snap.drops.filter(d=>!d.claimed&&!season.hiddenDrops.has(d.uid)).map(d=>({...d,dropY:0,combatDrop:true,seasonDrop:true}));
-    for(const [id,f]of Object.entries(snap.broken||{})){const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];if(target){if(f.broken&&((target.lastRepairedAt&&gameNow()-target.lastRepairedAt<15000)||(activeRepairSession&&activeRepairSession.target===target))){continue;}target.isBroken=f.broken;if(!f.broken){target.brokenBy=null;if(target.kind){target.status='PASS READY (100%)';target.statusColor='#22c55e';}else{target.screenState='pass';target.leftScreen='Pass';target.rightScreen='Good';}}}}
+    if (window.WORLD_MAP) {
+      if (Array.isArray(window.WORLD_MAP.labEquipments)) {
+        window.WORLD_MAP.labEquipments.forEach((eq, idx) => {
+          const target = eq;
+          const id = `lab_${idx}`;
+          const f = snap.broken?.[id];
+          const isBrokenOnServer = !!f?.broken;
+          if (isBrokenOnServer) {
+            if ((target.lastRepairedAt && gameNow() - target.lastRepairedAt < 15000) || (activeRepairSession && activeRepairSession.target === target)) {
+              return;
+            }
+            target.isBroken = true;
+            target.brokenBy = f.brokenBy || '怪物';
+            target.status = '💥BROKEN!';
+            target.statusColor = '#ef4444';
+          } else {
+            if (activeRepairSession && activeRepairSession.target === target) return;
+            target.isBroken = false;
+            target.brokenBy = null;
+            if (target.status === '💥BROKEN!' || !target.status) {
+              target.status = 'PASS READY (100%)';
+              target.statusColor = '#22c55e';
+            }
+          }
+        });
+      }
+      if (Array.isArray(window.WORLD_MAP.workstations)) {
+        window.WORLD_MAP.workstations.forEach((ws, idx) => {
+          const target = ws;
+          const id = `ws_${idx}`;
+          const f = snap.broken?.[id];
+          const isBrokenOnServer = !!f?.broken;
+          if (isBrokenOnServer) {
+            if ((target.lastRepairedAt && gameNow() - target.lastRepairedAt < 15000) || (activeRepairSession && activeRepairSession.target === target)) {
+              return;
+            }
+            target.isBroken = true;
+            target.brokenBy = f.brokenBy || '怪物';
+            target.screenState = 'error';
+            target.leftScreen = 'Fail';
+            target.rightScreen = 'Err';
+          } else {
+            if (activeRepairSession && activeRepairSession.target === target) return;
+            target.isBroken = false;
+            target.brokenBy = null;
+            if (target.screenState === 'error') {
+              target.screenState = 'pass';
+              target.leftScreen = 'Pass';
+              target.rightScreen = 'Good';
+            }
+          }
+        });
+      }
+    }
     for(const [id,e]of Object.entries(snap.enemies||{}))if(e.mob&&e.hp>0&&!ecosystem.mobs.some(m=>(m.uid||m.id)===id)){const meta=window.GATHER_CONFIG.minecraftMobs?.find(m=>m.id===e.templateId)||window.GATHER_CONFIG.minecraftMobs?.[0]||{};ecosystem.mobs.push({...meta,id:e.templateId,uid:id,name:e.name,x:e.x,y:e.y,hp:e.hp,maxHp:e.maxHp,isBerserk:false,waypoints:[]});}
     network.combat={enemies:snap.enemies||{}};
     for(const [id,e]of Object.entries(snap.enemies||{})){
@@ -732,27 +785,45 @@
       return Math.hypot(localPlayer.x-cx,localPlayer.y-cy)<=100||Math.hypot(localPlayer.x-target.x-target.w/2,localPlayer.y-target.y-target.h-18)<135;
     });
     if(!fault){
+      let ghostTarget = null;
+      let isLabGhost = false;
       for(let i=0;i<window.WORLD_MAP.labEquipments.length;i++){
         const eq=window.WORLD_MAP.labEquipments[i];
-        if(eq.isBroken){
-          const cx=Math.max(eq.x,Math.min(localPlayer.x,eq.x+eq.w));
-          const cy=Math.max(eq.y,Math.min(localPlayer.y,eq.y+eq.h));
-          if(Math.hypot(localPlayer.x-cx,localPlayer.y-cy)<=100||Math.hypot(localPlayer.x-eq.x-eq.w/2,localPlayer.y-eq.y-eq.h-18)<135){
-            fault=[`lab_${i}`,{broken:true}];break;
+        const cx=Math.max(eq.x,Math.min(localPlayer.x,eq.x+eq.w));
+        const cy=Math.max(eq.y,Math.min(localPlayer.y,eq.y+eq.h));
+        const isNear=Math.hypot(localPlayer.x-cx,localPlayer.y-cy)<=100||Math.hypot(localPlayer.x-eq.x-eq.w/2,localPlayer.y-eq.y-eq.h-18)<135;
+        if(isNear && eq.isBroken && !snap.broken?.[`lab_${i}`]?.broken){
+          ghostTarget = eq;
+          isLabGhost = true;
+          break;
+        }
+      }
+      if(!ghostTarget){
+        for(let i=0;i<window.WORLD_MAP.workstations.length;i++){
+          const ws=window.WORLD_MAP.workstations[i];
+          const cx=Math.max(ws.x,Math.min(localPlayer.x,ws.x+ws.w));
+          const cy=Math.max(ws.y,Math.min(localPlayer.y,ws.y+ws.h));
+          const isNear=Math.hypot(localPlayer.x-cx,localPlayer.y-cy)<=100||Math.hypot(localPlayer.x-ws.x-ws.w/2,localPlayer.y-ws.y-ws.h-18)<135;
+          if(isNear && ws.isBroken && !snap.broken?.[`ws_${i}`]?.broken){
+            ghostTarget = ws;
+            isLabGhost = false;
+            break;
           }
         }
       }
-    }
-    if(!fault){
-      for(let i=0;i<window.WORLD_MAP.workstations.length;i++){
-        const ws=window.WORLD_MAP.workstations[i];
-        if(ws.isBroken){
-          const cx=Math.max(ws.x,Math.min(localPlayer.x,ws.x+ws.w));
-          const cy=Math.max(ws.y,Math.min(localPlayer.y,ws.y+ws.h));
-          if(Math.hypot(localPlayer.x-cx,localPlayer.y-cy)<=100||Math.hypot(localPlayer.x-ws.x-ws.w/2,localPlayer.y-ws.y-ws.h-18)<135){
-            fault=[`ws_${i}`,{broken:true}];break;
-          }
+      if(ghostTarget){
+        ghostTarget.isBroken = false;
+        ghostTarget.brokenBy = null;
+        if(isLabGhost){
+          ghostTarget.status = 'PASS READY (100%)';
+          ghostTarget.statusColor = '#22c55e';
+        }else{
+          ghostTarget.screenState = 'pass';
+          ghostTarget.leftScreen = 'Pass';
+          ghostTarget.rightScreen = 'Good';
         }
+        showCombatToast('設備已確認正常，無需維修！', 'join');
+        return true;
       }
     }
     if(fault){
@@ -760,7 +831,36 @@
       const target=isLab?window.WORLD_MAP.labEquipments[Number(fault[0].slice(4))]:window.WORLD_MAP.workstations[Number(fault[0].slice(3))];
       if(target){localPlayer.x=target.x+target.w/2;localPlayer.y=target.y+target.h+18;localPlayer.dir='up';}
       localPlayer.actionState='repair_wrench';
-      seasonSend('device_start',{target:fault[0]}).catch(()=>{});
+      if (season.enabled && season.client) {
+        try {
+          await season.client.send('device_start', {
+            target: fault[0],
+            pose: { x: localPlayer.x, y: localPlayer.y, action: localPlayer.actionState }
+          });
+        } catch (err) {
+          localPlayer.actionState = null;
+          updatePoseLabelUI();
+          const msg = String(err.message || err);
+          if (season.client.snapshot?.broken?.[fault[0]] && !season.client.snapshot.broken[fault[0]].broken) {
+            if (target) {
+              target.isBroken = false;
+              target.brokenBy = null;
+              if (isLab) {
+                target.status = 'PASS READY (100%)';
+                target.statusColor = '#22c55e';
+              } else {
+                target.screenState = 'pass';
+                target.leftScreen = 'Pass';
+                target.rightScreen = 'Good';
+              }
+            }
+            showCombatToast('設備運轉正常，無需維修！', 'join');
+          } else {
+            showCombatToast(`開始維修失敗：${msg}`, 'error');
+          }
+          return true;
+        }
+      }
       startActiveRepairSession(target, isLab ? 'lab' : 'ws', target.name || target.owner);
       return true;
     }
@@ -7534,18 +7634,50 @@ async function executeOfficeLogin(params) {
 
     if (season.enabled && season.client) {
       try {
-        await season.client.send('device_finish', { type: isLab ? 'lab' : 'ws', idx: isLab ? eqIdx : wsIdx, target: targetId, id: targetId });
+        const res = await season.client.send('device_finish', { type: isLab ? 'lab' : 'ws', idx: isLab ? eqIdx : wsIdx, target: targetId, id: targetId });
+        if (res?.actionResult?.alreadyRepaired) {
+          showCombatToast(`ℹ️ 【${sess.name}】已由其他同仁修復完成！`, 'info');
+          tgt.isBroken = false;
+          tgt.brokenBy = null;
+          tgt.lastRepairedAt = gameNow();
+          if (isLab) {
+            tgt.status = 'PASS READY (100%)';
+            tgt.statusColor = '#22c55e';
+          } else {
+            tgt.screenState = 'pass';
+            tgt.leftScreen = 'Pass';
+            tgt.rightScreen = 'Good';
+          }
+          if (season.client.snapshot?.broken?.[targetId]) {
+            season.client.snapshot.broken[targetId].broken = false;
+            season.client.snapshot.broken[targetId].handledAt = gameNow();
+          }
+          localPlayer.actionState = null;
+          activeRepairSession = null;
+          updatePoseLabelUI();
+          if (network) {
+            network.broadcastPacket('state_sync', { player: network.getPublicState() });
+          }
+          return;
+        }
         if (season.client.snapshot?.broken?.[targetId]) {
           season.client.snapshot.broken[targetId].broken = false;
           season.client.snapshot.broken[targetId].handledAt = gameNow();
         }
       } catch (err) {
-        pushStatusLog('系統', `⚠️ 機台維修未通過後端驗證：${err.message || '請重新操作'}`);
-        showCombatToast(`維修未通過：${err.message || '請重新操作'}`, 'injury');
-        localPlayer.actionState = null;
-        activeRepairSession = null;
-        updatePoseLabelUI();
-        return;
+        if (err.message && err.message.includes('無可修復故障')) {
+          if (season.client.snapshot?.broken?.[targetId]) {
+            season.client.snapshot.broken[targetId].broken = false;
+            season.client.snapshot.broken[targetId].handledAt = gameNow();
+          }
+        } else {
+          pushStatusLog('系統', `⚠️ 機台維修未通過後端驗證：${err.message || '請重新操作'}`);
+          showCombatToast(`維修未通過：${err.message || '請重新操作'}`, 'injury');
+          localPlayer.actionState = null;
+          activeRepairSession = null;
+          updatePoseLabelUI();
+          return;
+        }
       }
     }
 
@@ -8108,6 +8240,8 @@ async function executeOfficeLogin(params) {
     getOfficeInteractiveSpots,
     completeRepairSession,
     requestDeviceSabotage,
+    seasonInteract,
+    setEcosystem: (e) => { ecosystem = e; },
     setNetwork: (n) => { network = n; },
     getActiveRepairSession: () => activeRepairSession,
     setActiveRepairSession: (s) => { activeRepairSession = s; },

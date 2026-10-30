@@ -209,23 +209,27 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   }
   if(kind==='device_start'){
     const t=assets.tasks.find(t=>t.id===b.target),fault=s.broken?.[b.target];
-    if(!t||(fault&&!fault.broken)||fault?.room!==p.room||!near(p,t.x,t.y,135))fail('無可維修故障');
+    if(!t||!fault?.broken||fault.room!==p.room)fail('無可維修故障');
+    if(!near(p,t.x,t.y,135))fail('距離設備過遠');
     s.broken||={};
-    if(!s.broken[b.target]){s.broken[b.target]={broken:true,room:p.room};}
     p.channel={kind:'device',at:now,x:p.x,y:p.y,target:b.target};return;
   }
   if(kind==='device_finish'){
     const c=p.channel;
-    if(!c||c.kind!=='device'||now-c.at<3000||!near(p,c.x,c.y,35))fail('修復時間不足或設備已修好');
+    if(!c||c.kind!=='device'||now-c.at<2600||!near(p,c.x,c.y,35))fail('修復時間不足或未在維修狀態');
     const targetId=c.target;
     const f=s.broken?.[targetId];
-    if(!f?.broken||f.room!==p.room)fail('無可修復故障或設備已修好');
+    if(!f?.broken||f.room!==p.room){
+      p.channel=null;
+      return { alreadyRepaired: true };
+    }
     const t=s.tasks[p.room];if(t?.targetIds?.includes(targetId))fail('請使用 RMA 任務修復');
     f.broken=false;f.handledAt=now;gain(p,30);
     const supplyPool=['coffee','boba','pizza','kuaikuai','wrench','duck','ic_pkg'];
     const rewardItem={...fresh(pick(supplyPool,rng)),uid:uid()};
     if(capacity(p,rewardItem)){pushOrStackBag(p,rewardItem);}else{const d={...rewardItem,x:p.x,y:p.y,room:p.room,source:'world',origin:'repair',createdAt:now};s.drops[d.uid]=d;}
-    p.channel=null;return;
+    p.channel=null;
+    return { success: true, reward: rewardItem.name };
   }
   if(kind==='device_repair'){
     const targetId=b.target||b.id||(b.type==='lab'?'lab_'+b.idx:'ws_'+b.idx);
