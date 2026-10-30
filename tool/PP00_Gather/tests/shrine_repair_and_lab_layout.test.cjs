@@ -147,3 +147,26 @@ test('Responsive expansion & scaling: 1440P baseline vs 1080P/mobile proportiona
   assert.ok(css.includes('.prox-chat-panel:not(.mobile-open)'), 'Landscape must preserve persistent user status bar at bottom left');
   assert.ok(css.includes('width: min(260px, 30vw) !important;'), 'Landscape persistent user bar must be compact');
 });
+
+test('Remote knockback spin prevention, default collapsed chat & minimap, and authoritative repair & NPC movement', () => {
+  const appJs = fs.readFileSync(path.join(__dirname, '../static/js/app.js'), 'utf8');
+  const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  const netJs = fs.readFileSync(path.join(__dirname, '../static/js/network.js'), 'utf8');
+  const engineMjs = fs.readFileSync(path.join(__dirname, '../server/engine.mjs'), 'utf8');
+
+  // 1. 遠端受攻擊擊退中斷互動動作，且有每幀 knockback ticksLeft 衰減機制防止原地一直旋轉
+  assert.ok(appJs.includes('colleague.actionState = null;'), 'Attacking colleague must cancel interaction action state (e.g. kneel_pray)');
+  assert.ok(appJs.includes('for (const colleague of network.remotePlayers.values())') && appJs.includes('kb.ticksLeft--'), 'Remote players must decay knockback ticksLeft in game loop');
+
+  // 2. 聊天室預設縮合，小地圖預設關閉
+  assert.ok(indexHtml.includes('id="proxChatPanel" class="prox-chat-panel chat-minimized"'), 'Chat panel must default to collapsed chat-minimized');
+  assert.ok(indexHtml.includes('id="toggleChatCollapseBtn" class="chat-collapse-btn is-collapsed"'), 'Collapse button must default to is-collapsed');
+  assert.ok(appJs.includes('minimapHidden: true,'), 'Camera minimap must be default hidden');
+
+  // 3. 設備修復雙向同步與伺服器端 5 分鐘保護
+  assert.ok(netJs.includes("case 'device_repair':"), 'network.js must handle incoming device_repair packet to sync room master and peers');
+  assert.ok(engineMjs.includes('>300000)s.broken[id]={broken:true'), 'server/engine.mjs must protect repaired devices from stale heartbeats for 5 mins');
+
+  // 4. NPC 巡邏支援房長同步超時自動備援巡邏，防止重整後 NPC 原地卡死
+  assert.ok(netJs.includes('now - (this.lastMasterSyncTime || 0) >= 2500'), 'NPC movement must have fallback autonomous patrol when master sync times out');
+});

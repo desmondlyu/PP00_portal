@@ -161,7 +161,7 @@
           - NPC 與狀態動作紀錄上限 10 行 (自動洗掉舊訊息)
           - 支援勾選「只看聊天訊息」過濾器
        ===================================================================== -->
-  <section id="proxChatPanel" class="prox-chat-panel">
+  <section id="proxChatPanel" class="prox-chat-panel chat-minimized">
     <!-- 整合式個人狀態與經驗資訊列 -->
     <div class="chat-user-status-bar">
       <div class="chat-user-left">
@@ -208,9 +208,9 @@
         <button type="button" id="burnAllMsgBtn" class="burn-btn" title="立即清空視窗內所有暫態訊息">
           🔥 清空
         </button>
-        <button type="button" id="toggleChatCollapseBtn" class="chat-collapse-btn" title="向下縮合聊天視窗" aria-expanded="true">
-          <span class="chat-collapse-arrow" aria-hidden="true">▼</span>
-          <span class="chat-collapse-text">縮合</span>
+        <button type="button" id="toggleChatCollapseBtn" class="chat-collapse-btn is-collapsed" title="展開聊天視窗" aria-expanded="false">
+          <span class="chat-collapse-arrow" aria-hidden="true">▲</span>
+          <span class="chat-collapse-text">展開</span>
         </button>
       </div>
     </div>
