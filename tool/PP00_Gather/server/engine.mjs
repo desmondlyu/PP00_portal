@@ -17,7 +17,8 @@ const pick=(xs,rng)=>xs[Math.min(xs.length-1,Math.floor(rng()*xs.length))];
 const uid=()=>crypto.randomUUID();
 const fresh=(id)=>({...itemMeta(id),uid:uid(),durability:itemMeta(id).maxDurability||3});
 const bag=p=>p.items.filter(i=>i.slot==null);
-const capacity=(p,item)=>(item.category==='outfit'?(p.items.length<10&&outfits(p).length<3):(p.items.length<10||p.items.some(i=>i.id===item.id&&i.category!=='outfit')));
+const pushOrStackBag=(p,item)=>{if(item.category!=='outfit'){const ex=bag(p).find(a=>a.id===item.id&&a.category!=='outfit');if(ex){ex.count=(ex.count||1)+(item.count||1);if((item.durability||0)>(ex.durability||0))ex.durability=item.durability;return true;}}p.items.push(item);return false;};
+const capacity=(p,item)=>(item.category==='outfit'?(bag(p).length<10&&outfits(p).length<3):(bag(p).length<10||bag(p).some(i=>i.id===item.id&&i.category!=='outfit')));
 const award=(p,n)=>{p.exp=R.change(p.exp,n);};
 const gain=(p,n)=>award(p,Math.round(n*(1+p.items.filter(i=>i.slot!=null).reduce((a,i)=>a+(itemMeta(i.id)?.expBonusPct||0),0)/100)));
 const walkable=assets.walkable||[];
@@ -120,7 +121,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench','kuaikuai'];
     const returnId=pick(pool,rng);
     const d={...fresh(returnId),room:p.room,source:'world',slot:i.slot!=null?i.slot:null};
-    p.items.push(d);
+    if(d.slot!=null)p.items.push(d);else pushOrStackBag(p,d);
     gain(p,15);
     return {item:d};
   }
@@ -128,7 +129,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench','kuaikuai'];
     const giftId=pick(pool,rng);
     const d={...fresh(giftId),room:p.room,source:'world',slot:null};
-    if(capacity(p,d)){p.items.push(d);}else{p.overflow||=[];p.overflow.push({...d,count:1});}
+    if(capacity(p,d)){pushOrStackBag(p,d);}else{p.overflow||=[];p.overflow.push({...d,count:1});}
     gain(p,15);
     return {item:d};
   }
@@ -141,7 +142,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   }
   if(kind==='gift'){
     const q=s.players[b.target],i=p.items.find(i=>i.uid===b.uid);if(!q||q.room!==p.room||!active(q,now)||!near(p,q.x,q.y,180)||!i||!isMaterial(i)||!capacity(q,i)||p.pending?.materials.includes(i.uid))fail('無法贈送道具，請確認距離與背包空間');
-    p.items=p.items.filter(a=>a.uid!==i.uid);q.items.push({...i,slot:null,source:'gift'});return;
+    p.items=p.items.filter(a=>a.uid!==i.uid);pushOrStackBag(q,{...i,slot:null,source:'gift'});return;
   }
   if(kind==='equip'){
     const i=p.items.find(i=>i.uid===b.uid);if(!i)fail('物品不存在');if(p.pending?.materials.includes(i.uid))fail('材料已保留，請先完成或取消扭蛋');
@@ -151,7 +152,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     const old=p.items.find(a=>a.slot===slot);if(old)old.slot=null;i.slot=slot;p.activeSlot=slot;return;
   }
   if(kind==='active'){if(!Number.isInteger(b.slot)||b.slot<0||b.slot>2)fail('欄位錯誤');p.activeSlot=b.slot;return;}
-  if(kind==='claim_legacy'){const i=p.overflow?.find(i=>i.uid===b.uid);if(!i||!capacity(p,i))fail('無法領取');p.overflow=p.overflow.filter(a=>a.uid!==b.uid);p.items.push(i);return;}
+  if(kind==='claim_legacy'){const i=p.overflow?.find(i=>i.uid===b.uid);if(!i||!capacity(p,i))fail('無法領取');p.overflow=p.overflow.filter(a=>a.uid!==b.uid);pushOrStackBag(p,{...i,slot:null});return;}
   if(kind==='pickup'){
     const d=s.drops[b.uid];
     if(!d||d.claimed||d.room&&d.room!==p.room)fail('物品已被撿走');
@@ -160,9 +161,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     if(!near(p,d.x,d.y,rad))fail('距離過遠');
     if(!segmentPickup(p.x,p.y,d.x,d.y))fail('有障礙物阻擋');
     if(!capacity(p,d))fail('背包已滿');
-    const existing=d.category!=='outfit'&&p.items.find(i=>i.id===d.id&&i.category!=='outfit');
-    if(existing){existing.count=(existing.count||1)+1;if((d.durability||0)>(existing.durability||0))existing.durability=d.durability;}
-    else p.items.push({...d,uid:uid(),slot:null});
+    pushOrStackBag(p,{...d,uid:uid(),slot:null});
     d.claimed=true;if(d.source==='world')gain(p,15);return;
   }
   if(kind==='drop'){
@@ -174,7 +173,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
       const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench'];
       const itemId=pick(pool,rng);
       const d={...fresh(itemId),...floor(p.x+30,p.y),room:p.room,source:'world',slot:null};
-      p.items.push(d);
+      if(capacity(p,d)){pushOrStackBag(p,d);}else{const dropItem={...d,uid:uid(),x:p.x,y:p.y,room:p.room,source:'world',origin:'lounge',createdAt:now};s.drops[dropItem.uid]=dropItem;}
       gain(p,15);
       return {item:d};
     } else if(b.outcome==='lose'){
@@ -216,23 +215,28 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     p.channel={kind:'device',at:now,x:p.x,y:p.y,target:b.target};return;
   }
   if(kind==='device_finish'){
-    const c=p.channel,targetId=c?.target||b.target||b.id||(b.type==='lab'?`lab_${b.idx}`:`ws_${b.idx}`);
+    const c=p.channel;
+    if(!c||c.kind!=='device'||now-c.at<3000||!near(p,c.x,c.y,35))fail('修復時間不足或設備已修好');
+    const targetId=c.target;
     const f=s.broken?.[targetId];
-    if(c?.kind!=='device'&&!f?.broken){fail('修復時間不足或設備已修好');}
-    if(c&&now-c.at<3000){fail('修復時間不足或設備已修好');}
+    if(!f?.broken||f.room!==p.room)fail('無可修復故障或設備已修好');
     const t=s.tasks[p.room];if(t?.targetIds?.includes(targetId))fail('請使用 RMA 任務修復');
-    if(f){f.broken=false;f.handledAt=now;gain(p,30);
+    f.broken=false;f.handledAt=now;gain(p,30);
     const supplyPool=['coffee','boba','pizza','kuaikuai','wrench','duck','ic_pkg'];
     const rewardItem={...fresh(pick(supplyPool,rng)),uid:uid()};
-    if(capacity(p,rewardItem)){p.items.push(rewardItem);}
-    else{const d={...rewardItem,x:p.x,y:p.y,room:p.room,source:'world',origin:'repair',createdAt:now};s.drops[d.uid]=d;}}
+    if(capacity(p,rewardItem)){pushOrStackBag(p,rewardItem);}else{const d={...rewardItem,x:p.x,y:p.y,room:p.room,source:'world',origin:'repair',createdAt:now};s.drops[d.uid]=d;}
     p.channel=null;return;
   }
   if(kind==='device_repair'){
-    const targetId=b.target||b.id||(b.type==='lab'?`lab_${b.idx}`:`ws_${b.idx}`);
-    if(s.broken?.[targetId]){s.broken[targetId].broken=false;s.broken[targetId].handledAt=now;}
+    const targetId=b.target||b.id||(b.type==='lab'?'lab_'+b.idx:'ws_'+b.idx);
+    const fault=s.broken?.[targetId];
+    const t=assets.tasks.find(t=>t.id===targetId);
+    const rmaTask=s.tasks[p.room];
+    if(fault?.broken&&fault.room===p.room&&t&&near(p,t.x,t.y,135)&&!rmaTask?.targetIds?.includes(targetId)){
+      fault.broken=false;fault.handledAt=now;
+    }
     if(p.channel?.target===targetId)p.channel=null;
-    gain(p,30);return;
+    return;
   }
   if(kind==='rma_claim'){
     if(!near(p,998,350))fail('請靠近電話');if(s.tasks[p.room]?.claimer||s.tasks[p.room]?.cooldown>now)fail('目前搶修中或電話冷卻中');
@@ -270,7 +274,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     award(p,150);
     const rewardMeta=pick(assets.items,rng);
     const rewardItem={...fresh(rewardMeta.id),uid:uid()};
-    if(capacity(p,rewardItem)){p.items.push(rewardItem);}
+    if(capacity(p,rewardItem)){pushOrStackBag(p,rewardItem);}
     else{const d={...rewardItem,x:p.x,y:p.y,room:p.room,source:'world',origin:'rma_reward',createdAt:now};s.drops[d.uid]=d;}
     s.tasks[p.room]={cooldown:now+30000,lastReward:{name:rewardItem.name,emoji:rewardItem.emoji,id:rewardItem.id}};
     p.channel=null;return;

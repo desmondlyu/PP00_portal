@@ -7392,7 +7392,7 @@ async function executeOfficeLogin(params) {
           ctx.font = '900 16px "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif';
           const hw = ctx.measureText(hintText).width + 28;
           const hx = localPlayer.x - hw / 2;
-          const hy = localPlayer.y - 106 - (localPlayer.jumpOffset || 0) + Math.sin(tick * 0.2) * 2.5;
+          const hy = localPlayer.y + 36 + Math.sin(tick * 0.2) * 2.5;
           ctx.fillStyle = 'rgba(8, 16, 32, 0.97)';
           ctx.beginPath();
           if (typeof ctx.roundRect === 'function') {
@@ -7758,10 +7758,8 @@ async function executeOfficeLogin(params) {
     const st =
       window.GATHER_CONFIG.statuses.find((s) => s.id === p.status) ||
       window.GATHER_CONFIG.statuses[0];
-    const displayLabel = isSelf
-      ? `${p.name} [${progression.title}]`
-      : `${p.name} [${p.unit}]`;
-    const itemEmoji = p.heldItem || '';
+    const displayLabel = p.name || '';
+    const itemEmoji = '';
 
     ctx.save();
     // Keep labels readable in screen pixels when the phone camera zooms out.
@@ -7777,50 +7775,23 @@ async function executeOfficeLogin(params) {
     // 💬 名牌與文字對話框絕對錨定於角色地面高度 (p.y - 68)，絕不隨受擊跳躍 (jumpOffset) 震動抖動！
     const pillY = p.y - 68;
 
-    const isInteracting = !isSelf && !!p.id && (
-      (typeof selectedTargetId !== 'undefined' && selectedTargetId && (p.id === selectedTargetId || p.uid === selectedTargetId)) ||
-      (typeof nearbyPlayers !== 'undefined' && nearbyPlayers && nearbyPlayers[0] && (nearbyPlayers[0].id === p.id || nearbyPlayers[0].uid === p.id))
-    );
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.92)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
 
-    if (isInteracting) {
-      ctx.fillStyle = p.isBerserk ? 'rgba(185, 28, 28, 0.96)' : 'rgba(15, 23, 42, 0.96)';
-      ctx.beginPath();
-      ctx.roundRect(pillX, pillY, pillW, pillH, 12);
-      ctx.fill();
-      ctx.strokeStyle = p.isBerserk ? '#facc15' : '#38bdf8';
-      ctx.lineWidth = 2.0;
-      ctx.stroke();
+    ctx.fillStyle = p.isBerserk ? '#ef4444' : st.dot;
+    ctx.beginPath();
+    ctx.arc(p.x - textWidth / 2 - 8, pillY + pillH / 2, 4.2, 0, Math.PI * 2);
+    ctx.fill();
 
-      ctx.fillStyle = p.isBerserk ? '#ef4444' : st.dot;
-      ctx.beginPath();
-      ctx.arc(pillX + 12, pillY + pillH / 2, 4.2, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(displayLabel, pillX + 21, pillY + pillH / 2 + 0.5);
-      if (itemEmoji) ctx.fillText(itemEmoji, pillX + pillW - 21, pillY + pillH / 2 + 0.5);
-    } else {
-      ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.92)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetX = 1;
-      ctx.shadowOffsetY = 1;
-
-      ctx.fillStyle = p.isBerserk ? '#ef4444' : st.dot;
-      ctx.beginPath();
-      ctx.arc(p.x - textWidth / 2 - 8, pillY + pillH / 2, 4.2, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = p.isBerserk ? '#fca5a5' : '#ffffff';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.strokeStyle='#020617';ctx.lineWidth=4;ctx.lineJoin='round';ctx.strokeText(displayLabel, p.x - textWidth / 2, pillY + pillH / 2 + 0.5);
-      ctx.fillText(displayLabel, p.x - textWidth / 2, pillY + pillH / 2 + 0.5);
-      if (itemEmoji) ctx.fillText(itemEmoji, p.x + textWidth / 2 + 6, pillY + pillH / 2 + 0.5);
-      ctx.restore();
-    }
+    ctx.fillStyle = p.isBerserk ? '#fca5a5' : '#ffffff';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.strokeStyle='#020617';ctx.lineWidth=4;ctx.lineJoin='round';ctx.strokeText(displayLabel, p.x - textWidth / 2, pillY + pillH / 2 + 0.5);
+    ctx.fillText(displayLabel, p.x - textWidth / 2, pillY + pillH / 2 + 0.5);
+    ctx.restore();
 
     // 💬 文字氣泡自動換行演算法 (支援 CJK、Emoji 與多行折返，絕不超出卡片)
     function wrapMurmurLines(renderCtx, text, maxTextWidth) {

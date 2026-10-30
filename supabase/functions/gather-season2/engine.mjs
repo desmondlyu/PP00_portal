@@ -17,12 +17,15 @@ const pick=(xs,rng)=>xs[Math.min(xs.length-1,Math.floor(rng()*xs.length))];
 const uid=()=>crypto.randomUUID();
 const fresh=(id)=>({...itemMeta(id),uid:uid(),durability:itemMeta(id).maxDurability||3});
 const bag=p=>p.items.filter(i=>i.slot==null);
-const capacity=(p,item)=>p.items.length<10&&(item.category!=='outfit'||outfits(p).length<3);
+const pushOrStackBag=(p,item)=>{if(item.category!=='outfit'){const ex=bag(p).find(a=>a.id===item.id&&a.category!=='outfit');if(ex){ex.count=(ex.count||1)+(item.count||1);if((item.durability||0)>(ex.durability||0))ex.durability=item.durability;return true;}}p.items.push(item);return false;};
+const capacity=(p,item)=>(item.category==='outfit'?(bag(p).length<10&&outfits(p).length<3):(bag(p).length<10||bag(p).some(i=>i.id===item.id&&i.category!=='outfit')));
 const award=(p,n)=>{p.exp=R.change(p.exp,n);};
 const gain=(p,n)=>award(p,Math.round(n*(1+p.items.filter(i=>i.slot!=null).reduce((a,i)=>a+(itemMeta(i.id)?.expBonusPct||0),0)/100)));
 const walkable=assets.walkable||[];
 const clear=(x,y)=>x>160&&y>80&&x<2660&&y<1790&&!assets.colliders.some(r=>x+18>r.x&&x-18<r.x+r.w&&y+18>r.y&&y-18<r.y+r.h);
 const segment=(x,y,xx,yy)=>{const n=Math.ceil(Math.hypot(xx-x,yy-y)/8);for(let i=0;i<=n;i++)if(!clear(x+(xx-x)*i/Math.max(1,n),y+(yy-y)*i/Math.max(1,n)))return false;return true;};
+const clearPickup=(x,y)=>x>160&&y>80&&x<2660&&y<1790&&!assets.colliders.some(r=>x+4>r.x&&x-4<r.x+r.w&&y+4>r.y&&y-4<r.y+r.h);
+const segmentPickup=(x,y,xx,yy)=>{const n=Math.ceil(Math.hypot(xx-x,yy-y)/8);for(let i=1;i<n;i++)if(!clearPickup(x+(xx-x)*i/Math.max(1,n),y+(yy-y)*i/Math.max(1,n)))return false;return true;};
 export function floor(x,y){
   let best=null,distance=Infinity;
   for(const [xx,yy]of walkable){const d=(xx-x)**2+(yy-y)**2;if(d<distance){distance=d;best={x:xx,y:yy};}}
@@ -30,8 +33,9 @@ export function floor(x,y){
   if(clear(x,y))return {x,y};return {x:850,y:520};
 }
 function recovery(s,p,now){
-  const occupied=Object.values(s.players).filter(q=>q.id!==p.id&&q.effects.injuredUntil>now);
-  for(let y=1350;y<=1750;y+=70)for(let x=740;x<=1130;x+=65){const f=floor(x,y);if(f.x!==x||f.y!==y||occupied.some(q=>near(q,x,y,62)))continue;p.x=x;p.y=y;return;}
+  const cushions=[960,1050,1140,1230].flatMap(x=>[{x,y:1495},{x,y:1615}]);
+  const occupied=[...Object.values(s.players).filter(q=>q.id!==p.id&&(q.effects.injuredUntil>now||(q.room===p.room&&active(q,now)))),...cushions];
+  for(let y=1350;y<=1750;y+=70)for(let x=740;x<=1330;x+=65){const f=floor(x,y);if(f.x!==x||f.y!==y||occupied.some(q=>near(q,x,y,62)))continue;p.x=x;p.y=y;return;}
   fail('會議室 B 休養位置已滿，請稍後重試');
 }
 export function hurt(s,p,source,now,rng=Math.random){
@@ -117,7 +121,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench','kuaikuai'];
     const returnId=pick(pool,rng);
     const d={...fresh(returnId),room:p.room,source:'world',slot:i.slot!=null?i.slot:null};
-    p.items.push(d);
+    if(d.slot!=null)p.items.push(d);else pushOrStackBag(p,d);
     gain(p,15);
     return {item:d};
   }
@@ -125,7 +129,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench','kuaikuai'];
     const giftId=pick(pool,rng);
     const d={...fresh(giftId),room:p.room,source:'world',slot:null};
-    if(capacity(p,d)){p.items.push(d);}else{p.overflow||=[];p.overflow.push({...d,count:1});}
+    if(capacity(p,d)){pushOrStackBag(p,d);}else{p.overflow||=[];p.overflow.push({...d,count:1});}
     gain(p,15);
     return {item:d};
   }
@@ -138,7 +142,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   }
   if(kind==='gift'){
     const q=s.players[b.target],i=p.items.find(i=>i.uid===b.uid);if(!q||q.room!==p.room||!active(q,now)||!near(p,q.x,q.y,180)||!i||!isMaterial(i)||!capacity(q,i)||p.pending?.materials.includes(i.uid))fail('無法贈送道具，請確認距離與背包空間');
-    p.items=p.items.filter(a=>a.uid!==i.uid);q.items.push({...i,slot:null,source:'gift'});return;
+    p.items=p.items.filter(a=>a.uid!==i.uid);pushOrStackBag(q,{...i,slot:null,source:'gift'});return;
   }
   if(kind==='equip'){
     const i=p.items.find(i=>i.uid===b.uid);if(!i)fail('物品不存在');if(p.pending?.materials.includes(i.uid))fail('材料已保留，請先完成或取消扭蛋');
@@ -148,10 +152,17 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     const old=p.items.find(a=>a.slot===slot);if(old)old.slot=null;i.slot=slot;p.activeSlot=slot;return;
   }
   if(kind==='active'){if(!Number.isInteger(b.slot)||b.slot<0||b.slot>2)fail('欄位錯誤');p.activeSlot=b.slot;return;}
-  if(kind==='claim_legacy'){const i=p.overflow?.find(i=>i.uid===b.uid);if(!i||!capacity(p,i))fail('無法領取');p.overflow=p.overflow.filter(a=>a.uid!==b.uid);p.items.push(i);return;}
+  if(kind==='claim_legacy'){const i=p.overflow?.find(i=>i.uid===b.uid);if(!i||!capacity(p,i))fail('無法領取');p.overflow=p.overflow.filter(a=>a.uid!==b.uid);pushOrStackBag(p,{...i,slot:null});return;}
   if(kind==='pickup'){
-    const d=s.drops[b.uid];if(!d||d.claimed||d.room&&d.room!==p.room||d.pickupAfter>now||!near(p,d.x,d.y,R.pickupRadius(R.level(p.exp)))||!segment(p.x,p.y,d.x,d.y)||!capacity(p,d))fail('物品已被撿走、距離過遠、有障礙物或背包已滿');
-    p.items.push({...d,uid:uid(),slot:null});d.claimed=true;if(d.source==='world')gain(p,15);return;
+    const d=s.drops[b.uid];
+    if(!d||d.claimed||d.room&&d.room!==p.room)fail('物品已被撿走');
+    if(d.pickupAfter>now)fail('物品掉落保護中，請稍候');
+    const rad=R.pickupRadius(R.level(p.exp))+25;
+    if(!near(p,d.x,d.y,rad))fail('距離過遠');
+    if(!segmentPickup(p.x,p.y,d.x,d.y))fail('有障礙物阻擋');
+    if(!capacity(p,d))fail('背包已滿');
+    pushOrStackBag(p,{...d,uid:uid(),slot:null});
+    d.claimed=true;if(d.source==='world')gain(p,15);return;
   }
   if(kind==='drop'){
     const i=p.items.find(i=>i.uid===b.uid);if(!i||p.pending?.materials.includes(i.uid))fail('不能丟棄');p.items=p.items.filter(a=>a.uid!==i.uid);if(p.worn===i.uid)p.worn=null;
@@ -162,7 +173,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
       const pool=['pizza','boba','coffee','duck','ic_pkg','wrench','keyboard','bench'];
       const itemId=pick(pool,rng);
       const d={...fresh(itemId),...floor(p.x+30,p.y),room:p.room,source:'world',slot:null};
-      p.items.push(d);
+      if(capacity(p,d)){pushOrStackBag(p,d);}else{const dropItem={...d,uid:uid(),x:p.x,y:p.y,room:p.room,source:'world',origin:'lounge',createdAt:now};s.drops[dropItem.uid]=dropItem;}
       gain(p,15);
       return {item:d};
     } else if(b.outcome==='lose'){
@@ -198,20 +209,34 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   }
   if(kind==='device_start'){
     const t=assets.tasks.find(t=>t.id===b.target),fault=s.broken?.[b.target];
-    if(!t||!fault?.broken||fault.room!==p.room||!near(p,t.x,t.y,100))fail('無可維修故障');
+    if(!t||(fault&&!fault.broken)||fault?.room!==p.room||!near(p,t.x,t.y,135))fail('無可維修故障');
+    s.broken||={};
+    if(!s.broken[b.target]){s.broken[b.target]={broken:true,room:p.room};}
     p.channel={kind:'device',at:now,x:p.x,y:p.y,target:b.target};return;
   }
   if(kind==='device_finish'){
-    const c=p.channel,f=s.broken?.[c?.target];
-    if(c?.kind!=='device'||!f?.broken||!near(p,c.x,c.y,25)){if(c?.kind==='device')p.channel=null;fail('修復時間不足或設備已修好');}
-    if(now-c.at<3000)fail('修復時間不足或設備已修好');
-    const t=s.tasks[p.room];if(t?.targetIds?.includes(c.target))fail('請使用 RMA 任務修復');
+    const c=p.channel;
+    if(!c||c.kind!=='device'||now-c.at<3000||!near(p,c.x,c.y,35))fail('修復時間不足或設備已修好');
+    const targetId=c.target;
+    const f=s.broken?.[targetId];
+    if(!f?.broken||f.room!==p.room)fail('無可修復故障或設備已修好');
+    const t=s.tasks[p.room];if(t?.targetIds?.includes(targetId))fail('請使用 RMA 任務修復');
     f.broken=false;f.handledAt=now;gain(p,30);
     const supplyPool=['coffee','boba','pizza','kuaikuai','wrench','duck','ic_pkg'];
     const rewardItem={...fresh(pick(supplyPool,rng)),uid:uid()};
-    if(capacity(p,rewardItem)){p.items.push(rewardItem);}
-    else{const d={...rewardItem,x:p.x,y:p.y,room:p.room,source:'world',origin:'repair',createdAt:now};s.drops[d.uid]=d;}
+    if(capacity(p,rewardItem)){pushOrStackBag(p,rewardItem);}else{const d={...rewardItem,x:p.x,y:p.y,room:p.room,source:'world',origin:'repair',createdAt:now};s.drops[d.uid]=d;}
     p.channel=null;return;
+  }
+  if(kind==='device_repair'){
+    const targetId=b.target||b.id||(b.type==='lab'?'lab_'+b.idx:'ws_'+b.idx);
+    const fault=s.broken?.[targetId];
+    const t=assets.tasks.find(t=>t.id===targetId);
+    const rmaTask=s.tasks[p.room];
+    if(fault?.broken&&fault.room===p.room&&t&&near(p,t.x,t.y,135)&&!rmaTask?.targetIds?.includes(targetId)){
+      fault.broken=false;fault.handledAt=now;
+    }
+    if(p.channel?.target===targetId)p.channel=null;
+    return;
   }
   if(kind==='rma_claim'){
     if(!near(p,998,350))fail('請靠近電話');if(s.tasks[p.room]?.claimer||s.tasks[p.room]?.cooldown>now)fail('目前搶修中或電話冷卻中');
@@ -249,7 +274,7 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     award(p,150);
     const rewardMeta=pick(assets.items,rng);
     const rewardItem={...fresh(rewardMeta.id),uid:uid()};
-    if(capacity(p,rewardItem)){p.items.push(rewardItem);}
+    if(capacity(p,rewardItem)){pushOrStackBag(p,rewardItem);}
     else{const d={...rewardItem,x:p.x,y:p.y,room:p.room,source:'world',origin:'rma_reward',createdAt:now};s.drops[d.uid]=d;}
     s.tasks[p.room]={cooldown:now+30000,lastReward:{name:rewardItem.name,emoji:rewardItem.emoji,id:rewardItem.id}};
     p.channel=null;return;
@@ -345,7 +370,13 @@ export function world(s,p,b,now,rng=Math.random,positionsOnly=false){
     if(guard){e.hp=0;e.defeatedAt=now;e.until=now+300000;e.reaction={id:uid(),kind:'defeat',angle:Math.atan2(e.y-guard.y,e.x-guard.x),at:now,duration:650};s.mobDefeatedAt||={};s.mobDefeatedAt[p.room]=now;}
   }
   s.broken||={};
-  for(const id of (b.broken||[]).slice(0,100)){if(!assets.tasks.some(t=>t.id===id))continue;const old=s.broken[id];if(!old||!old.broken&&now-(old.handledAt||0)>30000)s.broken[id]={broken:true,room:p.room};}
+  const brokenSet=new Set(b.broken||[]);
+  for(const [id,entry]of Object.entries(s.broken)){
+    if(entry.room===p.room&&!entry.rma&&!brokenSet.has(id)&&entry.broken){
+      entry.broken=false;entry.handledAt=now;
+    }
+  }
+  for(const id of (b.broken||[]).slice(0,100)){if(!assets.tasks.some(t=>t.id===id))continue;const old=s.broken[id];if(!old||!old.broken&&now-(old.handledAt||0)>300000)s.broken[id]={broken:true,room:p.room};}
   for(const [id,e]of Object.entries(s.enemies))if(e.mob&&e.hp<=0&&now-e.defeatedAt>300000)delete s.enemies[id];
   const room=p.room;
   // Only the server creates new mob instances; stale client packets cannot revive them.
