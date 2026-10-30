@@ -159,14 +159,14 @@ window.WORLD_MAP = {
   // Lab 實驗室重型 3D 像素設備 (隨機切換正常運轉、自動校準、晶圓傳送、待命等真實狀態)
   labEquipments: [
     // 列 1: Tester 測試機組 (x: 1520，留出東西兩側寬敞過道)
-    { id: 'tester_1', kind: 'tester', name: 'Advantest T5830ES #1', x: 1520, y: 1330, w: 145, h: 110, status: 'RUN 99.9%', statusColor: '#22c55e' },
-    { id: 'tester_3', kind: 'tester', name: 'Advantest T5385ES #3', x: 1520, y: 1580, w: 145, h: 110, status: 'PASS READY', statusColor: '#22c55e' },
+    { id: 'tester_1', kind: 'tester', name: 'Advantest T5830ES #1', x: 1520, y: 1330, w: 145, h: 110, status: 'RUN 99.9%', statusColor: '#22c55e', isBroken: false, brokenBy: null },
+    { id: 'tester_3', kind: 'tester', name: 'Advantest T5385ES #3', x: 1520, y: 1580, w: 145, h: 110, status: 'PASS READY', statusColor: '#22c55e', isBroken: false, brokenBy: null },
     // 列 2: Wafer Loader 晶圓裝載機組 (x: 1820，間隔 155px 縱向林蔭過道)
-    { id: 'loader_1', kind: 'loader', name: 'Wafer Loader EFEM-A', x: 1820, y: 1330, w: 140, h: 115, status: 'LOADING', statusColor: '#38bdf8' },
-    { id: 'loader_2', kind: 'loader', name: 'Wafer Loader EFEM-B', x: 1820, y: 1580, w: 140, h: 115, status: 'ALIGN OK', statusColor: '#22c55e' },
+    { id: 'loader_1', kind: 'loader', name: 'Wafer Loader EFEM-A', x: 1820, y: 1330, w: 140, h: 115, status: 'LOADING', statusColor: '#38bdf8', isBroken: false, brokenBy: null },
+    { id: 'loader_2', kind: 'loader', name: 'Wafer Loader EFEM-B', x: 1820, y: 1580, w: 140, h: 115, status: 'ALIGN OK', statusColor: '#22c55e', isBroken: false, brokenBy: null },
     // 列 3: Oven 高溫爐/老化爐組 (x: 2120，間隔 160px 縱向過道，距右側工作站 205px)
-    { id: 'oven_1', kind: 'oven', name: '高溫爐烤箱 (130°C Burn-In)', x: 2120, y: 1330, w: 150, h: 120, temp: '130.0°C', status: 'BAKING', statusColor: '#f97316' },
-    { id: 'oven_3', kind: 'oven', name: 'HTOL 老化高溫爐 #3', x: 2120, y: 1580, w: 150, h: 120, temp: '25.0°C', status: 'COOLING', statusColor: '#38bdf8' },
+    { id: 'oven_1', kind: 'oven', name: '高溫爐烤箱 (130°C Burn-In)', x: 2120, y: 1330, w: 150, h: 120, temp: '130.0°C', status: 'BAKING', statusColor: '#f97316', isBroken: false, brokenBy: null },
+    { id: 'oven_3', kind: 'oven', name: 'HTOL 老化高溫爐 #3', x: 2120, y: 1580, w: 150, h: 120, temp: '25.0°C', status: 'COOLING', statusColor: '#38bdf8', isBroken: false, brokenBy: null },
   ],
 
   // 會議室 A 台股即時看盤巨型大螢幕座標
