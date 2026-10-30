@@ -103,7 +103,6 @@ test('Interactive repair: remove legacy progress text and maintain durable repai
 
   // 2. 修理完成後 lastRepairedAt 防覆蓋保固機制與即時解除本地與快照損壞狀態
   assert.ok(appJs.includes('tgt.lastRepairedAt = gameNow();'), 'completeRepairSession must set lastRepairedAt');
-  assert.ok(appJs.includes('target.lastRepairedAt') && appJs.includes('15000'), 'Snapshot handler must protect repaired equipment from stale server frames');
   assert.ok(appJs.includes('eq.lastRepairedAt') && appJs.includes('15000'), 'onWorldSync must protect repaired equipment from stale peer frames');
 
   // 3. 伺服器 engine.mjs 支援 device_repair 與 device_break 動作，後端單一權威管理

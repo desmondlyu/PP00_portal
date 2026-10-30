@@ -1197,7 +1197,8 @@ class OfficeEcosystem {
           Math.floor(Math.random() * window.WORLD_MAP.workstations.length)
         ];
       if (ws && !ws.isBroken && typeof WORKSTATION_SCREEN_OPTIONS !== 'undefined') {
-        const isRed = Math.random() < 0.20;
+        // In cloud mode, red repair screens are reserved for authoritative faults.
+        const isRed = !window.GATHER_CONFIG.season2 && Math.random() < 0.20;
         const pool = isRed ? WORKSTATION_SCREEN_OPTIONS.red : WORKSTATION_SCREEN_OPTIONS.green;
         ws.leftScreen = pool[Math.floor(Math.random() * pool.length)];
         ws.rightScreen = pool[Math.floor(Math.random() * pool.length)];

@@ -490,6 +490,26 @@
   async function seasonSend(action,data={}) {
     try {return await season.client.send(action,{...data,...(!['heartbeat','world','snapshot'].includes(action)?{pose:{x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState}}:{})});} catch(e){seasonError(e);return null;}
   }
+  function syncEquipmentState(broken) {
+    // Only a complete authoritative device table can reset local fault visuals.
+    if (!broken || typeof broken !== 'object') return;
+    for (const [prefix, list] of [['lab', window.WORLD_MAP?.labEquipments], ['ws', window.WORLD_MAP?.workstations]]) {
+      if (!Array.isArray(list)) continue;
+      list.forEach((target, idx) => {
+        const fault = broken[`${prefix}_${idx}`];
+        target.isBroken = !!fault?.broken;
+        target.brokenBy = target.isBroken ? (fault.brokenBy || '怪物') : null;
+        if (prefix === 'lab') {
+          target.status = target.isBroken ? '💥BROKEN!' : 'PASS READY (100%)';
+          target.statusColor = target.isBroken ? '#ef4444' : '#22c55e';
+        } else {
+          target.screenState = target.isBroken ? 'error' : 'pass';
+          target.leftScreen = target.isBroken ? 'Fail' : 'Pass';
+          target.rightScreen = target.isBroken ? 'Err' : 'Good';
+        }
+      });
+    }
+  }
   function applySeasonSnapshot(snap) {
     gameClock?.sync(snap.now);window.GATHER_SEASON_PLAYERS=snap.players;
     for(const stall of window.WORLD_MAP.toiletStalls){stall.occupiedBy=snap.stalls?.[stall.id]||null;if(stall.occupiedBy)stall.doorOpen=0;}
@@ -603,60 +623,7 @@
       }
     }
     ecosystem.groundItems=snap.drops.filter(d=>!d.claimed&&!season.hiddenDrops.has(d.uid)).map(d=>({...d,dropY:0,combatDrop:true,seasonDrop:true}));
-    if (window.WORLD_MAP) {
-      if (Array.isArray(window.WORLD_MAP.labEquipments)) {
-        window.WORLD_MAP.labEquipments.forEach((eq, idx) => {
-          const target = eq;
-          const id = `lab_${idx}`;
-          const f = snap.broken?.[id];
-          const isBrokenOnServer = !!f?.broken;
-          if (isBrokenOnServer) {
-            if ((target.lastRepairedAt && gameNow() - target.lastRepairedAt < 15000) || (activeRepairSession && activeRepairSession.target === target)) {
-              return;
-            }
-            target.isBroken = true;
-            target.brokenBy = f.brokenBy || '怪物';
-            target.status = '💥BROKEN!';
-            target.statusColor = '#ef4444';
-          } else {
-            if (activeRepairSession && activeRepairSession.target === target) return;
-            target.isBroken = false;
-            target.brokenBy = null;
-            if (target.status === '💥BROKEN!' || !target.status) {
-              target.status = 'PASS READY (100%)';
-              target.statusColor = '#22c55e';
-            }
-          }
-        });
-      }
-      if (Array.isArray(window.WORLD_MAP.workstations)) {
-        window.WORLD_MAP.workstations.forEach((ws, idx) => {
-          const target = ws;
-          const id = `ws_${idx}`;
-          const f = snap.broken?.[id];
-          const isBrokenOnServer = !!f?.broken;
-          if (isBrokenOnServer) {
-            if ((target.lastRepairedAt && gameNow() - target.lastRepairedAt < 15000) || (activeRepairSession && activeRepairSession.target === target)) {
-              return;
-            }
-            target.isBroken = true;
-            target.brokenBy = f.brokenBy || '怪物';
-            target.screenState = 'error';
-            target.leftScreen = 'Fail';
-            target.rightScreen = 'Err';
-          } else {
-            if (activeRepairSession && activeRepairSession.target === target) return;
-            target.isBroken = false;
-            target.brokenBy = null;
-            if (target.screenState === 'error') {
-              target.screenState = 'pass';
-              target.leftScreen = 'Pass';
-              target.rightScreen = 'Good';
-            }
-          }
-        });
-      }
-    }
+    syncEquipmentState(snap.broken);
     for(const [id,e]of Object.entries(snap.enemies||{}))if(e.mob&&e.hp>0&&!ecosystem.mobs.some(m=>(m.uid||m.id)===id)){const meta=window.GATHER_CONFIG.minecraftMobs?.find(m=>m.id===e.templateId)||window.GATHER_CONFIG.minecraftMobs?.[0]||{};ecosystem.mobs.push({...meta,id:e.templateId,uid:id,name:e.name,x:e.x,y:e.y,hp:e.hp,maxHp:e.maxHp,isBerserk:false,waypoints:[]});}
     network.combat={enemies:snap.enemies||{}};
     for(const [id,e]of Object.entries(snap.enemies||{})){
