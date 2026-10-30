@@ -143,9 +143,10 @@ test('Responsive expansion & scaling: 1440P baseline vs 1080P/mobile proportiona
   // 6. iPhone 13 Pro Max (直立 428px vs 橫向 926px) 專屬防截斷與常駐等級資訊適配
   assert.ok(appJs.includes('function isMobileOrTouchScreen()'), 'app.js must define unified touch screen detector');
   assert.ok(appJs.includes('window.innerWidth <= 1024 || window.innerHeight <= 520'), 'app.js must support large mobile landscape viewports up to 1024px');
-  assert.ok(css.includes('max-width: calc(100% - 110px);'), 'Portrait bottom command dock must prevent clipping combat cluster');
-  assert.ok(css.includes('.prox-chat-panel:not(.mobile-open)'), 'Landscape must preserve persistent user status bar at bottom left');
-  assert.ok(css.includes('width: min(260px, 30vw) !important;'), 'Landscape persistent user bar must be compact');
+  assert.ok(css.includes('.touch-attack-btn {\n    display: none !important;\n  }') || css.includes('.touch-attack-btn { display: none !important; }'), 'Mobile must hide duplicate touchAttackBtn to prevent overlapping combat cluster');
+  assert.ok(css.replace(/\r\n/g, '\n').includes('.prox-chat-panel:not(.mobile-open) {\n    display: none !important;\n  }'), 'Landscape collapsed chat must not overlap touchMovePad');
+  assert.ok(css.includes('z-index: 47 !important;') && css.includes('.touch-controls { display: block; position: fixed; inset: 0; pointer-events: none; z-index: 55; }'), 'touchInteractBtn & touch-controls must sit cleanly above combat buttons');
+  assert.ok(css.includes('min-height: 0 !important;'), 'Landscape chat messages must have 0 min-height to prevent form clipping');
 });
 
 test('Remote knockback spin prevention, default collapsed chat & minimap, and authoritative repair & NPC movement', () => {
