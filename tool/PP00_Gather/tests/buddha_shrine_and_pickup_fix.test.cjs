@@ -4,13 +4,12 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('node:vm');
 
-test('Buddha shrine: drawBuddhaStatue incorporates code.txt palette and "有神快拜 保佑PASS" plaque', () => {
+test('Buddha shrine: drawBuddhaStatue incorporates photo reference with aspect ratio, halo, and carpet text', () => {
   const worldJs = fs.readFileSync(path.join(__dirname, '../static/js/world.js'), 'utf8');
-  assert.ok(worldJs.includes('BUDDHA_PALETTE'), 'Must include Buddha palette from code.txt');
-  assert.ok(worldJs.includes('✨ 有神快拜 保佑PASS ✨'), 'Must include "有神快拜 保佑PASS" on statue plaque');
-  assert.ok(worldJs.includes('🏮 有神快拜 · 保佑PASS 🏮'), 'Must include "有神快拜 · 保佑PASS" on altar plaque');
-  assert.ok(worldJs.includes('Continuous Ambient Aureole'), 'Must include aureole rotating rays');
-  assert.ok(worldJs.includes('Lotus Throne'), 'Must include lotus throne');
+  assert.ok(worldJs.includes('buddha_shrine.jpg'), 'Must reference uploaded buddha_shrine.jpg');
+  assert.ok(worldJs.includes('✨ 有人快拜 保佑Pass ✨'), 'Must include "有人快拜 保佑Pass" on prayer carpet');
+  assert.ok(worldJs.includes('bigHalo') || worldJs.includes('Dynamic Double Golden Halo Aureole'), 'Must include glowing double halo behind Buddha');
+  assert.ok(worldJs.includes('statueW = 140') && worldJs.includes('statueH = 105'), 'Must render Buddha maintaining 1024:765 natural aspect ratio without compressing head');
 });
 
 test('Item stack pickup: same items can be picked up and stacked without capacity blockage', () => {
@@ -35,14 +34,14 @@ test('Item stack pickup: same items can be picked up and stacked without capacit
     { uid: 'w3', id: 'keyboard', category: 'weapon', durability: 3, maxDurability: 3 }
   ];
 
-  // 2. 背包放 10 件不同物品，其中第一件是折疊板凳 (bench)，但耐久度只剩 1
+  // 2. 背包放 10 件不同物品，其中一件是折疊板凳 (bench)，但耐久度只剩 1
   for (let i = 0; i < 9; i++) {
     p.inventory.push({ uid: 'inv_' + i, id: 'item_' + i, category: 'item', count: 1, durability: 3, maxDurability: 3 });
   }
   p.inventory.push({ uid: 'inv_bench', id: 'bench', category: 'weapon', count: 1, durability: 1, maxDurability: 3 });
   assert.equal(p.inventory.length, 10);
 
-  // 3. 地上掉落物（滿耐久或無 durability 屬性的 bench）
+  // 3. 地上掉落物（無 durability 屬性的 bench）
   const groundBench = { id: 'bench', category: 'weapon', maxDurability: 3 };
 
   // 4. 驗證 canAdd 與 add：背包滿 10 件但有同類物品時，必須允許拾取並成功堆疊，耐久度取較佳者
@@ -52,6 +51,13 @@ test('Item stack pickup: same items can be picked up and stacked without capacit
   assert.ok(stackedBench, 'bench must exist');
   assert.equal(stackedBench.count, 2, 'count must be incremented to 2');
   assert.equal(stackedBench.durability, 3, 'durability must be upgraded to 3');
+});
+
+test('Server pickup checks: refined distance tolerance and obstacle line-of-sight', () => {
+  const engineJs = fs.readFileSync(path.join(__dirname, '../server/engine.mjs'), 'utf8');
+  assert.ok(engineJs.includes('clearPickup'), 'Must include refined pickup obstacle clearance');
+  assert.ok(engineJs.includes('segmentPickup'), 'Must include pickup line-of-sight check');
+  assert.ok(engineJs.includes('fail(\'距離過遠\')') || engineJs.includes('fail(\'有障礙物阻擋\')'), 'Must provide distinct informative failure messages');
 });
 
 test('Bird Commander meeting pull: locked exclusively to Meeting A (meet_a)', () => {

@@ -679,7 +679,7 @@
         const pickupRad = window.OfficeProgression?.pickupRadius ? window.OfficeProgression.pickupRadius(progression.level) : 80;
         if(dist > pickupRad + 20) return false;
         const steps=Math.max(1,Math.ceil(dist/12));
-        for(let i=0;i<=steps;i++)if(window.isPositionBlocked(localPlayer.x+(d.x-localPlayer.x)*i/steps,localPlayer.y+(d.y-localPlayer.y)*i/steps,4))return false;
+        for(let i=1;i<steps;i++)if(window.isPositionBlocked(localPlayer.x+(d.x-localPlayer.x)*i/steps,localPlayer.y+(d.y-localPlayer.y)*i/steps,4))return false;
         return true;
       }).sort((a,b)=>a.dist-b.dist)[0]?.d||null;
   }
