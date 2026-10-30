@@ -1066,7 +1066,8 @@ class EphemeralOfficeNetwork {
             expiresAt: (window.GatherServerClock?.now() || Date.now()) + 10000,
           };
         }
-        const roomX = pkt.roomId === 'meet_a' ? 400 : 925;
+        const roomX = 400; // 鳥人抓人統一鎖定 Meeting A (meet_a)
+        pkt.roomId = 'meet_a';
         const roomY = 1345;
         if (this.localPlayer && this.localPlayer.id === pkt.targetId) {
           if (this.callbacks.onMeetingPull && npc) {
@@ -1922,7 +1923,7 @@ class EphemeralOfficeNetwork {
               npc.meetingPullCount = pullCount + 1;
               npc.meetingLockCooldownUntil = now + 55000;
               npc.followPlayerUntil = 0;
-              const roomId = Math.random() < 0.5 ? 'meet_a' : 'meet_b';
+              const roomId = 'meet_a'; // 原會議室 B 已改為禮佛區，鳥人抓人統一抓進 Meeting A 會議室內
               const roomX = roomId === 'meet_a' ? 400 : 925;
               const roomY = 1345;
               npc.x = roomX - 38;

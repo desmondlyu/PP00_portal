@@ -1978,11 +1978,12 @@ window.drawWackyAvatar = function (ctx, opts) {
     ctx.font='22px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(opts.heldItem,0,-7);
     ctx.restore();
   }
-  // 4.5 攻擊動畫：區分「👊 徒手出拳（向前直拳/飛射拳頭）」與「武器揮擊（半月斬光與旋轉）」
+  // 4.5 攻擊動畫：所有徒手與道具攻擊統一採用「向前直線破空擊出」特效（絕不轉圈）
   if (weaponSwing && weaponSwing.progress < 1) {
     ctx.save();
     const p = weaponSwing.progress;
     const isFist = weaponSwing.emoji === '👊' || weaponSwing.isFist;
+    ctx.scale(flipX, 1); // 還原水平翻轉，確保向左/向右/向上/向下皆朝正前方直線擊出
 
     if (isFist) {
       // 👊 出拳動畫：朝著面向方向 (dir) 像火箭拳頭一樣向前直衝飛出，絕不轉圈！
@@ -2052,7 +2053,87 @@ window.drawWackyAvatar = function (ctx, opts) {
 
     } else {
       // 半月形金色/青色揮擊刀光（一般裝備武器）
-      const swingAngle = (dir==='left'?Math.PI:dir==='up'?-Math.PI/2:dir==='down'?Math.PI/2:0) -1.3+p*2.7;
+      // 💥 道具直線破空擊出動畫：朝面向方向 (dir) 強力直線擊出，取代原本轉圈揮擊
+      const baseAngle = dir === 'left' ? Math.PI : dir === 'up' ? -Math.PI / 2 : dir === 'down' ? Math.PI / 2 : 0;
+      const vx = Math.cos(baseAngle);
+      const vy = Math.sin(baseAngle);
+      const perpX = -vy;
+      const perpY = vx;
+
+      // 爆發性直線擊出曲線：前段快速衝出至 56px，末段微幅收勢回彈
+      const thrustCurve = p < 0.68
+        ? Math.sin((p / 0.68) * (Math.PI / 2))
+        : 1 - ((p - 0.68) / 0.32) * 0.28;
+      const thrustDist = thrustCurve * 56;
+      const itemX = 4 + vx * thrustDist;
+      const itemY = -6 + vy * thrustDist;
+
+      // 1. 道具後方的金色推進光束與雙側破空疾風線
+      ctx.save();
+      ctx.strokeStyle = `rgba(250, 204, 21, ${Math.max(0, 0.95 - p * 1.15)})`;
+      ctx.lineWidth = 4.5;
+      ctx.setLineDash([10, 4]);
+      ctx.beginPath();
+      ctx.moveTo(4 + vx * 6, -6 + vy * 6);
+      ctx.lineTo(itemX - vx * 10, itemY - vy * 10);
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${Math.max(0, 0.88 - p)})`;
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(4 + vx * 8 + perpX * 10, -6 + vy * 8 + perpY * 10);
+      ctx.lineTo(itemX - vx * 8 + perpX * 10, itemY - vy * 8 + perpY * 10);
+      ctx.moveTo(4 + vx * 8 - perpX * 10, -6 + vy * 8 - perpY * 10);
+      ctx.lineTo(itemX - vx * 8 - perpX * 10, itemY - vy * 8 - perpY * 10);
+      ctx.stroke();
+      ctx.restore();
+
+      // 2. 道具擊出前端的音爆衝擊波環與破空十字星芒
+      if (p > 0.16) {
+        ctx.save();
+        const shockP = (p - 0.16) / 0.84;
+        const tipX = itemX + vx * 15;
+        const tipY = itemY + vy * 15;
+        ctx.strokeStyle = `rgba(249, 115, 22, ${Math.max(0, 1 - shockP)})`;
+        ctx.lineWidth = 2.8;
+        ctx.beginPath();
+        ctx.ellipse(tipX, tipY, 9 + shockP * 20, 5.5 + shockP * 14, baseAngle, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(254, 240, 138, ${Math.max(0, 0.9 - shockP * 1.1)})`;
+        ctx.lineWidth = 2;
+        const sparkLen = 6 + Math.sin(shockP * Math.PI) * 10;
+        ctx.beginPath();
+        ctx.moveTo(tipX - vx * sparkLen, tipY - vy * sparkLen);
+        ctx.lineTo(tipX + vx * sparkLen, tipY + vy * sparkLen);
+        ctx.moveTo(tipX - perpX * sparkLen, tipY - perpY * sparkLen);
+        ctx.lineTo(tipX + perpX * sparkLen, tipY + perpY * sparkLen);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 3. 繪製向前直線擊出的道具本體（瞬間放大與前衝微傾，不轉圈）
+      ctx.save();
+      ctx.translate(itemX, itemY);
+      if (dir === 'left') {
+        ctx.scale(-1, 1);
+      } else if (dir === 'up') {
+        ctx.rotate(-Math.PI / 2);
+      } else if (dir === 'down') {
+        ctx.rotate(Math.PI / 2);
+      }
+      ctx.rotate(Math.sin(Math.min(1, p * 1.4) * Math.PI) * 0.22);
+      const strikeScale = 1 + Math.sin(p * Math.PI) * 0.38;
+      ctx.scale(strikeScale, strikeScale);
+      ctx.font = '27px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(250, 204, 21, 0.85)';
+      ctx.shadowBlur = 14;
+      ctx.fillText(weaponSwing.emoji || '🪑', 0, 0);
+      ctx.restore();
+      if (false) {
       ctx.strokeStyle = `rgba(250, 204, 21, ${1 - p * 0.6})`;
       ctx.lineWidth = 7;
       ctx.beginPath();
@@ -2064,7 +2145,7 @@ window.drawWackyAvatar = function (ctx, opts) {
       ctx.font = '24px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(weaponSwing.emoji || '🪑', 24, 0);
+      }
     }
     ctx.restore();
   }

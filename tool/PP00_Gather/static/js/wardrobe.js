@@ -3,21 +3,36 @@
   const isOutfit = item => item?.category === 'outfit';
   const worn = p => p.inventory.find(i => isOutfit(i) && i.uid === p.wornOutfitUid) || null;
   const outfitCount = p => p.inventory.filter(isOutfit).length;
-  const stack = (p, item) => !isOutfit(item) && p.inventory.find(i => i.id === item.id && i.category === item.category && i.durability === item.durability && i.maxDurability === item.maxDurability && i.durability === i.maxDurability);
+  const resolveDur = item => typeof item?.durability === 'number' ? item.durability : (item?.maxDurability || 3);
+  const resolveMaxDur = item => typeof item?.maxDurability === 'number' ? item.maxDurability : 3;
+  const stack = (p, item) => {
+    if (isOutfit(item) || !p || !Array.isArray(p.inventory)) return null;
+    const itemDur = resolveDur(item);
+    const itemMaxDur = resolveMaxDur(item);
+    const exact = p.inventory.find(i => i.id === item.id && (!i.category || i.category === item.category) && resolveDur(i) === itemDur && resolveMaxDur(i) === itemMaxDur);
+    if (exact) return exact;
+    return p.inventory.find(i => i.id === item.id && (!i.category || i.category === item.category));
+  };
   function canAdd(p, item, autoEquip = false) {
     if (isOutfit(item) && outfitCount(p) >= 3) return false;
     return (!isOutfit(item) && autoEquip && p.equippedSlots.some(i => !i)) || !!stack(p, item) || p.inventory.length < 10;
   }
   function add(p, item, autoEquip = false) {
     if (!canAdd(p, item, autoEquip)) return false;
-    const copy = {...item, count: 1};
+    const copy = {...item, count: 1, durability: resolveDur(item), maxDurability: resolveMaxDur(item)};
     if (autoEquip && !isOutfit(item)) {
       const idx = p.equippedSlots.findIndex(i => !i);
       if (idx >= 0) { p.equippedSlots[idx] = copy; p.activeEquipIndex = idx; return true; }
     }
     const existing = stack(p, item);
-    if (existing) existing.count = (existing.count || 1) + 1;
-    else p.inventory.push(copy);
+    if (existing) {
+      existing.count = (existing.count || 1) + 1;
+      const curDur = resolveDur(existing);
+      const newDur = resolveDur(item);
+      if (newDur > curDur) existing.durability = newDur;
+    } else {
+      p.inventory.push(copy);
+    }
     return true;
   }
   function migrate(p) {

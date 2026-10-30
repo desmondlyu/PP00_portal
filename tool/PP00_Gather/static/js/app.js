@@ -597,7 +597,7 @@
       }
     }
     ecosystem.groundItems=snap.drops.filter(d=>!d.claimed&&!season.hiddenDrops.has(d.uid)).map(d=>({...d,dropY:0,combatDrop:true,seasonDrop:true}));
-    for(const [id,f]of Object.entries(snap.broken||{})){const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];if(target){target.isBroken=f.broken;if(!f.broken){target.brokenBy=null;target.screenState='pass';}}}
+    for(const [id,f]of Object.entries(snap.broken||{})){const target=id.startsWith('ws_')?window.WORLD_MAP.workstations[Number(id.slice(3))]:window.WORLD_MAP.labEquipments[Number(id.slice(4))];if(target){target.isBroken=f.broken;if(!f.broken){target.brokenBy=null;if(target.kind){target.status='PASS 99.9%';target.statusColor='#22c55e';}else{target.screenState='pass';target.leftScreen='Pass';target.rightScreen='Good';}}}}
     for(const [id,e]of Object.entries(snap.enemies||{}))if(e.mob&&e.hp>0&&!ecosystem.mobs.some(m=>(m.uid||m.id)===id)){const meta=window.GATHER_CONFIG.minecraftMobs?.find(m=>m.id===e.templateId)||window.GATHER_CONFIG.minecraftMobs?.[0]||{};ecosystem.mobs.push({...meta,id:e.templateId,uid:id,name:e.name,x:e.x,y:e.y,hp:e.hp,maxHp:e.maxHp,isBerserk:false,waypoints:[]});}
     network.combat={enemies:snap.enemies||{}};
     for(const [id,e]of Object.entries(snap.enemies||{})){
@@ -611,6 +611,7 @@
       }
     }
     ecosystem.mobs=ecosystem.mobs.filter(m=>snap.enemies?.[m.uid||m.id]&&window.OfficeCombat.defeatVisible(m));
+    renderSidebarRoster();
     for(const q of snap.players){if(q.id===p.id)continue;if(!network.remotePlayers.has(q.clientId))network.upsertRemotePlayer({id:q.clientId,name:q.name,unit:q.unit,x:q.x,y:q.y,avatarId:q.avatarId,status:'active'},true);const remote=network.remotePlayers.get(q.clientId);if(remote){remote.lastSeen=now;remote.connectionLostAt=null;if(q.action==='toilet'){remote.x=q.x;remote.y=q.y;remote.targetX=q.x;remote.targetY=q.y;remote.actionState='toilet';}else if(remote.actionState==='toilet')remote.actionState=null;remote.seasonPlayerId=q.id;remote.isInjured=q.effects.injuredUntil>now;remote.lightInjuredUntil=q.effects.lightUntil||0;remote.outfitAvatarId=q.worn;}}
     // 檢測是否扭蛋獲得新服裝 (包包未滿時直接進入 p.items)
     if (p.items) {
@@ -713,9 +714,9 @@
       if(!f.broken||!target)return false;
       const cx=Math.max(target.x,Math.min(localPlayer.x,target.x+target.w));
       const cy=Math.max(target.y,Math.min(localPlayer.y,target.y+target.h));
-      return Math.hypot(localPlayer.x-cx,localPlayer.y-cy)<=95||Math.hypot(localPlayer.x-target.x-target.w/2,localPlayer.y-target.y-target.h-18)<125;
+      return Math.hypot(localPlayer.x-cx,localPlayer.y-cy)<=100||Math.hypot(localPlayer.x-target.x-target.w/2,localPlayer.y-target.y-target.h-18)<135;
     });
-    if(fault){await seasonSend('device_start',{target:fault[0]});localPlayer.actionState='sit_code';return true;}
+    if(fault){const target=fault[0].startsWith('ws_')?window.WORLD_MAP.workstations[Number(fault[0].slice(3))]:window.WORLD_MAP.labEquipments[Number(fault[0].slice(4))];if(target){localPlayer.x=target.x+target.w/2;localPlayer.y=target.y+target.h+18;localPlayer.dir='up';}const res=await seasonSend('device_start',{target:fault[0]});if(res){localPlayer.actionState=fault[0].startsWith('lab_')?'pray_kuaikuai':'sit_code';return true;}return false;}
     const f=window.OfficeFacilities?.nearby?.(localPlayer,snap);
     if(f){await window.OfficeFacilities.use(f,season.client,()=>({x:localPlayer.x,y:localPlayer.y,action:localPlayer.actionState})).catch(seasonError);if(season.client.snapshot.player.channel)localPlayer.actionState=f.id==='shrine'?'pray_kuaikuai':f.id==='lounge'?'play_arcade':'sit_code';return true;}
     return false;
@@ -831,7 +832,7 @@
         localPlayer.actionState='sleep_bed';localPlayer.autoWalkTarget=null;localPlayer.knockback=null;
         if(changed){savePersistentState();network.broadcastPacket('state_sync',{player:network.getPublicState()});}
       },
-      onCombatMobDefeat: (uid) => {if(network.isRoomMaster()){ecosystem.mobs=ecosystem.mobs.filter(m=>m.uid!==uid);ecosystem.lastMobDefeatedAt=gameNow();}},
+      onCombatMobDefeat: (uid) => {ecosystem.mobs=ecosystem.mobs.filter(m=>m.uid!==uid&&m.id!==uid);if(network.isRoomMaster())ecosystem.lastMobDefeatedAt=gameNow();renderSidebarRoster();},
       onCombatResult: (text) => {if(season.enabled)return; showCombatToast(text); addExp(30,'擊倒目標'); },
       onCombatGround: (items) => {if(season.enabled)return;
         ecosystem.groundItems = [...ecosystem.groundItems.filter(i=>!i.combatDrop), ...items];
@@ -1105,7 +1106,7 @@
       onRemoteItemCollected: (pkt) => {
         if (typeof ecosystem !== 'undefined' && ecosystem?.groundItems) {
           ecosystem.groundItems = ecosystem.groundItems.filter(
-            (item) => (item.uid || item.id) !== pkt.itemId && item.id !== pkt.itemId
+            (item) => (item.uid ? item.uid !== pkt.itemId : item.id !== pkt.itemId)
           );
         }
       },
@@ -2421,7 +2422,7 @@ async function executeOfficeLogin(params) {
   function cancelContextualAction() {
     if(season.enabled&&(localPlayer.occupiedSpotId?.startsWith('wc_')||season.client?.snapshot?.player?.stall)&&!season.toiletLeaving){season.toiletLeaving=true;seasonSend('toilet_exit').finally(()=>{season.toiletLeaving=false;});}
 
-    if(season.enabled&&season.client?.snapshot?.player?.channel)seasonSend("cancel");
+    if(season.enabled&&season.client?.snapshot?.player?.channel){season.client.snapshot.player.channel=null;if(!season.cancelling){season.cancelling=true;seasonSend("cancel").finally(()=>{season.cancelling=false;});}}
     if (!localPlayer.actionState && !localPlayer.occupiedSpotId) return;
     window.WORLD_MAP.toiletStalls.forEach((stall) => {
       if (stall.occupiedBy !== localPlayer.id) return;
@@ -4071,6 +4072,7 @@ async function executeOfficeLogin(params) {
               setTimeout(()=>{
                 if(typeof ecosystem !== 'undefined' && ecosystem.mobs){
                   ecosystem.mobs=ecosystem.mobs.filter(m=>m!==e&&(m.uid||m.id)!==(e.uid||e.id));
+                  renderSidebarRoster();
                 }
               }, 650);
             }
@@ -4979,7 +4981,7 @@ async function executeOfficeLogin(params) {
 
       // 修復設備
       if (fac.repairTarget && fac.repairTarget.isBroken) {
-        if(season.enabled){showCombatToast("設備故障正在同步，請稍後再按 E");return;}
+        if(season.enabled && season.client?.snapshot?.player?.channel){return;}
         fac.repairTarget.isBroken = false;
         fac.repairTarget.brokenBy = null;
         if (fac.repairTarget.kind) {
@@ -6191,7 +6193,7 @@ async function executeOfficeLogin(params) {
     const listEl = document.getElementById('onlineRosterList');
     if (!listEl) return;
     const others = network.getAllOtherPlayers();
-    const mobs = (ecosystem && ecosystem.mobs) || [];
+    const mobs = ((ecosystem && ecosystem.mobs) || []).filter((m) => m && m.hp > 0 && !m.combatDown && (!window.OfficeCombat?.defeatVisible || window.OfficeCombat.defeatVisible(m)));
     const totalCount = 1 + others.length + mobs.length;
     const countBadge = document.getElementById('onlineCountBadge');
     if (countBadge) countBadge.textContent = String(totalCount);
