@@ -74,3 +74,24 @@ test('an older poll cannot replay confirmed impact over a newer attack preview',
  assert.equal(g.h.receiveReaction(e,{...r,id:'confirmed-2',kind:'dodge'},100600),true);assert.equal(e.combatReaction.id,'confirmed-2');
 });
 test('defeat presentation ends after 650ms without making a living NPC disappear',()=>{const g=game();assert.equal(typeof g.h.defeatVisible,'function');assert(g.h.defeatVisible({combatDown:true,combatDownAt:1000},1400));assert(!g.h.defeatVisible({combatDown:true,combatDownAt:1000},1650));assert(g.h.defeatVisible({combatDown:false},9999));});
+test('PP00 禮佛區 expands room, shrinks Lab, provides 8 kneeling cushions, 5 murmurs, and non-overlapping injury recovery',()=>{
+  const g=game();
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'../static/js/world.js'),'utf8'),g.c);
+  const w=g.c.window.WORLD_MAP,cfg=g.c.window.GATHER_CONFIG;
+  const meetB=w.zones.find(z=>z.id==='meet_b');
+  assert.equal(meetB.name,'PP00 禮佛區');
+  assert.equal(w.kneelingCushions.length,8);
+  assert.deepEqual(Array.from(cfg.buddhaWorshipMurmurs),['CPR要ALL PASS','我希望有恐龍蛋獎金','拜託不要在QUAL FAIL','客退快滾啦不要再煩','MSS希望寫快一點']);
+  for(const id of ['a','b','c','d','e','f','g','h']){
+    if(id!=='a')g.n.remotePlayers.set(id,{id,x:0,y:0,isInjured:true});
+    g.h.packet(g.n,{type:'recovery_request',senderId:id,until:120000});
+  }
+  const spots=Object.values(g.n.combat.recovery);
+  assert.equal(spots.length,8);
+  for(let i=0;i<spots.length;i++){
+    const p=spots[i];
+    assert(!g.c.window.isPositionBlocked(p.x,p.y,26));
+    for(const c of w.kneelingCushions)assert(Math.hypot(p.x-c.x,p.y-c.y)>=62);
+    for(let j=0;j<i;j++)assert(Math.hypot(p.x-spots[j].x,p.y-spots[j].y)>=62);
+  }
+});

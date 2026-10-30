@@ -30,8 +30,9 @@ export function floor(x,y){
   if(clear(x,y))return {x,y};return {x:850,y:520};
 }
 function recovery(s,p,now){
-  const occupied=Object.values(s.players).filter(q=>q.id!==p.id&&q.effects.injuredUntil>now);
-  for(let y=1350;y<=1750;y+=70)for(let x=740;x<=1130;x+=65){const f=floor(x,y);if(f.x!==x||f.y!==y||occupied.some(q=>near(q,x,y,62)))continue;p.x=x;p.y=y;return;}
+  const cushions=[960,1050,1140,1230].flatMap(x=>[{x,y:1495},{x,y:1615}]);
+  const occupied=[...Object.values(s.players).filter(q=>q.id!==p.id&&(q.effects.injuredUntil>now||(q.room===p.room&&active(q,now)))),...cushions];
+  for(let y=1350;y<=1750;y+=70)for(let x=740;x<=1330;x+=65){const f=floor(x,y);if(f.x!==x||f.y!==y||occupied.some(q=>near(q,x,y,62)))continue;p.x=x;p.y=y;return;}
   fail('會議室 B 休養位置已滿，請稍後重試');
 }
 export function hurt(s,p,source,now,rng=Math.random){

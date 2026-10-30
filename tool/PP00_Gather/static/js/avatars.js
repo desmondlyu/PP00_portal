@@ -740,6 +740,9 @@ window.drawWackyAvatar = function (ctx, opts) {
   } else if (actionState === 'pray_kuaikuai') {
     poseOffsetY = Math.sin(tick * 0.25) * 5; // 虔誠上下鞠躬膜拜
     poseRotate = Math.sin(tick * 0.25) * 0.18;
+  } else if (actionState === 'kneel_pray') {
+    poseOffsetY = 7 + Math.sin(tick * 0.22) * 3.5; // 虔誠雙膝跪在拜墊上起伏膜拜
+    poseRotate = Math.sin(tick * 0.22) * 0.08;
   } else if (actionState === 'victory_dance') {
     poseOffsetY = -Math.abs(Math.sin(tick * 0.35)) * 12; // 狂歡熱舞彈跳
     poseOffsetX = Math.sin(tick * 0.18) * 6;
@@ -847,7 +850,7 @@ window.drawWackyAvatar = function (ctx, opts) {
       : avatarId === 'npc_dir_pp00_slim'
       ? '#334155'
       : '#1e293b';
-  if ((actionState === 'sit_code' || actionState === 'play_arcade') || actionState === 'toilet' || actionState === 'zen_debug') {
+  if ((actionState === 'sit_code' || actionState === 'play_arcade') || actionState === 'toilet' || actionState === 'zen_debug' || actionState === 'kneel_pray') {
     fillRoundRect(ctx, -10, 8, 8, 5, 2.5);
     fillRoundRect(ctx, 2, 8, 8, 5, 2.5);
   } else if (avatarId === 'npc_vp_uncle') {
@@ -2430,6 +2433,17 @@ function drawContextAction(ctx, action, tick) {
       const bow = Math.max(0, wave) * 4;
       px(-12, 15, 24, 4, '#b59160'); px(-8, 8, 16, 7, '#23865e'); px(-4, 10, 8, 3, '#f2e9b3');
       arm(-12, 0, -2, -7 + bow); arm(12, 0, 2, -7 + bow); break;
+    }
+    case 'kneel_pray': {
+      // 雙膝跪地摺疊褲管與鞋底 + 雙手合十持三柱清香虔誠膜拜
+      const bow = Math.sin(tick * 0.22) * 3.5;
+      px(-13, 9, 10, 5, '#1e293b'); px(3, 9, 10, 5, '#1e293b');
+      px(-14, 12, 6, 3, '#475569'); px(8, 12, 6, 3, '#475569');
+      arm(-11, -1, -2, -8 + bow); arm(11, -1, 2, -8 + bow);
+      // 三柱清香與紅火香頭
+      px(-2, -19 + bow, 1, 10, '#d97706'); px(0, -20 + bow, 1, 11, '#d97706'); px(2, -19 + bow, 1, 10, '#d97706');
+      px(-2, -20 + bow, 1, 2, '#ef4444'); px(0, -21 + bow, 1, 2, '#fde047'); px(2, -20 + bow, 1, 2, '#ef4444');
+      break;
     }
     case 'watch_stock': {
       px(-18, 0, 36, 20, '#203346'); px(-15, 3, 30, 14, '#0e202d');

@@ -106,8 +106,8 @@
       for(const [id,r] of Object.entries(s.recovery))if(r.until<=now||!player(n,id))delete s.recovery[id];
       if(!player(n,p.senderId)||!Number.isFinite(p.until)||p.until<=now)return;
       if(!s.recovery[p.senderId]){
-        const occupied=[...Object.values(s.recovery),...[n.localPlayer,...n.remotePlayers.values()].filter(Boolean)];
-        outer:for(let y=1350;y<=1750;y+=70)for(let x=740;x<=1130;x+=65){
+        const occupied=[...Object.values(s.recovery),...[n.localPlayer,...n.remotePlayers.values()].filter(Boolean),...(window.WORLD_MAP?.kneelingCushions||[])];
+        outer:for(let y=1350;y<=1750;y+=70)for(let x=740;x<=1330;x+=65){
           if(window.isPositionBlocked(x,y,26)||occupied.some(o=>Math.hypot(o.x-x,o.y-y)<62))continue;
           s.recovery[p.senderId]={x,y,until:Math.min(p.until,now+300000)};break outer;
         }

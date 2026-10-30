@@ -37,8 +37,8 @@ window.WORLD_MAP = {
     { id: 'te_zone', name: 'TE Zone', sub: '測試工程區', x: 1660, y: 595, spawnX: 1660, spawnY: 840, color: '#059669' },
     { id: 'restroom', name: 'Restroom', sub: '盥洗室', x: 2420, y: 595, spawnX: 2340, spawnY: 820, color: '#06b6d4' },
     { id: 'meet_a', name: 'Meeting A', sub: '戰情看盤室', x: 410, y: 1775, spawnX: 410, spawnY: 1650, color: '#7c3aed' },
-    { id: 'meet_b', name: 'Meeting B', sub: '專案審查室', x: 935, y: 1775, spawnX: 935, spawnY: 1650, color: '#db2777' },
-    { id: 'lab_zone', name: 'Lab Zone', sub: '半導體機台區', x: 1960, y: 1775, spawnX: 1820, spawnY: 1520, color: '#10b981' },
+    { id: 'meet_b', name: 'PP00 禮佛區', sub: '誠心祈福殿', x: 1032, y: 1775, spawnX: 1032, spawnY: 1650, color: '#d97706' },
+    { id: 'lab_zone', name: 'Lab Zone', sub: '半導體機台區', x: 2050, y: 1775, spawnX: 1820, spawnY: 1520, color: '#10b981' },
   ],
 
   // 3D 像素立體牆體清單
@@ -92,14 +92,14 @@ window.WORLD_MAP = {
     { x: 158, y: 1230, w: 180, h: 22, colorTop: '#c4b5fd', colorFront: '#5b21b6' },
     { x: 455, y: 1230, w: 210, h: 22, colorTop: '#c4b5fd', colorFront: '#5b21b6' },
     { x: 665, y: 1230, w: 20, h: 582, colorTop: '#c4b5fd', colorFront: '#5b21b6' },
-    { x: 685, y: 1230, w: 185, h: 22, colorTop: '#f9a8d4', colorFront: '#9d174d' },
-    { x: 985, y: 1230, w: 195, h: 22, colorTop: '#f9a8d4', colorFront: '#9d174d' },
-    { x: 1180, y: 1230, w: 22, h: 582, colorTop: '#94a3b8', colorFront: '#475569' },
+    { x: 685, y: 1230, w: 185, h: 22, colorTop: '#fbbf24', colorFront: '#b45309' },
+    { x: 985, y: 1230, w: 395, h: 22, colorTop: '#fbbf24', colorFront: '#b45309' },
+    { x: 1380, y: 1230, w: 22, h: 582, colorTop: '#fbbf24', colorFront: '#b45309' },
 
     // 6. Lab 半導體實驗室隔間牆
-    { x: 1220, y: 1230, w: 460, h: 22, colorTop: '#6ee7b7', colorFront: '#047857' },
+    { x: 1420, y: 1230, w: 300, h: 22, colorTop: '#6ee7b7', colorFront: '#047857' },
     { x: 1920, y: 1230, w: 762, h: 22, colorTop: '#6ee7b7', colorFront: '#047857' },
-    { x: 1220, y: 1230, w: 22, h: 582, colorTop: '#6ee7b7', colorFront: '#047857' },
+    { x: 1420, y: 1230, w: 22, h: 582, colorTop: '#6ee7b7', colorFront: '#047857' },
   ],
 
   directorBlocks: [
@@ -152,21 +152,21 @@ window.WORLD_MAP = {
     { id: 'te7', zone: 'TE', x: 1680, y: 920, w: 160, h: 72, screenState: 'wave', hasLamp: false, hasKuaiKuai: true, owner: 'TE-TouchDown' },
     { id: 'te8', zone: 'TE', x: 1880, y: 920, w: 160, h: 72, screenState: 'pass', hasLamp: true, hasKuaiKuai: true, owner: 'TE-Site 熱圖' },
 
-    { id: 'lab_pc1', zone: 'LAB', x: 2380, y: 1380, w: 180, h: 74, screenState: 'pass', hasLamp: true, hasKuaiKuai: true, owner: 'Lab GPIB 主控台 A' },
-    { id: 'lab_pc2', zone: 'LAB', x: 2380, y: 1580, w: 180, h: 74, screenState: 'wafer', hasLamp: true, hasKuaiKuai: true, owner: 'Lab Burn-In 監控台 B' },
+    { id: 'lab_pc1', zone: 'LAB', x: 2475, y: 1380, w: 175, h: 74, screenState: 'pass', hasLamp: true, hasKuaiKuai: true, owner: 'Lab GPIB 主控台 A' },
+    { id: 'lab_pc2', zone: 'LAB', x: 2475, y: 1580, w: 175, h: 74, screenState: 'wafer', hasLamp: true, hasKuaiKuai: true, owner: 'Lab Burn-In 監控台 B' },
   ],
 
   // Lab 實驗室重型 3D 像素設備 (隨機切換正常運轉、自動校準、晶圓傳送、待命等真實狀態)
   labEquipments: [
-    { id: 'tester_1', kind: 'tester', name: 'Advantest T5830ES #1', x: 1300, y: 1330, w: 150, h: 110, status: 'RUN 99.9%', statusColor: '#22c55e' },
-    { id: 'tester_2', kind: 'tester', name: 'Advantest T5830ES #2', x: 1500, y: 1330, w: 150, h: 110, status: 'AUTO CALIB', statusColor: '#38bdf8' },
-    { id: 'tester_3', kind: 'tester', name: 'Advantest T5385ES #3', x: 1300, y: 1560, w: 150, h: 110, status: 'PASS READY', statusColor: '#22c55e' },
-    { id: 'tester_4', kind: 'tester', name: 'Advantest T5833 #4', x: 1500, y: 1560, w: 150, h: 110, status: 'LOT CHANGE', statusColor: '#facc15' },
+    { id: 'tester_1', kind: 'tester', name: 'Advantest T5830ES #1', x: 1470, y: 1330, w: 145, h: 110, status: 'RUN 99.9%', statusColor: '#22c55e' },
+    { id: 'tester_2', kind: 'tester', name: 'Advantest T5830ES #2', x: 1920, y: 1330, w: 145, h: 110, status: 'AUTO CALIB', statusColor: '#38bdf8' },
+    { id: 'tester_3', kind: 'tester', name: 'Advantest T5385ES #3', x: 1470, y: 1560, w: 145, h: 110, status: 'PASS READY', statusColor: '#22c55e' },
+    { id: 'tester_4', kind: 'tester', name: 'Advantest T5833 #4', x: 1920, y: 1560, w: 145, h: 110, status: 'LOT CHANGE', statusColor: '#facc15' },
     { id: 'loader_1', kind: 'loader', name: 'Wafer Loader EFEM-A', x: 1740, y: 1340, w: 140, h: 115, status: 'LOADING', statusColor: '#38bdf8' },
     { id: 'loader_2', kind: 'loader', name: 'Wafer Loader EFEM-B', x: 1740, y: 1560, w: 140, h: 115, status: 'ALIGN OK', statusColor: '#22c55e' },
-    { id: 'oven_1', kind: 'oven', name: '高溫爐烤箱 (130°C Burn-In)', x: 1960, y: 1330, w: 155, h: 120, temp: '130.0°C', status: 'BAKING', statusColor: '#f97316' },
-    { id: 'oven_2', kind: 'oven', name: '高溫/低溫烘箱 (-45°C~90°C)', x: 2150, y: 1330, w: 155, h: 120, temp: '90.0°C', status: 'STABLE', statusColor: '#22c55e' },
-    { id: 'oven_3', kind: 'oven', name: 'HTOL 老化高溫爐 #3', x: 1960, y: 1560, w: 155, h: 120, temp: '25.0°C', status: 'COOLING', statusColor: '#38bdf8' },
+    { id: 'oven_1', kind: 'oven', name: '高溫爐烤箱 (130°C Burn-In)', x: 2105, y: 1330, w: 150, h: 120, temp: '130.0°C', status: 'BAKING', statusColor: '#f97316' },
+    { id: 'oven_2', kind: 'oven', name: '高溫/低溫烘箱 (-45°C~90°C)', x: 2290, y: 1330, w: 150, h: 120, temp: '90.0°C', status: 'STABLE', statusColor: '#22c55e' },
+    { id: 'oven_3', kind: 'oven', name: 'HTOL 老化高溫爐 #3', x: 2105, y: 1560, w: 150, h: 120, temp: '25.0°C', status: 'COOLING', statusColor: '#38bdf8' },
   ],
 
   // 會議室 A 台股即時看盤巨型大螢幕座標
@@ -196,12 +196,246 @@ window.WORLD_MAP = {
     { x: 2210, y: 605, w: 160, h: 48 },
     // 兩間獨立會議室大會議桌 (不遮蔽南北側各 4 張獨立會議椅)
     { x: 280, y: 1450, w: 250, h: 135 },
-    { x: 810, y: 1450, w: 250, h: 135 },
+    // 禮佛區大佛神案供桌碰撞區 (原會議室 B 辦公桌已移除，保留西側重傷養傷空間與 8 張跪墊互動空間)
+    { x: 1010, y: 1270, w: 160, h: 90 },
+  ],
+
+  // 禮佛區大佛神案與金色坐佛神像座標 (參考 d0043b4c48112b5cb823ffbcde8f2e83_t.jpeg)
+  buddhaAltar: {
+    x: 1010,
+    y: 1270,
+    w: 160,
+    h: 90,
+    statueX: 1090,
+    statueY: 1306,
+  },
+
+  // 禮佛區 8 張「拜」字紅金蓮花跪墊 (參考 2d31a243-8876-459c-aaff-f955a6b8b65a.jpg，按 E 進入跪著狀態與 5 種祈福 MURMUR)
+  kneelingCushions: [
+    { id: 'cushion_meet_b_1', name: '1號誠心拜墊', x: 960, y: 1495, dir: 'up', row: 1, col: 1 },
+    { id: 'cushion_meet_b_2', name: '2號All-Pass拜墊', x: 1050, y: 1495, dir: 'up', row: 1, col: 2 },
+    { id: 'cushion_meet_b_3', name: '3號恐龍蛋拜墊', x: 1140, y: 1495, dir: 'up', row: 1, col: 3 },
+    { id: 'cushion_meet_b_4', name: '4號Qual順遂拜墊', x: 1230, y: 1495, dir: 'up', row: 1, col: 4 },
+    { id: 'cushion_meet_b_5', name: '5號退散客退拜墊', x: 960, y: 1615, dir: 'up', row: 2, col: 1 },
+    { id: 'cushion_meet_b_6', name: '6號MSS神速拜墊', x: 1050, y: 1615, dir: 'up', row: 2, col: 2 },
+    { id: 'cushion_meet_b_7', name: '7號良率滿分拜墊', x: 1140, y: 1615, dir: 'up', row: 2, col: 3 },
+    { id: 'cushion_meet_b_8', name: '8號功德圓滿拜墊', x: 1230, y: 1615, dir: 'up', row: 2, col: 4 },
+  ],
+  _unusedFurnitureColliders: [
   ],
 };
 
 // Pixel statue based on the shrine reference: blue hat, red coat, green shorts,
 // white gloves and the distinctive two-tooth smile. Rasterised onto a 48px grid.
+// 禮佛區神像與「拜」字蓮花跪墊像素繪圖引擎 (支援載入參考圖片 d0043b4c48112b5cb823ffbcde8f2e83_t.jpeg 與 2d31a243-8876-459c-aaff-f955a6b8b65a.jpg 並提供高擬真像素繪製)
+let _buddhaSpriteCanvas = null;
+let _buddhaSpriteLoading = false;
+function getBuddhaReferenceCanvas() {
+  if (_buddhaSpriteCanvas) return _buddhaSpriteCanvas;
+  if (_buddhaSpriteLoading || typeof Image === 'undefined' || typeof document === 'undefined') return null;
+  _buddhaSpriteLoading = true;
+  try {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = img.width || 128;
+        c.height = img.height || 128;
+        const cctx = c.getContext('2d');
+        cctx.drawImage(img, 0, 0);
+        const imgData = cctx.getImageData(0, 0, c.width, c.height);
+        const d = imgData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          // 去除純白與淺灰背景，保留像素金佛本體與深色描邊
+          if (d[i] > 235 && d[i + 1] > 235 && d[i + 2] > 235) {
+            d[i + 3] = 0;
+          }
+        }
+        cctx.putImageData(imgData, 0, 0);
+        _buddhaSpriteCanvas = c;
+      } catch (_e) {
+        // Fallback to procedural pixel art
+      }
+    };
+    img.src = './d0043b4c48112b5cb823ffbcde8f2e83_t.jpeg';
+  } catch (_err) {
+    // Ignore in headless environment
+  }
+  return null;
+}
+
+function drawBuddhaStatue(ctx, cx, cy, tick = 0) {
+  ctx.save();
+  const pulse = Math.sin(tick * 0.06) * 3;
+  // 1. 神聖佛光背光 (金色多層像素光暈)
+  const haloGrad = ctx.createRadialGradient(cx, cy - 18, 8, cx, cy - 18, 54 + pulse);
+  haloGrad.addColorStop(0, 'rgba(254, 240, 138, 0.90)');
+  haloGrad.addColorStop(0.5, 'rgba(250, 204, 21, 0.42)');
+  haloGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+  ctx.fillStyle = haloGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy - 18, 54 + pulse, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. 紫金蓮花寶座底座
+  draw3DPixelBox(ctx, cx - 36, cy + 4, 72, 18, 12, '#b45309', '#78350f', '#451a03');
+  draw3DPixelBox(ctx, cx - 30, cy - 2, 60, 12, 10, '#f59e0b', '#b45309', '#78350f');
+
+  // 若瀏覽器已載入去背後的參考圖 d0043b4c48112b5cb823ffbcde8f2e83_t.jpeg，直接疊加渲染；同時繪製 1:1 像素金佛確保任何環境皆完美呈現
+  const refCanvas = getBuddhaReferenceCanvas();
+  if (refCanvas) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(refCanvas, cx - 38, cy - 66, 76, 76);
+    ctx.restore();
+    return;
+  }
+
+  // 3. 1:1 像素金佛 (依 d0043b4c48112b5cb823ffbcde8f2e83_t.jpeg 像素比例繪製：螺髮肉髻、慈悲閉目、眉間朱砂白毫、豐耳、袈裟與雙手禪定印、盤腿坐姿)
+  const px = 2;
+  const ox = Math.round(cx);
+  const oy = Math.round(cy - 22);
+  const pRect = (color, gx, gy, gw, gh) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(ox + gx * px, oy + gy * px, gw * px, gh * px);
+  };
+
+  // 頂上肉髻與螺旋佛髮 (深褐黑框 + 琥珀金螺髮紋)
+  pRect('#271709', -5, -22, 10, 4);
+  pRect('#b45309', -4, -21, 8, 3);
+  pRect('#f59e0b', -2, -20, 4, 2);
+  pRect('#271709', -10, -18, 20, 6);
+  pRect('#92400e', -9, -17, 18, 5);
+  // 螺髮格紋
+  for (let gx = -8; gx <= 6; gx += 3) {
+    pRect('#fbbf24', gx, -16, 2, 2);
+    pRect('#d97706', gx + 1, -14, 2, 2);
+  }
+
+  // 佛首與雙耳 (飽滿金黃臉龐 + 長耳垂肩)
+  pRect('#271709', -12, -12, 24, 11);
+  pRect('#f59e0b', -11, -11, 2, 9); // 左長耳
+  pRect('#f59e0b', 9, -11, 2, 9);   // 右長耳
+  pRect('#fbbf24', -9, -12, 18, 10);
+  pRect('#fde047', -7, -11, 14, 8);
+
+  // 眉間朱砂白毫 (Urna)
+  pRect('#b91c1c', -1, -10, 2, 2);
+
+  // 慈悲雙眉與閉目禪定眼線
+  pRect('#451a03', -6, -8, 4, 1);
+  pRect('#451a03', 2, -8, 4, 1);
+  pRect('#271709', -5, -6, 4, 1);
+  pRect('#271709', 1, -6, 4, 1);
+  // 微笑唇線
+  pRect('#92400e', -2, -4, 4, 1);
+
+  // 袈裟披肩與身軀 (斜披金色袈裟與深琥珀摺皺)
+  pRect('#271709', -14, -1, 28, 13);
+  pRect('#d97706', -13, 0, 26, 11);
+  pRect('#fbbf24', -11, 0, 22, 9);
+  pRect('#fde047', -4, 0, 8, 5); // 胸前金色肌理
+  // 袈裟斜紋摺皺
+  pRect('#92400e', -10, 2, 18, 1);
+  pRect('#92400e', -8, 5, 16, 1);
+
+  // 雙腿盤坐 (蓮花趺坐) 與腹前禪定手印
+  pRect('#271709', -17, 9, 34, 7);
+  pRect('#b45309', -16, 10, 32, 5);
+  pRect('#f59e0b', -14, 10, 28, 4);
+  // 雙手交疊禪定印
+  pRect('#fde047', -5, 7, 10, 3);
+  pRect('#92400e', -4, 9, 8, 1);
+
+  ctx.restore();
+}
+
+function drawKneelingCushion(ctx, cushion, tick = 0) {
+  ctx.save();
+  const cx = Math.round(cushion.x);
+  const cy = Math.round(cushion.y);
+  const w = 52;
+  const h = 38;
+  const x = cx - w / 2;
+  const y = cy - h / 2;
+
+  // 1. 地面立體陰影
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.38)';
+  ctx.fillRect(x + 3, y + 5, w, h);
+
+  // 2. 四角黃金流蘇 (參考 2d31a243-8876-459c-aaff-f955a6b8b65a.jpg 四角垂墜金穗)
+  const drawTassel = (tx, ty, flipX) => {
+    ctx.fillStyle = '#b45309';
+    ctx.fillRect(tx - 3, ty - 2, 6, 5);
+    ctx.fillStyle = '#facc15';
+    ctx.fillRect(tx - 2, ty - 1, 4, 4);
+    ctx.fillStyle = '#fde047';
+    ctx.fillRect(tx - 2 + (flipX ? -2 : 1), ty + 2, 3, 4);
+  };
+  drawTassel(x - 2, y + 3, true);
+  drawTassel(x + w + 2, y + 3, false);
+  drawTassel(x - 2, y + h - 2, true);
+  drawTassel(x + w + 2, y + h - 2, false);
+
+  // 3. 朱紅拜墊厚實 3D 底座與金色編織滾邊
+  ctx.fillStyle = '#450a0a';
+  ctx.fillRect(x - 2, y - 2, w + 4, h + 6);
+  // 下緣深紅側面與金穗滾邊
+  ctx.fillStyle = '#7f1d1d';
+  ctx.fillRect(x, y + h - 6, w, 8);
+  for (let gx = x + 2; gx < x + w - 2; gx += 4) {
+    ctx.fillStyle = (gx / 4) % 2 === 0 ? '#facc15' : '#d97706';
+    ctx.fillRect(gx, y + h - 4, 3, 4);
+  }
+
+  // 4. 拜墊頂面正紅絨面
+  ctx.fillStyle = '#b91c1c';
+  ctx.fillRect(x, y, w, h - 4);
+  ctx.fillStyle = '#dc2626';
+  ctx.fillRect(x + 3, y + 2, w - 6, h - 8);
+
+  // 5. 內圈金蓮花紋邊框 (對應參考圖的金色蓮瓣內圈)
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x + 5, y + 4, w - 10, h - 12);
+  ctx.fillStyle = '#fde047';
+  for (let px = x + 8; px <= x + w - 10; px += 6) {
+    ctx.fillRect(px, y + 3, 3, 2);
+    ctx.fillRect(px, y + h - 9, 3, 2);
+  }
+  for (let py = y + 7; py <= y + h - 13; py += 6) {
+    ctx.fillRect(x + 4, py, 2, 3);
+    ctx.fillRect(x + w - 6, py, 2, 3);
+  }
+
+  // 6. 中央醒目黃金書法「拜」字
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '900 16px "Microsoft JhengHei", "PMingLiU", serif';
+  ctx.fillStyle = '#78350f';
+  ctx.fillText('拜', cx + 1, cy - 1);
+  ctx.fillStyle = '#fef08a';
+  ctx.fillText('拜', cx, cy - 2);
+
+  // 7. 漂浮金色祈福星芒粒子 (對應參考圖四周閃爍的金星)
+  const sparkPhase = (tick + cushion.col * 17 + cushion.row * 31) % 60;
+  const sparkOffsets = [
+    { dx: -22, dy: -14 },
+    { dx: 22, dy: -12 },
+    { dx: -18, dy: 12 },
+    { dx: 20, dy: 14 },
+  ];
+  sparkOffsets.forEach((sp, idx) => {
+    const floatY = Math.sin((sparkPhase + idx * 15) * 0.1) * 2.5;
+    ctx.fillStyle = (idx + Math.floor(tick / 12)) % 2 === 0 ? '#fef08a' : '#f59e0b';
+    ctx.fillRect(Math.round(cx + sp.dx), Math.round(cy + sp.dy + floatY), 2, 2);
+  });
+
+  ctx.restore();
+}
+window.drawBuddhaStatue = drawBuddhaStatue;
+window.drawKneelingCushion = drawKneelingCushion;
+
 function drawKuaikuaiShrineMascot(ctx,x,y,scale=2){
   ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(scale,scale);
   const rect=(c,x,y,w,h)=>{ctx.fillStyle=c;ctx.fillRect(x,y,w,h);};
@@ -831,7 +1065,7 @@ class OfficeEcosystem {
         color: '255, 255, 255',
       });
       this.steamParticles.push({
-        x: 2035 + (Math.random() - 0.5) * 35,
+        x: 2180 + (Math.random() - 0.5) * 35,
         y: 1330,
         vy: -0.5,
         alpha: 0.65,
@@ -1210,7 +1444,81 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
   ctx.fillStyle='#94a3b8';ctx.font='10px sans-serif';ctx.fillText(stData.dateText||'行情日期：--',sc.x+16,sc.y+86);ctx.fillText(stData.statusText || 'TWSE · 官方即時行情',sc.x+16,sc.y+103);ctx.restore();
 
   // 會議室 B (中左：685..1180)
-  drawOfficeMaterial(ctx, 685, 1252, 495, 560, 'carpet', '#dfcdd3', '#986d80');
+  // 禮佛區 (原會議室 B 擴建：x: 685..1380, y: 1252..1812，實驗室向東縮減)
+  drawOfficeMaterial(ctx, 685, 1252, 695, 560, 'carpet', '#5c2327', '#8c3b3f');
+  ctx.save();
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(700, 1264, 665, 536);
+  ctx.strokeStyle = 'rgba(253, 224, 71, 0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(708, 1272, 649, 520);
+
+  // 西側蓮花靜養區 (提供重傷同仁寬敞不重疊的養傷空間 x: 720..885, y: 1335..1765)
+  ctx.fillStyle = 'rgba(21, 128, 61, 0.22)';
+  ctx.fillRect(720, 1335, 165, 430);
+  ctx.strokeStyle = 'rgba(134, 239, 172, 0.55)';
+  ctx.setLineDash([6, 4]);
+  ctx.lineWidth = 2;
+  ctx.strokeRect(720, 1335, 165, 430);
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#bbf7d0';
+  ctx.font = '700 11px "Microsoft JhengHei", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🪷 蓮花養傷靜養區', 802, 1358);
+  ctx.fillStyle = 'rgba(187, 247, 208, 0.78)';
+  ctx.font = '600 9.5px "Microsoft JhengHei", sans-serif';
+  ctx.fillText('(重傷休養專區·不重疊)', 802, 1375);
+
+  // 東側祈福殿紅金地毯襯底 (x: 905..1285, y: 1440..1675)
+  ctx.fillStyle = 'rgba(127, 29, 29, 0.48)';
+  ctx.fillRect(905, 1440, 380, 235);
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(905, 1440, 380, 235);
+
+  // 大雄寶殿神案供桌與「PP00 禮佛區」橫匾 (x: 1010..1170, y: 1270..1360)
+  draw3DPixelBox(ctx, 975, 1258, 230, 34, 16, '#78350f', '#451a03', '#271709');
+  ctx.fillStyle = '#fde047';
+  ctx.font = '900 13px "Microsoft JhengHei", "Outfit", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🏮 PP00 禮佛區 · 誠心祈福殿 🏮', 1090, 1264);
+
+  // 神案供桌本體與金紅桌圍
+  draw3DPixelBox(ctx, 1010, 1295, 160, 65, 22, '#991b1b', '#7f1d1d', '#450a0a');
+  ctx.fillStyle = '#facc15';
+  ctx.fillRect(1016, 1338, 148, 4);
+  ctx.strokeStyle = '#fde047';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(1024, 1300, 132, 34);
+
+  // 左右光明蓮花燈與供果
+  draw3DPixelBox(ctx, 1020, 1302, 16, 22, 14, '#fde047', '#ca8a04', '#854d0e');
+  draw3DPixelBox(ctx, 1144, 1302, 16, 22, 14, '#fde047', '#ca8a04', '#854d0e');
+
+  // 中央金佛神像 (參考 d0043b4c48112b5cb823ffbcde8f2e83_t.jpeg)
+  drawBuddhaStatue(ctx, 1090, 1306, tick);
+
+  // 神案前紫銅香爐與裊裊香煙
+  draw3DPixelBox(ctx, 1074, 1330, 32, 18, 14, '#fbbf24', '#b45309', '#78350f');
+  for (let s = 0; s < 3; s++) {
+    const sx = 1084 + s * 6 + Math.sin(tick * 0.08 + s) * 3;
+    const sy = 1312 - ((tick * 0.4 + s * 8) % 18);
+    ctx.fillStyle = 'rgba(254, 249, 195, 0.55)';
+    ctx.fillRect(Math.round(sx), Math.round(sy), 3, 5);
+  }
+
+  // 繪製 8 張「拜」字紅金蓮花跪墊 (參考 2d31a243-8876-459c-aaff-f955a6b8b65a.jpg)
+  (window.WORLD_MAP.kneelingCushions || []).forEach((cushion) => {
+    drawKneelingCushion(ctx, cushion, tick);
+  });
+
+  ctx.fillStyle = '#fde68a';
+  ctx.font = '700 11.5px "Microsoft JhengHei", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🙏 靠近「拜」字蓮花跪墊按 [E] 跪拜祈福 · 觸發 5 種工程師虔誠 MURMUR', 1095, 1702);
+  ctx.restore();
+  if (false) {
   draw3DPixelBox(ctx, 810, 1450, 250, 135, 22, '#f472b6', '#9d174d', '#831843');
   [835, 895, 955, 1015].forEach((cx) => {
     draw3DPixelBox(ctx, cx, 1405, 34, 26, 14, '#475569', '#1e293b', '#0f172a');
@@ -1221,9 +1529,10 @@ window.renderOfficeWorld = function (ctx, ecosystem, tick) {
   ctx.font = '800 13px "Outfit", monospace';
   ctx.textAlign = 'center';
   ctx.fillText('MEETING B · PP00 CHIP ARCHITECTURE', 935, 1288);
+  }
 
   // 2.7 Lab 半導體無塵實驗室 (右下：x: 1242..2682, y: 1252..1812)
-  drawOfficeMaterial(ctx, 1242, 1252, 1440, 560, 'tile', '#344953', '#75999d');
+  drawOfficeMaterial(ctx, 1442, 1252, 1240, 560, 'tile', '#344953', '#75999d');
   // Equipment service bays stay inside existing furniture footprints.
   ctx.save();
   window.WORLD_MAP.labEquipments.forEach((eq) => {
