@@ -238,6 +238,39 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
     if(p.channel?.target===targetId)p.channel=null;
     return;
   }
+  if(kind==='device_break'){
+    const targetId=b.target||(b.type==='lab'?`lab_${b.idx}`:`ws_${b.idx}`);
+    const t=assets.tasks.find(t=>t.id===targetId);
+    if(!t)fail('無效設備');
+    const mobId=b.mobId||b.mob;
+    const mob=s.enemies[mobId];
+    if(!mob||!mob.mob||mob.hp<=0||mob.room!==p.room)fail('怪物不存在、已擊倒或不在同房間');
+    if(!near(mob,t.x,t.y,120))fail('怪物距離設備過遠');
+
+    s.sabotageGrants||={};
+    const grantId=b.grantId||b.eventId;
+    const grant=grantId?s.sabotageGrants[grantId]:null;
+    if(!grant||grant.mobId!==mob.id||grant.targetId!==targetId||grant.room!==p.room||now>=grant.expiresAt){
+      fail('無效或已過期的破壞授權');
+    }
+
+    s.broken||={};
+    const old=s.broken[targetId];
+    if(old?.broken)return;
+    if(old&&!old.broken&&now-(old.handledAt||0)<300000){
+      fail('設備剛修復完畢，處於保固保護中');
+    }
+    if(mob.lastSabotageAt&&now-mob.lastSabotageAt<300000){
+      fail('怪物破壞冷卻中');
+    }
+
+    delete s.sabotageGrants[grantId];
+    delete mob.sabotageGrant;
+    mob.attacking=false;
+    mob.lastSabotageAt=now;
+    s.broken[targetId]={broken:true,room:p.room,brokenBy:mob.name||'Mob',brokenAt:now,eventId:grantId};
+    return;
+  }
   if(kind==='rma_claim'){
     if(!near(p,998,350))fail('請靠近電話');if(s.tasks[p.room]?.claimer||s.tasks[p.room]?.cooldown>now)fail('目前搶修中或電話冷卻中');
     const available=assets.tasks.filter(t=>!s.broken?.[t.id]?.broken);if(available.length<3)fail('目前沒有足夠可用設備');s.broken||={};
@@ -355,6 +388,18 @@ export function world(s,p,b,now,rng=Math.random,positionsOnly=false){
     if(!e)e=s.enemies[row.id]={id:row.id,role,tier,hp,maxHp:hp,room:p.room,mob:role==='mob'};
     if(e.room!==p.room||e.mob&&e.hp<=0||e.until>now||e.busyUntil>now)continue;
     e.x=Math.max(55,Math.min(2700,row.x));e.y=Math.max(55,Math.min(1900,row.y));e.name=String(row.name||row.id).slice(0,40);e.templateId=String(row.templateId||row.id);e.lastSeen=now;e.attacking=!!row.attacking;
+    if(e.mob&&e.hp>0&&e.attacking&&(!e.lastSabotageAt||now-e.lastSabotageAt>=300000)){
+      const targetTask=assets.tasks.find(t=>near(e,t.x,t.y,110)&&!s.broken?.[t.id]?.broken&&(!s.broken?.[t.id]?.handledAt||now-s.broken[t.id].handledAt>=300000));
+      if(targetTask){
+        s.sabotageGrants||={};
+        const existing=e.sabotageGrant&&s.sabotageGrants[e.sabotageGrant];
+        if(!existing||existing.targetId!==targetTask.id||now>=existing.expiresAt){
+          const gid='sab_'+uid();
+          s.sabotageGrants[gid]={id:gid,mobId:e.id,targetId:targetTask.id,room:p.room,expiresAt:now+60000};
+          e.sabotageGrant=gid;
+        }
+      }
+    }
     if(!positionsOnly&&(row.attacking||role==='bird'&&now%1800000<60000)){
       for(const q of online){if(!near(q,e.x,e.y,75)||locked(q,now))continue;
         if(role==='bird'&&now%1800000<60000){if(q.x>=2220&&q.x<=2500&&q.y>=160&&q.y<=460)continue;hurt(s,q,'hunt',now,rng);}
@@ -370,13 +415,11 @@ export function world(s,p,b,now,rng=Math.random,positionsOnly=false){
     if(guard){e.hp=0;e.defeatedAt=now;e.until=now+300000;e.reaction={id:uid(),kind:'defeat',angle:Math.atan2(e.y-guard.y,e.x-guard.x),at:now,duration:650};s.mobDefeatedAt||={};s.mobDefeatedAt[p.room]=now;}
   }
   s.broken||={};
-  const brokenSet=new Set(b.broken||[]);
-  for(const [id,entry]of Object.entries(s.broken)){
-    if(entry.room===p.room&&!entry.rma&&!brokenSet.has(id)&&entry.broken){
-      entry.broken=false;entry.handledAt=now;
-    }
-  }
-  for(const id of (b.broken||[]).slice(0,100)){if(!assets.tasks.some(t=>t.id===id))continue;const old=s.broken[id];if(!old||!old.broken&&now-(old.handledAt||0)>300000)s.broken[id]={broken:true,room:p.room};}
+  s.sabotageGrants||={};
+  for(const [gid,grant] of Object.entries(s.sabotageGrants))if(now>=grant.expiresAt)delete s.sabotageGrants[gid];
+  s.consumedSabotageEvents||={};
+  for(const [k,v] of Object.entries(s.consumedSabotageEvents))if(now-v>1800000)delete s.consumedSabotageEvents[k];
+  // 後端單一權威：設備狀態完全由 device_break, device_finish, rma_claim 管轄，心跳完全不覆寫設備狀態
   for(const [id,e]of Object.entries(s.enemies))if(e.mob&&e.hp<=0&&now-e.defeatedAt>300000)delete s.enemies[id];
   const room=p.room;
   // Only the server creates new mob instances; stale client packets cannot revive them.

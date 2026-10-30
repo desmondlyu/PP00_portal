@@ -1164,6 +1164,12 @@ class EphemeralOfficeNetwork {
         break;
       }
       case 'device_repair': {
+        if (window.GATHER_CONFIG?.season2 || (typeof season !== 'undefined' && season?.enabled)) {
+          if (this.callbacks.onRemoteDeviceRepair) {
+            this.callbacks.onRemoteDeviceRepair(pkt);
+          }
+          break;
+        }
         const isLab = pkt.type === 'lab' || (pkt.id && pkt.id.startsWith('lab_'));
         const idx = pkt.idx !== undefined ? pkt.idx : Number((pkt.id || '').split('_')[1]);
         const target = isLab ? window.WORLD_MAP?.labEquipments?.[idx] : window.WORLD_MAP?.workstations?.[idx];
@@ -1179,6 +1185,9 @@ class EphemeralOfficeNetwork {
             target.leftScreen = 'Pass';
             target.rightScreen = 'Good';
           }
+        }
+        if (this.callbacks.onRemoteDeviceRepair) {
+          this.callbacks.onRemoteDeviceRepair(pkt);
         }
         break;
       }
