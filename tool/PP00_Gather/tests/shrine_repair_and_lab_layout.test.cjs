@@ -88,3 +88,26 @@ test('Attacking remote players: immediate knockback physics, parabolic arc, and 
   assert.ok(netJs.includes('rp.knockback.vx *= 0.86'), 'network.js must damp knockback velocity');
   assert.ok(netJs.includes('rp.knockback.ticksLeft--'), 'network.js must decrement knockback ticks');
 });
+
+test('Floating chat suppresses browser desktop notifications and duplicate windows', () => {
+  const appJs = fs.readFileSync(path.join(__dirname, '../static/js/app.js'), 'utf8');
+  assert.ok(appJs.includes('if (activePipWindow && !activePipWindow.closed) return;'), 'triggerDesktopNotification must return early if floating chat window is active');
+});
+
+test('Interactive repair: remove legacy progress text and maintain durable repaired state', () => {
+  const appJs = fs.readFileSync(path.join(__dirname, '../static/js/app.js'), 'utf8');
+  const engineMjs = fs.readFileSync(path.join(__dirname, '../server/engine.mjs'), 'utf8');
+
+  // 1. 舊版 "互動中 XX%" 浮動字樣已被移除/過濾，僅由專屬維修 HUD 渲染
+  assert.ok(appJs.includes("if (c && c.kind !== 'device' && c.kind !== 'rma' && !activeRepairSession)"), 'Legacy "互動中" text must not be drawn for repair');
+
+  // 2. 修理完成後 lastRepairedAt 防覆蓋保固機制與即時解除本地與快照損壞狀態
+  assert.ok(appJs.includes('tgt.lastRepairedAt = gameNow();'), 'completeRepairSession must set lastRepairedAt');
+  assert.ok(appJs.includes('target.lastRepairedAt') && appJs.includes('15000'), 'Snapshot handler must protect repaired equipment from stale server frames');
+  assert.ok(appJs.includes('eq.lastRepairedAt') && appJs.includes('15000'), 'onWorldSync must protect repaired equipment from stale peer frames');
+
+  // 3. 伺服器 engine.mjs 支援 device_repair 動作與房間廣播名單自動解除已修復設備
+  assert.ok(engineMjs.includes("kind==='device_repair'"), 'server/engine.mjs must support device_repair action');
+  assert.ok(engineMjs.includes('entry.broken=false;entry.handledAt=now;'), 'server/engine.mjs must un-break equipment omitted by master world heartbeat');
+});
+
