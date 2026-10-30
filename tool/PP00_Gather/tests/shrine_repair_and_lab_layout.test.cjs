@@ -266,7 +266,9 @@ test('Behavioral: device_break validation against spoofing, replay and world hea
 
   // 9. 【Codex 回歸測試】：插入一次房長 world 更新 (送出 attacking: true)，嘗試搭配新 eventId 再次破壞
   p.lastSeen = 5000;
+  p.effects = {};
   E.world(s, p, { enemies: [{ id: 'mob_near', name: 'RMA Red Mob', x: labTask.x + 20, y: labTask.y + 20, attacking: true }] }, 5000);
+  p.effects = {};
   // 後端因怪物破壞冷卻與設備保固，絕不核發新的破壞授權
   assert.equal(s.enemies['mob_near'].sabotageGrant, undefined, 'Backend must NOT issue grant to mob under cooldown or repaired equipment');
   // 客戶端嘗試以 client_1 再次發送 device_break -> 嚴格被拒絕！

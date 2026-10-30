@@ -22,6 +22,7 @@ export async function request(s,kind,b,token,now,source='local'){
   if(kind==='resume'){const oldHash=p.tokenHash,raw=uid()+uid();p.generation=uid();p.resumeRecovery={oldHash,requestId:b.requestId,until:now+30000,generation:p.generation};p.tokenHash=await digest(raw);p.sessionUntil=now+30*86400000;p.connection=String(b.connection||uid()).slice(0,80);p.lastSeen=now;act(s,p.id,'signin',{},now);return {...snapshot(s,p.id,now),token:raw};}
   if(kind==='snapshot')return snapshot(s,p.id,now);
   // Position and interaction commit together: no preliminary HTTP heartbeat is needed.
+  let result=undefined;
   if(b.pose&&typeof b.pose==='object')act(s,p.id,'heartbeat',b.pose,now);
   if(kind==='heartbeat'&&b.world){
     act(s,p.id,'heartbeat',b,now);
@@ -34,8 +35,11 @@ export async function request(s,kind,b,token,now,source='local'){
     combat(s,p,b,now);
   }
   else if(kind==='world')world(s,p,b,now);
-  else act(s,p.id,kind,b,now);
-  return kind==='logout'?{loggedOut:true,now}:snapshot(s,p.id,now);
+  else result=act(s,p.id,kind,b,now);
+  if(kind==='logout')return {loggedOut:true,now};
+  const snap=snapshot(s,p.id,now);
+  if(result&&typeof result==='object')Object.assign(snap,{actionResult:result});
+  return snap;
 }
 
 // A lost rotation response can be recovered for 30 seconds only, by the same old token + request ID.
