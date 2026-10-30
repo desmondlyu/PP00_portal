@@ -2521,6 +2521,15 @@ async function executeOfficeLogin(params) {
   }
 
   /**
+   * 統一判定手機或觸控設備環境（支援 iPhone 13 Pro Max 橫向 926px 等大螢幕手機）
+   */
+  function isMobileOrTouchScreen() {
+    if (typeof window === 'undefined') return false;
+    const isCoarse = !!(window.matchMedia && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(max-width: 1024px) and (pointer: coarse)').matches));
+    return window.innerWidth <= 900 || (isCoarse && (window.innerWidth <= 1024 || window.innerHeight <= 520));
+  }
+
+  /**
    * 檢查聊天視窗是否處於縮合/關閉狀態（跨瀏覽器相容 Edge / Chrome / Safari）
    */
   function isChatPanelCollapsed() {
@@ -2546,7 +2555,7 @@ async function executeOfficeLogin(params) {
     }
 
     // 3. 手機模式下（寬度 <= 900px）如果沒有 mobile-open class 即為縮合
-    const isMobileScreen = typeof window !== 'undefined' && window.innerWidth <= 900;
+    const isMobileScreen = isMobileOrTouchScreen();
     if (isMobileScreen && !chatPanel.classList.contains('mobile-open')) return true;
 
     return false;
@@ -2776,7 +2785,7 @@ async function executeOfficeLogin(params) {
 
     function toggleCampus(forceOpen = null) {
       if (!campusPanel) return;
-      if (window.innerWidth <= 900) {
+      if (isMobileOrTouchScreen()) {
         const shouldOpen = forceOpen !== null ? forceOpen : !campusPanel.classList.contains('mobile-open');
         campusPanel.classList.toggle('mobile-open', shouldOpen);
         campusPanel.classList.remove('minimized');
@@ -2798,7 +2807,7 @@ async function executeOfficeLogin(params) {
 
     function toggleChat(forceOpen = null) {
       if (!chatPanel) return;
-      if (window.innerWidth <= 900) {
+      if (isMobileOrTouchScreen()) {
         const shouldOpen = forceOpen !== null ? forceOpen : !chatPanel.classList.contains('mobile-open');
         chatPanel.classList.toggle('mobile-open', shouldOpen);
         chatPanel.classList.toggle('chat-minimized', !shouldOpen);
@@ -2825,6 +2834,17 @@ async function executeOfficeLogin(params) {
 
     if (toggleChatBtn) toggleChatBtn.addEventListener('click', () => toggleChat());
     if (mobileChatBtn) mobileChatBtn.addEventListener('click', () => toggleChat());
+
+    // 手機橫向常駐個人狀態條點擊切換展開/縮合
+    const userStatusBar = chatPanel.querySelector('.chat-user-status-bar');
+    if (userStatusBar) {
+      userStatusBar.addEventListener('click', (e) => {
+        if (e.target && (e.target.tagName === 'SELECT' || e.target.tagName === 'OPTION')) return;
+        if (isMobileOrTouchScreen() && !chatPanel.classList.contains('mobile-open')) {
+          toggleChat(true);
+        }
+      });
+    }
   }
 
   // =========================================================================

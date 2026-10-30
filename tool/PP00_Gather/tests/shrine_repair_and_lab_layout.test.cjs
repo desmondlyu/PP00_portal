@@ -139,4 +139,11 @@ test('Responsive expansion & scaling: 1440P baseline vs 1080P/mobile proportiona
   // 5. 雷達小地圖等比比例計算
   assert.ok(appJs.includes('vw >= 2100 && vh >= 1150') && appJs.includes('vw >= 1600 && vh >= 900'), 'getMinimapRect must distinguish 1440P, 1080P, and smaller viewports');
   assert.ok(appJs.includes('? 146'), '1080P minimap width must scale down to 146px (75% of 195px)');
+
+  // 6. iPhone 13 Pro Max (直立 428px vs 橫向 926px) 專屬防截斷與常駐等級資訊適配
+  assert.ok(appJs.includes('function isMobileOrTouchScreen()'), 'app.js must define unified touch screen detector');
+  assert.ok(appJs.includes('window.innerWidth <= 1024 || window.innerHeight <= 520'), 'app.js must support large mobile landscape viewports up to 1024px');
+  assert.ok(css.includes('max-width: calc(100% - 110px);'), 'Portrait bottom command dock must prevent clipping combat cluster');
+  assert.ok(css.includes('.prox-chat-panel:not(.mobile-open)'), 'Landscape must preserve persistent user status bar at bottom left');
+  assert.ok(css.includes('width: min(260px, 30vw) !important;'), 'Landscape persistent user bar must be compact');
 });
