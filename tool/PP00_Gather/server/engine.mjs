@@ -210,20 +210,29 @@ export function act(s,id,kind,b={},now=Date.now(),rng=Math.random){
   }
   if(kind==='device_start'){
     const t=assets.tasks.find(t=>t.id===b.target),fault=s.broken?.[b.target];
-    if(!t||!fault?.broken||fault.room!==p.room||!near(p,t.x,t.y,135))fail('無可維修故障');
+    if(!t||(fault&&!fault.broken)||fault?.room!==p.room||!near(p,t.x,t.y,135))fail('無可維修故障');
+    s.broken||={};
+    if(!s.broken[b.target]){s.broken[b.target]={broken:true,room:p.room};}
     p.channel={kind:'device',at:now,x:p.x,y:p.y,target:b.target};return;
   }
   if(kind==='device_finish'){
-    const c=p.channel,f=s.broken?.[c?.target];
-    if(c?.kind!=='device'||!f?.broken||!near(p,c.x,c.y,25)){if(c?.kind==='device')p.channel=null;fail('修復時間不足或設備已修好');}
-    if(now-c.at<3000)fail('修復時間不足或設備已修好');
-    const t=s.tasks[p.room];if(t?.targetIds?.includes(c.target))fail('請使用 RMA 任務修復');
-    f.broken=false;f.handledAt=now;gain(p,30);
+    const c=p.channel,targetId=c?.target||b.target||b.id||(b.type==='lab'?`lab_${b.idx}`:`ws_${b.idx}`);
+    const f=s.broken?.[targetId];
+    if(c?.kind!=='device'&&!f?.broken){fail('修復時間不足或設備已修好');}
+    if(c&&now-c.at<3000){fail('修復時間不足或設備已修好');}
+    const t=s.tasks[p.room];if(t?.targetIds?.includes(targetId))fail('請使用 RMA 任務修復');
+    if(f){f.broken=false;f.handledAt=now;gain(p,30);
     const supplyPool=['coffee','boba','pizza','kuaikuai','wrench','duck','ic_pkg'];
     const rewardItem={...fresh(pick(supplyPool,rng)),uid:uid()};
     if(capacity(p,rewardItem)){p.items.push(rewardItem);}
-    else{const d={...rewardItem,x:p.x,y:p.y,room:p.room,source:'world',origin:'repair',createdAt:now};s.drops[d.uid]=d;}
+    else{const d={...rewardItem,x:p.x,y:p.y,room:p.room,source:'world',origin:'repair',createdAt:now};s.drops[d.uid]=d;}}
     p.channel=null;return;
+  }
+  if(kind==='device_repair'){
+    const targetId=b.target||b.id||(b.type==='lab'?`lab_${b.idx}`:`ws_${b.idx}`);
+    if(s.broken?.[targetId]){s.broken[targetId].broken=false;s.broken[targetId].handledAt=now;}
+    if(p.channel?.target===targetId)p.channel=null;
+    gain(p,30);return;
   }
   if(kind==='rma_claim'){
     if(!near(p,998,350))fail('請靠近電話');if(s.tasks[p.room]?.claimer||s.tasks[p.room]?.cooldown>now)fail('目前搶修中或電話冷卻中');
@@ -357,6 +366,12 @@ export function world(s,p,b,now,rng=Math.random,positionsOnly=false){
     if(guard){e.hp=0;e.defeatedAt=now;e.until=now+300000;e.reaction={id:uid(),kind:'defeat',angle:Math.atan2(e.y-guard.y,e.x-guard.x),at:now,duration:650};s.mobDefeatedAt||={};s.mobDefeatedAt[p.room]=now;}
   }
   s.broken||={};
+  const brokenSet=new Set(b.broken||[]);
+  for(const [id,entry]of Object.entries(s.broken)){
+    if(entry.room===p.room&&!entry.rma&&!brokenSet.has(id)&&entry.broken){
+      entry.broken=false;entry.handledAt=now;
+    }
+  }
   for(const id of (b.broken||[]).slice(0,100)){if(!assets.tasks.some(t=>t.id===id))continue;const old=s.broken[id];if(!old||!old.broken&&now-(old.handledAt||0)>30000)s.broken[id]={broken:true,room:p.room};}
   for(const [id,e]of Object.entries(s.enemies))if(e.mob&&e.hp<=0&&now-e.defeatedAt>300000)delete s.enemies[id];
   const room=p.room;
