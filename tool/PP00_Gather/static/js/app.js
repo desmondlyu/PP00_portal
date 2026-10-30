@@ -465,7 +465,7 @@
     y: 120,
     zoom: 1,
     overviewMode: false,
-    minimapHidden: false,
+    minimapHidden: true,
   };
 
   let nearbyPlayers = [];
@@ -4169,6 +4169,7 @@ async function executeOfficeLogin(params) {
             totalTicks: 22,
           };
           colleague.jumpOffset = 36;
+          colleague.actionState = null;
           colleague.emote = { emoji: isFist ? '👊' : '💫', expiresAt: now + 2500 };
           const nx = Math.max(180, Math.min(window.WORLD_MAP.width - 150, colleague.x + Math.cos(angle) * pushDist));
           const ny = Math.max(100, Math.min(window.WORLD_MAP.height - 120, colleague.y + Math.sin(angle) * pushDist));
@@ -4294,6 +4295,7 @@ async function executeOfficeLogin(params) {
           totalTicks: 22,
         };
         colleague.jumpOffset = 36;
+        colleague.actionState = null;
         colleague.emote = { emoji: isFist ? '👊' : '💫', expiresAt: now + 3000 };
         const nx = Math.max(180, Math.min(window.WORLD_MAP.width - 150, colleague.x + Math.cos(ang) * pushDist));
         const ny = Math.max(100, Math.min(window.WORLD_MAP.height - 120, colleague.y + Math.sin(ang) * pushDist));
@@ -6800,6 +6802,26 @@ async function executeOfficeLogin(params) {
         showToast('👮 警衛管教結束，恢復行動與反擊自由！', 'success');
         if (network) {
           network.broadcastPacket('state_sync', { player: network.getPublicState() });
+        }
+      }
+    }
+
+    // 遠端同仁受到攻擊時的擊退物理衰減與拋物線高度恢復 (避免原地一直旋轉)
+    if (network && network.remotePlayers) {
+      for (const colleague of network.remotePlayers.values()) {
+        if (colleague && colleague.knockback && colleague.knockback.ticksLeft > 0) {
+          const kb = colleague.knockback;
+          const progress = 1 - kb.ticksLeft / (kb.totalTicks || 22);
+          colleague.jumpOffset = Math.sin(progress * Math.PI) * 42;
+          kb.vx *= 0.89;
+          kb.vy *= 0.89;
+          colleague.x = Math.max(175, Math.min(window.WORLD_MAP.width - 145, colleague.x + kb.vx));
+          colleague.y = Math.max(92, Math.min(window.WORLD_MAP.height - 110, colleague.y + kb.vy));
+          kb.ticksLeft--;
+          if (kb.ticksLeft <= 0) {
+            colleague.knockback = null;
+            colleague.jumpOffset = 0;
+          }
         }
       }
     }

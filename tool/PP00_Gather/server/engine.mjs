@@ -372,7 +372,7 @@ export function world(s,p,b,now,rng=Math.random,positionsOnly=false){
       entry.broken=false;entry.handledAt=now;
     }
   }
-  for(const id of (b.broken||[]).slice(0,100)){if(!assets.tasks.some(t=>t.id===id))continue;const old=s.broken[id];if(!old||!old.broken&&now-(old.handledAt||0)>30000)s.broken[id]={broken:true,room:p.room};}
+  for(const id of (b.broken||[]).slice(0,100)){if(!assets.tasks.some(t=>t.id===id))continue;const old=s.broken[id];if(!old||!old.broken&&now-(old.handledAt||0)>300000)s.broken[id]={broken:true,room:p.room};}
   for(const [id,e]of Object.entries(s.enemies))if(e.mob&&e.hp<=0&&now-e.defeatedAt>300000)delete s.enemies[id];
   const room=p.room;
   // Only the server creates new mob instances; stale client packets cannot revive them.

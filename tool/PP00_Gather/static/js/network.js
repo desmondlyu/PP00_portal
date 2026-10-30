@@ -1163,6 +1163,25 @@ class EphemeralOfficeNetwork {
         }
         break;
       }
+      case 'device_repair': {
+        const isLab = pkt.type === 'lab' || (pkt.id && pkt.id.startsWith('lab_'));
+        const idx = pkt.idx !== undefined ? pkt.idx : Number((pkt.id || '').split('_')[1]);
+        const target = isLab ? window.WORLD_MAP?.labEquipments?.[idx] : window.WORLD_MAP?.workstations?.[idx];
+        if (target) {
+          target.isBroken = false;
+          target.brokenBy = null;
+          target.lastRepairedAt = (window.GatherServerClock?.now() || Date.now());
+          if (isLab) {
+            target.status = 'PASS READY (100%)';
+            target.statusColor = '#22c55e';
+          } else {
+            target.screenState = 'pass';
+            target.leftScreen = 'Pass';
+            target.rightScreen = 'Good';
+          }
+        }
+        break;
+      }
       case 'npc_reaction': {
         const targetNpc = this.npcPlayers.get(pkt.npcId);
         if (targetNpc) {
@@ -2158,7 +2177,7 @@ class EphemeralOfficeNetwork {
             npc.actionState = null;
           }
         }
-      } else if ((!npc.isBirdCommander || now >= npc.followPlayerUntil) && this.isRoomMaster()) {
+      } else if ((!npc.isBirdCommander || now >= npc.followPlayerUntil) && (this.isRoomMaster() || now - (this.lastMasterSyncTime || 0) >= 2500)) {
         // 若正在被揮手召喚或進行追擊，暫停巡邏週期換點
         if (now < (npc.summonedUntil || 0) || now < (npc.chaseUntil || 0)) {
           // 揮手召喚或追擊中
