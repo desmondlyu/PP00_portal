@@ -71,7 +71,7 @@ test('Resilience: service.mjs carries alreadyRepaired actionResult back to clien
   assert.equal(p.channel, null, 'Channel must be cleared by service handler');
 });
 
-function setupTestAppEnvironment() {
+function setupTestAppEnvironment(realMap = false) {
   const root = path.join(__dirname, '../static/js');
   const nodes = new Map();
   function makeEl(tag = 'div') {
@@ -131,9 +131,10 @@ function setupTestAppEnvironment() {
   context.window.window = context.window;
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(root, 'config.js'), 'utf8'), context);
+  if (realMap) vm.runInContext(fs.readFileSync(path.join(root, 'world.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(root, 'network.js'), 'utf8'), context);
   let appSrc = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
-  appSrc = appSrc.replace("window.addEventListener('DOMContentLoaded', init);", 'window.__testInit = init;');
+  appSrc = appSrc.replace("window.addEventListener('DOMContentLoaded', init);", 'window.__testInit = init; window.__testStartRepair = startActiveRepairSession;');
   vm.runInContext(appSrc, context);
   return context;
 }
@@ -295,3 +296,73 @@ test('Behavioral: completeRepairSession on alreadyRepaired resets target to PASS
   const vfxAfter = T.getVfxList().length;
   assert.equal(vfxAfter, vfxBefore, 'Must not spawn floating text or reward confetti when already repaired by peer');
 });
+
+test('Cloud repair requires a snapshot and a target belonging to the equipment list', async () => {
+  const context = setupTestAppEnvironment();
+  const T = context.window.__PP00_TEST__;
+  T.setEcosystem({ groundItems: [], mobs: [] });
+  T.setNetwork({ broadcastPacket() {}, getPublicState: () => ({}) });
+  const eq = context.window.WORLD_MAP.labEquipments[0];
+  Object.assign(T.getLocalPlayer(), { x: eq.x + eq.w / 2, y: eq.y + eq.h + 18 });
+  T.getSeason().client = { snapshot: null };
+  await T.tryInteractWithEnvironment();
+  assert.equal(T.getActiveRepairSession(), null, 'No server channel means no local repair countdown');
+  assert.equal(eq.isBroken, true);
+
+  for (const [type, collection] of [['lab', 'labEquipments'], ['ws', 'workstations']]) {
+    T.getSeason().client.snapshot = { player: { channel: { kind: 'device', target: `${type}_-1` } } };
+    const foreignTarget = { ...eq, kind: type === 'lab' ? 'tester' : undefined };
+    context.window.__testStartRepair(foreignTarget, type, 'Unknown equipment');
+    assert.equal(T.getActiveRepairSession(), null, 'An unknown target must never start a repair with index -1');
+
+    delete context.window.WORLD_MAP[collection];
+    assert.doesNotThrow(() => context.window.__testStartRepair(foreignTarget, type, 'Missing equipment list'));
+    assert.equal(T.getActiveRepairSession(), null, 'A missing list must not start a repair');
+  }
+});
+
+for (const [collection, index] of [['labEquipments', 0], ['labEquipments', 3], ['labEquipments', 5], ['workstations', 0]]) {
+test(`Cloud repair completes through the real service without restarting its timer: ${collection}[${index}]`, async () => {
+  const { request, digest } = await import('../server/service.mjs');
+  const context = setupTestAppEnvironment(true);
+  const T = context.window.__PP00_TEST__;
+  T.setEcosystem({ groundItems: [], mobs: [] });
+  T.setNetwork({ broadcastPacket() {}, getPublicState: () => ({}) });
+  const eq = context.window.WORLD_MAP[collection][index];
+  const targetId = `${collection === 'labEquipments' ? 'lab' : 'ws'}_${index}`;
+  eq.isBroken = true;
+  Object.assign(T.getLocalPlayer(), { x: eq.x + eq.w / 2, y: eq.y + eq.h + 18 });
+  let now = 1000000;
+  context.Date = class extends Date { static now() { return now; } };
+  const token = 'repair-integration-fixture';
+  const p = { id: 'p', name: 'p', unit: 'PP32', connection: 'p', room: 'PP00',
+    x: eq.x + eq.w / 2, y: eq.y + eq.h + 18, items: [], effects: {}, exp: 0,
+    tokenHash: await digest(token), sessionUntil: now + 100000, lastSeen: now };
+  const s = { players: { p }, enemies: {}, drops: {}, tasks: {},
+    broken: { [targetId]: { broken: true, room: 'PP00' } } };
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/js/profileClient.js'), 'utf8'), context);
+  context.crypto = crypto;
+  const client = new context.GatherProfileClient('in-process');
+  client.token = token;
+  client.raw = body => request(s, body.action, body.data, token, now);
+  client.snapshot = await request(s, 'snapshot', {}, token, now);
+  T.getSeason().client = client;
+  await T.tryInteractWithEnvironment();
+  const session = T.getActiveRepairSession();
+  assert.ok(session);
+  assert.equal(p.channel.target, targetId);
+  const beganAt = p.channel.at;
+  now += 2000;
+  await T.tryInteractWithEnvironment();
+  assert.equal(p.channel.at, beganAt, 'Pressing E twice must not reset the server timer');
+  assert.equal(T.getActiveRepairSession(), session);
+  now += 1000;
+  await T.completeRepairSession();
+  assert.equal(s.broken[targetId].broken, false);
+  assert.equal(eq.isBroken, false);
+  assert.equal(p.exp, 30);
+  assert.equal(p.channel, null);
+  assert.equal(p.items.reduce((n, i) => n + (i.count || 1), 0), 1);
+  assert.equal(T.getActiveRepairSession(), null);
+});
+}

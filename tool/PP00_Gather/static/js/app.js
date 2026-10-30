@@ -752,7 +752,12 @@
       }).sort((a,b)=>a.dist-b.dist)[0]?.d||null;
   }
   async function seasonInteract() {
-    if(!season.client?.snapshot)return;
+    if(!season.client?.snapshot){
+      showCombatToast('雲端狀態尚未同步，請稍後再試', 'error');
+      return true;
+    }
+    // A second interaction must not replace an in-flight device channel/timer.
+    if(activeRepairSession)return true;
     const snap=season.client.snapshot,p=snap.player;
     if(p.effects.injuredUntil>snap.now||p.effects.lockedUntil>snap.now)return;
     const q=snap.players.find(q=>q.id!==p.id&&(q.effects.injuredUntil>snap.now||q.effects.lightUntil>snap.now)&&Math.hypot(q.x-localPlayer.x,q.y-localPlayer.y)<75);
@@ -7599,6 +7604,24 @@ async function executeOfficeLogin(params) {
 
   function startActiveRepairSession(target, type, name) {
     if (!target) return;
+    if (activeRepairSession) return;
+    if (season.enabled) {
+      const isLab = type === 'lab' || target.kind;
+      const list = (isLab ? window.WORLD_MAP?.labEquipments : window.WORLD_MAP?.workstations) || [];
+      const targetIndex = list.indexOf(target);
+      if (targetIndex < 0) {
+        showCombatToast('找不到維修設備，請重新同步後再試', 'error');
+        return;
+      }
+      const targetId = `${isLab ? 'lab' : 'ws'}_${targetIndex}`;
+      const channel = season.client?.snapshot?.player?.channel;
+      if (channel?.kind !== 'device' || channel.target !== targetId) {
+        showCombatToast('尚未取得雲端維修授權，請重新互動', 'error');
+        return;
+      }
+    }
+    localPlayer.autoWalkTarget = null;
+    localPlayer.isMoving = false;
     localPlayer.actionState = 'repair_wrench';
     localPlayer.dir = 'up';
     const tx = target.x + (target.w ? target.w / 2 : 20);
