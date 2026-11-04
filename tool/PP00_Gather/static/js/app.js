@@ -5,7 +5,7 @@
   let ecosystem, network;
   let tick = 0;
   let isLoggedIn = false;
-  const season = {enabled: window.GATHER_CONFIG.season2 === true, client:null, busy:false, lastPoll:0, polling:false, pendingChoice:false, attacking:false, hiddenDrops:new Set(), effects:{}, lastDamage:null};
+  const season = {enabled: window.GATHER_CONFIG.season2 === true, client:null, busy:false, lastPoll:0, polling:false, pendingChoice:false, attacking:false, hiddenDrops:new Set(), effects:{}, lastDamage:null, isFirstSnapshot:true};
   const gameClock=window.OfficeProgression?.clock();
   const gameNow=()=>season.enabled&&gameClock?gameClock.now():Date.now();
   if(season.enabled)window.GatherServerClock=gameClock;
@@ -626,16 +626,42 @@
     syncEquipmentState(snap.broken);
     for(const [id,e]of Object.entries(snap.enemies||{}))if(e.mob&&e.hp>0&&!ecosystem.mobs.some(m=>(m.uid||m.id)===id)){const meta=window.GATHER_CONFIG.minecraftMobs?.find(m=>m.id===e.templateId)||window.GATHER_CONFIG.minecraftMobs?.[0]||{};ecosystem.mobs.push({...meta,id:e.templateId,uid:id,name:e.name,x:e.x,y:e.y,hp:e.hp,maxHp:e.maxHp,isBerserk:false,waypoints:[]});}
     network.combat={enemies:snap.enemies||{}};
+    if (season.pendingAttacks && season.pendingAttacks.length > 0) {
+      for (const pending of season.pendingAttacks) {
+        const rx = snap.enemies?.[pending.targetId]?.reaction;
+        const isNewReaction = Boolean(
+          rx &&
+          rx.id &&
+          rx.id !== pending.baseReactionId &&
+          rx.id !== pending.entity.lastConfirmedReactionId
+        );
+        if (isNewReaction) {
+          rx.attackNonce = pending.attackNonce;
+          rx.attackerId = pending.attackerId;
+        }
+      }
+    }
     for(const [id,e]of Object.entries(snap.enemies||{})){
       const npc=network.npcPlayers.get(id)||(ecosystem.mobs||[]).find(m=>(m.uid||m.id)===id);if(!npc)continue;
       npc.hp=e.hp;npc.maxHp=e.maxHp;const down=e.hp<=0||e.until>now;if(down&&!npc.combatDown)npc.combatDownAt=Date.now();npc.combatDown=down;
       if(npc.combatDown){npc.actionState='sleep_bed';npc.isMoving=false;}else if(npc.actionState==='sleep_bed')npc.actionState=null;
-      if(e.reaction&&now-e.reaction.at<5000&&window.OfficeCombat.receiveReaction(npc,e.reaction)){
+      if (season.isFirstSnapshot) {
+        if (e.reaction) {
+          npc.lastConfirmedReactionId = e.reaction.id;
+          if (window.officeVfx?.markSeen) {
+            const entId = npc.uid || id;
+            window.officeVfx.markSeen('reaction:' + entId + ':' + e.reaction.id + ':hit');
+            window.officeVfx.markSeen('reaction:' + entId + ':' + e.reaction.id + ':dodge');
+            window.officeVfx.markSeen('reaction:' + entId + ':' + e.reaction.id + ':poof');
+          }
+        }
+      } else if(e.reaction&&now-e.reaction.at<5000&&window.OfficeCombat.receiveReaction(npc,e.reaction)){
         // Apply authoritative displacement immediately; the render offset supplies the impact motion.
         npc.x=e.x;npc.y=e.y;
         showCombatToast(`${escapeHtml(e.name||id)} ${e.reaction.kind==='dodge'?'閃避':e.reaction.kind==='defeat'?'被擊倒':'受到擊退'}`);
       }
     }
+    season.isFirstSnapshot = false;
     ecosystem.mobs=ecosystem.mobs.filter(m=>snap.enemies?.[m.uid||m.id]&&window.OfficeCombat.defeatVisible(m));
     renderSidebarRoster();
     for(const q of snap.players){if(q.id===p.id)continue;if(!network.remotePlayers.has(q.clientId))network.upsertRemotePlayer({id:q.clientId,name:q.name,unit:q.unit,x:q.x,y:q.y,avatarId:q.avatarId,status:'active'},true);const remote=network.remotePlayers.get(q.clientId);if(remote){remote.lastSeen=now;remote.connectionLostAt=null;if(q.action==='toilet'){remote.x=q.x;remote.y=q.y;remote.targetX=q.x;remote.targetY=q.y;remote.actionState='toilet';}else if(remote.actionState==='toilet')remote.actionState=null;remote.seasonPlayerId=q.id;remote.isInjured=q.effects.injuredUntil>now;remote.lightInjuredUntil=q.effects.lightUntil||0;remote.outfitAvatarId=q.worn;}}
@@ -845,6 +871,36 @@
     document.documentElement.classList.toggle("embedded-office", window.parent !== window);
     canvas = document.getElementById('officeCanvas');
     ctx = canvas.getContext('2d');
+    if (typeof window.OfficeVfx === 'function') {
+      window.officeVfx = new window.OfficeVfx({
+        maxActive: 24,
+        maxSeen: 512,
+        vfxEnabled: true,
+        resolveAnchor: (entityId) => {
+          if (!entityId) return null;
+          let ent = null;
+          if (localPlayer && (localPlayer.id === entityId || entityId === 'local')) ent = localPlayer;
+          else if (network && network.npcPlayers?.has(entityId)) ent = network.npcPlayers.get(entityId);
+          else if (network && network.remotePlayers?.has(entityId)) ent = network.remotePlayers.get(entityId);
+          else if (typeof ecosystem !== 'undefined' && ecosystem?.mobs) ent = ecosystem.mobs.find(m => (m.uid || m.id) === entityId);
+          if (!ent) return null;
+          const headOffset = (ent.id === 'npc_vp_boss') ? -68 : (ent.isMob ? -42 : -52);
+          return {
+            x: ent.x,
+            y: ent.y,
+            headY: ent.y + headOffset,
+            handX: ent.x + (ent.dir === 'left' ? -18 : 18),
+            handY: ent.y - 16,
+            visible: !ent.combatDown || (window.OfficeCombat?.defeatVisible ? window.OfficeCombat.defeatVisible(ent) : true)
+          };
+        }
+      });
+      if (typeof window.officeVfx.load === 'function') {
+        window.officeVfx.load('static/assets/vfx/manifest.json').catch(e => {
+          console.warn('OfficeVfx manifest load failed:', e);
+        });
+      }
+    }
 
     // 檢查持久化記憶：包含身上裝備、持有道具、耐久度、受傷休養計時與鳥人流放狀態
     try {
@@ -4192,6 +4248,20 @@ async function executeOfficeLogin(params) {
       }
       lastWeaponAttackAt=now;season.attacking=true;
       localPlayer.weaponSwing={emoji:w.emoji,isFist,ticksLeft:18,totalTicks:18,startedAt:now,duration:300};network.broadcastPacket('weapon_swing',{emoji:w.emoji,isFist});
+      if (window.officeVfx) {
+        const attackAngle = (localPlayer.dir === 'left') ? Math.PI : (localPlayer.dir === 'up') ? -Math.PI / 2 : (localPlayer.dir === 'down') ? Math.PI / 2 : 0;
+        window.officeVfx.emit({
+          id: 'attack:' + localPlayer.id + ':' + now,
+          kind: isFist ? 'thrust' : 'swing',
+          phase: 'windup',
+          entityId: localPlayer.id,
+          x: localPlayer.x,
+          y: localPlayer.y,
+          angle: attackAngle,
+          startedAt: (typeof performance !== 'undefined' ? performance.now() : now),
+          durationMs: isFist ? 250 : 300
+        });
+      }
       const attackWorld=network.isRoomMaster()?seasonWorldPayload():null;
       const previews=[];
       for(const e of [...network.npcPlayers.values(),...(ecosystem.mobs||[])]){
@@ -4207,7 +4277,7 @@ async function executeOfficeLogin(params) {
         if(!window.isPositionBlocked(nx,ny,16)){e.x=nx;e.y=ny;}
         e.knockback={vx:Math.cos(angle)*(isFist?9:14),vy:Math.sin(angle)*(isFist?9:14),ticksLeft:16};
         e.emote={emoji:isFist?'👊':'💥',expiresAt:now+650};
-        const id=window.OfficeCombat.predictImpact(e,angle);
+        const attackNonce='atk_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);const id=window.OfficeCombat.predictImpact(e,angle,Date.now(),isFist,attackNonce,localPlayer.id);
         previews.push([e,id]);
         if(typeof e.hp==='number'){
           if(isFist){
@@ -4293,7 +4363,40 @@ async function executeOfficeLogin(params) {
         });
       }
 
-      seasonSend('attack',{targets:previews.map(([e])=>e.uid||e.id),...(attackWorld?{world:attackWorld}:{})}).finally(()=>{season.attacking=false;});
+      const currentPending = previews.map(([e, id]) => ({
+        targetId: e.uid || e.id,
+        entity: e,
+        previewId: id,
+        baseReactionId: e.lastConfirmedReactionId || (network.combat?.enemies?.[e.uid || e.id]?.reaction?.id) || null,
+        attackNonce: e.combatReaction?.attackNonce || id,
+        attackerId: localPlayer.id,
+        isFist: !!isFist
+      }));
+      season.pendingAttacks = currentPending;
+
+      seasonSend('attack',{targets:previews.map(([e])=>e.uid||e.id),...(attackWorld?{world:attackWorld}:{})})
+        .then(res => {
+          const snap = res?.snapshot || res;
+          const enemies = snap?.enemies;
+          for (const pending of currentPending) {
+            const rx = enemies?.[pending.targetId]?.reaction;
+            const isHit = Boolean(
+              rx &&
+              rx.id &&
+              rx.id !== pending.baseReactionId &&
+              rx.id !== pending.entity.lastConfirmedReactionId
+            );
+            if (!isHit) {
+              window.OfficeCombat?.invalidatePrediction?.(pending.entity, pending.previewId);
+            }
+          }
+        })
+        .catch(() => {
+          for (const [e, id] of previews) {
+            window.OfficeCombat?.invalidatePrediction?.(e, id);
+          }
+        })
+        .finally(() => { season.attacking = false; season.pendingAttacks = null; });
       return;
     }
     if(gameNow()<(localPlayer.stunnedUntil||0)) return;
@@ -4327,7 +4430,21 @@ async function executeOfficeLogin(params) {
       totalTicks: 18,
       startedAt: gameNow(), duration: 300,
     };
-    network.broadcastPacket('weapon_swing',{emoji:wpnEmoji});
+    network.broadcastPacket('weapon_swing',{emoji:wpnEmoji,isFist});
+    if (window.officeVfx) {
+      const attackAngle = (localPlayer.dir === 'left') ? Math.PI : (localPlayer.dir === 'up') ? -Math.PI / 2 : (localPlayer.dir === 'down') ? Math.PI / 2 : 0;
+      window.officeVfx.emit({
+        id: 'attack:' + localPlayer.id + ':' + gameNow(),
+        kind: isFist ? 'thrust' : 'swing',
+        phase: 'windup',
+        entityId: localPlayer.id,
+        x: localPlayer.x,
+        y: localPlayer.y,
+        angle: attackAngle,
+        startedAt: (typeof performance !== 'undefined' ? performance.now() : gameNow()),
+        durationMs: isFist ? 250 : 300
+      });
+    }
     localPlayer.jumpOffset = 10;
 
     vfxList.push({
@@ -7267,6 +7384,10 @@ async function executeOfficeLogin(params) {
 
     // 1. 遊戲邏輯與網路模擬階段（獨立捕捉異常，避免中斷 Canvas 畫面渲染）
     try {
+      const vfxNow = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      if (window.officeVfx) {
+        window.officeVfx.update(vfxNow);
+      }
       seasonPoll();
       updateLocalPlayerMovement();
       updateInjuryCountdownHUD();
@@ -7346,6 +7467,9 @@ async function executeOfficeLogin(params) {
 
         if (typeof window.renderOfficeWorld === 'function') {
           window.renderOfficeWorld(ctx, ecosystem, tick);
+          if (window.officeVfx) {
+            window.officeVfx.draw(ctx, 'back');
+          }
         }
 
         if (season.enabled) {
@@ -7470,6 +7594,10 @@ async function executeOfficeLogin(params) {
           }
           ctx.restore();
         });
+
+        if (window.officeVfx) {
+          window.officeVfx.draw(ctx, 'front');
+        }
 
         if (window.OfficeHunt?.clock?.()?.active) {
           ctx.save();
@@ -8237,6 +8365,10 @@ async function executeOfficeLogin(params) {
     setActiveRepairSession: (s) => { activeRepairSession = s; },
     getVfxList: () => vfxList,
     getSeason: () => season,
+    applySeasonSnapshot,
+    triggerWeaponAttack,
+    setIsLoggedIn: (v) => { isLoggedIn = v; },
+    setLastWeaponAttackAt: (v) => { lastWeaponAttackAt = v; },
   };
   window.addEventListener('DOMContentLoaded', init);
 })();

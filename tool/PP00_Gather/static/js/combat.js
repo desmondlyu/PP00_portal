@@ -10,12 +10,29 @@
     if(!master(n,pkt.senderId)||!pkt.state)return;
     n.combat=pkt.state;
     n.combatVisuals ||= {};
+    const isRemote = pkt.senderId !== n.clientId;
+    // 首次基準只針對初始遠端房長 state，房長自己本地產生的新 reaction 絕不走基準抑制分支
+    const isFirstApply = !n.combatInitialized && isRemote;
+    if (isFirstApply) {
+      n.combatInitialized = true;
+    }
     for(const e of [...n.npcPlayers.values(),...(n.callbacks.getMobs?.()||[])]){
       const entityId=e.uid||e.id;
       const reaction=n.combat.enemies?.[e.uid||e.id]?.reaction;
       if(reaction && n.combatVisuals[entityId]?.id!==reaction.id){
-        n.combatVisuals[entityId]={...reaction,startedAt:Date.now()};
-        e.emote={emoji:reaction.kind==='dodge'?'💨':'💥',expiresAt:Date.now()+600};
+        if (isFirstApply) {
+          // 初次載入建立基準，抑制歷史舊事件重播 (§7)
+          e.lastConfirmedReactionId = reaction.id;
+          n.combatVisuals[entityId] = { ...reaction, startedAt: reaction.startedAt || Date.now() };
+          if (typeof window !== 'undefined' && window.officeVfx?.markSeen) {
+            window.officeVfx.markSeen('reaction:' + entityId + ':' + reaction.id + ':hit');
+            window.officeVfx.markSeen('reaction:' + entityId + ':' + reaction.id + ':dodge');
+            window.officeVfx.markSeen('reaction:' + entityId + ':' + reaction.id + ':poof');
+          }
+        } else {
+          receiveReaction(e, reaction);
+          n.combatVisuals[entityId]=e.combatReaction;
+        }
       }
       e.combatReaction=n.combatVisuals[entityId];
     }
@@ -61,7 +78,8 @@
     if(h.hp<=0){h.hp=h.maxHp;h.until=0;}
     const dodge=e.isGhost?.60:e.isBirdCommander?.45:e.isSecurityGuard?.25:0;
     const angle=Math.atan2(e.y-a.y,e.x-a.x);
-    const reaction=(kind)=>{h.reaction={id:entityId+':'+now+':'+id,kind,angle,startedAt:now,duration:450};};
+    const isFist = !!(a.isFist || a.weaponSwing?.isFist || (!a.heldItem && !a.equippedSlots?.[a.activeEquipIndex]?.id));
+    const reaction=(kind)=>{h.reaction={id:entityId+':'+now+':'+id,kind,isFist,angle,startedAt:now,duration:450};};
     if(Math.random()<dodge){reaction('dodge');emit(n);return;}
     reaction('hit');
     h.hp--;e.hp=h.hp;e.maxHp=h.maxHp;
@@ -153,20 +171,105 @@
     if(n.isRoomMaster()&&tick%30===0)emit(n);
   }
   let previewId=0;
-  function predictImpact(entity,angle,now=Date.now()){
+  function predictImpact(entity,angle,now=Date.now(),isFist=false,attackNonce=null,attackerId=null){
+    if(!entity)return null;
     const id='preview_'+(++previewId);
-    // Presentation only: HP, position, loot and evade outcomes stay server-authoritative.
-    entity.combatReaction={id,kind:'anticipate',angle,startedAt:now,duration:650,predicted:true};
+    entity.combatReaction={id,kind:'anticipate',angle,isFist:!!isFist,startedAt:now,duration:650,predicted:true,attackNonce:attackNonce||id,attackerId:attackerId||null};
     return id;
+  }
+  function invalidatePrediction(entity, previewId){
+    if(!entity||!entity.combatReaction)return;
+    if(!previewId||entity.combatReaction.id===previewId){
+      if(entity.combatReaction.predicted){
+        delete entity.combatReaction.predicted;
+        entity.combatReaction.consumed = true;
+        entity.combatReaction.invalidated = true;
+      }
+    }
   }
   // Use the viewer's animation clock, never the server timestamp or network latency.
   function receiveReaction(entity,reaction,now=Date.now()){
     if(!reaction||entity.lastConfirmedReactionId===reaction.id||entity.combatReaction?.id===reaction.id)return false;
     entity.lastConfirmedReactionId=reaction.id;
     const preview=entity.combatReaction;
+    // 預測有效性：必須為未消費預測，且在 2000ms 合法確認窗口內；遺失未獲確認的孤兒預測過期失效，絕不污染後續 reaction
+    // 來源嚴格比對：若 reaction 缺少來源驗證欄位（無 attackNonce 且無 attackerId），禁止以 prediction 繼承 isFist，防止來源錯配與污染
+    const hasSourceVerification = Boolean(
+      (preview?.attackNonce && reaction?.attackNonce && reaction.attackNonce === preview.attackNonce) ||
+      (preview?.attackerId && reaction?.attackerId && reaction.attackerId === preview.attackerId)
+    );
+    const isPredictionMatch = Boolean(
+      preview &&
+      preview.predicted &&
+      !preview.consumed &&
+      !preview.invalidated &&
+      hasSourceVerification &&
+      (now - (preview.startedAt || 0) < 2000)
+    );
+    const isFist = Boolean(reaction.isFist !== undefined ? reaction.isFist : (isPredictionMatch ? preview.isFist : false));
+    if (preview) {
+      preview.consumed = true;
+      delete entity.combatReaction.predicted;
+    }
     const startedAt=preview?.predicted&&reaction.kind==='hit'&&now-preview.startedAt<500?preview.startedAt:now;
-    entity.combatReaction={...reaction,startedAt,duration:Math.max(650,reaction.duration||0)};
-    entity.emote={emoji:reaction.kind==='dodge'?'💨':'💥',expiresAt:now+650};
+    entity.combatReaction={...reaction,isFist,startedAt,duration:Math.max(650,reaction.duration||0)};
+    delete entity.combatReaction.predicted;
+    entity.emote={emoji:reaction.kind==='dodge'?'💨':isFist?'👊':'💥',expiresAt:now+650};
+
+    // P2: Visual Effects integration with OfficeVfx manager
+    if (typeof window !== 'undefined' && window.officeVfx && typeof window.officeVfx.emit === 'function') {
+      const entityId = entity.uid || entity.id;
+      const vfxClock = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : now;
+      if (reaction.kind === 'dodge') {
+        window.officeVfx.emit({
+          id: 'reaction:' + entityId + ':' + reaction.id + ':dodge',
+          kind: 'dodge',
+          phase: 'confirmed',
+          entityId: entityId,
+          x: entity.x,
+          y: entity.y,
+          angle: reaction.angle || 0,
+          startedAt: vfxClock,
+          durationMs: 300
+        });
+      } else if (reaction.kind === 'defeat') {
+        window.officeVfx.emit({
+          id: 'reaction:' + entityId + ':' + reaction.id + ':hit',
+          kind: isFist ? 'blunt_hit' : 'hit',
+          phase: 'confirmed',
+          entityId: entityId,
+          x: entity.x,
+          y: entity.y,
+          angle: reaction.angle || 0,
+          startedAt: vfxClock,
+          durationMs: 420
+        });
+        window.officeVfx.emit({
+          id: 'reaction:' + entityId + ':' + reaction.id + ':poof',
+          kind: 'poof',
+          phase: 'confirmed',
+          entityId: entityId,
+          x: entity.x,
+          y: entity.y,
+          angle: 0,
+          startedAt: vfxClock,
+          durationMs: 650
+        });
+      } else {
+        window.officeVfx.emit({
+          id: 'reaction:' + entityId + ':' + reaction.id + ':hit',
+          kind: isFist ? 'blunt_hit' : 'hit',
+          phase: 'confirmed',
+          entityId: entityId,
+          x: entity.x,
+          y: entity.y,
+          angle: reaction.angle || 0,
+          startedAt: vfxClock,
+          durationMs: 420
+        });
+      }
+    }
+
     return true;
   }
   function reactionPose(e,now=Date.now()){
@@ -176,5 +279,5 @@
     return {x:Math.cos(angle)*wave*34,y:Math.sin(angle)*wave*24,jump:wave*(r.kind==='dodge'?26:18),active:true,kind:r.kind};
   }
   const defeatVisible=(e,now=Date.now())=>!e.combatDown||now-(e.combatDownAt??0)<650;
-  window.OfficeCombat={tier,health,strike,damage,send,packet,update,state,reactionPose,receiveReaction,predictImpact,defeatVisible};
+  window.OfficeCombat={tier,health,strike,damage,send,packet,update,state,reactionPose,receiveReaction,predictImpact,defeatVisible,invalidatePrediction};
 })();

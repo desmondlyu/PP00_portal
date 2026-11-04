@@ -1081,7 +1081,24 @@ class EphemeralOfficeNetwork {
       }
       case 'weapon_swing': {
         const p=this.remotePlayers.get(pkt.senderId);
-        if(p) p.weaponSwing={emoji:this.sanitizeText(pkt.emoji||'',8),startedAt:(window.GatherServerClock?.now() || Date.now())};
+        if(p) {
+          p.weaponSwing={emoji:this.sanitizeText(pkt.emoji||'',8),isFist:!!pkt.isFist,startedAt:(window.GatherServerClock?.now() || Date.now())};
+          if (window.officeVfx) {
+            const isFist = !!pkt.isFist;
+            const angle = (p.dir === 'left') ? Math.PI : (p.dir === 'up') ? -Math.PI / 2 : (p.dir === 'down') ? Math.PI / 2 : 0;
+            window.officeVfx.emit({
+              id: 'swing:' + p.id + ':' + p.weaponSwing.startedAt,
+              kind: isFist ? 'thrust' : 'swing',
+              phase: 'windup',
+              entityId: p.id,
+              x: p.x,
+              y: p.y,
+              angle: angle,
+              startedAt: (typeof performance !== 'undefined' ? performance.now() : p.weaponSwing.startedAt),
+              durationMs: isFist ? 250 : 300
+            });
+          }
+        }
         break;
       }
       case 'recovery_request': case 'recovery_release':
