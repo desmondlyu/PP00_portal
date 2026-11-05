@@ -251,6 +251,7 @@ export default function App() {
       'dongle-summary': true,
       'writer': true,
       'eng_report': false,  // 預設 active，由 Supabase tool_statuses 資料列覆蓋
+      'datasheet-diff': false,
       'pp00-knowledge-agent': false
     };
     try {
@@ -695,6 +696,24 @@ export default function App() {
       ]
     },
     {
+      id: 'datasheet-diff',
+      title: 'NOR Flash Datasheet 規格比對工具',
+      badge: 'Active',
+      desc: '把規格書 PDF 的 AC/DC、指令、讀取頻率整理成 Excel，並比對新舊版規格數值與文字敘述的差異。PDF 只在瀏覽器處理，不會上傳。',
+      icon: '📑',
+      gradient: 'var(--grad-amber-pink)',
+      gridClass: 'col-4',
+      devUrl: 'http://127.0.0.1:5173/',
+      localPath: './tool/Datasheet_to_Excel/index.html',
+      ghPagesUrl: './tool/Datasheet_to_Excel/index.html',
+      status: 'active',
+      details: [
+        '自動解析 AC/DC、指令表、頻率矩陣，可篩選並匯出 Excel',
+        '新舊版規格比對，標示變更／新增／移除，並寫出舊值 → 新值',
+        '文字敘述差異逐句並排比對，可匯出差異 Excel'
+      ]
+    },
+    {
       id: 'pp00-knowledge-agent',
       title: '開發中，敬請期待',
       badge: '開發中',
@@ -709,6 +728,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
+    { version: 'v2.0.7', date: '2026-11-05', text: '📑 新工具上架：NOR Flash Datasheet 規格比對工具！丟入新舊版規格書，AC/DC、指令自動整理成 Excel，數值和文字改了哪裡一目了然，PDF 不上傳更安心。', isNew: true },
     { version: 'v2.0.6', date: '2026-11-04', text: '🎯 FT 特性系統新增問題熱圖，哪個項目、哪個條件出問題一眼看穿！Charts／表格問題優先排序，寬表格圖表也有清楚捲軸與固定表頭。', isNew: true },
     { version: 'v2.0.5', date: '2026-10-22', text: '🔄 NOR Flash FT 特性系統新增新舊版別比對：載入舊版報告、自訂差異 % 門檻，即可揪出「雖符合規格但改版落差過大」的風險項目，並可匯出 Excel！', isNew: true },
     { version: 'v2.0.4', date: '2026-10-22', text: 'NOR Flash CP MSS 支援新舊版本MSS差異比對功能', isNew: true },
