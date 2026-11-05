@@ -251,8 +251,7 @@ export default function App() {
       'dongle-summary': true,
       'writer': true,
       'eng_report': false,  // 預設 active，由 Supabase tool_statuses 資料列覆蓋
-      'datasheet-diff': false,
-      'pp00-knowledge-agent': false
+      'datasheet-diff': false
     };
     try {
       const saved = localStorage.getItem('pp00_offline_tools');
@@ -712,17 +711,6 @@ export default function App() {
         '新舊版規格比對，標示變更／新增／移除，並寫出舊值 → 新值',
         '文字敘述差異逐句並排比對，可匯出差異 Excel'
       ]
-    },
-    {
-      id: 'pp00-knowledge-agent',
-      title: '開發中，敬請期待',
-      badge: '開發中',
-      desc: '',
-      icon: '🤖',
-      gradient: 'var(--grad-cyan-blue)',
-      gridClass: 'col-4',
-      status: 'pending',
-      details: []
     }
   ];
 

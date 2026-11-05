@@ -15,7 +15,7 @@ export default function ToolIcon({ id, className = '' }) {
     'eng_report': <><path d="M12 6h27l12 12v40H12zM39 6v13h12M20 26h21M20 32h13" /><path className="icon-accent" d="M20 49v-8h5v8zM30 49V38h5v11zM40 49V34h4v15z" /></>,
     'te_tto': <><path d="M7 11v43h49" /><path className="icon-accent" d="M10 40h7V23h7v23h7V32h7" /><circle cx="47" cy="18" r="12" /><path className="icon-accent" d="M47 11v8h6" /></>,
     'datasheet-diff': <><path d="M5 8h17l6 6v34H5zM22 8v6h6M10 22h12M10 29h12M10 36h8" /><path d="M36 16h17l6 6v34H36zM53 16v6h6M41 30h12M41 44h8" /><path className="icon-accent" d="M41 37h13M24 52h8m-3-3 3 3-3 3" /></>,
-    'pp00-knowledge-agent': <><rect x="10" y="10" width="44" height="44" rx="3" strokeDasharray="5 5" /><path d="M22 32h20M32 22v20" /></>,
+    fallback: <><rect x="10" y="10" width="44" height="44" rx="3" strokeDasharray="5 5" /><path d="M22 32h20M32 22v20" /></>,
   };
-  return <svg className={`tool-pictogram ${className}`} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{drawings[id] || drawings['pp00-knowledge-agent']}</svg>;
+  return <svg className={`tool-pictogram ${className}`} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{drawings[id] || drawings.fallback}</svg>;
 }
