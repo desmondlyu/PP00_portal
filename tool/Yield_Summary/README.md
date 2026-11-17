@@ -1,5 +1,14 @@
 # CP/FT VSC Yield Summary — 操作說明
 
+### 使用前：啟動代理程式
+連上公司內網，將下列路徑貼到檔案總管：
+
+```text
+\\wectinfo02\PP00\yplu\Software\Yield_Summary\
+```
+
+將 `proxy.bat` 與 `proxy.py` 下載至本機同一個資料夾，雙擊 `proxy.bat`，保持視窗開啟後再擷取資料。
+
 ### 1. 填寫查詢資訊
 - **輸入批號 (Lot No)**：填入欲分析之晶圓批號。
 - **選擇時間範圍**：點選起訖日期以限縮分析時間。
