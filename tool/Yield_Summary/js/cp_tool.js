@@ -22,7 +22,6 @@
   const isSecure = window.location.protocol === 'https:';
   const API_URL = isSecure ? PROXY_API : INTERNAL_API;
   const WIDGET_ID = "46141686285147519809e1924b6be1ea";
-  const WEC_TOKEN = "***REMOVED***";
 
   let rawData = null;
   let processedData = null;
@@ -59,6 +58,13 @@
   }
 
   async function testConnection() {
+    let wecToken;
+    try {
+      wecToken = await window.getWecToken('cp');
+    } catch (err) {
+      setConnStatus(false, err.message);
+      return;
+    }
     try {
       const testQi = {
         "DatePickerStart": "2025-08-01 00:00:00",
@@ -72,7 +78,7 @@
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       
       const resp = await fetch(url, {
-        headers: { 'wecToken': WEC_TOKEN },
+        headers: { 'wecToken': wecToken },
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -139,6 +145,15 @@
       return;
     }
 
+    let wecToken;
+    try {
+      wecToken = await window.getWecToken('cp');
+    } catch (err) {
+      setStatus(`TOKEN FAILED: ${err.message}`, "#e31a22");
+      alert(err.message);
+      return;
+    }
+
     setStatus("FETCHING CP DATA...", "#e31a22");
     rawData = null;
 
@@ -151,9 +166,9 @@
         
         let data;
         if (paramOptions.length > 25) {
-          data = await fetchInBatches(qi);
+          data = await fetchInBatches(qi, wecToken);
         } else {
-          data = await fetchSingle(qi);
+          data = await fetchSingle(qi, wecToken);
         }
         if (data && data.length > 0) {
           allRecords.push(...data);
@@ -204,14 +219,14 @@
     };
   }
 
-  async function fetchSingle(qi) {
+  async function fetchSingle(qi, wecToken) {
     const url = `${API_URL}?widgetID=${WIDGET_ID}&qi=${encodeURIComponent(JSON.stringify(qi))}`;
-    const resp = await fetch(url, { headers: { 'wecToken': WEC_TOKEN } });
+    const resp = await fetch(url, { headers: { 'wecToken': wecToken } });
     if (!resp.ok) throw new Error(`HTTP Error ${resp.status}`);
     return await resp.json();
   }
 
-  async function fetchInBatches(qi) {
+  async function fetchInBatches(qi, wecToken) {
     const batchSize = 15;
     let allData = [];
     const params = qi.catName;
@@ -225,7 +240,7 @@
       setStatus(`PROCESSING BATCH ${currentBatch}/${totalBatches}...`, "#e31a22");
 
       try {
-        const batchData = await fetchSingle(batchQi);
+        const batchData = await fetchSingle(batchQi, wecToken);
         if (Array.isArray(batchData)) {
           allData.push(...batchData);
         }
