@@ -716,6 +716,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
+    { version: 'v2.0.8', date: '2026-11-18', text: '🔒 Yield Summary 安全升級：連線金鑰改為登入 Portal 後自動取得，請先登入再開啟工具。📥 proxy.bat／proxy.py 恢復從網頁直接下載！', isNew: true },
     { version: 'v2.0.7', date: '2026-11-05', text: '📑 新工具上架：NOR Flash Datasheet 規格比對工具！丟入新舊版規格書，AC/DC、指令自動整理成 Excel，數值和文字改了哪裡一目了然，PDF 不上傳更安心。', isNew: true },
     { version: 'v2.0.6', date: '2026-11-04', text: '🎯 FT 特性系統新增問題熱圖，哪個項目、哪個條件出問題一眼看穿！Charts／表格問題優先排序，寬表格圖表也有清楚捲軸與固定表頭。', isNew: true },
     { version: 'v2.0.5', date: '2026-10-22', text: '🔄 NOR Flash FT 特性系統新增新舊版別比對：載入舊版報告、自訂差異 % 門檻，即可揪出「雖符合規格但改版落差過大」的風險項目，並可匯出 Excel！', isNew: true },
