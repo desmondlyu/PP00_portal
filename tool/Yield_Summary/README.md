@@ -1,13 +1,10 @@
 # CP/FT VSC Yield Summary — 操作說明
 
+### 使用前：登入 PP00 Portal
+請先登入 PP00 Portal，再從 Portal 開啟本工具。WEC Token 存放在 Supabase，只有 Portal 白名單帳號（`portal_accounts.can_use_wec`）登入後才能取得；未登入時，狀態燈會顯示「請先登入 PP00 Portal」。
+
 ### 使用前：啟動代理程式
-連上公司內網，將下列路徑貼到檔案總管：
-
-```text
-\\wectinfo02\PP00\yplu\Software\Yield_Summary\
-```
-
-將 `proxy.bat` 與 `proxy.py` 下載至本機同一個資料夾，雙擊 `proxy.bat`，保持視窗開啟後再擷取資料。
+在 GitHub Pages (HTTPS) 開啟工具時，頁面上方會出現代理程式提示框。點選「下載 proxy.bat」與「下載 proxy.py」，存到本機同一個資料夾，雙擊 `proxy.bat`，保持視窗開啟後再擷取資料。第一次執行時，若未安裝 Python，`proxy.bat` 會自動安裝。
 
 ### 1. 填寫查詢資訊
 - **輸入批號 (Lot No)**：填入欲分析之晶圓批號。

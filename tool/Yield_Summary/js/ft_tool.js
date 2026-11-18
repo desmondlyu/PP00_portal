@@ -4,7 +4,6 @@
   const isSecure = window.location.protocol === 'https:';
   const API_URL = isSecure ? PROXY_API : INTERNAL_API;
   const WIDGET_ID = "2057b9c974b6479b931afa92cd065412";
-  const WEC_TOKEN = "***REMOVED***";
 
   let rawData = null;
   let summaryBase = null;
@@ -62,6 +61,15 @@
       return;
     }
 
+    let wecToken;
+    try {
+      wecToken = await window.getWecToken('ft');
+    } catch (err) {
+      setStatus(`TOKEN FAILED: ${err.message}`, "#e31a22");
+      alert(err.message);
+      return;
+    }
+
     setStatus("FETCHING FT DATA...", "#e31a22");
     rawData = null;
 
@@ -70,7 +78,7 @@
       const qi = { "TextLot": lots };
       const url = `${API_URL}?widgetID=${WIDGET_ID}&qi=${encodeURIComponent(JSON.stringify(qi))}`;
       
-      const resp = await fetch(url, { headers: { 'wecToken': WEC_TOKEN } });
+      const resp = await fetch(url, { headers: { 'wecToken': wecToken } });
       if (!resp.ok) throw new Error(`HTTP Error ${resp.status}`);
       
       const data = await resp.json();
