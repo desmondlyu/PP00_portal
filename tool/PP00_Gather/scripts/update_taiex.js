@@ -52,6 +52,7 @@ async function fetchFromMIS() {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PP00-Portal-Updater/1.0',
       'Accept': 'application/json',
     },
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {
@@ -104,7 +105,7 @@ async function fetchFromMIS() {
     yesterdayClose,
     formattedValue,
     formattedChange,
-    statusText: 'TWSE 官方盤中即時資料',
+    statusText: timeStr >= '13:30:00' ? 'TWSE 官方收盤資料' : 'TWSE 官方盤中即時資料',
     updatedAt: new Date().toISOString(),
     source: '臺灣證券交易所 (TWSE) 基本市況報導 (MIS)',
   };
@@ -117,6 +118,7 @@ async function fetchFromOpenAPI() {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PP00-Portal-Updater/1.0',
       'Accept': 'application/json',
     },
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {
@@ -185,6 +187,48 @@ async function fetchFromOpenAPI() {
   };
 }
 
+function readExistingPayload() {
+  if (!fs.existsSync(TARGET_FILE)) {
+    return null;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(TARGET_FILE, 'utf8'));
+  } catch (err) {
+    console.warn(`⚠️ [TWSE] 無法解析既有快取 (${err.message})，將重新寫入`);
+    return null;
+  }
+}
+
+function shouldSkipWrite(existing, next) {
+  if (!existing || !existing.hasData) return null;
+
+  const existingDate = String(existing.date ?? '').trim();
+  const nextDate = String(next.date ?? '').trim();
+  const existingTime = String(existing.time ?? '').trim();
+  const nextTime = String(next.time ?? '').trim();
+
+  if (existingDate && nextDate && nextDate < existingDate) {
+    return `取得日期 (${nextDate}) 舊於既有快取 (${existingDate})，略過寫入避免資料倒退`;
+  }
+
+  if (existingDate === nextDate) {
+    if (existingTime && (!nextTime || nextTime < existingTime)) {
+      return `同日行情時間 (${nextTime || '無時間'}) 舊於既有快取 (${existingTime})，略過寫入`;
+    }
+    if (
+      existingTime === nextTime &&
+      existing.value === next.value &&
+      existing.change === next.change &&
+      existing.percent === next.percent &&
+      existing.statusText === next.statusText
+    ) {
+      return `行情資料未變動 (${nextDate} ${nextTime || ''}, ${next.formattedValue})，略過寫入`;
+    }
+  }
+
+  return null;
+}
+
 async function updateTaiex() {
   let payload;
   try {
@@ -194,12 +238,19 @@ async function updateTaiex() {
     payload = await fetchFromOpenAPI();
   }
 
+  const existing = readExistingPayload();
+  const skipReason = shouldSkipWrite(existing, payload);
+  if (skipReason) {
+    console.log(`ℹ️ [TWSE] ${skipReason}`);
+    return;
+  }
+
   const targetDir = path.dirname(TARGET_FILE);
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true });
   }
 
-  fs.writeFileSync(TARGET_FILE, JSON.stringify(payload, null, 2), 'utf8');
+  fs.writeFileSync(TARGET_FILE, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   console.log(`✅ [TWSE] 台股加權指數成功寫入: ${TARGET_FILE}`);
   console.log(`   來源: ${payload.source}`);
   console.log(`   指數: ${payload.formattedValue} | 漲跌: ${payload.formattedChange} | 日期: ${payload.date} ${payload.time || ''}`);

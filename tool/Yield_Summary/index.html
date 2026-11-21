@@ -137,6 +137,34 @@
     <p class="app-footer-detail">Contact: <a href="mailto:yplu@winbond.com">yplu@winbond.com</a> ｜ Copyright © 2026 PP32 YPLu (Desmond) ｜ MIT License</p>
   </footer>
 
+  <!-- 加密 Excel 警告 dialog -->
+  <dialog id="encrypted-file-dialog" style="border:none;border-radius:12px;padding:28px;max-width:380px;width:90%;background:#1e2030;color:#e5e7eb;box-shadow:0 24px 60px rgba(0,0,0,0.6);">
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.7;">⚠️ 系統無法分析受保護的 Excel 檔案，請解除加密設定後重新上傳。參考圖片</p>
+    <img src="../../unlock_irm.jpg" alt="解除保護說明" style="max-width:100%;border-radius:8px;display:block;">
+    <div style="text-align:right;margin-top:16px;">
+      <button onclick="document.getElementById('encrypted-file-dialog').close()" style="padding:6px 18px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">關閉</button>
+    </div>
+  </dialog>
+
+  <!-- CP 柏拉圖彈窗 -->
+  <dialog id="cp-pareto-dialog" class="pareto-dialog">
+    <div class="pareto-dialog-header">
+      <div class="pareto-title-block">
+        <h2 id="cp-pareto-title" class="pareto-title">SORT BY STEP ID</h2>
+        <span id="cp-pareto-subtitle" class="pareto-subtitle"></span>
+      </div>
+      <div class="pareto-header-right">
+        <div class="pareto-legend" aria-label="圖例">
+          <span class="pareto-legend-item"><span class="pareto-swatch pareto-swatch-bin"></span>01~07</span>
+          <span class="pareto-legend-item"><span class="pareto-swatch pareto-swatch-fail"></span>Top 5 Fail</span>
+          <span class="pareto-legend-item"><span class="pareto-swatch pareto-swatch-line"></span>累計 %</span>
+        </div>
+        <button type="button" id="cp-pareto-close" class="pareto-close-btn">✕ 關閉</button>
+      </div>
+    </div>
+    <div id="cp-pareto-body" class="pareto-grid"></div>
+  </dialog>
+
   <!-- 載入核心 JS 腳本 -->
   <script src="js/wec_token.js"></script>
   <script src="js/cp_tool.js"></script>
@@ -244,14 +272,5 @@
     if (window.initCP) window.initCP();
     if (window.initFT) window.initFT();
   </script>
-
-  <!-- 加密 Excel 警告 dialog -->
-  <dialog id="encrypted-file-dialog" style="border:none;border-radius:12px;padding:28px;max-width:380px;width:90%;background:#1e2030;color:#e5e7eb;box-shadow:0 24px 60px rgba(0,0,0,0.6);">
-    <p style="margin:0 0 16px;font-size:14px;line-height:1.7;">⚠️ 系統無法分析受保護的 Excel 檔案，請解除加密設定後重新上傳。參考圖片</p>
-    <img src="../../unlock_irm.jpg" alt="解除保護說明" style="max-width:100%;border-radius:8px;display:block;">
-    <div style="text-align:right;margin-top:16px;">
-      <button onclick="document.getElementById('encrypted-file-dialog').close()" style="padding:6px 18px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">關閉</button>
-    </div>
-  </dialog>
 </body>
 </html>
