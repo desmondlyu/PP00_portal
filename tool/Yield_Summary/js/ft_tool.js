@@ -40,6 +40,8 @@
     const exportBtn = document.getElementById('export-btn');
     const tableView = document.getElementById('table-view');
     const failsafeView = document.getElementById('failsafe-view');
+    const cpSummaryPanel = document.getElementById('cp-summary-panel');
+    if (cpSummaryPanel) cpSummaryPanel.style.display = 'none';
 
     if (rawData) {
       tableView.style.display = 'block';

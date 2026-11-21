@@ -55,7 +55,13 @@
 
       <!-- CP 站點多選 (僅在 CP 頁籤顯示) -->
       <div id="cp-steps-section">
-        <label>站點選擇 (Step ID)</label>
+        <div class="steps-header">
+          <label>站點選擇 (Step ID)</label>
+          <div class="steps-actions">
+            <button type="button" id="cp-steps-select-all" class="step-action-btn">全選</button>
+            <button type="button" id="cp-steps-deselect-all" class="step-action-btn">全不選</button>
+          </div>
+        </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; background:rgba(13, 27, 42, 0.5); padding:10px; border:1px solid rgba(255, 255, 255, 0.1); border-radius:6px; max-height:160px; overflow-y:auto;" id="cp-steps-container">
           <!-- 由 JS 動態產生 Checkbox -->
         </div>
@@ -92,6 +98,26 @@
             <thead><tr id="table-headers"></tr></thead>
             <tbody id="table-rows"></tbody>
           </table>
+        </div>
+
+        <!-- CP 統計摘要框架 (僅在 CP 頁籤有資料時顯示) -->
+        <div id="cp-summary-panel" class="summary-panel" style="display:none;">
+          <div class="summary-panel-header">
+            <div class="summary-panel-title-group">
+              <span class="summary-panel-title">CP 統計摘要 (YIELD &amp; TOP 5 FAIL ITEM)</span>
+              <span id="cp-summary-meta" class="summary-panel-meta"></span>
+            </div>
+            <div class="summary-mode-switch" role="group" aria-label="CP 統計分組方式">
+              <button type="button" id="cp-summary-by-step" class="summary-mode-btn active">By STEP_ID</button>
+              <button type="button" id="cp-summary-by-lot" class="summary-mode-btn">By LOT_ID</button>
+            </div>
+          </div>
+          <div class="summary-table-container">
+            <table id="cp-summary-table" class="summary-table">
+              <thead><tr id="cp-summary-headers"></tr></thead>
+              <tbody id="cp-summary-rows"></tbody>
+            </table>
+          </div>
         </div>
         
         <!-- Fail-safe JSON 貼上區 -->
@@ -199,6 +225,19 @@
       const btnPy = document.getElementById('dl-proxy-py');
       if (btnBat) btnBat.addEventListener('click', () => triggerDownload('proxy.bat'));
       if (btnPy) btnPy.addEventListener('click', () => triggerDownload('proxy.py'));
+    }
+
+    // 預設結束日為使用者系統當天年月日
+    function formatLocalDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    const endDateInput = document.getElementById('end-date');
+    if (endDateInput && !endDateInput.value) {
+      endDateInput.value = formatLocalDate(new Date());
     }
 
     // 初始化

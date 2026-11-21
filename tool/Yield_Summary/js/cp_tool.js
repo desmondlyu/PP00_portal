@@ -5,7 +5,7 @@
   ];
 
   const paramOptions = [
-    "01", "02", "03", "04", "05", "06", "07", "09", "0A", "0B", "0C", "0D", "0E", "0F", "0G", "0J", "0K", "0L",
+    "01", "02", "03", "04", "05", "06", "07", "08", "09", "0A", "0B", "0C", "0D", "0E", "0F", "0G", "0J", "0K", "0L",
     "0M", "0N", "0O", "0P", "0Q", "0R", "0S", "0T", "0U", "0V", "0W", "0X", "0Y", "0Z",
     "1A", "1B", "1C", "1D", "1E", "1F", "1G", "1H", "1J", "1K", "1L", "1M", "1N", "1O", "1P", "1Q", "1R", "1S", "1T", "1V",
     "1W", "1X", "1Y", "1Z", "2A", "2B", "2C", "2D", "2E", "2F", "2G", "2H", "2L", "2M", "2N", "2O", "2P", "2Q", "2R", "2S",
@@ -23,10 +23,16 @@
   const API_URL = isSecure ? PROXY_API : INTERNAL_API;
   const WIDGET_ID = "46141686285147519809e1924b6be1ea";
 
+  const NON_FAIL_ITEMS = new Set([
+    'STEP_ID', 'WAFER_ID', 'PROD_GROUP', 'LOT_ID', 'PROGRAM_ID',
+    'YIELD', '01', '02', '03', '04', '05', '06', '07'
+  ]);
+
   let rawData = null;
   let processedData = null;
   let transposedData = null;
   let cpSort = { key: null, direction: 1 };
+  let cpSummaryGroupBy = 'step_id';
 
   function initCP() {
     const container = document.getElementById('cp-steps-container');
@@ -44,6 +50,32 @@
       label.innerHTML = `<input type="checkbox" value="${step}" checked class="cp-step-cb"> ${step}`;
       container.appendChild(label);
     });
+
+    const selectAllBtn = document.getElementById('cp-steps-select-all');
+    const deselectAllBtn = document.getElementById('cp-steps-deselect-all');
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', () => {
+        container.querySelectorAll('.cp-step-cb').forEach(cb => {
+          cb.checked = true;
+        });
+      });
+    }
+    if (deselectAllBtn) {
+      deselectAllBtn.addEventListener('click', () => {
+        container.querySelectorAll('.cp-step-cb').forEach(cb => {
+          cb.checked = false;
+        });
+      });
+    }
+
+    const byStepBtn = document.getElementById('cp-summary-by-step');
+    const byLotBtn = document.getElementById('cp-summary-by-lot');
+    if (byStepBtn) {
+      byStepBtn.addEventListener('click', () => setSummaryGroupBy('step_id'));
+    }
+    if (byLotBtn) {
+      byLotBtn.addEventListener('click', () => setSummaryGroupBy('lot_id'));
+    }
     
     // 啟動自動測試連線，並每 5 秒自動偵測一次
     testConnection();
@@ -54,6 +86,7 @@
     updateUIState();
     if (rawData && transposedData) {
       renderTable();
+      renderSummaryPanel();
     }
   }
 
@@ -117,15 +150,18 @@
     const exportBtn = document.getElementById('export-btn');
     const tableView = document.getElementById('table-view');
     const failsafeView = document.getElementById('failsafe-view');
+    const cpSummaryPanel = document.getElementById('cp-summary-panel');
 
-    if (rawData) {
+    if (rawData && transposedData) {
       tableView.style.display = 'block';
       failsafeView.style.display = 'none';
+      if (cpSummaryPanel) cpSummaryPanel.style.display = 'flex';
       exportBtn.disabled = false;
       exportBtn.style.backgroundColor = '#e31a22';
     } else {
       tableView.style.display = 'none';
       failsafeView.style.display = 'flex';
+      if (cpSummaryPanel) cpSummaryPanel.style.display = 'none';
       exportBtn.disabled = true;
       exportBtn.style.backgroundColor = '#71717a';
     }
@@ -156,6 +192,7 @@
 
     setStatus("FETCHING CP DATA...", "#e31a22");
     rawData = null;
+    transposedData = null;
 
     try {
       const lots = lotInput.split(',').map(l => l.trim()).filter(l => l);
@@ -181,6 +218,7 @@
         cpSort.key = null; cpSort.direction = 1;
         processCPData(rawData);
         renderTable();
+        renderSummaryPanel();
         setStatus("SUCCESS", "#10b981");
       } else {
         setStatus("NO DATA FOUND", "#e31a22");
@@ -195,24 +233,28 @@
     }
   }
 
+  function formatLocalDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   function buildQiParams(lot, steps) {
     const start = document.getElementById('start-date').value;
     const end = document.getElementById('end-date').value;
-    let dateStart, dateEnd;
+    const endDateStr = end || formatLocalDate(new Date());
+    let startDateStr = start;
 
-    if (start && end) {
-      dateStart = `${start} 00:00:00`;
-      dateEnd = `${end} 23:59:59`;
-    } else {
-      const today = new Date();
-      const past30 = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-      dateStart = past30.toISOString().slice(0,10) + " 00:00:00";
-      dateEnd = today.toISOString().slice(0,10) + " 23:59:59";
+    if (!startDateStr) {
+      const baseEnd = new Date(`${endDateStr}T00:00:00`);
+      baseEnd.setDate(baseEnd.getDate() - 30);
+      startDateStr = formatLocalDate(baseEnd);
     }
 
     return {
-      "DatePickerStart": dateStart,
-      "DatePickerEnd": dateEnd,
+      "DatePickerStart": `${startDateStr} 00:00:00`,
+      "DatePickerEnd": `${endDateStr} 23:59:59`,
       "stepId": steps,
       "lotId": lot,
       "catName": paramOptions
@@ -274,6 +316,7 @@
       cpSort.key = null; cpSort.direction = 1;
       processCPData(rawData);
       renderTable();
+      renderSummaryPanel();
       updateUIState();
       setStatus("FAIL-SAFE LOAD SUCCESS", "#10b981");
     } catch (err) {
@@ -296,7 +339,7 @@
     const allParamsSet = new Set();
 
     processedData.forEach(r => {
-      const key = `${r.step_id}_${r.wafer_id}`;
+      const key = `${r.step_id}_${r.lot_id}_${r.wafer_id}`;
       if (!rowsMap.has(key)) {
         rowsMap.set(key, {
           step_id: r.step_id,
@@ -329,21 +372,26 @@
 
     const orderedParams = priority.filter(p => available.includes(p)).concat(nonPriority);
 
+    const rows = Array.from(rowsMap.values()).map(row => {
+      const res = {
+        step_id: row.step_id,
+        wafer_id: row.wafer_id,
+        prod_group: row.prod_group,
+        lot_id: row.lot_id,
+        program_id: row.program_id
+      };
+      orderedParams.forEach(p => {
+        res[p] = row.values[p] !== undefined ? row.values[p] : '';
+      });
+      return res;
+    });
+
+    // 預設依 step_id、再依 lot_id（同批依 wafer_id）排序
+    rows.sort(compareCPDefaultRows);
+
     transposedData = {
       params: orderedParams,
-      rows: Array.from(rowsMap.values()).map(row => {
-        const res = {
-          step_id: row.step_id,
-          wafer_id: row.wafer_id,
-          prod_group: row.prod_group,
-          lot_id: row.lot_id,
-          program_id: row.program_id
-        };
-        orderedParams.forEach(p => {
-          res[p] = row.values[p] !== undefined ? row.values[p] : '';
-        });
-        return res;
-      })
+      rows
     };
 
     document.getElementById('data-count-msg').innerText = `${data.length} RECORDS | ${transposedData.rows.length} TRANSPOSED ROWS`;
@@ -368,6 +416,221 @@
     const aStr = String(aVal);
     const bStr = String(bVal);
     return aStr.localeCompare(bStr, undefined, { numeric: true, sensitivity: 'base' }) * direction;
+  }
+
+  function compareCPDefaultRows(a, b) {
+    const stepCmp = cpValueCompare(a.step_id, b.step_id, 1);
+    if (stepCmp !== 0) return stepCmp;
+    const lotCmp = cpValueCompare(a.lot_id, b.lot_id, 1);
+    if (lotCmp !== 0) return lotCmp;
+    return cpValueCompare(a.wafer_id, b.wafer_id, 1);
+  }
+
+  function isFailItemParam(paramId) {
+    if (paramId === null || paramId === undefined) return false;
+    const normalized = String(paramId).trim().toUpperCase();
+    return normalized !== '' && !NON_FAIL_ITEMS.has(normalized);
+  }
+
+  function calcStats(values) {
+    if (!values || values.length === 0) return null;
+    let sum = 0;
+    let min = values[0];
+    let max = values[0];
+    for (let i = 0; i < values.length; i++) {
+      const v = values[i];
+      sum += v;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    return {
+      count: values.length,
+      avg: sum / values.length,
+      max,
+      min
+    };
+  }
+
+  function computeCPSummary(groupBy) {
+    if (!transposedData || !transposedData.rows || transposedData.rows.length === 0) {
+      return [];
+    }
+
+    const groupsMap = new Map();
+    transposedData.rows.forEach(row => {
+      const rawKey = row[groupBy];
+      const groupKey = (rawKey !== undefined && rawKey !== null && String(rawKey).trim() !== '')
+        ? String(rawKey).trim()
+        : 'UNKNOWN';
+      if (!groupsMap.has(groupKey)) {
+        groupsMap.set(groupKey, []);
+      }
+      groupsMap.get(groupKey).push(row);
+    });
+
+    const yieldParamKey = transposedData.params.find(
+      p => String(p).trim().toUpperCase() === 'YIELD'
+    );
+    const failParamKeys = transposedData.params.filter(isFailItemParam);
+
+    const summaries = Array.from(groupsMap.entries()).map(([groupKey, groupRows]) => {
+      const yieldVals = [];
+      if (yieldParamKey !== undefined) {
+        groupRows.forEach(r => {
+          const val = r[yieldParamKey];
+          if (typeof val === 'number' && Number.isFinite(val)) {
+            yieldVals.push(val);
+          }
+        });
+      }
+
+      const failItems = [];
+      failParamKeys.forEach(param => {
+        const vals = [];
+        groupRows.forEach(r => {
+          const val = r[param];
+          if (typeof val === 'number' && Number.isFinite(val)) {
+            vals.push(val);
+          }
+        });
+        if (vals.length > 0) {
+          const stats = calcStats(vals);
+          failItems.push({
+            param,
+            avg: stats.avg,
+            max: stats.max,
+            min: stats.min
+          });
+        }
+      });
+
+      failItems.sort((a, b) => {
+        if (b.avg !== a.avg) return b.avg - a.avg;
+        if (b.max !== a.max) return b.max - a.max;
+        return cpValueCompare(a.param, b.param, 1);
+      });
+
+      return {
+        groupKey,
+        rowCount: groupRows.length,
+        yieldStats: calcStats(yieldVals),
+        top5: failItems.slice(0, 5)
+      };
+    });
+
+    summaries.sort((a, b) => cpValueCompare(a.groupKey, b.groupKey, 1));
+    return summaries;
+  }
+
+  function setSummaryGroupBy(mode) {
+    cpSummaryGroupBy = mode === 'lot_id' ? 'lot_id' : 'step_id';
+    const byStepBtn = document.getElementById('cp-summary-by-step');
+    const byLotBtn = document.getElementById('cp-summary-by-lot');
+    if (byStepBtn) byStepBtn.classList.toggle('active', cpSummaryGroupBy === 'step_id');
+    if (byLotBtn) byLotBtn.classList.toggle('active', cpSummaryGroupBy === 'lot_id');
+    renderSummaryPanel();
+  }
+
+  function createStatCard(badgeText, badgeClass, valClass, stats) {
+    const card = document.createElement('div');
+    card.className = 'summary-stat-card font-mono';
+
+    const mainLine = document.createElement('div');
+    mainLine.className = 'summary-stat-main';
+
+    const badge = document.createElement('span');
+    badge.className = badgeClass;
+    badge.textContent = badgeText;
+
+    const avgSpan = document.createElement('span');
+    avgSpan.className = valClass;
+    avgSpan.textContent = `Avg ${stats.avg.toFixed(4)}`;
+
+    mainLine.appendChild(badge);
+    mainLine.appendChild(avgSpan);
+
+    const rangeLine = document.createElement('div');
+    rangeLine.className = 'summary-stat-range';
+    rangeLine.textContent = `Max ${stats.max.toFixed(4)} / Min ${stats.min.toFixed(4)}`;
+
+    card.appendChild(mainLine);
+    card.appendChild(rangeLine);
+    return card;
+  }
+
+  function renderSummaryPanel() {
+    const headerRow = document.getElementById('cp-summary-headers');
+    const rowsBody = document.getElementById('cp-summary-rows');
+    const metaEl = document.getElementById('cp-summary-meta');
+    if (!headerRow || !rowsBody) return;
+
+    headerRow.innerHTML = '';
+    rowsBody.innerHTML = '';
+
+    if (!transposedData || !transposedData.rows || transposedData.rows.length === 0) {
+      if (metaEl) metaEl.textContent = '';
+      return;
+    }
+
+    const groupLabel = cpSummaryGroupBy === 'lot_id' ? 'LOT_ID' : 'STEP_ID';
+    const headers = [groupLabel, 'YIELD (AVG / MAX / MIN)', 'TOP 1 FAIL', 'TOP 2 FAIL', 'TOP 3 FAIL', 'TOP 4 FAIL', 'TOP 5 FAIL'];
+    headers.forEach(text => {
+      const th = document.createElement('th');
+      th.textContent = text;
+      headerRow.appendChild(th);
+    });
+
+    const summaries = computeCPSummary(cpSummaryGroupBy);
+    if (metaEl) {
+      const unit = cpSummaryGroupBy === 'lot_id' ? 'LOTS' : 'STEPS';
+      metaEl.textContent = `${summaries.length} ${unit} · ${transposedData.rows.length} ROWS (排除 01~07 與 Yield)`;
+    }
+
+    summaries.forEach(item => {
+      const tr = document.createElement('tr');
+
+      const tdGroup = document.createElement('td');
+      const keyDiv = document.createElement('div');
+      keyDiv.className = 'summary-group-key font-mono';
+      keyDiv.textContent = item.groupKey;
+      const countDiv = document.createElement('div');
+      countDiv.className = 'summary-group-count';
+      countDiv.textContent = `${item.rowCount} rows`;
+      tdGroup.appendChild(keyDiv);
+      tdGroup.appendChild(countDiv);
+      tr.appendChild(tdGroup);
+
+      const tdYield = document.createElement('td');
+      if (item.yieldStats) {
+        tdYield.appendChild(
+          createStatCard('YIELD', 'summary-badge-yield', 'summary-yield-val', item.yieldStats)
+        );
+      } else {
+        const emptySpan = document.createElement('span');
+        emptySpan.className = 'summary-empty';
+        emptySpan.textContent = '-';
+        tdYield.appendChild(emptySpan);
+      }
+      tr.appendChild(tdYield);
+
+      for (let i = 0; i < 5; i++) {
+        const tdFail = document.createElement('td');
+        const failItem = item.top5[i];
+        if (failItem) {
+          tdFail.appendChild(
+            createStatCard(failItem.param, 'summary-badge-fail', 'summary-fail-val', failItem)
+          );
+        } else {
+          const emptySpan = document.createElement('span');
+          emptySpan.className = 'summary-empty';
+          emptySpan.textContent = '-';
+          tdFail.appendChild(emptySpan);
+        }
+        tr.appendChild(tdFail);
+      }
+
+      rowsBody.appendChild(tr);
+    });
   }
 
   function createHeaderCell(h) {
@@ -411,7 +674,10 @@
 
     let rowsToRender = transposedData.rows;
     if (cpSort.key) {
-      rowsToRender = transposedData.rows.slice().sort((a, b) => cpValueCompare(a[cpSort.key], b[cpSort.key], cpSort.direction));
+      rowsToRender = transposedData.rows.slice().sort((a, b) => {
+        const primary = cpValueCompare(a[cpSort.key], b[cpSort.key], cpSort.direction);
+        return primary !== 0 ? primary : compareCPDefaultRows(a, b);
+      });
     }
 
     const limit = Math.min(rowsToRender.length, 50);
