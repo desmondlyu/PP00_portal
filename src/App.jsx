@@ -248,9 +248,10 @@ export default function App() {
       'dl-analysis': false,
       'yield-summary': false,
       'cp-mss-converter': false,
-      'dongle-summary': true,
-      'writer': true,
+      'dongle-summary': false,
+      'writer': false,
       'eng_report': false,  // 預設 active，由 Supabase tool_statuses 資料列覆蓋
+      'te_tto': false,
       'datasheet-diff': false
     };
     try {
@@ -799,7 +800,7 @@ export default function App() {
         </div>
         <div className="header-actions">
           {(() => {
-            const offlineCount = Object.values(offlineTools).filter(Boolean).length;
+            const offlineCount = tools.filter((tool) => Boolean(offlineTools[tool.id])).length;
             const isAllOnline = offlineCount === 0;
             return (
               <div className="system-status" style={!isAllOnline ? {

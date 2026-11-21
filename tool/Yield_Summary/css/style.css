@@ -164,8 +164,177 @@ label {
 /* Data-Dense Table styling */
 .table-container {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 16px;
+}
+
+/* CP Summary Split Panel */
+.summary-panel {
+  flex: 1;
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(13, 27, 42, 0.45);
+}
+
+.summary-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 15, 30, 0.45);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.summary-panel-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.summary-panel-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #e0e1dd;
+  text-transform: uppercase;
+}
+
+.summary-panel-meta {
+  font-size: 11px;
+  color: #778da9;
+  font-weight: 600;
+}
+
+.summary-mode-switch {
+  display: inline-flex;
+  background: rgba(13, 27, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.summary-mode-btn {
+  background: transparent;
+  color: #778da9;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.summary-mode-btn:hover {
+  color: #e0e1dd;
+}
+
+.summary-mode-btn.active {
+  background-color: #e31a22;
+  color: #ffffff;
+}
+
+.summary-mode-btn:focus-visible {
+  outline: 2px solid #8ecae6;
+  outline-offset: 2px;
+}
+
+.summary-table-container {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 16px;
+}
+
+.summary-table th {
+  position: sticky;
+  top: 0;
+  background: #0f1e33;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.summary-table td {
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.summary-group-key {
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.summary-group-count {
+  font-size: 10px;
+  color: #778da9;
+  margin-top: 2px;
+}
+
+.summary-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 148px;
+}
+
+.summary-stat-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.summary-stat-range {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.summary-badge-yield {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+.summary-yield-val {
+  color: #34d399;
+}
+
+.summary-badge-fail {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: rgba(227, 26, 34, 0.18);
+  border: 1px solid rgba(227, 26, 34, 0.45);
+  color: #fb7185;
+}
+
+.summary-fail-val {
+  color: #e0e1dd;
+}
+
+.summary-empty {
+  color: #64748b;
 }
 
 table {
@@ -237,6 +406,47 @@ tr:hover td {
 #status-bar {
   background-color: rgba(13, 27, 42, 0.3) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Steps container header & action buttons */
+.steps-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.steps-header label {
+  margin-bottom: 0;
+}
+
+.steps-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.step-action-btn {
+  background-color: rgba(13, 27, 42, 0.6);
+  color: #e0e1dd;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.step-action-btn:hover {
+  border-color: rgba(227, 26, 34, 0.8);
+  background-color: rgba(227, 26, 34, 0.2);
+  color: #ffffff;
+}
+
+.step-action-btn:focus-visible {
+  outline: 2px solid #8ecae6;
+  outline-offset: 2px;
 }
 
 /* Steps container checkbutton layout */
