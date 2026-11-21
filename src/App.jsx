@@ -717,6 +717,7 @@ export default function App() {
 
   // 更新日誌
   const changelog = [
+    { version: 'v2.0.9', date: '2026-11-21', text: '📊 Yield Summary（CP）升級：新增站點全選／全不選、預設今日結束日、Yield 與 Top 5 Fail 摘要，點選 LOT／STEP 即彈出柏拉圖！🛠️ 修正 Portal 狀態燈顯示。', isNew: true },
     { version: 'v2.0.8', date: '2026-11-18', text: '🔒 Yield Summary 安全升級：連線金鑰改為登入 Portal 後自動取得，請先登入再開啟工具。📥 proxy.bat／proxy.py 恢復從網頁直接下載！', isNew: true },
     { version: 'v2.0.7', date: '2026-11-05', text: '📑 新工具上架：NOR Flash Datasheet 規格比對工具！丟入新舊版規格書，AC/DC、指令自動整理成 Excel，數值和文字改了哪裡一目了然，PDF 不上傳更安心。', isNew: true },
     { version: 'v2.0.6', date: '2026-11-04', text: '🎯 FT 特性系統新增問題熱圖，哪個項目、哪個條件出問題一眼看穿！Charts／表格問題優先排序，寬表格圖表也有清楚捲軸與固定表頭。', isNew: true },
