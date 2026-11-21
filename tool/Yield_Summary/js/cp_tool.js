@@ -76,6 +76,17 @@
     if (byLotBtn) {
       byLotBtn.addEventListener('click', () => setSummaryGroupBy('lot_id'));
     }
+
+    const paretoDialog = document.getElementById('cp-pareto-dialog');
+    const paretoCloseBtn = document.getElementById('cp-pareto-close');
+    if (paretoCloseBtn && paretoDialog) {
+      paretoCloseBtn.addEventListener('click', () => paretoDialog.close());
+    }
+    if (paretoDialog) {
+      paretoDialog.addEventListener('click', (e) => {
+        if (e.target === paretoDialog) paretoDialog.close();
+      });
+    }
     
     // 啟動自動測試連線，並每 5 秒自動偵測一次
     testConnection();
@@ -592,7 +603,13 @@
       const tdGroup = document.createElement('td');
       const keyDiv = document.createElement('div');
       keyDiv.className = 'summary-group-key font-mono';
-      keyDiv.textContent = item.groupKey;
+      const drillBtn = document.createElement('button');
+      drillBtn.type = 'button';
+      drillBtn.className = 'cp-drill-btn';
+      drillBtn.textContent = item.groupKey;
+      drillBtn.title = `點擊檢視 ${item.groupKey} 柏拉圖`;
+      drillBtn.addEventListener('click', () => openParetoModal(cpSummaryGroupBy, item.groupKey));
+      keyDiv.appendChild(drillBtn);
       const countDiv = document.createElement('div');
       countDiv.className = 'summary-group-count';
       countDiv.textContent = `${item.rowCount} rows`;
@@ -686,7 +703,17 @@
       const tr = document.createElement('tr');
       baseHeaders.forEach(h => {
         const td = document.createElement('td');
-        td.innerText = r[h];
+        if ((h === 'step_id' || h === 'lot_id') && r[h] !== undefined && r[h] !== null && String(r[h]).trim() !== '') {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'cp-drill-btn font-mono';
+          btn.textContent = r[h];
+          btn.title = `點擊檢視 ${r[h]} 柏拉圖`;
+          btn.addEventListener('click', () => openParetoModal(h, String(r[h]).trim()));
+          td.appendChild(btn);
+        } else {
+          td.innerText = r[h];
+        }
         tr.appendChild(td);
       });
       transposedData.params.forEach(p => {
@@ -696,6 +723,405 @@
         tr.appendChild(td);
       });
       rowsBody.appendChild(tr);
+    }
+  }
+
+  const GOOD_BIN_ORDER = ['01', '02', '03', '04', '05', '06', '07'];
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  function createSvgEl(tag, attrs = {}) {
+    const el = document.createElementNS(SVG_NS, tag);
+    Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, String(v)));
+    return el;
+  }
+
+  function formatParetoAxisValue(val, maxVal) {
+    if (maxVal >= 100) return val.toFixed(1);
+    if (maxVal >= 10) return val.toFixed(2);
+    return val.toFixed(3);
+  }
+
+  function formatParetoBarLabel(val) {
+    if (val >= 100) return val.toFixed(1);
+    if (val >= 10) return val.toFixed(2);
+    return val.toFixed(2);
+  }
+
+  function buildParetoSeriesForRows(groupRows) {
+    if (!transposedData || !groupRows || groupRows.length === 0) {
+      return { yieldStats: null, bars: [], total: 0 };
+    }
+
+    const paramsByUpper = new Map();
+    transposedData.params.forEach(p => {
+      const upper = String(p).trim().toUpperCase();
+      if (!paramsByUpper.has(upper)) {
+        paramsByUpper.set(upper, p);
+      }
+    });
+
+    const yieldKey = paramsByUpper.get('YIELD');
+    const yieldVals = [];
+    if (yieldKey !== undefined) {
+      groupRows.forEach(r => {
+        const v = r[yieldKey];
+        if (typeof v === 'number' && Number.isFinite(v)) {
+          yieldVals.push(v);
+        }
+      });
+    }
+
+    // 01~07：僅保留該群組內有實際數值（avg > 0）的項目
+    const goodBars = [];
+    GOOD_BIN_ORDER.forEach(code => {
+      const actualKey = paramsByUpper.get(code);
+      if (actualKey === undefined) return;
+      const vals = [];
+      groupRows.forEach(r => {
+        const v = r[actualKey];
+        if (typeof v === 'number' && Number.isFinite(v)) {
+          vals.push(v);
+        }
+      });
+      const stats = calcStats(vals);
+      if (stats && stats.avg > 0) {
+        goodBars.push({
+          label: code,
+          type: 'bin',
+          avg: stats.avg,
+          max: stats.max,
+          min: stats.min
+        });
+      }
+    });
+
+    // Fail Items：排除 01~07 與 Yield，取平均值前 5 高
+    const failCandidates = [];
+    transposedData.params.filter(isFailItemParam).forEach(param => {
+      const vals = [];
+      groupRows.forEach(r => {
+        const v = r[param];
+        if (typeof v === 'number' && Number.isFinite(v)) {
+          vals.push(v);
+        }
+      });
+      const stats = calcStats(vals);
+      if (stats) {
+        failCandidates.push({
+          label: param,
+          type: 'fail',
+          avg: stats.avg,
+          max: stats.max,
+          min: stats.min
+        });
+      }
+    });
+
+    const positiveFails = failCandidates.filter(item => item.avg > 0);
+    const failPool = positiveFails.length > 0 ? positiveFails : failCandidates;
+    failPool.sort((a, b) => {
+      if (b.avg !== a.avg) return b.avg - a.avg;
+      if (b.max !== a.max) return b.max - a.max;
+      return cpValueCompare(a.label, b.label, 1);
+    });
+    const top5FailBars = failPool.slice(0, 5);
+
+    const bars = goodBars.concat(top5FailBars);
+    const total = bars.reduce((sum, b) => sum + Math.max(b.avg, 0), 0);
+
+    return {
+      yieldStats: calcStats(yieldVals),
+      bars,
+      total
+    };
+  }
+
+  function renderParetoSvg(chartTitle, series, chartIndex) {
+    const { bars, total } = series;
+    if (!bars || bars.length === 0 || total <= 0) {
+      const empty = document.createElement('div');
+      empty.className = 'pareto-empty-msg';
+      empty.textContent = '此分組無可繪製的數值資料';
+      return empty;
+    }
+
+    const width = 560;
+    const height = 310;
+    const padLeft = 56;
+    const padRight = 56;
+    const padTop = 30;
+    const padBottom = 42;
+    const plotW = width - padLeft - padRight;
+    const plotH = height - padTop - padBottom;
+    const plotBottom = padTop + plotH;
+    const plotRight = padLeft + plotW;
+
+    const svg = createSvgEl('svg', {
+      class: 'pareto-svg',
+      viewBox: `0 0 ${width} ${height}`,
+      role: 'img',
+      'aria-label': chartTitle
+    });
+
+    // 漸層定義
+    const defs = createSvgEl('defs');
+    const binGradId = `pareto-bin-grad-${chartIndex}`;
+    const failGradId = `pareto-fail-grad-${chartIndex}`;
+
+    const binGrad = createSvgEl('linearGradient', { id: binGradId, x1: '0', y1: '0', x2: '0', y2: '1' });
+    binGrad.appendChild(createSvgEl('stop', { offset: '0%', 'stop-color': '#2563eb' }));
+    binGrad.appendChild(createSvgEl('stop', { offset: '100%', 'stop-color': '#0000cc' }));
+    defs.appendChild(binGrad);
+
+    const failGrad = createSvgEl('linearGradient', { id: failGradId, x1: '0', y1: '0', x2: '0', y2: '1' });
+    failGrad.appendChild(createSvgEl('stop', { offset: '0%', 'stop-color': '#f43f5e' }));
+    failGrad.appendChild(createSvgEl('stop', { offset: '100%', 'stop-color': '#be123c' }));
+    defs.appendChild(failGrad);
+
+    svg.appendChild(defs);
+
+    // 圖表主標題
+    const titleEl = createSvgEl('text', {
+      x: width / 2,
+      y: 18,
+      'text-anchor': 'middle',
+      fill: '#0f172a',
+      'font-size': '13',
+      'font-weight': '700'
+    });
+    titleEl.textContent = chartTitle;
+    svg.appendChild(titleEl);
+
+    // 10 等分水平網格線與左右 Y 軸刻度（0% ~ 100%）
+    const steps = 10;
+    for (let i = 0; i <= steps; i++) {
+      const ratio = i / steps;
+      const y = plotBottom - ratio * plotH;
+
+      svg.appendChild(createSvgEl('line', {
+        x1: padLeft,
+        y1: y,
+        x2: plotRight,
+        y2: y,
+        stroke: i === 0 || i === steps ? '#64748b' : '#e2e8f0',
+        'stroke-width': i === 0 || i === steps ? '1' : '1'
+      }));
+
+      // 左 Y 軸數值刻度
+      const leftLabel = createSvgEl('text', {
+        x: padLeft - 7,
+        y: y + 3.5,
+        'text-anchor': 'end',
+        fill: '#334155',
+        'font-size': '10',
+        'font-family': 'SFMono-Regular, Consolas, monospace'
+      });
+      leftLabel.textContent = formatParetoAxisValue(total * ratio, total);
+      svg.appendChild(leftLabel);
+
+      // 右 Y 軸累計百分比刻度
+      const rightLabel = createSvgEl('text', {
+        x: plotRight + 7,
+        y: y + 3.5,
+        'text-anchor': 'start',
+        fill: '#334155',
+        'font-size': '10',
+        'font-family': 'SFMono-Regular, Consolas, monospace'
+      });
+      rightLabel.textContent = `${(ratio * 100).toFixed(1)}%`;
+      svg.appendChild(rightLabel);
+    }
+
+    // 左右垂直邊框軸線
+    svg.appendChild(createSvgEl('line', {
+      x1: padLeft, y1: padTop, x2: padLeft, y2: plotBottom,
+      stroke: '#64748b', 'stroke-width': '1'
+    }));
+    svg.appendChild(createSvgEl('line', {
+      x1: plotRight, y1: padTop, x2: plotRight, y2: plotBottom,
+      stroke: '#64748b', 'stroke-width': '1'
+    }));
+
+    // 柱狀圖與累計折線資料點
+    const barW = plotW / bars.length;
+    const points = [{ x: padLeft, y: plotBottom, cumVal: 0, cumPct: 0, label: 'Start' }];
+    let cumVal = 0;
+
+    bars.forEach((bar, idx) => {
+      const val = Math.max(bar.avg, 0);
+      const barH = (val / total) * plotH;
+      const x = padLeft + idx * barW;
+      const y = plotBottom - barH;
+      cumVal += val;
+      const cumPct = (cumVal / total) * 100;
+
+      const rect = createSvgEl('rect', {
+        x: x.toFixed(2),
+        y: y.toFixed(2),
+        width: Math.max(barW - 1, 1).toFixed(2),
+        height: Math.max(barH, 0.5).toFixed(2),
+        fill: bar.type === 'bin' ? `url(#${binGradId})` : `url(#${failGradId})`,
+        stroke: '#ffffff',
+        'stroke-width': '1'
+      });
+
+      const tip = createSvgEl('title');
+      const kind = bar.type === 'bin' ? 'Bin' : 'Fail Item';
+      tip.textContent = `${kind} ${bar.label}\nAvg: ${bar.avg.toFixed(4)}\nMax: ${bar.max.toFixed(4)} / Min: ${bar.min.toFixed(4)}\n累計: ${cumVal.toFixed(4)} (${cumPct.toFixed(1)}%)`;
+      rect.appendChild(tip);
+      svg.appendChild(rect);
+
+      // 柱頂數值標示
+      const valText = createSvgEl('text', {
+        x: (x + barW / 2).toFixed(2),
+        y: Math.max(y - 4, padTop + 10).toFixed(2),
+        'text-anchor': 'middle',
+        fill: bar.type === 'bin' ? '#1e3a8a' : '#9f1239',
+        'font-size': '9',
+        'font-weight': '700',
+        'font-family': 'SFMono-Regular, Consolas, monospace'
+      });
+      valText.textContent = formatParetoBarLabel(bar.avg);
+      svg.appendChild(valText);
+
+      // X 軸標籤
+      const xLabel = createSvgEl('text', {
+        x: (x + barW / 2).toFixed(2),
+        y: plotBottom + 16,
+        'text-anchor': 'middle',
+        fill: bar.type === 'bin' ? '#0f172a' : '#be123c',
+        'font-size': '10.5',
+        'font-weight': '700',
+        'font-family': 'SFMono-Regular, Consolas, monospace'
+      });
+      xLabel.textContent = bar.label;
+      svg.appendChild(xLabel);
+
+      points.push({
+        x: padLeft + (idx + 1) * barW,
+        y: plotBottom - (cumVal / total) * plotH,
+        cumVal,
+        cumPct,
+        label: bar.label
+      });
+    });
+
+    // 橘色累計百分比折線（從左下 0% 連至右上 100%）
+    const polyline = createSvgEl('polyline', {
+      fill: 'none',
+      stroke: '#f97316',
+      'stroke-width': '2.2',
+      'stroke-linejoin': 'round',
+      points: points.map(pt => `${pt.x.toFixed(2)},${pt.y.toFixed(2)}`).join(' ')
+    });
+    svg.appendChild(polyline);
+
+    points.forEach(pt => {
+      const dot = createSvgEl('circle', {
+        cx: pt.x.toFixed(2),
+        cy: pt.y.toFixed(2),
+        r: '3.2',
+        fill: '#f97316',
+        stroke: '#ffffff',
+        'stroke-width': '1'
+      });
+      const dotTip = createSvgEl('title');
+      dotTip.textContent = pt.label === 'Start'
+        ? '0.0%'
+        : `${pt.label} 累計: ${pt.cumVal.toFixed(4)} (${pt.cumPct.toFixed(1)}%)`;
+      dot.appendChild(dotTip);
+      svg.appendChild(dot);
+    });
+
+    return svg;
+  }
+
+  function openParetoModal(clickedField, clickedValue) {
+    if (!transposedData || !transposedData.rows || transposedData.rows.length === 0) return;
+    const dialog = document.getElementById('cp-pareto-dialog');
+    const titleEl = document.getElementById('cp-pareto-title');
+    const subtitleEl = document.getElementById('cp-pareto-subtitle');
+    const bodyEl = document.getElementById('cp-pareto-body');
+    if (!dialog || !titleEl || !subtitleEl || !bodyEl) return;
+
+    const isByLot = clickedField === 'lot_id';
+    const subGroupField = isByLot ? 'step_id' : 'lot_id';
+    const subGroupLabel = isByLot ? 'STEP_ID' : 'LOT_ID';
+
+    titleEl.textContent = isByLot ? 'SORT BY LOT ID' : 'SORT BY STEP ID';
+
+    const matchedRows = transposedData.rows.filter(r => {
+      const val = r[clickedField] !== undefined && r[clickedField] !== null ? String(r[clickedField]).trim() : '';
+      return val === clickedValue;
+    });
+
+    const subGroupsMap = new Map();
+    matchedRows.forEach(r => {
+      const rawSub = r[subGroupField];
+      const subKey = (rawSub !== undefined && rawSub !== null && String(rawSub).trim() !== '')
+        ? String(rawSub).trim()
+        : 'UNKNOWN';
+      if (!subGroupsMap.has(subKey)) {
+        subGroupsMap.set(subKey, []);
+      }
+      subGroupsMap.get(subKey).push(r);
+    });
+
+    const subGroups = Array.from(subGroupsMap.entries()).sort((a, b) => cpValueCompare(a[0], b[0], 1));
+
+    const clickedLabel = isByLot ? 'LOT_ID' : 'STEP_ID';
+    subtitleEl.textContent = `${clickedLabel}: ${clickedValue} · 共 ${subGroups.length} 張柏拉圖（依 ${subGroupLabel}）`;
+
+    bodyEl.innerHTML = '';
+    if (subGroups.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'pareto-empty-msg';
+      empty.textContent = '找不到對應的資料可繪製柏拉圖';
+      bodyEl.appendChild(empty);
+    } else {
+      subGroups.forEach(([subKey, rows], idx) => {
+        const series = buildParetoSeriesForRows(rows);
+        const card = document.createElement('div');
+        card.className = 'pareto-card';
+
+        const cardHeader = document.createElement('div');
+        cardHeader.className = 'pareto-card-header';
+
+        const cardTitle = document.createElement('div');
+        cardTitle.className = 'pareto-card-title font-mono';
+        cardTitle.textContent = `${subGroupLabel}: ${subKey}`;
+
+        const cardMeta = document.createElement('div');
+        cardMeta.className = 'pareto-card-meta font-mono';
+        const rowSpan = document.createElement('span');
+        rowSpan.textContent = `${rows.length} rows`;
+        cardMeta.appendChild(rowSpan);
+
+        if (series.yieldStats) {
+          const yieldPill = document.createElement('span');
+          yieldPill.className = 'pareto-yield-pill';
+          yieldPill.textContent = `Yield Avg ${series.yieldStats.avg.toFixed(4)}`;
+          cardMeta.appendChild(yieldPill);
+        }
+
+        cardHeader.appendChild(cardTitle);
+        cardHeader.appendChild(cardMeta);
+        card.appendChild(cardHeader);
+
+        const svgWrap = document.createElement('div');
+        svgWrap.className = 'pareto-svg-wrap';
+        const chartTitle = isByLot
+          ? `${clickedValue} — ${subKey}`
+          : `${clickedValue} — ${subKey}`;
+        svgWrap.appendChild(renderParetoSvg(chartTitle, series, idx));
+        card.appendChild(svgWrap);
+
+        bodyEl.appendChild(card);
+      });
+    }
+
+    if (!dialog.open) {
+      dialog.showModal();
     }
   }
 

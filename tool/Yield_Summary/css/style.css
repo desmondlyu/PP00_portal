@@ -501,3 +501,220 @@ tr:hover td {
 .app-footer-detail a:hover {
   color: #e31a22; /* Swiss red on hover */
 }
+
+/* Clickable STEP_ID / LOT_ID trigger for Pareto chart */
+.cp-drill-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: #8ecae6;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(142, 202, 230, 0.45);
+  text-underline-offset: 3px;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.cp-drill-btn:hover {
+  color: #ffffff;
+  text-decoration-color: #e31a22;
+}
+
+.cp-drill-btn:focus-visible {
+  outline: 2px solid #8ecae6;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* CP Pareto Dialog */
+.pareto-dialog {
+  margin: auto;
+  width: min(1200px, 94vw);
+  max-height: 90vh;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  padding: 0;
+  background: linear-gradient(145deg, #0b1628 0%, #11223a 100%);
+  color: #e0e1dd;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.72);
+  overflow: hidden;
+}
+
+.pareto-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.pareto-dialog::backdrop {
+  background: rgba(4, 10, 20, 0.74);
+  backdrop-filter: blur(6px);
+}
+
+.pareto-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(8, 15, 30, 0.7);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.pareto-title-block {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pareto-title {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+  text-transform: uppercase;
+}
+
+.pareto-subtitle {
+  font-size: 12px;
+  color: #8ecae6;
+  font-weight: 600;
+}
+
+.pareto-header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.pareto-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.pareto-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pareto-swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+}
+
+.pareto-swatch-bin {
+  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.pareto-swatch-fail {
+  background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
+}
+
+.pareto-swatch-line {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: #f97316;
+}
+
+.pareto-close-btn {
+  background: rgba(227, 26, 34, 0.18);
+  color: #ffffff;
+  border: 1px solid rgba(227, 26, 34, 0.5);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pareto-close-btn:hover {
+  background: #e31a22;
+  border-color: #e31a22;
+}
+
+.pareto-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 20px 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+  gap: 18px;
+}
+
+.pareto-card {
+  background: rgba(15, 29, 49, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 14px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pareto-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pareto-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+}
+
+.pareto-card-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.pareto-yield-pill {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.pareto-svg-wrap {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 8px 6px 4px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.pareto-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.pareto-empty-msg {
+  padding: 36px 16px;
+  text-align: center;
+  color: #64748b;
+  font-size: 12px;
+}
