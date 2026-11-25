@@ -177,6 +177,88 @@
   color: var(--text-muted);
 }
 
+/* Optional Alpha_SUSRES Erase Suspend/Resume & Post-Stage Extension (0x0200..0x0270) */
+.suspend-row {
+  padding-top: 8px;
+  border-top: 1px dashed rgba(148, 163, 184, 0.22);
+}
+
+.suspend-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.suspend-toggle-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.suspend-timing-strip {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+
+.suspend-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.suspend-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.suspend-field label {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.suspend-field .input-sm {
+  width: 100%;
+}
+
+.sym-tag {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: rgba(250, 204, 21, 0.22);
+  color: #fde047;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.sym-tag.sym-blue {
+  background: rgba(56, 189, 248, 0.22);
+  color: #7dd3fc;
+}
+
+.sym-tag.sym-orange {
+  background: rgba(251, 146, 60, 0.24);
+  color: #fdba74;
+}
+
+.suspend-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .suspend-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* Range Matrix */
 .range-card {
   padding-bottom: 6px;
