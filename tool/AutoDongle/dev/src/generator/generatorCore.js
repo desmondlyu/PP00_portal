@@ -11,6 +11,9 @@ const LOG_REGION_SIZE = 4194304;  // 4 MB
 const LOG_SLOT_MAX = 2048;
 const LOG_SLOT_MIN = 16;
 const LOG_PS_ARRAY_SIZE = 1024;
+const UINT32_MAX = 0xFFFFFFFF;    // 4294967295
+const SUSPEND_DEFAULT_N_MAX = 5000;
+const SUSPEND_MAX_READ_PAGES = 8;
 
 const SECTORS_PER_UNIT = { 0: 1, 1: 8, 2: 16 };
 const SCALE_NAME = {
@@ -122,6 +125,14 @@ function syncDelayInputs() {
   const pgmMode = getRadioValue('pgmDelayMode');
   document.getElementById('inputEraseDelayTime').disabled = (eraseMode !== '1');
   document.getElementById('inputPGMDelayTime').disabled = (pgmMode !== '1');
+
+  const susEnabled = document.getElementById('chkSuspendEnable').checked;
+  document.getElementById('inputSuspendT1Us').disabled = !susEnabled;
+  document.getElementById('inputSuspendT2Us').disabled = !susEnabled;
+  document.getElementById('inputSuspendT3Us').disabled = !susEnabled;
+  document.getElementById('inputSuspendT4Us').disabled = !susEnabled;
+  document.getElementById('inputSuspendReadPages').disabled = !susEnabled;
+  document.getElementById('inputSuspendNMax').disabled = !susEnabled;
 }
 
 // Dialog Helper (Replaces tkinter messagebox)
@@ -415,6 +426,27 @@ function buildBinBuffer() {
   const pgmDelay = Math.max(0, parseInt(document.getElementById('inputPGMDelayTime').value, 10) || 0);
   view.setUint32(0x1F0, pgmDelay >>> 0, false);
 
+  // 0x0200..0x0270: Optional Alpha_SUSRES (t1~t4, N_max, Pages) & Post-Stage (all 0x00 when disabled for 100% legacy parity)
+  const susEnabled = document.getElementById('chkSuspendEnable').checked;
+  if (susEnabled) {
+    const t1Us = Math.min(UINT32_MAX, Math.max(0, Number(document.getElementById('inputSuspendT1Us').value.trim()) || 0));
+    const t2Us = Math.min(UINT32_MAX, Math.max(0, Number(document.getElementById('inputSuspendT2Us').value.trim()) || 0));
+    const t3Us = Math.min(UINT32_MAX, Math.max(0, Number(document.getElementById('inputSuspendT3Us').value.trim()) || 0));
+    const t4Us = Math.min(UINT32_MAX, Math.max(0, Number(document.getElementById('inputSuspendT4Us').value.trim()) || 0));
+    const rawNMax = Number(document.getElementById('inputSuspendNMax').value.trim());
+    const nMax = Math.min(UINT32_MAX, Math.max(1, Number.isFinite(rawNMax) && rawNMax >= 1 ? Math.trunc(rawNMax) : SUSPEND_DEFAULT_N_MAX));
+    const rdPages = Math.min(SUSPEND_MAX_READ_PAGES, Math.max(0, parseInt(document.getElementById('inputSuspendReadPages').value, 10) || 0));
+
+    buf[0x200] = 1;
+    view.setUint32(0x210, t1Us >>> 0, false);
+    view.setUint32(0x220, t2Us >>> 0, false);
+    view.setUint32(0x230, t3Us >>> 0, false);
+    view.setUint32(0x240, nMax >>> 0, false);
+    buf[0x250] = rdPages & 0xff;
+    view.setUint32(0x260, t4Us >>> 0, false);
+    buf[0x270] = 1;
+  }
+
   // 0x1000..0x107F: Select_Area (128B)
   for (let i = 0; i < 128; i++) {
     buf[0x1000 + i] = state.areas.select[i] ? 1 : 0;
@@ -502,6 +534,27 @@ function parseBinBuffer(bytes) {
   document.getElementById('inputEraseDelayTime').value = String(view.getUint32(0x1E0, false));
   document.getElementById('inputPGMDelayTime').value = String(view.getUint32(0x1F0, false));
 
+  // Optional Alpha_SUSRES Extension @ 0x200..0x270 (strictly === 1 to match firmware)
+  const susEnabled = (bytes[0x200] === 1);
+  document.getElementById('chkSuspendEnable').checked = susEnabled;
+  if (susEnabled) {
+    document.getElementById('inputSuspendT1Us').value = String(view.getUint32(0x210, false));
+    document.getElementById('inputSuspendT2Us').value = String(view.getUint32(0x220, false));
+    document.getElementById('inputSuspendT3Us').value = String(view.getUint32(0x230, false));
+    const nMax = view.getUint32(0x240, false);
+    document.getElementById('inputSuspendNMax').value = String(nMax > 0 ? nMax : SUSPEND_DEFAULT_N_MAX);
+    const rdPages = Math.min(bytes[0x250], SUSPEND_MAX_READ_PAGES);
+    document.getElementById('inputSuspendReadPages').value = String(rdPages);
+    document.getElementById('inputSuspendT4Us').value = String(view.getUint32(0x260, false));
+  } else {
+    document.getElementById('inputSuspendT1Us').value = '50';
+    document.getElementById('inputSuspendT2Us').value = '30';
+    document.getElementById('inputSuspendT3Us').value = '1000';
+    document.getElementById('inputSuspendT4Us').value = '0';
+    document.getElementById('inputSuspendReadPages').value = '8';
+    document.getElementById('inputSuspendNMax').value = String(SUSPEND_DEFAULT_N_MAX);
+  }
+
   // Areas @ 0x1000, 0x1080, 0x1100, 0x1180
   for (let i = 0; i < 128; i++) {
     state.areas.select[i] = Boolean(bytes[0x1000 + i]);
@@ -566,19 +619,78 @@ async function handleSaveBinFile() {
     return;
   }
 
+  // Validate optional Alpha_SUSRES fields (t1~t4, N_max, Pages) when enabled
+  if (document.getElementById('chkSuspendEnable').checked) {
+    const t1Raw = document.getElementById('inputSuspendT1Us').value.trim();
+    const t2Raw = document.getElementById('inputSuspendT2Us').value.trim();
+    const t3Raw = document.getElementById('inputSuspendT3Us').value.trim();
+    const t4Raw = document.getElementById('inputSuspendT4Us').value.trim();
+    const nMaxRaw = document.getElementById('inputSuspendNMax').value.trim();
+    const pagesRaw = document.getElementById('inputSuspendReadPages').value.trim();
+    if (!/^\d+$/.test(t1Raw) || !/^\d+$/.test(t2Raw) || !/^\d+$/.test(t3Raw) ||
+        !/^\d+$/.test(t4Raw) || !/^\d+$/.test(nMaxRaw) || !/^\d+$/.test(pagesRaw)) {
+      await showDialog({
+        title: '格式錯誤',
+        message: 'Alpha_SUSRES 的 t1 / t2 / t3 / t4 (us)、Pages 與 N_max 必須是非負整數。',
+        type: 'error'
+      });
+      return;
+    }
+    const maxU32 = BigInt(UINT32_MAX);
+    const t1Val = BigInt(t1Raw);
+    const t2Val = BigInt(t2Raw);
+    const t3Val = BigInt(t3Raw);
+    const t4Val = BigInt(t4Raw);
+    const nMaxVal = BigInt(nMaxRaw);
+    const pagesVal = BigInt(pagesRaw);
+    if (t1Val > maxU32 || t2Val > maxU32 || t3Val > maxU32 || t4Val > maxU32 || nMaxVal > maxU32) {
+      await showDialog({
+        title: '設定錯誤',
+        message: `t1 / t2 / t3 / t4 (us) 與 N_max 不可超過 32-bit 上限 ${UINT32_MAX}。`,
+        type: 'error'
+      });
+      return;
+    }
+    if (nMaxVal < 1n) {
+      await showDialog({
+        title: '設定錯誤',
+        message: '啟動 Alpha_SusRes_1ms 時，N_max 上限次數必須大於等於 1。',
+        type: 'error'
+      });
+      return;
+    }
+    if (pagesVal > BigInt(SUSPEND_MAX_READ_PAGES)) {
+      await showDialog({
+        title: '設定錯誤',
+        message: `Suspend 期間讀取 Unselect 頁數 (Pages) 僅支援 0 ~ ${SUSPEND_MAX_READ_PAGES} 頁（0 = 不讀，8 = 2 KB）。`,
+        type: 'error'
+      });
+      return;
+    }
+  }
+
+  // Enforce spec: every TimeSelect unit must also be selected in Select Area
+  const invalidTimeSel = [];
+  for (let i = 0; i < 128; i++) {
+    if (state.areas.timesel[i] && !state.areas.select[i]) {
+      invalidTimeSel.push(`0x${i.toString(16).toUpperCase().padStart(2, '0')}`);
+    }
+  }
+  if (invalidTimeSel.length > 0) {
+    const preview = invalidTimeSel.slice(0, 8).join(', ') + (invalidTimeSel.length > 8 ? ' ...' : '');
+    await showDialog({
+      title: '記錄區域設定衝突',
+      message: `「記錄Tpp/Terase區域」必須是「Select 區域」的子集合。\n以下 ${invalidTimeSel.length} 個單位未勾選於 Select 區域：${preview}\n\n請先補勾 Select 區域或取消該記錄勾選。`,
+      type: 'error'
+    });
+    return;
+  }
+
   const selectScale = parseInt(getRadioValue('selScale'), 10);
   const sectors = SECTORS_PER_UNIT[selectScale];
   const tsan = state.areas.timesel.filter(Boolean).length;
 
-  if (tsan === 0) {
-    const proceedNoLog = await showDialog({
-      title: '記錄區域確認',
-      message: '「記錄Tpp/Terase區域」沒有勾選任何單位。\n本次測試不會記錄任何 Tpp / Terase 資料。\n\n是否仍要輸出？',
-      confirmText: '是 (仍要輸出)',
-      cancelText: '否 (返回修改)'
-    });
-    if (!proceedNoLog) return;
-  } else {
+  if (tsan > 0) {
     const recordPgm = 2 * sectors * tsan;
     const maxTsan = Math.min(Math.floor(LOG_PS_ARRAY_SIZE / sectors), 128);
     if (tsan > maxTsan) {
@@ -610,8 +722,23 @@ async function handleSaveBinFile() {
     }
   }
 
+  // Snapshot validated binary buffer BEFORE awaiting any confirmation dialog
+  // so mutating background inputs while a dialog is open cannot bypass validation.
+  const binData = buildBinBuffer();
+  const bothPatternsZero = isAllZeroPattern(state.selPattern) && isAllZeroPattern(state.unselPattern);
+
+  if (tsan === 0) {
+    const proceedNoLog = await showDialog({
+      title: '記錄區域確認',
+      message: '「記錄Tpp/Terase區域」沒有勾選任何單位。\n本次測試不會記錄任何 Tpp / Terase 資料。\n\n是否仍要輸出？',
+      confirmText: '是 (仍要輸出)',
+      cancelText: '否 (返回修改)'
+    });
+    if (!proceedNoLog) return;
+  }
+
   // All-zero pattern confirmation
-  if (isAllZeroPattern(state.selPattern) && isAllZeroPattern(state.unselPattern)) {
+  if (bothPatternsZero) {
     const confirmZero = await showDialog({
       title: 'Pattern 確認',
       message: '目前 Select Pattern 與 Unselect Pattern 均為 all 0 pattern。\n這可能表示尚未讀入 BIN 檔。\n\n是否確認以 all 0 pattern 輸出？',
@@ -621,8 +748,7 @@ async function handleSaveBinFile() {
     if (!confirmZero) return;
   }
 
-  // Build and trigger download
-  const binData = buildBinBuffer();
+  // Trigger download using the immutable validated snapshot
   const blob = new Blob([binData], { type: 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

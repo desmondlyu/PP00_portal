@@ -142,6 +142,73 @@ function GeneratorPanel() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Row 6: Optional Alpha_SusRes_1ms (Suspend/Resume + Post-Stage 0x55AA) */}
+                            <div className="form-row suspend-row">
+                                <label className="form-label">Alpha_SusRes</label>
+                                <div className="suspend-panel">
+                                    <div className="suspend-toggle-bar">
+                                        <label className="check-pill">
+                                            <input type="checkbox" id="chkSuspendEnable" />
+                                            <span>啟動 Alpha_SusRes_1ms</span>
+                                        </label>
+                                    </div>
+
+                                    <div className="suspend-timing-strip" aria-label="Suspend/Resume 時序代名詞對照">
+                                        <svg viewBox="0 0 760 56" width="100%" height="56" xmlns="http://www.w3.org/2000/svg">
+                                            <rect x="4" y="10" width="66" height="34" rx="5" fill="#1d4ed8" />
+                                            <text x="37" y="31" textAnchor="middle" fontSize="11" fontWeight="700" fill="#fff">Erase</text>
+                                            <rect x="74" y="13" width="48" height="28" rx="4" fill="#fef08a" stroke="#ca8a04" />
+                                            <text x="98" y="31" textAnchor="middle" fontSize="11" fontWeight="700" fill="#713f12">t1</text>
+                                            <rect x="126" y="4" width="546" height="48" rx="8" fill="rgba(234,88,12,0.12)" stroke="#fb923c" strokeDasharray="4 3" />
+                                            <rect x="134" y="10" width="76" height="34" rx="5" fill="#ea580c" />
+                                            <text x="172" y="31" textAnchor="middle" fontSize="10.5" fontWeight="700" fill="#fff">Sus 0x75</text>
+                                            <rect x="214" y="13" width="52" height="28" rx="4" fill="#fef08a" stroke="#ca8a04" />
+                                            <text x="240" y="31" textAnchor="middle" fontSize="11" fontWeight="700" fill="#713f12">t2</text>
+                                            <rect x="270" y="10" width="104" height="34" rx="5" fill="#0284c7" />
+                                            <text x="322" y="31" textAnchor="middle" fontSize="10.5" fontWeight="700" fill="#fff">Read(Pages)</text>
+                                            <rect x="378" y="13" width="48" height="28" rx="4" fill="#fef08a" stroke="#ca8a04" />
+                                            <text x="402" y="31" textAnchor="middle" fontSize="11" fontWeight="700" fill="#713f12">t4</text>
+                                            <rect x="430" y="10" width="78" height="34" rx="5" fill="#16a34a" />
+                                            <text x="469" y="31" textAnchor="middle" fontSize="10.5" fontWeight="700" fill="#fff">Res 0x7A</text>
+                                            <rect x="512" y="13" width="60" height="28" rx="4" fill="#fef08a" stroke="#ca8a04" />
+                                            <text x="542" y="31" textAnchor="middle" fontSize="11" fontWeight="700" fill="#713f12">t3 (1ms)</text>
+                                            <rect x="576" y="10" width="88" height="34" rx="5" fill="#4f46e5" />
+                                            <text x="620" y="31" textAnchor="middle" fontSize="10" fontWeight="700" fill="#fff">Ready?&lt;N_max</text>
+                                            <rect x="678" y="10" width="78" height="34" rx="5" fill="#15803d" />
+                                            <text x="717" y="31" textAnchor="middle" fontSize="10.5" fontWeight="700" fill="#fff">記 tBE</text>
+                                        </svg>
+                                    </div>
+
+                                    <div className="suspend-grid suspend-grid-6">
+                                        <div className="suspend-field">
+                                            <label htmlFor="inputSuspendT1Us"><strong className="sym-tag">t1</strong> Pre-Suspend (us)</label>
+                                            <input type="number" id="inputSuspendT1Us" className="input-text input-sm font-mono" defaultValue="50" min="0" max="4294967295" disabled />
+                                        </div>
+                                        <div className="suspend-field">
+                                            <label htmlFor="inputSuspendT2Us"><strong className="sym-tag">t2</strong> tSUS 等待 (us)</label>
+                                            <input type="number" id="inputSuspendT2Us" className="input-text input-sm font-mono" defaultValue="30" min="0" max="4294967295" disabled />
+                                        </div>
+                                        <div className="suspend-field">
+                                            <label htmlFor="inputSuspendT3Us"><strong className="sym-tag">t3</strong> Resume 視窗 (us)</label>
+                                            <input type="number" id="inputSuspendT3Us" className="input-text input-sm font-mono" defaultValue="1000" min="0" max="4294967295" disabled />
+                                        </div>
+                                        <div className="suspend-field">
+                                            <label htmlFor="inputSuspendT4Us"><strong className="sym-tag">t4</strong> 讀後暫停 (us)</label>
+                                            <input type="number" id="inputSuspendT4Us" className="input-text input-sm font-mono" defaultValue="0" min="0" max="4294967295" disabled />
+                                        </div>
+                                        <div className="suspend-field">
+                                            <label htmlFor="inputSuspendReadPages"><strong className="sym-tag sym-blue">Pages</strong> 讀 Unsel (0~8)</label>
+                                            <input type="number" id="inputSuspendReadPages" className="input-text input-sm font-mono" defaultValue="8" min="0" max="8" disabled />
+                                        </div>
+                                        <div className="suspend-field">
+                                            <label htmlFor="inputSuspendNMax"><strong className="sym-tag sym-orange">N_max</strong> 上限次數</label>
+                                            <input type="number" id="inputSuspendNMax" className="input-text input-sm font-mono" defaultValue="5000" min="1" max="4294967295" disabled />
+                                        </div>
+                                    </div>
+                                    <p className="suspend-hint">勾選「啟動 Alpha_SusRes_1ms」會同時啟用 Erase Suspend/Resume 與結尾 Post-Stage (0x55AA)，tBE 僅累加活躍抹除段（扣除暫停期間的 t2 / 讀 Unselect / t4；標準 SPI/QSPI NOR 專用）。</p>
+                                </div>
+                            </div>
                         </div>
                     </section>
 
