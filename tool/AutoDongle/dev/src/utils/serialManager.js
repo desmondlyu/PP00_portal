@@ -1,8 +1,10 @@
+export const DONGLE_DUMP_LOG_CMD = 'DUMP_LOG\n';
+
 export class SerialManager {
     constructor(onData, onStatusChange) {
         this.onData = onData;
         this.onStatusChange = onStatusChange;
-        this.activePorts = new Map();  // portName -> { port, reader, keepReading }
+        this.activePorts = new Map();  // portName -> { port, reader, keepReading, isWritingCmd }
         this.portNamesMap = new Map(); // port -> portName (持久對應關係，使相同硬體重連時保持同一個 PORT_x 名稱)
         this._portCounter = 0;         // 自增計數器，確保每個 portName 全域唯一
     }
@@ -87,10 +89,54 @@ export class SerialManager {
         const bundle = {
             port,
             reader: null,
-            keepReading: true
+            keepReading: true,
+            isWritingCmd: false
         };
         this.activePorts.set(portName, bundle);
         this._readLoop(portName, bundle);
+    }
+
+    async sendCommand(portName, commandText = DONGLE_DUMP_LOG_CMD) {
+        const bundle = this.activePorts.get(portName);
+        if (!bundle || !bundle.port) {
+            return { portName, ok: false, error: 'Port 未連線' };
+        }
+        if (!bundle.port.writable) {
+            return { portName, ok: false, error: '此 Port 不支援寫入' };
+        }
+        if (bundle.isWritingCmd) {
+            return { portName, ok: false, error: '前一次指令送出中' };
+        }
+
+        bundle.isWritingCmd = true;
+        let writer = null;
+        try {
+            writer = bundle.port.writable.getWriter();
+            const payload = new TextEncoder().encode(commandText);
+            await writer.write(payload);
+            return { portName, ok: true };
+        } catch (error) {
+            console.error(`Write error on ${portName}:`, error);
+            return { portName, ok: false, error: error.message || '寫入失敗' };
+        } finally {
+            if (writer) {
+                try {
+                    writer.releaseLock();
+                } catch {
+                    // ignore lock release failure on already-disconnected port
+                }
+            }
+            bundle.isWritingCmd = false;
+        }
+    }
+
+    async broadcastCommand(commandText = DONGLE_DUMP_LOG_CMD) {
+        const targets = [...this.activePorts.keys()];
+        if (targets.length === 0) return [];
+        const results = await Promise.all(
+            targets.map(portName => this.sendCommand(portName, commandText))
+        );
+        return results;
     }
 
     async _readLoop(portName, bundle) {
@@ -118,6 +164,13 @@ export class SerialManager {
                             this.onData(portName, cleanLine);
                         }
                     }
+
+                    // 相容舊版無結尾換行的 LOG END 尾行，即時送出避免卡在緩衝區
+                    const pendingClean = lineBuffer.replace(/\r/g, '');
+                    if (pendingClean.includes('= = = = = = = = LOG END = = = = = = = =')) {
+                        this.onData(portName, pendingClean);
+                        lineBuffer = '';
+                    }
                 }
             }
 
@@ -135,7 +188,9 @@ export class SerialManager {
             if (bundle.reader) {
                 try {
                     bundle.reader.releaseLock();
-                } catch (e) {}
+                } catch {
+                    // ignore lock release failure on disconnected port
+                }
             }
             
             // 2. 鎖定釋放後，才關閉 Serial Port 連接
@@ -157,7 +212,7 @@ export class SerialManager {
 
     async disconnectAll() {
         const closePromises = [];
-        for (const [portName, bundle] of this.activePorts.entries()) {
+        for (const [, bundle] of this.activePorts.entries()) {
             bundle.keepReading = false;
             
             const closePromise = new Promise((resolve) => {
@@ -182,7 +237,9 @@ export class SerialManager {
                 try {
                     // 取消讀取，這會迫使 _readLoop 進入 finally 區塊釋放鎖並關閉 Port
                     await bundle.reader.cancel();
-                } catch (e) {}
+                } catch {
+                    // ignore cancel failure when port already closed
+                }
             }
         }
 

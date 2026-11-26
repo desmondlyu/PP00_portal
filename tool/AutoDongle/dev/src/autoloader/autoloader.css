@@ -41,6 +41,62 @@
   gap: 10px;
 }
 
+.trigger-controls {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-trigger-all {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #7dd3fc;
+  font-weight: 700;
+}
+
+.btn-trigger-all:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.28);
+  border-color: var(--accent-cyan);
+  color: #e0f2fe;
+}
+
+.auto-trigger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.auto-trigger-row .check-pill span {
+  padding: 4px 10px;
+  font-size: 0.76rem;
+}
+
+.cmd-hint {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.header-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.done-badge {
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.port-action-btn {
+  white-space: nowrap;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -188,9 +244,21 @@
   color: var(--accent-cyan);
 }
 
+.status-badge.triggered {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: rgba(249, 115, 22, 0.48);
+  color: #fdba74;
+}
+
 .status-badge.saved {
-  background: rgba(16, 185, 129, 0.14);
-  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #93c5fd;
+}
+
+.status-badge.done {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.5);
   color: #6ee7b7;
 }
 
